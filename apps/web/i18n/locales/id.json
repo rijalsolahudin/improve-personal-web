@@ -1,0 +1,798 @@
+{
+  "brand": {
+    "first": "Improve",
+    "second": "Personal",
+    "name": "Improve Personal"
+  },
+  "feature": {
+    "home": {
+      "label": "Home",
+      "tab": "Home"
+    },
+    "goals": {
+      "label": "Goals"
+    },
+    "kalender": {
+      "label": "Kalender",
+      "tab": "Kalender"
+    },
+    "jadwal": {
+      "label": "Jadwal"
+    },
+    "countdown": {
+      "label": "Countdown"
+    },
+    "to-do": {
+      "label": "To-do",
+      "tab": "To-do"
+    },
+    "eisenhower": {
+      "label": "Eisenhower"
+    },
+    "pomodoro": {
+      "label": "Pomodoro",
+      "tab": "Fokus"
+    },
+    "habit": {
+      "label": "Habit"
+    },
+    "memo": {
+      "label": "Memo"
+    },
+    "overview": {
+      "label": "Overview"
+    },
+    "panduan": {
+      "label": "Panduan"
+    },
+    "import-export": {
+      "label": "Import / Export"
+    },
+    "sticker": {
+      "label": "Sticker"
+    },
+    "akun": {
+      "label": "Akun & perangkat"
+    }
+  },
+  "shell": {
+    "navLabel": "Navigasi utama",
+    "menu": "Menu",
+    "expand": "Lebarkan sidebar",
+    "collapse": "Ciutkan sidebar",
+    "group": {
+      "utama": "Utama",
+      "rencana": "Rencana",
+      "fokus": "Fokus & refleksi",
+      "lainnya": "Lainnya"
+    }
+  },
+  "placeholder": {
+    "note": "Halaman ini belum didesain · {code}",
+    "back": "← Kembali ke Home"
+  },
+  "common": {
+    "close": "Tutup",
+    "change": "Ganti"
+  },
+  "theme": {
+    "label": "Tema",
+    "cycle": "Ganti tema (sekarang {theme})",
+    "kuning": "Kuning",
+    "hijau": "Hijau",
+    "ungu": "Ungu"
+  },
+  "priority": {
+    "label": "Prioritas",
+    "urgent": "Urgent",
+    "medium": "Medium",
+    "low": "Low"
+  },
+  "category": {
+    "karier": "Karier",
+    "kesehatan": "Kesehatan",
+    "keuangan": "Keuangan"
+  },
+  "time": {
+    "noDeadline": "Tanpa deadline",
+    "done": "Selesai",
+    "left": "{text} lagi",
+    "late": "Terlambat {text}",
+    "unit": {
+      "bulan": "{n} bulan",
+      "hari": "{n} hari",
+      "jam": "{n} jam",
+      "menit": "{n} menit"
+    }
+  },
+  "home": {
+    "greeting": {
+      "pagi": "Selamat pagi",
+      "siang": "Selamat siang",
+      "sore": "Selamat sore",
+      "malam": "Selamat malam"
+    },
+    "greetingWide": "{greeting}, Friend",
+    "greetingNarrow": "{greeting}!",
+    "summary": "{date} · {schedules} jadwal, {tasks} task tersisa",
+    "notifications": "Notifikasi",
+    "all": "Semua",
+    "next": {
+      "eyebrow": "Berikutnya",
+      "startsIn": "Mulai dalam",
+      "focus": "Fokus",
+      "empty": "Nggak ada jadwal lagi hari ini."
+    },
+    "stats": {
+      "label": "Statistik hari ini",
+      "streakLong": "hari produktif beruntun",
+      "streakShort": "hari beruntun",
+      "minutes": "mnt",
+      "focus": "fokus hari ini",
+      "tasks": "task selesai"
+    },
+    "todo": {
+      "title": "To-do hari ini",
+      "seeAll": "Lihat semua",
+      "toggle": "Tandai selesai: {title}",
+      "empty": "Nggak ada task di sini.",
+      "addLabel": "Judul task baru",
+      "placeholder": "Tambah task penting…",
+      "add": "Tambah"
+    },
+    "habit": {
+      "title": "Habit hari ini",
+      "done": "{done}/{total} selesai",
+      "doneShort": "{done}/{total} · Semua",
+      "streak": "{n} hari beruntun",
+      "streakShort": "{n} hari"
+    },
+    "goal": {
+      "eyebrow": "Goal aktif · {n} hari lagi",
+      "eyebrowShort": "Goal aktif · {n} hari",
+      "next": "Berikutnya: {item}",
+      "open": "Buka →",
+      "chapters": "Progres chapter",
+      "chapter": "{title}: {n}%"
+    },
+    "countdown": {
+      "title": "Countdown",
+      "days": "hari"
+    },
+    "layout": {
+      "open": "Atur",
+      "done": "Selesai atur",
+      "title": "Atur tata letak",
+      "hint": "Seret kartu buat mindahin, atau pakai tombol di pojok kartu.",
+      "hiddenTitle": "Tersembunyi",
+      "reset": "Reset",
+      "save": "Simpan",
+      "up": "Naik",
+      "down": "Turun",
+      "swap": "Pindah kolom",
+      "wide": "Lebar penuh",
+      "normal": "Ukuran normal",
+      "hide": "Sembunyikan",
+      "widget": {
+        "jadwal": "Jadwal berikutnya",
+        "stats": "Statistik",
+        "todo": "To-do hari ini",
+        "pomo": "Pomodoro",
+        "habit": "Habit hari ini",
+        "goal": "Goal aktif",
+        "memo": "Memo"
+      }
+    }
+  },
+  "todo": {
+    "new": "Task baru",
+    "summary": "{active} aktif · {late} terlambat",
+    "quickPlaceholder": "Tambah task cepat…",
+    "quickLabel": "Judul task baru",
+    "quickDate": "Tanggal deadline (opsional)",
+    "add": "Tambah",
+    "filterLabel": "Filter task",
+    "sortLabel": "Urutkan",
+    "filter": {
+      "semua": "Semua",
+      "hari": "Hari ini",
+      "mendatang": "Mendatang",
+      "terlambat": "Terlambat",
+      "selesai": "Selesai"
+    },
+    "sort": {
+      "deadline": "Deadline",
+      "prioritas": "Prioritas"
+    },
+    "listLabel": "Daftar task",
+    "empty": "Nggak ada task di filter ini.",
+    "editHint": "Klik untuk edit",
+    "form": {
+      "newTitle": "Task baru",
+      "editTitle": "Edit task",
+      "title": "Judul",
+      "titlePlaceholder": "Mis. Kirim draft laporan",
+      "note": "Catatan",
+      "notePlaceholder": "Opsional",
+      "deadline": "Deadline",
+      "noDeadline": "Tanpa deadline",
+      "useDeadline": "+ Pakai deadline",
+      "date": "Tanggal deadline",
+      "time": "Jam deadline",
+      "schedule": "Tautkan ke jadwal",
+      "noSchedule": "Tidak ada",
+      "delete": "Hapus task",
+      "deleteConfirm": "Yakin hapus?",
+      "cancel": "Batal",
+      "saveNew": "Tambah task",
+      "saveEdit": "Simpan perubahan",
+      "error": {
+        "titleRequired": "Judul task wajib diisi.",
+        "titleTooLong": "Judul task maksimal 200 karakter.",
+        "noteTooLong": "Catatan maksimal 1000 karakter.",
+        "deadline": "Tanggal atau jam deadline belum valid."
+      }
+    }
+  },
+  "eisenhower": {
+    "quadrant": {
+      "do": "Kerjakan",
+      "plan": "Jadwalkan",
+      "delegate": "Delegasikan",
+      "drop": "Hapus"
+    },
+    "summary": "Seret task antar kuadran buat atur prioritas.",
+    "clearDone": "Bersihkan yang selesai",
+    "sub": {
+      "do": "Penting · mendesak",
+      "plan": "Penting · tidak mendesak",
+      "delegate": "Tidak penting · mendesak",
+      "drop": "Tidak penting · tidak mendesak"
+    },
+    "addFromTodo": "Tambah dari to-do",
+    "poolAllIn": "Semua task aktif sudah masuk matrix.",
+    "remove": "Keluarkan dari matrix",
+    "removeTask": "Keluarkan {title} dari matrix",
+    "poolTitle": "Belum masuk matrix",
+    "poolHint": "Seret ke kuadran yang pas.",
+    "poolEmpty": "Semua beres masuk matrix."
+  },
+  "calendar": {
+    "view": {
+      "hari": "Hari",
+      "pekan": "Pekan",
+      "bulan": "Bulan"
+    },
+    "viewLabel": "Tampilan kalender",
+    "prev": "Sebelumnya",
+    "next": "Berikutnya",
+    "today": "Hari ini",
+    "newSchedule": "Jadwal",
+    "monthGrid": "Kalender bulan",
+    "more": "+{n} lagi",
+    "allDay": "Sehari",
+    "allDayLong": "Sepanjang hari",
+    "createAt": "Buat jadwal jam {time}, {date}",
+    "dayPanel": "Detail tanggal terpilih",
+    "todayTag": "Hari ini",
+    "dayCounts": "{events} jadwal · {tasks} deadline",
+    "marker": {
+      "countdown": "Countdown: {title}",
+      "goal": "Target goal: {title}",
+      "chapter": "Akhir chapter: {title} ({goal})"
+    },
+    "schedules": "Jadwal",
+    "add": "Tambah",
+    "edit": "edit",
+    "attended": "Hadir",
+    "markAttend": "Tandai hadir",
+    "noSchedules": "Kosong. Klik slot di kalender buat bikin jadwal.",
+    "noTasks": "Nggak ada deadline di tanggal ini.",
+    "noMemoToday": "Belum ada memo hari ini.",
+    "noMemo": "Belum ada memo di tanggal ini.",
+    "rec": {
+      "once": "Sekali",
+      "daily": "Harian",
+      "everyNDays": "Tiap {n} hari",
+      "weeklyOn": "Mingguan, {days}",
+      "biweeklyOn": "Tiap 2 minggu, {days}",
+      "monthly": "Bulanan"
+    },
+    "form": {
+      "newTitle": "Jadwal baru",
+      "editTitle": "Edit jadwal",
+      "title": "Judul",
+      "titlePlaceholder": "Mis. Kelas online AWS",
+      "color": "Warna",
+      "colorN": "Warna {n}",
+      "date": "Tanggal mulai",
+      "start": "Jam mulai",
+      "timeMode": "Cara isi waktu",
+      "mode": {
+        "end": "Mulai–selesai",
+        "dur": "Durasi"
+      },
+      "end": "Jam selesai",
+      "minutes": "menit",
+      "repeat": "Berulang",
+      "rec": {
+        "once": "Sekali",
+        "daily": "Harian",
+        "weekly": "Mingguan",
+        "monthly": "Bulanan"
+      },
+      "every": "Tiap",
+      "days": "hari",
+      "weekdays": "Hari berulang",
+      "everyWeek": "Tiap minggu",
+      "everyTwoWeeks": "Tiap 2 minggu",
+      "monthlyNote": "Tiap bulan di tanggal {day}. Bulan tanpa tanggal itu dilewati.",
+      "scopeTitle": "Ini jadwal rutin. Terapkan ke…",
+      "scope": {
+        "this": "Kejadian ini",
+        "following": "Ini & berikutnya",
+        "all": "Semua"
+      },
+      "delete": "Hapus jadwal",
+      "deleteConfirm": "Yakin hapus?",
+      "deleteConfirmScope": {
+        "this": "Yakin hapus (kejadian ini)?",
+        "following": "Yakin hapus (ini & berikutnya)?",
+        "all": "Yakin hapus (semua)?"
+      },
+      "cancel": "Batal",
+      "saveNew": "Simpan jadwal",
+      "saveEdit": "Simpan perubahan",
+      "error": {
+        "titleRequired": "Judul jadwal wajib diisi.",
+        "titleTooLong": "Judul maksimal 120 karakter.",
+        "dateTime": "Tanggal atau jam mulai belum valid.",
+        "duration": "Jam selesai harus setelah jam mulai (maks. 24 jam).",
+        "noDays": "Pilih minimal satu hari."
+      }
+    }
+  },
+  "goals": {
+    "new": "Goal baru",
+    "summary": "{active} goal aktif · {done} selesai",
+    "empty": "Belum ada goal di filter ini.",
+    "filterStatus": "Filter status goal",
+    "filterCategory": "Filter kategori goal",
+    "allCategories": "Semua kategori",
+    "status": {
+      "aktif": "Aktif",
+      "selesai": "Selesai",
+      "ditunda": "Ditunda",
+      "semua": "Semua"
+    },
+    "category": {
+      "karier": "Karier",
+      "kesehatan": "Kesehatan",
+      "keuangan": "Keuangan",
+      "diri": "Diri",
+      "relasi": "Relasi"
+    },
+    "target": "target {date}",
+    "needsReview": "Perlu review",
+    "reached": "Tercapai",
+    "daysLeft": "{n} hari lagi",
+    "pastTarget": "Lewat target",
+    "cover": "Sampul",
+    "changeCover": "Ganti sampul",
+    "coverTitle": "Sampul goal",
+    "removeCover": "Hapus sampul",
+    "progress": "progress",
+    "makeCountdown": "Buat countdown",
+    "edit": "Edit goal",
+    "journey": "Perjalanan chapter",
+    "chapterStatus": {
+      "belum-mulai": "belum mulai",
+      "berjalan": "berjalan",
+      "selesai": "selesai",
+      "terlewat": "terlewat",
+      "ditutup": "ditutup"
+    },
+    "always": "selalu",
+    "along": "Sepanjang goal",
+    "alongSub": "Ikut rentang goal · {n} item",
+    "chapterSub": "{period} · {n} item",
+    "markDone": "Tandai chapter selesai",
+    "unmarkDone": "Batalkan tanda selesai",
+    "review": {
+      "title": "Chapter ini terlewat di {n}%",
+      "sub": "Mau diapain chapter ini?",
+      "extend": "Perpanjang",
+      "shift": "Geser periode",
+      "close": "Tutup"
+    },
+    "kind": {
+      "task": "Task",
+      "habit": "Habit",
+      "jadwal": "Jadwal"
+    },
+    "toggleTask": "Tandai selesai: {title}",
+    "noItems": "Belum ada item. Tautkan task, habit, atau jadwal lewat field “Untuk goal”.",
+    "form": {
+      "newTitle": "Goal baru",
+      "editTitle": "Edit goal",
+      "title": "Judul goal",
+      "titlePlaceholder": "Mis. Lulus AWS SAA",
+      "why": "Kenapa penting?",
+      "whyPlaceholder": "Alasan yang bikin kamu tetap jalan…",
+      "category": "Kategori",
+      "start": "Mulai",
+      "end": "Target",
+      "status": "Status",
+      "chapters": "Chapter (opsional)",
+      "chaptersHint": "Periode harus di dalam rentang goal",
+      "chapterTitle": "Judul chapter",
+      "chapterTitleN": "Judul chapter {n}",
+      "chapterStartN": "Tanggal mulai chapter {n}",
+      "chapterEndN": "Tanggal selesai chapter {n}",
+      "up": "Naikkan chapter {n}",
+      "down": "Turunkan chapter {n}",
+      "removeChapter": "Hapus chapter {n}",
+      "addChapter": "Tambah chapter",
+      "delete": "Hapus goal",
+      "deleteConfirm": "Yakin hapus? Item tetap ada",
+      "cancel": "Batal",
+      "saveNew": "Buat goal",
+      "saveEdit": "Simpan perubahan",
+      "error": {
+        "titleRequired": "Judul goal wajib diisi.",
+        "titleTooLong": "Judul goal maksimal 120 karakter.",
+        "whyTooLong": "Alasan maksimal 500 karakter.",
+        "dateOrder": "Tanggal target harus setelah tanggal mulai.",
+        "tooManyChapters": "Maksimal 20 chapter.",
+        "chapterTitle": "Semua chapter perlu judul.",
+        "chapterRange": "Periode chapter harus di dalam rentang goal."
+      }
+    }
+  },
+  "deco": {
+    "fab": "✿ Hias",
+    "fabDone": "✓ Selesai",
+    "hideAll": "Sembunyikan hiasan",
+    "title": "Mode hias · {page}",
+    "scope": "Hiasan buat {bucket} · {n} sticker",
+    "bucket": {
+      "desktop": "Desktop (>1024px)",
+      "tablet": "Tablet (600–1024px)",
+      "hp": "HP (<600px)"
+    },
+    "bucketShort": {
+      "desktop": "Desktop",
+      "tablet": "Tablet",
+      "hp": "HP"
+    },
+    "add": "Tambah sticker",
+    "reset": "Reset hiasan",
+    "resetConfirm": "Yakin reset halaman ini?",
+    "offer": "{bucket} belum dihias di halaman ini.",
+    "copyFrom": "Salin dari {bucket}",
+    "startEmpty": "Mulai kosong",
+    "hint": "Geser ke mana aja, sticker nempel ke kartu di bawahnya · ↻ putar · ⤡ ukuran · ⇄ ganti · ⬆ ke depan · di luar mode hias, sticker tembus klik",
+    "hiddenItems": "{n} sticker disembunyikan karena tempelannya lagi nggak tampil (nggak dihapus).",
+    "hiddenGlobal": "\"Sembunyikan hiasan\" lagi aktif. Sticker cuma kelihatan selama mode hias.",
+    "copied": "Hiasan disalin & dirapikan. Geser kalau ada yang kurang pas.",
+    "full": "Batas sticker tercapai. Hapus beberapa dulu ya.",
+    "unknown": "Sticker tidak dikenal",
+    "itemLabel": "Sticker. Panah untuk geser, + − ukuran, [ ] putar, Delete hapus",
+    "rotate": "Putar (Shift = per 15°)",
+    "resize": "Ubah ukuran",
+    "remove": "Hapus",
+    "swap": "Ganti sticker",
+    "front": "Taruh paling depan",
+    "picker": {
+      "add": "Tempel sticker",
+      "swap": "Ganti sticker",
+      "variant": "Gaya sticker",
+      "sticker": "Sticker",
+      "icon": "Ikon",
+      "search": "Cari sticker… (mis. kopi, bunga, ultah)",
+      "recent": "Terakhir dipakai",
+      "notFound": "Nggak ketemu sticker \"{q}\".",
+      "noRecent": "Belum ada yang dipakai. Coba buka pack lain."
+    }
+  },
+  "habit": {
+    "new": "Habit baru",
+    "summary": "{done}/{total} habit tercapai hari ini",
+    "empty": "Belum ada habit. Bikin satu dulu yuk.",
+    "prevMonth": "Bulan sebelumnya",
+    "nextMonth": "Bulan berikutnya",
+    "legend": {
+      "met": "Tercapai",
+      "todo": "Belum",
+      "off": "Libur"
+    },
+    "hint": "Klik kotak buat centang · target >1x/hari: klik berulang · klik nama buat edit",
+    "tableLabel": "Riwayat habit bulan ini",
+    "colHabit": "Habit",
+    "colStreak": "Streak",
+    "colMonth": "Bulan ini",
+    "editHint": "Klik buat edit",
+    "everyDay": "Tiap hari",
+    "perDay": "{n}x/hari",
+    "daysShort": "hr",
+    "cell": {
+      "met": "tercapai",
+      "missed": "belum",
+      "off": "bukan jadwal",
+      "future": "belum tiba"
+    },
+    "form": {
+      "newTitle": "Habit baru",
+      "editTitle": "Edit habit",
+      "name": "Nama habit",
+      "namePlaceholder": "Mis. Minum 8 gelas air",
+      "iconColor": "Ikon & warna",
+      "iconN": "Ikon {icon}",
+      "useSticker": "Atau pakai sticker",
+      "changeSticker": "Ganti sticker",
+      "stickerTitle": "Ikon habit",
+      "removeSticker": "Pakai ikon biasa",
+      "colorN": "Warna {n}",
+      "frequency": "Frekuensi",
+      "someDays": "Hari tertentu",
+      "target": "Target per hari",
+      "targetLess": "Kurangi target",
+      "targetMore": "Tambah target",
+      "goal": "Untuk goal (opsional)",
+      "noGoal": "Tidak ada",
+      "delete": "Hapus habit",
+      "deleteConfirm": "Yakin hapus? Riwayat ikut hilang",
+      "cancel": "Batal",
+      "saveNew": "Buat habit",
+      "saveEdit": "Simpan perubahan",
+      "error": {
+        "nameRequired": "Nama habit wajib diisi.",
+        "nameTooLong": "Nama habit maksimal 80 karakter.",
+        "noDays": "Pilih minimal satu hari.",
+        "target": "Target per hari 1–20 kali."
+      }
+    }
+  },
+  "pomodoro": {
+    "name": "Pomodoro",
+    "phase": {
+      "focus": "Fokus",
+      "short": "Istirahat",
+      "long": "Istirahat panjang"
+    },
+    "ready": "Siap",
+    "start": "Mulai fokus",
+    "pause": "Jeda",
+    "reset": "Reset",
+    "open": "Buka Pomodoro",
+    "target": "Target",
+    "noTarget": "Pilih task atau jadwal",
+    "targetGroup": {
+      "schedule": "Jadwal hari ini",
+      "task": "Task belum selesai"
+    },
+    "summary": "{sessions} sesi · {minutes} menit fokus hari ini",
+    "phaseLabel": "Fase pomodoro",
+    "phaseLong": {
+      "focus": "Fokus",
+      "short": "Istirahat pendek",
+      "long": "Istirahat panjang"
+    },
+    "begin": "Mulai",
+    "resume": "Lanjut",
+    "skip": "Skip",
+    "cycle": "Sesi {n} dari {total}",
+    "targetTitle": "Target fokus",
+    "targetMode": {
+      "task": "Pilih task",
+      "free": "Teks bebas"
+    },
+    "freePlaceholder": "Mis. Nulis bab 2 skripsi",
+    "noTasks": "Nggak ada task aktif.",
+    "settings": "Pengaturan",
+    "setting": {
+      "focus": "Durasi fokus",
+      "short": "Istirahat pendek",
+      "long": "Istirahat panjang",
+      "every": "Sesi sebelum istirahat panjang"
+    },
+    "minutesShort": "{n} mnt",
+    "times": "{n}x",
+    "decrease": "Kurangi {setting}",
+    "increase": "Tambah {setting}",
+    "sound": "Suara pas fase selesai",
+    "historyTitle": "Riwayat hari ini",
+    "skipped": "dilewati",
+    "noHistory": "Belum ada sesi hari ini.",
+    "notice": {
+      "focusDone": "Sesi fokus selesai! Waktunya istirahat.",
+      "focusSkipped": "Sesi fokus dilewati.",
+      "breakDone": "Istirahat selesai. Yuk fokus lagi!"
+    }
+  },
+  "memo": {
+    "title": "Gimana harimu?",
+    "titleNextPage": "Halaman ke-{n} hari ini",
+    "feeling": "HARI INI RASANYA…",
+    "moodLabel": "Mood hari ini",
+    "mood": {
+      "0": "Berat",
+      "1": "Kurang oke",
+      "2": "Biasa aja",
+      "3": "Senang",
+      "4": "Bahagia"
+    },
+    "paper": "KERTAS",
+    "paperLabel": "Pilih kertas memo",
+    "papers": {
+      "krem": "Krem",
+      "putih": "Putih",
+      "pink": "Pink",
+      "kuning": "Kuning",
+      "hijau": "Hijau",
+      "biru": "Biru",
+      "lavender": "Lavender",
+      "malam": "Malam"
+    },
+    "textLabel": "Isi memo hari ini",
+    "placeholder": "Dear diary, hari ini…",
+    "save": "Simpan ke jurnal",
+    "status": {
+      "saved": "✓ Tersimpan · buka jurnal →",
+      "words": "{n} kata · buka jurnal →",
+      "open": "Buka jurnal lengkap →"
+    },
+    "summary": "{n} memo · cari, tulis, dan sebut jadwal pakai {'@'}",
+    "search": "Cari di jurnal…",
+    "datesLabel": "Tanggal jurnal",
+    "today": "Hari ini",
+    "noEntryPreview": "Belum ada memo",
+    "noMatch": "Nggak ketemu halaman dengan kata itu.",
+    "draftKept": "✓ Draf disimpan selama sesi",
+    "feelingsLabel": "Perasaan hari ini",
+    "titlePlaceholder": "Kasih judul halaman ini…",
+    "titleLabel": "Judul halaman",
+    "mentionTitle": "Sebut jadwal",
+    "promptsLabel": "Butuh pancingan?",
+    "prompt": {
+      "smile": "Hal kecil yang bikin senyum hari ini…",
+      "mind": "Yang lagi bikin kepikiran…",
+      "proud": "Aku bangga sama diriku karena…",
+      "tomorrow": "Besok aku mau…"
+    },
+    "wordsHint": "{n} kata · ketik {'@'} buat nyebut jadwal",
+    "untitled": "Catatan kecil",
+    "delete": "Hapus",
+    "deleteConfirm": "Yakin hapus?",
+    "emptyDay": "Halaman ini masih kosong. Mulai nulis di atas, ya.",
+    "openInCalendar": "Buka di kalender",
+    "deletedSchedule": "jadwal dihapus",
+    "deletedScheduleHint": "Jadwal ini sudah dihapus"
+  },
+  "landing": {
+    "meta": {
+      "title": "Rencanakan hari, fokus, rayakan progres",
+      "description": "Goals, kalender, to-do, Pomodoro, habit, sampai memo — semuanya di satu dashboard yang hangat dan nggak bikin pusing."
+    },
+    "nav": {
+      "label": "Navigasi halaman",
+      "features": "Fitur",
+      "how": "Cara kerja",
+      "cta": "Mulai gratis"
+    },
+    "hero": {
+      "badge": "Satu tempat untuk tumbuh",
+      "titleLead": "Rencanakan hari, fokus, lalu",
+      "titleHighlight": "rayakan progres.",
+      "lead": "Goals, kalender, to-do, Pomodoro, habit, sampai memo — semuanya di satu dashboard yang hangat dan nggak bikin pusing.",
+      "cta": "Buka dashboard",
+      "secondary": "Lihat fitur",
+      "note": "gratis · bisa offline · bisa import/export ✎"
+    },
+    "preview": {
+      "greeting": "Selamat pagi, Friend",
+      "nextLabel": "Jadwal berikutnya",
+      "nextTitle": "Belajar AWS SAA",
+      "streak": "hari streak",
+      "goals": "goal aktif",
+      "pomodoro": "pomodoro",
+      "todos": {
+        "vpc": "Review modul VPC",
+        "run": "Lari pagi 3 km",
+        "money": "Catat pengeluaran"
+      }
+    },
+    "features": {
+      "kicker": "FITUR",
+      "titleLine1": "Sembilan alat kecil,",
+      "titleLine2": "satu kebiasaan besar.",
+      "lead": "Pakai yang kamu butuh, sembunyikan sisanya. Semua saling terhubung — to-do bisa nempel ke goal, sesi fokus tercatat di overview.",
+      "desc": {
+        "goals": "Pecah target besar jadi milestone yang jelas.",
+        "kalender": "Lihat jadwal mingguan dan sesi fokus sekaligus.",
+        "to-do": "Daftar tugas harian yang bisa nempel ke goal.",
+        "eisenhower": "Pilah mana yang penting, mana yang mendesak.",
+        "pomodoro": "Timer fokus 25 menit dengan jeda otomatis.",
+        "habit": "Bangun streak dari kebiasaan kecil.",
+        "memo": "Catat ide dan refleksi sebelum hilang.",
+        "overview": "Ringkasan progres mingguan dalam satu layar.",
+        "countdown": "Hitung mundur ke ujian, deadline, atau liburan."
+      }
+    },
+    "steps": {
+      "kicker": "CARA KERJA",
+      "title": "Tiga langkah, tiap hari.",
+      "items": {
+        "1": {
+          "title": "Tulis goal",
+          "desc": "Mulai dari satu tujuan yang kamu peduli, lalu pecah jadi langkah kecil."
+        },
+        "2": {
+          "title": "Jadwalkan & fokus",
+          "desc": "Taruh di kalender, tekan Fokus, dan biarkan Pomodoro jaga ritmenya."
+        },
+        "3": {
+          "title": "Lihat progresnya",
+          "desc": "Overview dan streak habit menunjukkan seberapa jauh kamu melangkah."
+        }
+      }
+    },
+    "outro": {
+      "title": "Progres kecil tetap progres.",
+      "lead": "Pilih stiker favoritmu, atur tema, dan mulai dari satu to-do hari ini.",
+      "cta": "Mulai sekarang — gratis"
+    },
+    "footer": {
+      "label": "Tautan footer",
+      "copyright": "Improve Personal · 2026"
+    }
+  },
+  "login": {
+    "meta": {
+      "title": "Masuk"
+    },
+    "brand": {
+      "headline": "Halo lagi! Yuk lanjut tumbuh pelan-pelan.",
+      "sub": "Task, jurnal, habit, dan pomodoro-mu sudah nunggu."
+    },
+    "google": {
+      "idle": "Lanjut dengan Google",
+      "pending": "Menghubungkan ke Google…"
+    },
+    "choose": {
+      "eyebrow": "MASUK / DAFTAR",
+      "title": "Masuk ke akunmu",
+      "sub": "Belum punya akun? Cara yang sama langsung bikin akun baru.",
+      "divider": "ATAU PAKAI EMAIL",
+      "emailLabel": "EMAIL",
+      "emailPlaceholder": "kamu{'@'}email.com",
+      "send": "Kirim kode OTP",
+      "sending": "Mengirim kode…",
+      "hint": "Kami kirim kode 6 digit ke emailmu. Tanpa password."
+    },
+    "otp": {
+      "back": "Ganti email",
+      "eyebrow": "CEK EMAILMU",
+      "title": "Masukkan kode",
+      "sentTo": "Kode 6 digit dikirim ke",
+      "legend": "Kode OTP 6 digit",
+      "digit": "Digit {n} dari {total}",
+      "verify": "Verifikasi & masuk",
+      "verifying": "Memeriksa…",
+      "noCode": "Belum dapat kode?",
+      "resend": "Kirim ulang",
+      "resendIn": "Kirim ulang dalam {time}",
+      "previewNote": "Pratinjau: server login belum tersambung, jadi kode belum benar-benar dikirim.",
+      "demoNote": "Mode demo: kode tidak dikirim. Masukkan {code} untuk masuk."
+    },
+    "error": {
+      "emailEmpty": "Isi email dulu ya.",
+      "emailInvalid": "Format email belum benar.",
+      "otpIncomplete": "Lengkapi 6 digit kodenya.",
+      "otpInvalid": "Kode salah atau sudah kedaluwarsa.",
+      "unavailable": "Login belum tersedia — server belum tersambung.",
+      "generic": "Ada yang salah. Coba lagi sebentar lagi."
+    },
+    "terms": "Dengan masuk, kamu setuju dengan Ketentuan dan Kebijakan Privasi."
+  }
+}

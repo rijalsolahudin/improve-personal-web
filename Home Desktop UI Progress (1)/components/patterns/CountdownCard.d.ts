@@ -1,0 +1,1 @@
+export interface CountdownCardProps { title: string; days: number; date: string; bg?: string; fg?: string; /** compact = 150px scroller tile; wide = full-width list card with day badge */ layout?: 'compact' | 'wide'; pct?: number }

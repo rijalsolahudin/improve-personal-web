@@ -1,0 +1,12 @@
+packages:
+  - apps/*
+  - packages/*
+
+# Hanya paket yang sudah direview yang boleh menjalankan install script (security.md §12).
+allowBuilds:
+  esbuild: true
+  unrs-resolver: false
+
+# Satu versi happy-dom di seluruh workspace (peer opsional vitest), yang lolos minimumReleaseAge.
+overrides:
+  happy-dom: 20.14.5

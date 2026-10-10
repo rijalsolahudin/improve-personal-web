@@ -1,0 +1,16 @@
+node_modules
+dist
+.output
+.nuxt
+.nitro
+.cache
+.data
+.turbo
+coverage
+*.log
+.DS_Store
+
+# env: hanya .env.example (tanpa nilai) yang boleh di-commit
+.env
+.env.*
+!.env.example

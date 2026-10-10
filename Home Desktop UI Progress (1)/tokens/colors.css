@@ -1,0 +1,94 @@
+/* Improve Personal — colors. Default theme = Kuning. Swap via [data-theme] on any ancestor. */
+:root {
+  --ink: #2F2A24;            /* all text, all outlines */
+  --ink-shadow: rgba(47,42,36,.12);
+  --ink-shadow-strong: rgba(47,42,36,.18);
+  --scrim: rgba(47,42,36,.35);
+  --white-wash: rgba(255,255,255,.7);
+
+  /* theme: Kuning (default) */
+  --bg: #F6EBDA;
+  --grid: rgba(214,180,140,.22);
+  --paper: #FFFBF4;
+  --paper-2: #FFFDF7;
+  --alt: #FBF3E6;
+  --chip: #F2E4CC;
+  --hover: #F7E6CC;
+  --line: #EEDDC2;
+  --line-2: #F0E2CB;
+  --dash: #E3CFAF;
+  --dash-2: #D9C4A2;
+  --mline: #EADBC2;
+  --placeholder: #C9B89E;
+  --mute: #8A7B68;
+  --mute-2: #7A6B58;
+  --mute-3: #A8957C;
+  --ink-2: #5E5040;
+  --primary: #F3CB86;
+  --soft: #FBDDB7;
+  --deep: #8A5A12;
+  --deeper: #6E4A12;
+  --accent: #B4670C;
+  --bell: #F8D9A0;
+  --bell-ring: #EBC888;
+
+  /* status */
+  --success: #3E8A32;
+  --success-soft: #F3F9EF;
+  --success-line: #9FD08F;
+  --danger: #C2381A;
+  --notify: #E2445C;
+  --streak: #F07A1A;
+
+  /* priority  (bg / fg) */
+  --prio-urgent-bg: #FFE1DA; --prio-urgent-fg: #C2381A;
+  --prio-medium-bg: #FFF0C8; --prio-medium-fg: #9A6A00;
+  --prio-low-bg: #E3EEE0;    --prio-low-fg: #3E7A33;
+
+  /* categories  (solid / tint / text) */
+  --cat-karier: #B02A6A;    --cat-karier-tint: #F7C6DA;    --cat-karier-text: #8E2A5A;
+  --cat-kesehatan: #E0560C; --cat-kesehatan-tint: #FFD9BF; --cat-kesehatan-text: #9A3A0C;
+  --cat-keuangan: #2E8A22;  --cat-keuangan-tint: #CDE8C6;  --cat-keuangan-text: #2E6A26;
+  --cat-diri: #7A52C7;      --cat-diri-tint: #DCD3F4;      --cat-diri-text: #5E4BA8;
+  --cat-kerja: #0A55E6;     --cat-kerja-tint: #D3E2FB;     --cat-kerja-text: #1E4AA0;
+  --cat-trip: #1E5D78;      --cat-trip-tint: #C7E3EE;
+
+  /* app-icon tiles (feature colors) */
+  --icon-home: #E6A800;
+  --icon-cal: #F9D857;
+  --icon-todo: #9B4FC9;
+  --icon-more: #10A8D8;
+  --icon-goals: #F03FBF;
+  --icon-habit: #0A55E6;
+  --icon-countdown: #E2445C;
+  --icon-pomodoro: #FF6A13;
+  --icon-overview: #1DA20F;
+  --icon-off: #D9C9AE;
+
+  /* semantic aliases */
+  --surface-page: var(--bg);
+  --surface-card: var(--paper);
+  --surface-card-raised: var(--paper-2);
+  --surface-inset: var(--alt);
+  --surface-track: var(--chip);
+  --text-body: var(--ink);
+  --text-muted: var(--mute);
+  --text-subtle: var(--mute-3);
+  --text-on-accent: var(--paper);
+  --text-eyebrow: var(--deep);
+  --action: var(--accent);
+  --border-ink: var(--ink);
+  --border-soft: var(--line);
+}
+[data-theme="hijau"] {
+  --bg: #E5EFDC; --grid: rgba(130,175,120,.25); --paper: #FBFDF7; --paper-2: #FCFEF9; --alt: #F1F6EA; --chip: #E3EDD8; --hover: #DCEBD2;
+  --line: #D9E6CC; --line-2: #DFEAD3; --dash: #C9DBB8; --dash-2: #BBD0A6; --mline: #D8E5CA; --placeholder: #AFC39F;
+  --mute: #6C7D60; --mute-2: #5D6E52; --mute-3: #86997A; --ink-2: #46573D;
+  --primary: #A8D69A; --soft: #CDE6C1; --deep: #2F6A24; --deeper: #28581F; --accent: #3E7F31; --bell: #BDE0AF; --bell-ring: #94C783;
+}
+[data-theme="ungu"] {
+  --bg: #EEE8F6; --grid: rgba(160,140,200,.24); --paper: #FCFAFF; --paper-2: #FDFCFF; --alt: #F4EFFA; --chip: #E9E0F4; --hover: #E8DFF7;
+  --line: #E1D6F0; --line-2: #E6DCF2; --dash: #D2C3E8; --dash-2: #C4B2E0; --mline: #DFD3EF; --placeholder: #B9A9D3;
+  --mute: #7D6E94; --mute-2: #6C5D84; --mute-3: #9A8BB0; --ink-2: #54476A;
+  --primary: #C9B6EE; --soft: #E0D4F6; --deep: #5B3E9A; --deeper: #4A3082; --accent: #7A52C7; --bell: #D6C7F2; --bell-ring: #B39CE6;
+}

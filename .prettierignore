@@ -1,0 +1,12 @@
+node_modules
+dist
+.output
+.nuxt
+.turbo
+coverage
+pnpm-lock.yaml
+graphify-out
+Home Desktop UI Progress (1)
+docs
+.claude
+*.md

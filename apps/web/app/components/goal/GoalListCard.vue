@@ -1,0 +1,119 @@
+<script setup lang="ts">
+import { GOAL_STATUS_TONE, goalProgress, needsReview, type Goal } from '~/utils/goals'
+import { fromIsoDate } from '~/utils/time'
+
+const { goal, today, isSelected } = defineProps<{
+  goal: Goal
+  today: string
+  isSelected: boolean
+}>()
+defineEmits<{ select: [] }>()
+
+const { dayMonthYear } = useDateFormat()
+const progress = computed(() => goalProgress(goal))
+const palette = computed(() => ({
+  '--goal-solid': `var(--cat-${goal.category})`,
+  '--goal-tint': `var(--cat-${goal.category}-tint)`,
+}))
+</script>
+
+<template>
+  <button
+    type="button"
+    class="card"
+    :class="{ selected: isSelected }"
+    :style="palette"
+    :aria-pressed="isSelected"
+    @click="$emit('select')"
+  >
+    <span class="row">
+      <GoalCoverTile :cover="goal.cover" :category="goal.category" />
+      <span class="text">
+        <span class="title">{{ goal.title }}</span>
+        <span class="meta">
+          {{ $t(`goals.category.${goal.category}`) }} ·
+          {{ $t('goals.target', { date: dayMonthYear(fromIsoDate(goal.end).getTime()) }) }}
+        </span>
+      </span>
+      <span class="pct">{{ progress }}%</span>
+    </span>
+    <span class="bar" aria-hidden="true"><span :style="{ width: `${progress}%` }" /></span>
+    <span class="chips">
+      <GoalChip :tone="GOAL_STATUS_TONE[goal.status]">{{
+        $t(`goals.status.${goal.status}`)
+      }}</GoalChip>
+      <GoalChip v-if="needsReview(goal, today)" tone="red">{{ $t('goals.needsReview') }}</GoalChip>
+    </span>
+  </button>
+</template>
+
+<style scoped>
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  padding: 16px 18px;
+  border: 2.5px solid var(--line);
+  border-radius: 26px;
+  background: var(--paper);
+  text-align: left;
+}
+
+.card.selected {
+  border-color: var(--ink);
+  background: var(--goal-tint);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.title {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 18px;
+  line-height: 1.15;
+}
+
+.meta {
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--mute);
+}
+
+.pct {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 20px;
+}
+
+.bar {
+  height: 8px;
+  overflow: hidden;
+  border-radius: var(--radius-pill);
+  background: var(--chip);
+}
+
+.bar > span {
+  display: block;
+  height: 100%;
+  border-radius: var(--radius-pill);
+  background: var(--goal-solid);
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+</style>

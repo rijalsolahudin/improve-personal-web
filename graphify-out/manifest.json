@@ -1,0 +1,116 @@
+{
+  ".claude/settings.local.json": {
+    "mtime": 1791411237.532722,
+    "seen": 1791503722.1034343,
+    "ast_hash": "71d617157814fc5142e9532be1381c08",
+    "semantic_hash": "71d617157814fc5142e9532be1381c08"
+  },
+  "docs/PRD/README.md": {
+    "mtime": 1791411058.0061932,
+    "seen": 1791503722.1034343,
+    "ast_hash": "ba4e3124234ef2931add300f756399bb",
+    "semantic_hash": "ba4e3124234ef2931add300f756399bb"
+  },
+  "docs/PRD/assumptions.md": {
+    "mtime": 1791411180.1093512,
+    "seen": 1791503722.1034343,
+    "ast_hash": "34ad895984b7dcc57ff52e8ddcadba95",
+    "semantic_hash": "34ad895984b7dcc57ff52e8ddcadba95"
+  },
+  "docs/PRD/features/F01-schedule.md": {
+    "mtime": 1791411069.3467555,
+    "seen": 1791503722.1034343,
+    "ast_hash": "4f78457cc4c609ae597a11e72a87e83f",
+    "semantic_hash": "4f78457cc4c609ae597a11e72a87e83f"
+  },
+  "docs/PRD/features/F02-todo.md": {
+    "mtime": 1791411078.8884704,
+    "seen": 1791503722.1034343,
+    "ast_hash": "832fd3e66757d2284447c54ed07c3fb0",
+    "semantic_hash": "832fd3e66757d2284447c54ed07c3fb0"
+  },
+  "docs/PRD/features/F03-eisenhower.md": {
+    "mtime": 1791411097.8911698,
+    "seen": 1791503722.1034343,
+    "ast_hash": "784c6d9d048789a97c13ddf961b212bb",
+    "semantic_hash": "784c6d9d048789a97c13ddf961b212bb"
+  },
+  "docs/PRD/features/F04-pomodoro.md": {
+    "mtime": 1791411097.9111724,
+    "seen": 1791503722.1034343,
+    "ast_hash": "582ec0918222fae6ec20151ac24e2241",
+    "semantic_hash": "582ec0918222fae6ec20151ac24e2241"
+  },
+  "docs/PRD/features/F05-countdown.md": {
+    "mtime": 1791411097.9307878,
+    "seen": 1791503722.1034343,
+    "ast_hash": "616bb9f692beb7f1142fac629849b1d4",
+    "semantic_hash": "616bb9f692beb7f1142fac629849b1d4"
+  },
+  "docs/PRD/features/F06-calendar.md": {
+    "mtime": 1791411108.547704,
+    "seen": 1791503722.1034343,
+    "ast_hash": "19eda4eca027f3812b45ba460e786d44",
+    "semantic_hash": "19eda4eca027f3812b45ba460e786d44"
+  },
+  "docs/PRD/features/F07-habit.md": {
+    "mtime": 1791411097.9505925,
+    "seen": 1791503722.1034343,
+    "ast_hash": "2d531d01a86b315e8394e68ad11e9fcd",
+    "semantic_hash": "2d531d01a86b315e8394e68ad11e9fcd"
+  },
+  "docs/PRD/features/F08-memo.md": {
+    "mtime": 1791411097.9706128,
+    "seen": 1791503722.1034343,
+    "ast_hash": "b027f665a18cb1f2a6cc6cb589b02094",
+    "semantic_hash": "b027f665a18cb1f2a6cc6cb589b02094"
+  },
+  "docs/PRD/features/F09-guide.md": {
+    "mtime": 1791411138.2187324,
+    "seen": 1791503722.1034343,
+    "ast_hash": "38261c77f160cab04a86d0f3e0cda0df",
+    "semantic_hash": "38261c77f160cab04a86d0f3e0cda0df"
+  },
+  "docs/PRD/features/F10-import-export.md": {
+    "mtime": 1791411131.2889414,
+    "seen": 1791503722.1034343,
+    "ast_hash": "44944ee686e31817a95360b0dbb07347",
+    "semantic_hash": "44944ee686e31817a95360b0dbb07347"
+  },
+  "docs/PRD/features/F11-overview.md": {
+    "mtime": 1791411131.308264,
+    "seen": 1791503722.1034343,
+    "ast_hash": "d254802b409129b61cee241cf3fb4884",
+    "semantic_hash": "d254802b409129b61cee241cf3fb4884"
+  },
+  "docs/PRD/features/F12-home.md": {
+    "mtime": 1791411131.3291888,
+    "seen": 1791503722.1034343,
+    "ast_hash": "a4ef453d9601ec9a8067db6ba4bb6a0f",
+    "semantic_hash": "a4ef453d9601ec9a8067db6ba4bb6a0f"
+  },
+  "docs/PRD/features/F13-goals.md": {
+    "mtime": 1791411131.3507128,
+    "seen": 1791503722.1034343,
+    "ast_hash": "7334b0de035b6989c31aa72f0a26dde7",
+    "semantic_hash": "7334b0de035b6989c31aa72f0a26dde7"
+  },
+  "docs/PRD/features/F14-sticker.md": {
+    "mtime": 1791411131.3702686,
+    "seen": 1791503722.1034343,
+    "ast_hash": "1b53af71d25503180217add733b88907",
+    "semantic_hash": "1b53af71d25503180217add733b88907"
+  },
+  "docs/PRD/features/F15-account-sync.md": {
+    "mtime": 1791411167.392326,
+    "seen": 1791503722.1034343,
+    "ast_hash": "910fd5d8445fbb943148257d8c26de7a",
+    "semantic_hash": "910fd5d8445fbb943148257d8c26de7a"
+  },
+  "docs/PRD/requirements.md": {
+    "mtime": 1791411173.5703087,
+    "seen": 1791503722.1034343,
+    "ast_hash": "003f40e4fe0e2c1f3a582b892112f8d4",
+    "semantic_hash": "003f40e4fe0e2c1f3a582b892112f8d4"
+  }
+}

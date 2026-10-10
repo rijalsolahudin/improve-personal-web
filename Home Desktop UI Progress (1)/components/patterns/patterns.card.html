@@ -1,0 +1,25 @@
+<!-- @dsCard group="Components" viewport="700x400" name="List patterns" -->
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="../../styles.css">
+<style>body{margin:0;padding:20px;background:var(--bg);font-family:var(--font-body);color:var(--ink);font-weight:700}.l{font-size:11px;font-weight:800;letter-spacing:.1em;color:var(--mute-3);margin:0 0 8px}</style>
+<script src="../_preview.js"></script></head><body><div id="root"></div>
+<script type="text/x-card">
+const Row = ({ children, gap = 10, align = 'center' }) => <div style={{ display: 'flex', gap, flexWrap: 'wrap', alignItems: align, marginBottom: 16 }}>{children}</div>;
+const L = ({ children }) => <div className="l">{children}</div>;
+function App() {
+
+  const [d, setD] = React.useState([false, true]); const [h, setH] = React.useState([true, false, true]);
+  return <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+    <div style={{ background: 'var(--paper)', border: '2px solid var(--line)', borderRadius: 26, padding: 12, display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <TaskRow title="Kirim draft laporan" priority="urgent" meta="Terlambat 2 jam" overdue done={d[0]} onToggle={() => setD([!d[0], d[1]])} />
+      <TaskRow title="Review catatan kelas" priority="low" meta="Sisa 1 hari" done={d[1]} onToggle={() => setD([d[0], !d[1]])} />
+    </div>
+    <div style={{ display: 'flex', gap: 10, overflowX: 'auto' }}>
+      {[['Belajar 1 jam','#9B4FC9',8],['Olahraga','#FF6A13',3],['Baca 10 hal','#1DA20F',12]].map(([n,c,s],i) => <HabitTile key={n} name={n} color={c} streak={s} done={h[i]} onToggle={() => setH(h.map((x,j) => j===i ? !x : x))} />)}
+      <CountdownCard title="Ulang tahun Ibu" days={12} date="20 OKT 2026" bg="#FCE0F2" fg="#B02A6A" />
+      <CountdownCard title="Liburan Bali" days={73} date="20 DES 2026" bg="var(--cat-trip-tint)" fg="var(--cat-trip)" />
+    </div>
+  </div>;
+}
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+<script>dsPreview(["../core/Checkbox.jsx","../core/PriorityBadge.jsx","TaskRow.jsx","HabitTile.jsx","CountdownCard.jsx"]);</script></body></html>

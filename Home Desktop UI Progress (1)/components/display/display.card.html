@@ -1,0 +1,33 @@
+<!-- @dsCard group="Components" viewport="700x400" name="Cards & data display" -->
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="../../styles.css">
+<style>body{margin:0;padding:20px;background:var(--bg);font-family:var(--font-body);color:var(--ink);font-weight:700}.l{font-size:11px;font-weight:800;letter-spacing:.1em;color:var(--mute-3);margin:0 0 8px}</style>
+<script src="../_preview.js"></script></head><body><div id="root"></div>
+<script type="text/x-card">
+const Row = ({ children, gap = 10, align = 'center' }) => <div style={{ display: 'flex', gap, flexWrap: 'wrap', alignItems: align, marginBottom: 16 }}>{children}</div>;
+const L = ({ children }) => <div className="l">{children}</div>;
+function App() {
+
+  return <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+    <Card variant="primary" dotted>
+      <div style={{ fontWeight: 800, letterSpacing: '.1em', fontSize: 11, color: 'var(--deep)' }}>BERIKUTNYA · 19:00–20:30</div>
+      <div style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 20 }}>Kelas online AWS</div>
+    </Card>
+    <Card variant="tinted" tint="var(--cat-karier-tint)">
+      <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}><ProgressRing pct={31} color="var(--cat-karier)" inner="var(--cat-karier-tint)">31%</ProgressRing>
+      <div><div style={{ fontWeight: 800, letterSpacing: '.1em', fontSize: 11, color: 'var(--cat-karier-text)' }}>GOAL AKTIF</div><div style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 19 }}>Lulus AWS SAA</div></div></div>
+      <div style={{ marginTop: 10 }}><ProgressBar pct={48} color="var(--cat-karier)" /></div>
+    </Card>
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,minmax(0,1fr))', gap: 10 }}>
+      <StatTile value="12" label="hari beruntun" icon={<div style={{width:13,height:17,background:'var(--streak)',borderRadius:'50% 50% 50% 50%/60% 60% 40% 40%'}} />} />
+      <StatTile tone="paper" value="50" unit="mnt" label="fokus hari ini" />
+      <StatTile tone="primary" value="2/6" label="task selesai" />
+    </div>
+    <Card><SectionHeader title="Habit hari ini" action="2/4 · Semua" />
+      <div style={{ display: 'flex', gap: 8 }}>{[['⌂','--icon-home'],['30','--icon-cal'],['✓','--icon-todo'],['◎','--icon-goals'],['★','--icon-habit'],['25','--icon-pomodoro'],['✎','--icon-more']].map(([g,c]) => <AppIcon key={c} glyph={g} color={'var(' + c + ')'} />)}</div>
+    </Card>
+    <Card variant="sticker" style={{ gridColumn: '1 / -1' }}><div style={{ fontFamily: 'var(--font-hand)', fontSize: 22 }}>Sticker card — journal surfaces</div></Card>
+  </div>;
+}
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+<script>dsPreview(["Card.jsx","StatTile.jsx","ProgressRing.jsx","ProgressBar.jsx","AppIcon.jsx","SectionHeader.jsx"]);</script></body></html>

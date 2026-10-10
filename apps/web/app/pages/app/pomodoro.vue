@@ -1,0 +1,111 @@
+<script setup lang="ts">
+definePageMeta({ layout: 'dashboard' })
+
+const { t } = useI18n()
+useHead({ title: () => t('feature.pomodoro.label') })
+
+const now = useNow()
+const pomodoro = usePomodoro()
+
+const summary = computed(() => {
+  const day = new Date(now.value).toDateString()
+  const sessions = pomodoro.history.value.filter(
+    (session) => session.status === 'selesai' && new Date(session.endedAt).toDateString() === day,
+  ).length
+  return t('pomodoro.summary', { sessions, minutes: pomodoro.focusMinutesToday.value })
+})
+</script>
+
+<template>
+  <div class="pomodoro">
+    <header class="header" data-anchor="header" data-anchor-kind="header">
+      <h1 class="title">{{ $t('feature.pomodoro.label') }}</h1>
+      <p class="summary">{{ summary }}</p>
+    </header>
+    <div v-if="pomodoro.notice.value" class="notice" role="status">
+      <span class="bell" aria-hidden="true">🔔</span>
+      <span class="notice-text">{{ $t(`pomodoro.notice.${pomodoro.notice.value}`) }}</span>
+      <button type="button" class="dismiss" @click="pomodoro.dismissNotice">
+        {{ $t('common.close') }}
+      </button>
+    </div>
+    <div class="layout">
+      <PomodoroTimer />
+      <div class="side">
+        <PomodoroSettings />
+        <PomodoroHistory />
+      </div>
+    </div>
+  </div>
+</template>
+
+<style scoped>
+.pomodoro {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding-bottom: 80px;
+}
+
+.title {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 36px;
+  line-height: 1.1;
+}
+
+.summary {
+  margin-top: 4px;
+  font-weight: 700;
+  font-size: 16px;
+  color: var(--mute);
+}
+
+.notice {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 18px;
+  border-radius: 20px;
+  background: var(--ink);
+  color: var(--paper);
+  font-weight: 800;
+}
+
+.bell {
+  font-size: 20px;
+}
+
+.notice-text {
+  flex: 1;
+}
+
+.dismiss {
+  padding: 0;
+  border: none;
+  background: none;
+  color: #f3cb86;
+  font-weight: 800;
+}
+
+.layout {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 20px;
+}
+
+.side {
+  flex: 1 1 300px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+@media (max-width: 599px) {
+  .title {
+    font-size: 28px;
+  }
+}
+</style>

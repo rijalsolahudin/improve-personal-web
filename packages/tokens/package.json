@@ -1,0 +1,28 @@
+{
+  "name": "@improve-personal/tokens",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Design token Improve Personal: sumber tunggal untuk CSS vars (web) dan theme object (RN).",
+  "exports": {
+    ".": "./src/index.ts",
+    "./css": "./dist/tokens.css"
+  },
+  "files": [
+    "src",
+    "dist"
+  ],
+  "scripts": {
+    "build": "node scripts/build-css.ts",
+    "lint": "eslint . --max-warnings 0",
+    "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.node.json",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@improve-personal/config": "workspace:*",
+    "@types/node": "24.19.1",
+    "eslint": "10.12.0",
+    "typescript": "5.9.3",
+    "vitest": "5.0.3"
+  }
+}
