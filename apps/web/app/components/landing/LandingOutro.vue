@@ -16,7 +16,7 @@ const STICKERS: readonly { name: MascotName; tilt: number }[] = [
 <template>
   <section class="outro" aria-labelledby="landing-outro-title">
     <div class="stickers" aria-hidden="true">
-      <UiMascot
+      <Mascot
         v-for="sticker in STICKERS"
         :key="sticker.name"
         :name="sticker.name"

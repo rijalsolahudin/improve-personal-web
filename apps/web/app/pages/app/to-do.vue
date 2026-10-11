@@ -44,7 +44,7 @@ const summary = computed(() =>
         <h1 class="title">{{ $t('feature.to-do.label') }}</h1>
         <p class="summary">{{ summary }}</p>
       </div>
-      <button type="button" class="new" @click="editing = null">+ {{ $t('todo.new') }}</button>
+      <Button variant="primary" @click="editing = null">+ {{ $t('todo.new') }}</Button>
     </header>
 
     <TodoQuickAdd />
@@ -101,22 +101,6 @@ const summary = computed(() =>
   font-weight: 700;
   font-size: 16px;
   color: var(--mute);
-}
-
-.new {
-  height: 44px;
-  padding: 0 20px;
-  border: none;
-  border-radius: var(--radius-pill);
-  background: var(--accent);
-  color: var(--paper);
-  font-weight: 800;
-  font-size: 15px;
-  white-space: nowrap;
-}
-
-.new:hover {
-  background: var(--deeper);
 }
 
 .list {

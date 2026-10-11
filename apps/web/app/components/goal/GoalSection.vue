@@ -98,7 +98,7 @@ const bodyId = useId()
             <span class="item-title">{{ item.title }}</span>
             <span class="item-meta">{{ item.meta }}</span>
           </span>
-          <UiCheckbox
+          <Checkbox
             v-if="item.kind === 'task'"
             :checked="item.done"
             :label="$t('goals.toggleTask', { title: item.title })"

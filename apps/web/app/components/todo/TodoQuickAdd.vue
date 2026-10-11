@@ -29,7 +29,7 @@ function submit(): void {
     />
     <input v-model="date" class="field date" type="date" :aria-label="$t('todo.quickDate')" />
     <TodoPriorityPicker v-model="priority" :label="$t('priority.label')" />
-    <button type="submit" class="add">{{ $t('todo.add') }}</button>
+    <Button type="submit" variant="primary">{{ $t('todo.add') }}</Button>
   </form>
 </template>
 
@@ -56,10 +56,6 @@ function submit(): void {
   outline: none;
 }
 
-.field:focus-visible {
-  outline: 3px solid var(--accent);
-}
-
 .title {
   flex: 1 1 220px;
 }
@@ -67,16 +63,5 @@ function submit(): void {
 .date {
   flex: 0 0 auto;
   padding: 10px 14px;
-}
-
-.add {
-  height: 46px;
-  padding: 0 20px;
-  border: none;
-  border-radius: var(--radius-pill);
-  background: var(--accent);
-  color: var(--paper);
-  font-weight: 800;
-  font-size: 15px;
 }
 </style>

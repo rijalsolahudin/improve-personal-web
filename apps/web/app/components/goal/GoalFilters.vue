@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { SegmentedOption } from '~/components/ui/UiSegmented.vue'
+import type { SegmentedOption } from '~/components/ui/Segmented/index.vue'
 import { GOAL_CATEGORIES, type GoalCategory, type GoalStatus } from '~/utils/goals'
 
 export type GoalStatusFilter = GoalStatus | 'semua'
@@ -18,7 +18,7 @@ const categories = ['semua', ...GOAL_CATEGORIES] as const
 
 <template>
   <div class="filters">
-    <UiSegmented
+    <Segmented
       v-model="status"
       :options="statusOptions"
       :label="$t('goals.filterStatus')"

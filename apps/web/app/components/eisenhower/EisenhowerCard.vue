@@ -21,7 +21,7 @@ const timeLeft = computed(() => (task.done ? t('time.done') : formatTimeLeft(tas
 <template>
   <li class="card" :class="{ done: task.done, dragging: isDragging }">
     <span class="grip" data-drag-handle aria-hidden="true">⋮⋮</span>
-    <UiCheckbox
+    <Checkbox
       :checked="task.done"
       :label="$t('home.todo.toggle', { title: task.title })"
       @toggle="$emit('toggle')"

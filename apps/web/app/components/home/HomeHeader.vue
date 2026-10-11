@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { themes as themeTokens, type ThemeName } from '@improve-personal/tokens'
 
-import type { SegmentedOption } from '~/components/ui/UiSegmented.vue'
+import type { SegmentedOption } from '~/components/ui/Segmented/index.vue'
 import { greetingPeriod } from '~/utils/time'
 
 const { now, scheduleCount, openTaskCount } = defineProps<{
@@ -39,7 +39,7 @@ const selectedTheme = computed({ get: () => theme.value, set: setTheme })
       <p class="summary">{{ summary }}</p>
     </div>
     <div class="actions">
-      <UiSegmented
+      <Segmented
         v-model="selectedTheme"
         class="wide-flex"
         :options="themeOptions"

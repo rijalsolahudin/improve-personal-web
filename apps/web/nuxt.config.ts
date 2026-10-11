@@ -10,6 +10,13 @@ export default defineNuxtConfig({
 
   css: ['@improve-personal/tokens/css', '~/assets/css/main.css'],
 
+  // Primitif UI tinggal di `components/ui/<Nama>/index.vue` dan dipakai tanpa prefix
+  // (`<Button>`). Folder `ui` dikecualikan dari pemindaian default yang ber-prefix path.
+  components: [
+    { path: '~/components', pathPrefix: true, ignore: ['ui/**'] },
+    { path: '~/components/ui', pathPrefix: false },
+  ],
+
   app: {
     head: {
       htmlAttrs: { lang: 'id' },

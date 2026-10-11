@@ -85,33 +85,38 @@ const input = (event: Event): string => (event.target as HTMLInputElement).value
         @input="patch(index, { end: input($event) })"
       />
       <span class="tools">
-        <button
-          type="button"
-          :aria-label="$t('goals.form.up', { n: index + 1 })"
+        <IconButton
+          tone="bare"
+          :size="32"
+          :radius="10"
+          :title="$t('goals.form.up', { n: index + 1 })"
           @click="move(index, -1)"
         >
           ↑
-        </button>
-        <button
-          type="button"
-          :aria-label="$t('goals.form.down', { n: index + 1 })"
+        </IconButton>
+        <IconButton
+          tone="bare"
+          :size="32"
+          :radius="10"
+          :title="$t('goals.form.down', { n: index + 1 })"
           @click="move(index, 1)"
         >
           ↓
-        </button>
-        <button
-          type="button"
-          class="remove"
-          :aria-label="$t('goals.form.removeChapter', { n: index + 1 })"
+        </IconButton>
+        <IconButton
+          tone="danger"
+          :size="32"
+          :radius="10"
+          :title="$t('goals.form.removeChapter', { n: index + 1 })"
           @click="remove(index)"
         >
           ×
-        </button>
+        </IconButton>
       </span>
     </div>
-    <button v-if="draft.chapters.length < GOAL_MAX_CHAPTERS" type="button" class="add" @click="add">
+    <Button v-if="draft.chapters.length < GOAL_MAX_CHAPTERS" variant="dashed" block @click="add">
       + {{ $t('goals.form.addChapter') }}
-    </button>
+    </Button>
   </fieldset>
 </template>
 
@@ -189,10 +194,6 @@ const input = (event: Event): string => (event.target as HTMLInputElement).value
   outline: none;
 }
 
-.field:focus-visible {
-  outline: 3px solid var(--accent);
-}
-
 .title {
   flex: 2 1 160px;
 }
@@ -206,33 +207,5 @@ const input = (event: Event): string => (event.target as HTMLInputElement).value
 .tools {
   display: flex;
   gap: 4px;
-}
-
-.tools button {
-  width: 32px;
-  height: 32px;
-  border: none;
-  border-radius: 10px;
-  background: var(--paper);
-  font-weight: 800;
-}
-
-.tools .remove {
-  background: #ffe1da;
-  color: #c2381a;
-}
-
-.add {
-  padding: 12px;
-  border: 2.5px dashed var(--dash-2);
-  border-radius: 18px;
-  background: none;
-  font-weight: 800;
-  font-size: 14px;
-  color: var(--mute);
-}
-
-.add:hover {
-  background: var(--alt);
 }
 </style>

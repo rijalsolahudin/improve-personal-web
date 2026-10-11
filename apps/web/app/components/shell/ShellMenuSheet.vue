@@ -2,76 +2,40 @@
 const emit = defineEmits<{ close: [] }>()
 
 const route = useRoute()
-const panel = useTemplateRef<HTMLElement>('panel')
-const groups = (['utama', 'rencana', 'fokus', 'lainnya'] as const).map((group) => ({
+const groups = (['utama', 'rencana', 'fokus'] as const).map((group) => ({
   group,
   items: featuresInGroup(group),
 }))
-
-function onKeydown(event: KeyboardEvent): void {
-  if (event.key === 'Escape') emit('close')
-}
-
-onMounted(() => {
-  panel.value?.querySelector<HTMLElement>('a')?.focus()
-  window.addEventListener('keydown', onKeydown)
-})
-onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 </script>
 
 <template>
-  <div class="scrim" aria-hidden="true" @click="emit('close')" />
-  <div
-    id="shell-menu"
-    ref="panel"
-    class="panel"
-    role="dialog"
-    aria-modal="true"
-    :aria-label="$t('shell.menu')"
-  >
-    <section v-for="{ group, items } in groups" :key="group" class="group">
-      <h2 class="group-title">{{ $t(`shell.group.${group}`) }}</h2>
-      <div class="grid">
-        <NuxtLink
-          v-for="feature in items"
-          :key="feature.id"
-          :to="feature.path"
-          class="item"
-          :aria-current="route.path === feature.path ? 'page' : undefined"
-          @click="emit('close')"
-        >
-          <UiAppIcon :glyph="feature.glyph" :color="feature.color" :size="38" />
-          <span class="label">{{ $t(`feature.${feature.id}.label`) }}</span>
-        </NuxtLink>
-      </div>
-    </section>
-  </div>
+  <Sheet id="shell-menu" :title="$t('shell.menu')" @close="emit('close')">
+    <div class="groups">
+      <section v-for="{ group, items } in groups" :key="group" class="group">
+        <h3 class="group-title">{{ $t(`shell.group.${group}`) }}</h3>
+        <div class="grid">
+          <NuxtLink
+            v-for="feature in items"
+            :key="feature.id"
+            :to="feature.path"
+            class="item"
+            :aria-current="route.path === feature.path ? 'page' : undefined"
+            @click="emit('close')"
+          >
+            <AppIcon :glyph="feature.glyph" :color="feature.color" :size="38" />
+            <span class="label">{{ $t(`feature.${feature.id}.label`) }}</span>
+          </NuxtLink>
+        </div>
+      </section>
+    </div>
+  </Sheet>
 </template>
 
 <style scoped>
-.scrim {
-  position: fixed;
-  inset: 0;
-  z-index: 96;
-  background: var(--scrim);
-}
-
-.panel {
-  position: fixed;
-  left: 10px;
-  right: 10px;
-  bottom: 96px;
-  z-index: 97;
-  max-height: 70vh;
-  overflow-y: auto;
+.groups {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  padding: 14px 14px 10px;
-  background: var(--paper);
-  border: var(--border-thick) solid var(--ink);
-  border-radius: 28px;
-  box-shadow: 0 8px 0 rgba(47, 42, 36, 0.15);
 }
 
 .group {

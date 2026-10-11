@@ -25,12 +25,6 @@ export function createHomeMock(now: number): HomeSnapshot {
         { id: 'c3', title: 'Tryout', progress: 0 },
       ],
     },
-    countdowns: [
-      { id: 'cd1', title: 'Ulang tahun Ibu', at: daysFromNow(12), tint: '#FCE0F2', ink: '#B02A6A' },
-      { id: 'cd2', title: 'Ujian AWS SAA', at: daysFromNow(41), tint: '#F7C6DA', ink: '#8E2A5A' },
-      { id: 'cd3', title: 'Liburan Bali', at: daysFromNow(73), tint: '#C7E3EE', ink: '#1E5D78' },
-      { id: 'cd4', title: 'Gajian', at: daysFromNow(18), tint: '#CDE8C6', ink: '#2E6A26' },
-    ],
     productiveStreak: 12,
   }
 }

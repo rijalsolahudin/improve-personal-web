@@ -1,3 +1,4 @@
+import { countdownTarget, countdownTint } from '~/utils/countdown'
 import { nextOccurrence, occurrenceStartMs, occurrencesOn, type Occurrence } from '~/utils/schedule'
 import { MS_PER_DAY, MS_PER_HOUR, MS_PER_MINUTE, daysUntil, toIsoDate } from '~/utils/time'
 
@@ -82,10 +83,27 @@ export function useHomeDashboard() {
     return value ? { ...value, daysLeft: daysUntil(value.endsAt, now.value) } : null
   })
 
+  // Countdown dari store bersama (F5); Home menampilkan yang belum lewat, terdekat dulu.
+  const countdownStore = useCountdowns()
   const countdowns = computed(() =>
-    [...snapshot.value.countdowns]
+    countdownStore.countdowns.value
+      .map((countdown) => ({ countdown, at: countdownTarget(countdown, now.value) }))
+      .filter(
+        ({ countdown, at }) =>
+          !countdown.archived && at + (countdown.time ? 0 : MS_PER_DAY) > now.value,
+      )
       .sort((a, b) => a.at - b.at)
-      .map((item) => ({ ...item, daysLeft: daysUntil(item.at, now.value) })),
+      .map(({ countdown, at }) => {
+        const [tint, ink] = countdownTint(countdown.color)
+        return {
+          id: countdown.id,
+          title: countdown.title,
+          at,
+          tint,
+          ink,
+          daysLeft: daysUntil(at, now.value),
+        }
+      }),
   )
 
   const memoStore = useMemos()

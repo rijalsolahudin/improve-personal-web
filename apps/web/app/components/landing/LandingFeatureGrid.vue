@@ -29,7 +29,7 @@ const features = SHOWCASE.map(getFeature)
     </div>
     <ul class="grid">
       <li v-for="feature in features" :key="feature.id" class="card">
-        <UiAppIcon :glyph="feature.glyph" :color="feature.color" :size="52" />
+        <AppIcon :glyph="feature.glyph" :color="feature.color" :size="52" />
         <div>
           <h3 class="name">{{ $t(`feature.${feature.id}.label`) }}</h3>
           <p class="desc">{{ $t(`landing.features.desc.${feature.id}`) }}</p>

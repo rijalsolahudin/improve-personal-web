@@ -107,10 +107,6 @@ const entries = computed(() => memosOn(matching.value, selected.value))
   outline: none;
 }
 
-.search:focus-visible {
-  outline: 3px solid var(--accent);
-}
-
 .pages {
   display: flex;
   flex-direction: column;

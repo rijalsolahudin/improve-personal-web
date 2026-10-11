@@ -20,7 +20,7 @@ const emailModel = computed({ get: () => flow.email.value, set: flow.setEmail })
         :aria-busy="flow.isGooglePending.value"
         @click="flow.loginWithGoogle"
       >
-        <UiSpinner v-if="flow.isGooglePending.value" />
+        <Spinner v-if="flow.isGooglePending.value" />
         <svg v-else width="20" height="20" viewBox="0 0 48 48" aria-hidden="true">
           <path
             fill="#FFC107"

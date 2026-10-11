@@ -1,28 +1,44 @@
 <script setup lang="ts">
-import type { HomeTask } from '~/composables/home/types'
+import type { Priority } from '~/utils/tasks'
 
-const { task, now } = defineProps<{ task: HomeTask; now: number }>()
-const emit = defineEmits<{ toggle: [] }>()
+const {
+  title,
+  priority = 'medium',
+  meta = undefined,
+  done = false,
+  overdue = false,
+  variant = 'inset',
+  label = undefined,
+} = defineProps<{
+  title: string
+  priority?: Priority
+  /** Sisa waktu, mis. "Sisa 3 jam". */
+  meta?: string
+  done?: boolean
+  overdue?: boolean
+  /** inset = baris di dalam kartu paper; card = baris berdiri sendiri. */
+  variant?: 'inset' | 'card'
+  label?: string
+}>()
+
+defineEmits<{ toggle: [] }>()
 
 const { t } = useI18n()
-const formatTimeLeft = useTimeLeft()
-
-const isOverdue = computed(() => !task.done && task.deadline !== null && task.deadline < now)
-const timeLeft = computed(() => (task.done ? t('time.done') : formatTimeLeft(task.deadline, now)))
+const checkLabel = computed(() => label ?? t('home.todo.toggle', { title }))
 </script>
 
 <template>
-  <li class="row" :class="{ done: task.done }" @click="emit('toggle')">
-    <UiCheckbox
-      :checked="task.done"
-      :label="$t('home.todo.toggle', { title: task.title })"
-      @toggle="emit('toggle')"
-    />
+  <li
+    class="row"
+    :class="[`row-${variant}`, { done }]"
+    @click="variant === 'inset' && $emit('toggle')"
+  >
+    <Checkbox :checked="done" :label="checkLabel" @toggle="$emit('toggle')" />
     <div class="body">
-      <span class="title">{{ task.title }}</span>
+      <span class="title">{{ title }}</span>
       <span class="meta">
-        <UiPriorityBadge :level="task.priority" />
-        <span class="left" :class="{ overdue: isOverdue }">{{ timeLeft }}</span>
+        <PriorityBadge :level="priority" />
+        <span v-if="meta" class="left" :class="{ overdue: overdue && !done }">{{ meta }}</span>
       </span>
     </div>
   </li>
@@ -33,14 +49,25 @@ const timeLeft = computed(() => (task.done ? t('time.done') : formatTimeLeft(tas
   display: flex;
   align-items: center;
   gap: 14px;
-  padding: 12px 14px;
-  border-radius: var(--radius-row);
-  background: var(--alt);
   cursor: pointer;
 }
 
-.row:hover {
+.row-inset {
+  padding: 12px 14px;
+  border-radius: var(--radius-row);
+  background: var(--alt);
+}
+
+.row-inset:hover {
   background: var(--hover);
+}
+
+.row-card {
+  padding: 8px 12px;
+  border: 2px solid var(--line);
+  border-radius: var(--radius-row);
+  background: var(--paper);
+  cursor: default;
 }
 
 .body {
@@ -85,6 +112,9 @@ const timeLeft = computed(() => (task.done ? t('time.done') : formatTimeLeft(tas
   .row {
     min-height: 52px;
     gap: 12px;
+  }
+
+  .row-inset {
     padding: 6px 12px;
     border-radius: var(--radius-btn-sq);
   }

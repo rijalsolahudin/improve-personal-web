@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { SegmentedOption } from '~/components/ui/UiSegmented.vue'
+import type { SegmentedOption } from '~/components/ui/Segmented/index.vue'
 import { CALENDAR_VIEWS, type CalendarView } from '~/utils/schedule'
 
 const { rangeLabel } = defineProps<{ rangeLabel: string }>()
@@ -20,30 +20,12 @@ const viewOptions = computed<SegmentedOption<CalendarView>[]>(() =>
     </div>
     <div class="controls">
       <div class="nav">
-        <button
-          type="button"
-          class="square"
-          :aria-label="$t('calendar.prev')"
-          @click="$emit('prev')"
-        >
-          ‹
-        </button>
-        <button type="button" class="today" @click="$emit('today')">
-          {{ $t('calendar.today') }}
-        </button>
-        <button
-          type="button"
-          class="square"
-          :aria-label="$t('calendar.next')"
-          @click="$emit('next')"
-        >
-          ›
-        </button>
+        <IconButton :title="$t('calendar.prev')" @click="$emit('prev')">‹</IconButton>
+        <Button variant="outline" @click="$emit('today')">{{ $t('calendar.today') }}</Button>
+        <IconButton :title="$t('calendar.next')" @click="$emit('next')">›</IconButton>
       </div>
-      <UiSegmented v-model="view" :options="viewOptions" :label="$t('calendar.viewLabel')" framed />
-      <button type="button" class="create" @click="$emit('create')">
-        + {{ $t('calendar.newSchedule') }}
-      </button>
+      <Segmented v-model="view" :options="viewOptions" :label="$t('calendar.viewLabel')" framed />
+      <Button variant="primary" @click="$emit('create')">+ {{ $t('calendar.newSchedule') }}</Button>
     </div>
   </header>
 </template>
@@ -81,43 +63,6 @@ const viewOptions = computed<SegmentedOption<CalendarView>[]>(() =>
 .nav {
   display: flex;
   gap: 6px;
-}
-
-.square,
-.today {
-  height: 44px;
-  flex-shrink: 0;
-  border: 2.5px solid var(--ink);
-  border-radius: 16px;
-  background: var(--paper);
-  font-weight: 800;
-}
-
-.square {
-  width: 44px;
-  font-size: 18px;
-}
-
-.today {
-  padding: 0 16px;
-  font-size: 14px;
-  white-space: nowrap;
-}
-
-.create {
-  height: 44px;
-  padding: 0 20px;
-  border: none;
-  border-radius: var(--radius-pill);
-  background: var(--accent);
-  color: var(--paper);
-  font-weight: 800;
-  font-size: 15px;
-  white-space: nowrap;
-}
-
-.create:hover {
-  background: var(--deeper);
 }
 
 @media (max-width: 599px) {

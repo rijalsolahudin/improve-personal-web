@@ -43,7 +43,7 @@ const fontSize = computed(() => `${Math.round(size * (isIcon.value ? 0.54 : 0.8)
 
 <template>
   <span class="sticker" :style="boxStyle" :title="sticker?.name ?? $t('deco.unknown')">
-    <UiMascotCanvas
+    <MascotCanvas
       v-if="mascot"
       :parts="mascot.parts"
       :has-blush="mascot.hasBlush"

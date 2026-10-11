@@ -19,6 +19,14 @@ const emit = defineEmits<{ close: []; saved: [date: string] }>()
 const SCOPES: readonly EditScope[] = ['this', 'following', 'all']
 const TIME_MODES = ['end', 'dur'] as const
 
+const { t } = useI18n()
+const timeModeOptions = computed(() =>
+  TIME_MODES.map((value) => ({ value, label: t(`calendar.form.mode.${value}`) })),
+)
+const scopeOptions = computed(() =>
+  SCOPES.map((value) => ({ value, label: t(`calendar.form.scope.${value}`) })),
+)
+
 const { findSchedule, save, remove } = useSchedules()
 const original = target.mode === 'edit' ? findSchedule(target.id) : undefined
 const isRecurring = original !== undefined && original.rec.type !== 'once'
@@ -90,9 +98,15 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
         <h2 id="schedule-form-title" class="heading">
           {{ $t(original ? 'calendar.form.editTitle' : 'calendar.form.newTitle') }}
         </h2>
-        <button type="button" class="close" :aria-label="$t('common.close')" @click="emit('close')">
+        <IconButton
+          tone="plain"
+          :size="40"
+          :radius="14"
+          :title="$t('common.close')"
+          @click="emit('close')"
+        >
           ×
-        </button>
+        </IconButton>
       </div>
 
       <label class="field-wrap">
@@ -144,17 +158,12 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
       </div>
 
       <div>
-        <div class="pills" role="group" :aria-label="$t('calendar.form.timeMode')">
-          <button
-            v-for="mode in TIME_MODES"
-            :key="mode"
-            type="button"
-            :aria-pressed="draft.timeMode === mode"
-            @click="draft.timeMode = mode"
-          >
-            {{ $t(`calendar.form.mode.${mode}`) }}
-          </button>
-        </div>
+        <Segmented
+          v-model="draft.timeMode"
+          class="seg-time"
+          :options="timeModeOptions"
+          :label="$t('calendar.form.timeMode')"
+        />
         <input
           v-if="draft.timeMode === 'end'"
           v-model="draft.end"
@@ -181,32 +190,26 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 
       <div v-if="isRecurring" class="scope">
         <p class="scope-label">{{ $t('calendar.form.scopeTitle') }}</p>
-        <div class="pills paper" role="group" :aria-label="$t('calendar.form.scopeTitle')">
-          <button
-            v-for="option in SCOPES"
-            :key="option"
-            type="button"
-            :aria-pressed="scope === option"
-            @click="scope = option"
-          >
-            {{ $t(`calendar.form.scope.${option}`) }}
-          </button>
-        </div>
+        <Segmented
+          v-model="scope"
+          class="seg-scope"
+          framed
+          :options="scopeOptions"
+          :label="$t('calendar.form.scopeTitle')"
+        />
       </div>
 
       <p v-if="error" class="error" role="alert">{{ $t(`calendar.form.error.${error}`) }}</p>
 
       <div class="actions">
         <template v-if="original">
-          <button type="button" class="delete" @click="onDelete">{{ $t(deleteLabel) }}</button>
+          <Button variant="danger" @click="onDelete">{{ $t(deleteLabel) }}</Button>
           <span class="spacer" />
         </template>
-        <button type="button" class="cancel" @click="emit('close')">
-          {{ $t('calendar.form.cancel') }}
-        </button>
-        <button type="submit" class="save">
+        <Button variant="soft" @click="emit('close')">{{ $t('calendar.form.cancel') }}</Button>
+        <Button type="submit" variant="primary">
           {{ $t(original ? 'calendar.form.saveEdit' : 'calendar.form.saveNew') }}
-        </button>
+        </Button>
       </div>
     </form>
   </div>
@@ -250,16 +253,6 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
   font-size: 26px;
 }
 
-.close {
-  width: 40px;
-  height: 40px;
-  border: none;
-  border-radius: 14px;
-  background: var(--chip);
-  font-weight: 800;
-  font-size: 18px;
-}
-
 .field-wrap,
 .group {
   display: flex;
@@ -289,10 +282,6 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
   font-weight: 700;
   font-size: 15px;
   outline: none;
-}
-
-.field:focus-visible {
-  outline: 3px solid var(--accent);
 }
 
 .field[aria-invalid='true'] {
@@ -326,36 +315,13 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
   gap: 12px;
 }
 
-.pills {
+.seg-time {
   width: fit-content;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 2px;
   margin-bottom: 8px;
-  padding: 4px;
-  border-radius: var(--radius-pill);
-  background: var(--chip);
 }
 
-.pills.paper {
-  margin-bottom: 0;
-  background: var(--paper);
-}
-
-.pills button {
-  padding: 8px 14px;
-  border: none;
-  border-radius: var(--radius-pill);
-  background: transparent;
-  color: var(--mute-2);
-  font-weight: 800;
-  font-size: 14px;
-  white-space: nowrap;
-}
-
-.pills button[aria-pressed='true'] {
-  background: var(--accent);
-  color: var(--paper);
+.seg-scope {
+  width: fit-content;
 }
 
 .dur {
@@ -404,30 +370,6 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 
 .spacer {
   flex: 1;
-}
-
-.actions button {
-  padding: 13px 22px;
-  border: none;
-  border-radius: var(--radius-pill);
-  font-weight: 800;
-  font-size: 15px;
-}
-
-.actions .delete {
-  padding: 11px 18px;
-  border: 2px solid #f3a99a;
-  background: transparent;
-  color: #c2381a;
-}
-
-.cancel {
-  background: var(--chip);
-}
-
-.save {
-  background: var(--accent);
-  color: var(--paper);
 }
 
 @media (max-width: 599px) {

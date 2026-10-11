@@ -27,7 +27,8 @@ apps/web/
 
 ## Penamaan
 
-- Komponen: PascalCase, minimal 2 kata (`UserCard.vue`, bukan `Card.vue`); primitif UI prefix `Base`/`Ui`.
+- Komponen domain: PascalCase, minimal 2 kata (`TodoRow.vue`, bukan `Row.vue`), di `components/<domain>/`.
+- Primitif UI: satu folder per komponen - `components/ui/<Nama>/index.vue` - nama polos tanpa prefix (`Button`, `Card`, `Chip`). Dipakai tanpa prefix karena `components` di `nuxt.config.ts` mematikan `pathPrefix` untuk folder `ui`.
 - Composable: `useXxx.ts`, satu composable utama per file, nama file = nama fungsi.
 - Store Pinia: `useXxxStore` di `stores/xxx.ts`.
 - Pages & route: kebab-case (`pages/user-settings.vue`).

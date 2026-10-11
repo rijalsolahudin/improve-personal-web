@@ -68,6 +68,5 @@ export interface HomeMemo {
 
 export interface HomeSnapshot {
   goal: HomeGoal | null
-  countdowns: HomeCountdown[]
   productiveStreak: number
 }

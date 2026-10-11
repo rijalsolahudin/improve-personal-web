@@ -352,6 +352,149 @@
       }
     }
   },
+  "countdown": {
+    "new": "Momen baru",
+    "summary": "{count} momen akan datang",
+    "summaryNext": "{count} momen akan datang · terdekat: {title}",
+    "left": "{text} lagi",
+    "past": "Sudah lewat {text}",
+    "justNow": "Baru saja lewat",
+    "today": "Hari ini! 🎉",
+    "heroEyebrow": "Momen terdekat",
+    "upcomingTitle": "Akan datang",
+    "pastTitle": "Sudah lewat",
+    "emptyUpcoming": "Belum ada momen. Tandai hari spesialmu, nanti muncul di kalender juga.",
+    "archive": "Arsipkan",
+    "unarchive": "Kembalikan",
+    "showArchive": "Lihat arsip ({n})",
+    "hideArchive": "Sembunyikan arsip ({n})",
+    "unit": {
+      "tahun": "{n} tahun",
+      "bulan": "{n} bulan",
+      "hari": "{n} hari",
+      "jam": "{n} jam",
+      "menit": "{n} menit",
+      "detik": "{n} detik"
+    },
+    "tile": {
+      "hari": "hari",
+      "jam": "jam",
+      "menit": "menit",
+      "detik": "detik"
+    },
+    "sub": {
+      "yearly": "Tiap tahun",
+      "yearlyNth": "Tiap tahun · yang ke-{n}",
+      "once": "Sekali"
+    },
+    "form": {
+      "newTitle": "Momen baru",
+      "editTitle": "Edit momen",
+      "previewFallback": "Nama momen",
+      "title": "Nama momen",
+      "titlePlaceholder": "Mis. Ulang tahun Mama",
+      "date": "Tanggal",
+      "time": "Jam",
+      "allDay": "Sepanjang hari",
+      "useTime": "+ Pakai jam",
+      "yearly": "Ulang tiap tahun",
+      "yearlyHint": "Cocok buat ulang tahun & anniversary",
+      "decor": "Sticker & warna",
+      "emojiN": "Emoji {emoji}",
+      "colorN": "Warna {n}",
+      "delete": "Hapus",
+      "deleteConfirm": "Yakin hapus?",
+      "cancel": "Batal",
+      "saveNew": "Buat countdown",
+      "saveEdit": "Simpan perubahan",
+      "error": {
+        "titleRequired": "Nama momen wajib diisi.",
+        "titleTooLong": "Nama momen maksimal 80 karakter.",
+        "dateRequired": "Pilih tanggalnya dulu.",
+        "pastDate": "Tanggal ini sudah lewat. Pilih tanggal mendatang atau nyalakan \"Ulang tiap tahun\"."
+      }
+    }
+  },
+  "overview": {
+    "rangeLabel": "Rentang waktu",
+    "statsLabel": "Ringkasan angka",
+    "range": {
+      "keseluruhan": "Keseluruhan",
+      "harian": "Harian",
+      "pekanan": "Pekanan",
+      "bulanan": "Bulanan",
+      "tahunan": "Tahunan",
+      "year": "Tahun {year}",
+      "allTime": "Keseluruhan · sejak Jan {year}"
+    },
+    "minutesShort": "{n} mnt",
+    "perHour": "per jam",
+    "perDay": "per hari",
+    "perMonth": "per bulan",
+    "best": "terbaik",
+    "focus": {
+      "title": "Menit fokus"
+    },
+    "stat": {
+      "focus": "Menit fokus",
+      "focusSub": "total Pomodoro",
+      "sessions": "Sesi fokus",
+      "sessionsSub": "tiap {minutes} menit",
+      "habit": "Habit tercapai",
+      "habitSub": "completion rate",
+      "done": "Task selesai",
+      "doneSub": "total saat ini",
+      "late": "Task terlambat",
+      "lateSub": "lewat deadline"
+    },
+    "streak": {
+      "title": "Streak",
+      "note": "Aktif saat ini",
+      "noteBest": "Rekor sepanjang masa",
+      "productive": "hari produktif",
+      "productiveBest": "rekor hari produktif",
+      "memo": "hari nulis memo",
+      "memoBest": "rekor nulis memo",
+      "days": "hari",
+      "record": "rekor {n}"
+    },
+    "heatmap": {
+      "title": "Habit heatmap",
+      "rate": "{name} · {rate}% tercapai (20 minggu)",
+      "none": "Kosong",
+      "met": "Tercapai",
+      "empty": "Belum ada habit. Bikin dulu di halaman Habit."
+    },
+    "mood": {
+      "title": "Tren mood",
+      "high": "mood di hari fokus tinggi",
+      "low": "mood di hari fokus rendah",
+      "today": "hari ini"
+    },
+    "eisenhower": {
+      "title": "Distribusi Eisenhower",
+      "fire": "Kuadran Kerjakan lebih banyak dari Jadwalkan. Lagi sering mode pemadam kebakaran, coba rencanakan lebih awal.",
+      "balanced": "Seimbang. Kamu lebih banyak ngerjain hal penting sebelum jadi mendesak."
+    },
+    "scheduled": {
+      "title": "Waktu terjadwal",
+      "empty": "Belum ada jadwal di rentang ini."
+    },
+    "goals": {
+      "title": "Progress goal",
+      "running": "Berjalan: {title}",
+      "noChapter": "Tidak ada chapter berjalan",
+      "none": "Belum ada goal aktif."
+    },
+    "late": {
+      "title": "Task terlambat",
+      "empty": "Aman, nggak ada yang telat."
+    },
+    "countdown": {
+      "title": "Countdown terdekat",
+      "empty": "Belum ada momen."
+    }
+  },
   "goals": {
     "new": "Goal baru",
     "summary": "{active} goal aktif · {done} selesai",

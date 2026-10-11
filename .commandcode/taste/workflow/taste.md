@@ -3,12 +3,20 @@
 ## Task handling
 - Wants every work task tracked in Ergonio (project `personal-productivity`) via the `ergonio` skill: create the task before working and keep updating it. Confidence: 0.9
 - Prefers direct execution and explicitly asks to skip the automated workflow pipeline ("jgn pake workflow kamu langsung aja"). Confidence: 0.85
-- Prefers work done inline without subagents when the task allows it ("jgn apke sub agent", "langsung aja"). Confidence: 0.75
+- Expects the named specialist subagents to be delegated to by role instead of the agent doing everything inline — asks why they weren't used ("kok kamu gk pake subagent tad ya si bayu dll?"); e.g. hands FE work to `dimas` then verifies itself. Confidence: 0.8
 - Wants spec/plan documents updated first, then implementation follows. Confidence: 0.75
 - Prefers additive, non-destructive file changes: new or consolidated artifacts are added as an alternative and existing files/folders are left intact ("yg pisah2 ini gk usah dihapus alternative aja"). Confidence: 0.75
+- Treats an existing feature silently disappearing (e.g. after a refactor/working-tree change) as an urgent regression: expects it root-caused and restored right away, not just noted ("kok fitur hias hilang ya, perbaiki dong"). Confidence: 0.65
 
 ## Project conventions
 - Every change must satisfy the three pillars — Keamanan, Performa, Kerapian — with any deliberate trade-off written down explicitly. Confidence: 0.9
 - Keeps project-level rules in `.claude` folders, with the high-level pillars in the root CLAUDE.md and the per-app security/performance/tidiness details written by the security and system-analyst agents. Confidence: 0.75
+- Keeps his own rule files consistent with the code: when a rule (e.g. a naming convention) conflicts with the desired architecture, he updates the rule rather than leaving a rule the repo itself violates. Confidence: 0.6
 - Likes a roster of specialist agents per role (FE, BE, QA, mobile, security, system-analyst), each an expert in its field. Confidence: 0.7
-- Assigns model tiers deliberately to agent roles: Opus for frontend, Sonnet for backend/QA (all Sonnet 5.5 generation). Confidence: 0.6
+- Prefers one cheap model pinned across all specialist agents (`deepseek/deepseek-v4.1-flash`) rather than premium per-role model tiers — cost/plan limits beat role-based model assignment (earlier Opus/Sonnet split was dropped for this). Confidence: 0.7
+- When a pinned model errors out (e.g. needs a higher plan tier), wants the agent kept working on an available model instead of the config being dropped. Confidence: 0.6
+- Works with Claude Code and Command Code on the same project and expects both toolchains to share one rules/skills setup instead of maintaining two parallel copies. Confidence: 0.75
+- Avoids duplicating tool config: prefers pointing a tool at the existing `.claude` config (reference / import / link) over copying files across (".claude buat commandcode juga... gk usah salin"). Confidence: 0.8
+- When no reference/link mechanism is supported by a tool (e.g. Command Code agent definitions), prefers converting the config into that tool's native format over junctions/symlinks — it's worth some duplication to keep it actually working and portable in git. Confidence: 0.6
+- Keeps always-loaded agent memory lean: small rule files are `@`-imported, but large docs (ARCHITECTURE.md, PRD) are cited by path for on-demand reading instead of being imported, to avoid burning tokens every turn. Confidence: 0.6
+- Registers MCP servers that carry credentials in a project-local (non-committed) scope so tokens never land in git. Confidence: 0.6

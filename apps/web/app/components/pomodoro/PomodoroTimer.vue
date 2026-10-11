@@ -69,9 +69,13 @@ const dots = computed(() =>
     </div>
 
     <div class="controls">
-      <button type="button" class="ctrl" @click="pomodoro.reset">{{ $t('pomodoro.reset') }}</button>
+      <Button variant="outline" class="ctrl" @click="pomodoro.reset">
+        {{ $t('pomodoro.reset') }}
+      </Button>
       <button type="button" class="ctrl main" @click="pomodoro.toggle">{{ toggleLabel }}</button>
-      <button type="button" class="ctrl" @click="pomodoro.skip">{{ $t('pomodoro.skip') }}</button>
+      <Button variant="outline" class="ctrl" @click="pomodoro.skip">
+        {{ $t('pomodoro.skip') }}
+      </Button>
     </div>
 
     <PomodoroTarget />

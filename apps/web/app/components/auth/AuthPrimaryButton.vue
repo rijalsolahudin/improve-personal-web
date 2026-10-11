@@ -13,7 +13,7 @@ const {
 
 <template>
   <button :type="type" class="primary" :class="{ dimmed: isDimmed }" :aria-busy="isLoading">
-    <UiSpinner v-if="isLoading" light />
+    <Spinner v-if="isLoading" light />
     <slot />
   </button>
 </template>

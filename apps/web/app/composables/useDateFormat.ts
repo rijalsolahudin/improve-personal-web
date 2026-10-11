@@ -30,5 +30,8 @@ export function useDateFormat() {
     monthYear: (ms: number) => format(ms, { month: 'long', year: 'numeric' }),
     /** "9 Okt" */
     dayMonth: (ms: number) => format(ms, { day: 'numeric', month: 'short' }),
+    /** "Sen, 9 Oktober 2026" */
+    shortDateYear: (ms: number) =>
+      format(ms, { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' }),
   }
 }

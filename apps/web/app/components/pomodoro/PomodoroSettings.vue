@@ -16,15 +16,16 @@ const pomodoro = usePomodoro()
     <ul class="rows">
       <li v-for="key in POMODORO_SETTINGS" :key="key" class="row">
         <span class="label">{{ $t(`pomodoro.setting.${key}`) }}</span>
-        <button
-          type="button"
-          class="step"
+        <IconButton
+          tone="plain"
+          :size="34"
+          :radius="12"
           :disabled="pomodoro.config.value[key] <= POMODORO_LIMITS[key][0]"
-          :aria-label="$t('pomodoro.decrease', { setting: $t(`pomodoro.setting.${key}`) })"
+          :title="$t('pomodoro.decrease', { setting: $t(`pomodoro.setting.${key}`) })"
           @click="pomodoro.adjust(key, -1)"
         >
           −
-        </button>
+        </IconButton>
         <span class="value" aria-live="polite">
           {{
             $t(key === 'every' ? 'pomodoro.times' : 'pomodoro.minutesShort', {
@@ -32,29 +33,24 @@ const pomodoro = usePomodoro()
             })
           }}
         </span>
-        <button
-          type="button"
-          class="step"
+        <IconButton
+          tone="plain"
+          :size="34"
+          :radius="12"
           :disabled="pomodoro.config.value[key] >= POMODORO_LIMITS[key][1]"
-          :aria-label="$t('pomodoro.increase', { setting: $t(`pomodoro.setting.${key}`) })"
+          :title="$t('pomodoro.increase', { setting: $t(`pomodoro.setting.${key}`) })"
           @click="pomodoro.adjust(key, 1)"
         >
           +
-        </button>
+        </IconButton>
       </li>
       <li class="row">
         <span class="label">{{ $t('pomodoro.sound') }}</span>
-        <button
-          type="button"
-          role="switch"
-          class="switch"
-          :class="{ on: pomodoro.isSoundOn.value }"
-          :aria-checked="pomodoro.isSoundOn.value"
+        <Toggle
+          :on="pomodoro.isSoundOn.value"
           :aria-label="$t('pomodoro.sound')"
           @click="pomodoro.toggleSound"
-        >
-          <span />
-        </button>
+        />
       </li>
     </ul>
   </section>
@@ -96,56 +92,11 @@ const pomodoro = usePomodoro()
   font-size: 14px;
 }
 
-.step {
-  width: 34px;
-  height: 34px;
-  border: none;
-  border-radius: 12px;
-  background: var(--chip);
-  font-weight: 800;
-  font-size: 18px;
-}
-
-.step:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
 .value {
   width: 64px;
   text-align: center;
   font-family: var(--font-display);
   font-weight: 800;
   font-size: 18px;
-}
-
-.switch {
-  position: relative;
-  width: 52px;
-  height: 30px;
-  padding: 0;
-  border: 2.5px solid var(--ink);
-  border-radius: var(--radius-pill);
-  background: #e3cfaf;
-}
-
-.switch > span {
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 21px;
-  height: 21px;
-  border: 2px solid var(--ink);
-  border-radius: 50%;
-  background: var(--paper);
-  transition: transform var(--dur) var(--ease);
-}
-
-.switch.on {
-  background: var(--accent);
-}
-
-.switch.on > span {
-  transform: translateX(22px);
 }
 </style>

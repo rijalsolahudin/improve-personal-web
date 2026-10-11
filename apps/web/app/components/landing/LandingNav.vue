@@ -1,6 +1,6 @@
 <template>
   <nav class="nav" :aria-label="$t('landing.nav.label')">
-    <NuxtLink to="/" class="home-link"><UiBrandMark wordmark="inline" /></NuxtLink>
+    <NuxtLink to="/" class="home-link"><BrandMark wordmark="inline" /></NuxtLink>
     <div class="links">
       <a href="#fitur" class="link">{{ $t('landing.nav.features') }}</a>
       <a href="#cara" class="link">{{ $t('landing.nav.how') }}</a>

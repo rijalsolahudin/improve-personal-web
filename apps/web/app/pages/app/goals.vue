@@ -76,9 +76,7 @@ function onCoverCleared(): void {
         <h1 class="title">{{ $t('feature.goals.label') }}</h1>
         <p class="summary">{{ summary }}</p>
       </div>
-      <button type="button" class="new" @click="form = { id: null }">
-        + {{ $t('goals.new') }}
-      </button>
+      <Button variant="primary" @click="form = { id: null }">+ {{ $t('goals.new') }}</Button>
     </header>
 
     <GoalFilters v-model:status="status" v-model:category="category" />
@@ -155,20 +153,6 @@ function onCoverCleared(): void {
   font-weight: 700;
   font-size: 16px;
   color: var(--mute);
-}
-
-.new {
-  padding: 14px 24px;
-  border: none;
-  border-radius: var(--radius-pill);
-  background: var(--accent);
-  color: var(--paper);
-  font-weight: 800;
-  font-size: 16px;
-}
-
-.new:hover {
-  background: var(--deeper);
 }
 
 .layout {

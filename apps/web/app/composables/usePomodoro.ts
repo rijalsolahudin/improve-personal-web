@@ -18,6 +18,7 @@ import {
   type PomodoroPhase,
   type PomodoroSetting,
 } from '~/utils/pomodoro'
+import { MS_PER_MINUTE } from '~/utils/time'
 
 /** Preferensi (bukan data sensitif) → localStorage, divalidasi saat dibaca. */
 export const POMODORO_CONFIG_KEY = 'ip-pomo-config'
@@ -53,25 +54,50 @@ function readConfig(): PomodoroConfig {
   }
 }
 
-/** Riwayat contoh fase 1 (design: dua sesi pagi ini). Diganti repository lokal (packages/core). */
+/** Riwayat contoh fase 1 (design: dua sesi pagi ini + riwayat hari sebelumnya). Diganti repository lokal (packages/core). */
+const HISTORY_DAYS = 90
+const HISTORY_TARGETS = ['Belajar AWS', 'Nulis laporan', 'Baca buku', 'Latihan soal', 'Rapikan catatan']
+const HISTORY_DURATIONS = [25, 25, 25, 50]
+
 function seedHistory(now: number): FocusSession[] {
-  const at = (hour: number, minute: number): number => new Date(now).setHours(hour, minute, 0, 0)
+  const at = (dayOffset: number, hour: number, minute: number): number =>
+    new Date(new Date(now).setDate(new Date(now).getDate() - dayOffset)).setHours(hour, minute, 0, 0)
   const sessions: FocusSession[] = [
     {
       id: 'p2',
-      startedAt: at(10, 0),
-      endedAt: at(10, 25),
+      startedAt: at(0, 10, 0),
+      endedAt: at(0, 10, 25),
       target: 'Kirim draft laporan',
       status: 'selesai',
     },
     {
       id: 'p1',
-      startedAt: at(9, 30),
-      endedAt: at(9, 55),
+      startedAt: at(0, 9, 30),
+      endedAt: at(0, 9, 55),
       target: 'Selesai modul 4 — VPC',
       status: 'selesai',
     },
   ]
+  // Riwayat deterministik (pseudo-random ber-seed) untuk hari-hari sebelumnya.
+  let seed = 20_261_011
+  const random = (): number => {
+    seed = (seed * 9301 + 49_297) % 233_280
+    return seed / 233_280
+  }
+  for (let offset = 1; offset <= HISTORY_DAYS; offset += 1) {
+    const count = Math.floor(random() * 5)
+    for (let index = 0; index < count; index += 1) {
+      const startedAt = at(offset, 7 + Math.floor(random() * 14), [0, 15, 30, 45][Math.floor(random() * 4)] ?? 0)
+      const duration = HISTORY_DURATIONS[Math.floor(random() * HISTORY_DURATIONS.length)] ?? 25
+      sessions.push({
+        id: `p${offset}-${index}`,
+        startedAt,
+        endedAt: startedAt + duration * MS_PER_MINUTE,
+        target: HISTORY_TARGETS[Math.floor(random() * HISTORY_TARGETS.length)] ?? 'Fokus',
+        status: 'selesai',
+      })
+    }
+  }
   return sessions.filter((session) => session.endedAt <= now)
 }
 

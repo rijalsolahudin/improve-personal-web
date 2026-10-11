@@ -42,7 +42,7 @@ const daysLeftLabel = computed(() => {
         <h2 id="goal-hero-title" class="title">{{ goal.title }}</h2>
         <p v-if="goal.why" class="why">“{{ goal.why }}”</p>
       </div>
-      <UiProgressRing
+      <ProgressRing
         :percent="progress"
         :size="108"
         :hole="0.74"
@@ -53,7 +53,7 @@ const daysLeftLabel = computed(() => {
           <span class="ring-pct">{{ progress }}%</span>
           <span class="ring-sub">{{ $t('goals.progress') }}</span>
         </span>
-      </UiProgressRing>
+      </ProgressRing>
     </div>
     <div class="actions">
       <NuxtLink :to="getFeature('countdown').path" class="btn solid">

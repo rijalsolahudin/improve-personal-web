@@ -5,7 +5,15 @@ import { useHomeDashboard } from './useHomeDashboard'
 
 describe('useHomeDashboard', () => {
   beforeEach(() => {
-    clearNuxtState(['home-dashboard', 'tasks', 'schedules', 'goals', 'habits', 'memos'])
+    clearNuxtState([
+      'home-dashboard',
+      'tasks',
+      'schedules',
+      'goals',
+      'habits',
+      'memos',
+      'countdowns',
+    ])
   })
 
   it('To-do hari ini = task dengan deadline < 24 jam (termasuk terlambat)', () => {

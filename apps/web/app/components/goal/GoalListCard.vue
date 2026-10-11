@@ -37,7 +37,7 @@ const palette = computed(() => ({
       </span>
       <span class="pct">{{ progress }}%</span>
     </span>
-    <span class="bar" aria-hidden="true"><span :style="{ width: `${progress}%` }" /></span>
+    <ProgressBar class="bar" :pct="progress" color="var(--goal-solid)" track="var(--chip)" />
     <span class="chips">
       <GoalChip :tone="GOAL_STATUS_TONE[goal.status]">{{
         $t(`goals.status.${goal.status}`)
@@ -95,20 +95,6 @@ const palette = computed(() => ({
   font-family: var(--font-display);
   font-weight: 800;
   font-size: 20px;
-}
-
-.bar {
-  height: 8px;
-  overflow: hidden;
-  border-radius: var(--radius-pill);
-  background: var(--chip);
-}
-
-.bar > span {
-  display: block;
-  height: 100%;
-  border-radius: var(--radius-pill);
-  background: var(--goal-solid);
 }
 
 .chips {

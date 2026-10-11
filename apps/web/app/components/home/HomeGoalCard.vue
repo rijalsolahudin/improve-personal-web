@@ -11,9 +11,9 @@ const palette = computed(() => ({
 </script>
 
 <template>
-  <section class="card" :style="palette" aria-labelledby="home-goal-title">
+  <Card class="card" variant="tinted" tint="var(--goal-tint)" :style="palette">
     <div class="row">
-      <UiProgressRing
+      <ProgressRing
         :percent="goal.progress"
         :size="52"
         :hole="0.73"
@@ -22,7 +22,7 @@ const palette = computed(() => ({
         class="ring"
       >
         {{ goal.progress }}%
-      </UiProgressRing>
+      </ProgressRing>
       <div class="text">
         <p class="eyebrow label">
           <span class="wide">{{ $t('home.goal.eyebrow', { n: goal.daysLeft }) }}</span>
@@ -41,17 +41,15 @@ const palette = computed(() => ({
         :title="chapter.title"
         :aria-label="$t('home.goal.chapter', { title: chapter.title, n: chapter.progress })"
       >
-        <span class="fill" :style="{ width: `${chapter.progress}%` }" />
+        <ProgressBar :pct="chapter.progress" color="var(--goal-solid)" />
       </li>
     </ul>
-  </section>
+  </Card>
 </template>
 
 <style scoped>
 .card {
   padding: 16px 18px;
-  background: var(--goal-tint);
-  border-radius: 28px;
 }
 
 .row {
@@ -117,24 +115,9 @@ const palette = computed(() => ({
   list-style: none;
 }
 
-.chapter {
-  height: 8px;
-  overflow: hidden;
-  border-radius: var(--radius-pill);
-  background: rgba(255, 255, 255, 0.65);
-}
-
-.fill {
-  display: block;
-  height: 100%;
-  border-radius: var(--radius-pill);
-  background: var(--goal-solid);
-}
-
 @media (max-width: 599px) {
   .card {
     padding: 14px 16px;
-    border-radius: var(--radius-hero);
   }
 
   .row {

@@ -122,7 +122,7 @@ function timeLabel(occurrence: Occurrence): string {
       </div>
       <ul class="rows">
         <li v-for="task in tasks" :key="task.id" class="row" :class="{ done: task.done }">
-          <UiCheckbox
+          <Checkbox
             :checked="task.done"
             :label="$t('home.todo.toggle', { title: task.title })"
             @toggle="toggleTask(task.id)"

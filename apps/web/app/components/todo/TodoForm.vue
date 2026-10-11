@@ -77,9 +77,15 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
         <h2 id="todo-form-title" class="heading">
           {{ $t(existing ? 'todo.form.editTitle' : 'todo.form.newTitle') }}
         </h2>
-        <button type="button" class="close" :aria-label="$t('common.close')" @click="emit('close')">
+        <IconButton
+          tone="plain"
+          :size="40"
+          :radius="14"
+          :title="$t('common.close')"
+          @click="emit('close')"
+        >
           ×
-        </button>
+        </IconButton>
       </div>
 
       <label class="field-wrap">
@@ -156,16 +162,14 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
       <p v-if="error" class="error" role="alert">{{ $t(`todo.form.error.${error}`) }}</p>
 
       <div class="actions">
-        <button v-if="existing" type="button" class="delete" @click="onDelete">
+        <Button v-if="existing" variant="danger" @click="onDelete">
           {{ $t(isConfirmingDelete ? 'todo.form.deleteConfirm' : 'todo.form.delete') }}
-        </button>
+        </Button>
         <span class="spacer" />
-        <button type="button" class="cancel" @click="emit('close')">
-          {{ $t('todo.form.cancel') }}
-        </button>
-        <button type="submit" class="save">
+        <Button variant="soft" @click="emit('close')">{{ $t('todo.form.cancel') }}</Button>
+        <Button type="submit" variant="primary">
           {{ $t(existing ? 'todo.form.saveEdit' : 'todo.form.saveNew') }}
-        </button>
+        </Button>
       </div>
     </form>
   </div>
@@ -210,16 +214,6 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
   font-size: 26px;
 }
 
-.close {
-  width: 40px;
-  height: 40px;
-  border: none;
-  border-radius: 14px;
-  background: var(--chip);
-  font-weight: 800;
-  font-size: 18px;
-}
-
 .field-wrap {
   display: flex;
   flex-direction: column;
@@ -261,10 +255,6 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
   font-weight: 700;
   font-size: 15px;
   outline: none;
-}
-
-.field:focus-visible {
-  outline: 3px solid var(--accent);
 }
 
 .field[aria-invalid='true'] {
@@ -329,30 +319,6 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 
 .spacer {
   flex: 1;
-}
-
-.actions button {
-  padding: 13px 22px;
-  border: none;
-  border-radius: var(--radius-pill);
-  font-weight: 800;
-  font-size: 15px;
-}
-
-.actions .delete {
-  padding: 11px 18px;
-  border: 2px solid #f3a99a;
-  background: transparent;
-  color: #c2381a;
-}
-
-.cancel {
-  background: var(--chip);
-}
-
-.save {
-  background: var(--accent);
-  color: var(--paper);
 }
 
 @media (max-width: 599px) {

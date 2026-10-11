@@ -1,7 +1,7 @@
 <template>
   <footer class="footer">
     <p class="brand">
-      <UiBrandMark wordmark="none" :size="28" />
+      <BrandMark wordmark="none" :size="28" />
       {{ $t('landing.footer.copyright') }}
     </p>
     <nav class="links" :aria-label="$t('landing.footer.label')">

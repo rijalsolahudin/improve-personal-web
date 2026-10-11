@@ -37,32 +37,25 @@ const summary = computed(() => {
         <h1 class="title">{{ $t('feature.habit.label') }}</h1>
         <p class="summary">{{ summary }}</p>
       </div>
-      <button type="button" class="new" @click="editing = null">+ {{ $t('habit.new') }}</button>
+      <Button variant="primary" @click="editing = null">+ {{ $t('habit.new') }}</Button>
     </header>
 
     <section class="board" data-anchor="habit-board" data-anchor-kind="content">
       <div class="bar">
         <div class="month-nav">
-          <button
-            type="button"
-            class="square"
-            :aria-label="$t('habit.prevMonth')"
-            @click="month = firstOfMonth(month, -1)"
-          >
+          <IconButton :title="$t('habit.prevMonth')" @click="month = firstOfMonth(month, -1)">
             ‹
-          </button>
+          </IconButton>
           <span class="month" aria-live="polite">{{
             monthYear(fromIsoDate(month).getTime())
           }}</span>
-          <button
-            type="button"
-            class="square"
+          <IconButton
+            :title="$t('habit.nextMonth')"
             :disabled="isCurrentMonth"
-            :aria-label="$t('habit.nextMonth')"
             @click="month = firstOfMonth(month, 1)"
           >
             ›
-          </button>
+          </IconButton>
         </div>
         <div class="legend" aria-hidden="true">
           <span><span class="key met" />{{ $t('habit.legend.met') }}</span>
@@ -116,22 +109,6 @@ const summary = computed(() => {
   color: var(--mute);
 }
 
-.new {
-  height: 44px;
-  padding: 0 20px;
-  border: none;
-  border-radius: var(--radius-pill);
-  background: var(--accent);
-  color: var(--paper);
-  font-weight: 800;
-  font-size: 15px;
-  white-space: nowrap;
-}
-
-.new:hover {
-  background: var(--deeper);
-}
-
 .board {
   min-width: 0;
   padding: 18px 0 14px;
@@ -153,22 +130,6 @@ const summary = computed(() => {
   display: flex;
   align-items: center;
   gap: 8px;
-}
-
-.square {
-  width: 40px;
-  height: 40px;
-  flex-shrink: 0;
-  border: 2.5px solid var(--ink);
-  border-radius: 14px;
-  background: var(--paper);
-  font-weight: 800;
-  font-size: 18px;
-}
-
-.square:disabled {
-  opacity: 0.35;
-  cursor: not-allowed;
 }
 
 .month {

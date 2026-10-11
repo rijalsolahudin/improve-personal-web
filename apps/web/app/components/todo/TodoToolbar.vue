@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { SegmentedOption } from '~/components/ui/UiSegmented.vue'
+import type { SegmentedOption } from '~/components/ui/Segmented/index.vue'
 import { TASK_FILTERS, TASK_SORTS, type TaskFilter, type TaskSort } from '~/utils/tasks'
 
 const { counts } = defineProps<{ counts: Record<TaskFilter, number> }>()
@@ -17,7 +17,7 @@ const sortOptions = computed<SegmentedOption<TaskSort>[]>(() =>
 
 <template>
   <div class="toolbar">
-    <UiSegmented
+    <Segmented
       v-model="filter"
       class="filters"
       :options="filterOptions"
@@ -26,7 +26,7 @@ const sortOptions = computed<SegmentedOption<TaskSort>[]>(() =>
     />
     <div class="sort">
       <span class="sort-label" aria-hidden="true">{{ $t('todo.sortLabel') }}</span>
-      <UiSegmented v-model="sort" :options="sortOptions" :label="$t('todo.sortLabel')" framed />
+      <Segmented v-model="sort" :options="sortOptions" :label="$t('todo.sortLabel')" framed />
     </div>
   </div>
 </template>

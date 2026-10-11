@@ -101,7 +101,7 @@ function save(): void {
     data-anchor-kind="content"
     aria-labelledby="memo-editor-title"
   >
-    <span class="tape" aria-hidden="true" />
+    <Tape :width="120" :top="-15" :left="'50%'" :height="28" :radius="4" :rotate="-3" translate="-50%" />
     <div class="pad">
       <div class="top">
         <h2 id="memo-editor-title" class="sheet-date">
@@ -110,7 +110,7 @@ function save(): void {
         <span v-if="draft.text.trim()" class="draft-note">{{ $t('memo.draftKept') }}</span>
       </div>
       <p class="eyebrow feeling">{{ $t('memo.feeling') }}</p>
-      <MemoMoodPicker v-model="mood" class="moods" />
+      <MoodPicker v-model="mood" class="moods" :label="$t('memo.moodLabel')" />
       <div class="feelings" role="group" :aria-label="$t('memo.feelingsLabel')">
         <button
           v-for="feeling in MEMO_FEELINGS"
@@ -133,14 +133,13 @@ function save(): void {
       :placeholder="$t('memo.titlePlaceholder')"
       :aria-label="$t('memo.titleLabel')"
     />
-    <textarea
+    <MemoPaper
       v-model="draft.text"
-      class="text-input"
-      :style="paperStyle"
-      :maxlength="MEMO_TEXT_MAX"
+      :paper="paper"
       :placeholder="$t('memo.placeholder')"
       :aria-label="$t('memo.textLabel')"
       aria-describedby="memo-hint"
+      :maxlength="MEMO_TEXT_MAX"
     />
     <div
       v-if="suggestions.length"
@@ -177,9 +176,7 @@ function save(): void {
     </div>
     <div class="bottom">
       <p id="memo-hint" class="hint">{{ $t('memo.wordsHint', { n: words }) }}</p>
-      <button type="button" class="save" :disabled="!words" @click="save">
-        {{ $t('memo.save') }}
-      </button>
+      <Button variant="primary" :disabled="!words" @click="save">{{ $t('memo.save') }}</Button>
     </div>
   </section>
 </template>
@@ -193,18 +190,6 @@ function save(): void {
   border-radius: 28px;
   background: var(--paper-2);
   box-shadow: 0 8px 0 rgb(47 42 36 / 0.12);
-}
-
-.tape {
-  position: absolute;
-  top: -15px;
-  left: 50%;
-  width: 120px;
-  height: 28px;
-  border-radius: 4px;
-  background: var(--primary);
-  opacity: 0.8;
-  transform: translateX(-50%) rotate(-3deg);
 }
 
 .pad {
@@ -273,8 +258,7 @@ function save(): void {
   border-top: 2px dashed var(--mline);
 }
 
-.title-input,
-.text-input {
+.title-input {
   display: block;
   width: 100%;
   border: none;
@@ -282,9 +266,6 @@ function save(): void {
   color: var(--memo-ink);
   font-family: var(--font-hand);
   background-color: var(--memo-bg);
-}
-
-.title-input {
   padding: 14px 28px 2px 66px;
   font-size: 26px;
   background-image: linear-gradient(
@@ -294,37 +275,6 @@ function save(): void {
     var(--memo-margin) 50px,
     transparent 50px
   );
-}
-
-.text-input {
-  min-height: 308px;
-  margin-top: -1px;
-  padding: 6px 28px 0 66px;
-  border-bottom: 2px dashed var(--mline);
-  font-size: 21px;
-  line-height: 34px;
-  resize: vertical;
-  background-image:
-    linear-gradient(
-      90deg,
-      transparent 48px,
-      var(--memo-margin) 48px,
-      var(--memo-margin) 50px,
-      transparent 50px
-    ),
-    repeating-linear-gradient(
-      transparent 0,
-      transparent 33px,
-      var(--memo-line) 33px,
-      var(--memo-line) 34px
-    );
-  background-attachment: local;
-  background-position: 0 6px;
-}
-
-.title-input:focus-visible,
-.text-input:focus-visible {
-  box-shadow: inset 0 0 0 3px var(--accent);
 }
 
 .suggest {
@@ -419,29 +369,13 @@ function save(): void {
   color: var(--mute);
 }
 
-.save {
-  padding: 12px 22px;
-  border: none;
-  border-radius: var(--radius-pill);
-  background: var(--accent);
-  color: var(--paper);
-  font-weight: 800;
-  font-size: 15px;
-}
-
-.save:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-}
-
 @media (max-width: 599px) {
   .pad,
   .bottom {
     padding-inline: 16px;
   }
 
-  .title-input,
-  .text-input {
+  .title-input {
     padding-left: 56px;
     padding-right: 16px;
   }

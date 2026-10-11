@@ -154,7 +154,4 @@ function onFreeInput(event: Event): void {
   outline: none;
 }
 
-.free:focus-visible {
-  outline: 3px solid var(--accent);
-}
 </style>

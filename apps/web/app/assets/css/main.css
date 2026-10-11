@@ -56,6 +56,13 @@ p {
   outline-offset: 2px;
 }
 
+/* Bidang input tidak pakai outline tambahan saat fokus. */
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: none;
+}
+
 * {
   scrollbar-width: thin;
   scrollbar-color: var(--dash) transparent;

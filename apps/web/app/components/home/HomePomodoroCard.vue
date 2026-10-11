@@ -39,7 +39,7 @@ function pick(label: string): void {
   <section class="card" :aria-label="$t('pomodoro.name')">
     <div class="row">
       <PomodoroClockFace class="wide" :progress="pomodoro.progress.value" />
-      <UiProgressRing
+      <ProgressRing
         class="narrow"
         :percent="Math.round(pomodoro.progress.value * 100)"
         :size="48"
@@ -49,7 +49,7 @@ function pick(label: string): void {
         <button type="button" class="play-mini" :aria-label="toggleLabel" @click="pomodoro.toggle">
           <span aria-hidden="true">{{ pomodoro.isRunning.value ? '❚❚' : '▶' }}</span>
         </button>
-      </UiProgressRing>
+      </ProgressRing>
 
       <div class="text">
         <p class="eyebrow status">{{ status }}</p>

@@ -16,7 +16,7 @@ const startsIn = computed(() => (schedule ? formatClock(schedule.startsAt - now)
 
 <template>
   <section class="hero dot-grid" aria-labelledby="home-next-title">
-    <UiMascot class="mascot" name="kelinci" :size="72" />
+    <Mascot class="mascot" name="kelinci" :size="72" />
     <template v-if="schedule">
       <div class="info">
         <p class="meta-row">

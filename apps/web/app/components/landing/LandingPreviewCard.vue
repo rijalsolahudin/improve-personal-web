@@ -9,8 +9,8 @@ const PREVIEW_TODOS = [
 
 <template>
   <div class="preview" aria-hidden="true">
-    <UiMascot class="mascot-top" name="kelinci" :size="96" />
-    <UiMascot class="mascot-bottom" name="tunas" :size="80" />
+    <Mascot class="mascot-top" name="kelinci" :size="96" />
+    <Mascot class="mascot-bottom" name="tunas" :size="80" />
     <div class="card">
       <div class="head">
         <span class="greeting">{{ $t('landing.preview.greeting') }}</span>

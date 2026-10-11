@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import type { SegmentedOption } from '~/components/ui/UiSegmented.vue'
+import type { SegmentedOption } from '~/components/ui/Segmented/index.vue'
 import type { HomeTask } from '~/composables/home/types'
 import { PRIORITIES, TASK_TITLE_MAX, type Priority } from '~/utils/tasks'
 
 const { tasks, now } = defineProps<{ tasks: HomeTask[]; now: number }>()
+
+const formatTimeLeft = useTimeLeft()
 const emit = defineEmits<{
   toggle: [id: string]
   add: [title: string, priority: Priority]
@@ -25,20 +27,24 @@ function submit(): void {
 
 <template>
   <section class="card" aria-labelledby="home-todo-title">
-    <div class="head">
-      <h2 id="home-todo-title" class="heading">{{ $t('home.todo.title') }}</h2>
-      <NuxtLink :to="getFeature('to-do').path" class="link">
-        <span class="wide">{{ $t('home.todo.seeAll') }}</span>
-        <span class="narrow">{{ $t('home.all') }}</span>
-      </NuxtLink>
-    </div>
+    <SectionHeader :title="$t('home.todo.title')" title-id="home-todo-title">
+      <template #action>
+        <NuxtLink :to="getFeature('to-do').path" class="link">
+          <span class="wide">{{ $t('home.todo.seeAll') }}</span>
+          <span class="narrow">{{ $t('home.all') }}</span>
+        </NuxtLink>
+      </template>
+    </SectionHeader>
 
     <ul v-if="tasks.length" class="list">
-      <HomeTaskRow
+      <TaskRow
         v-for="task in tasks"
         :key="task.id"
-        :task="task"
-        :now="now"
+        :title="task.title"
+        :priority="task.priority"
+        :done="task.done"
+        :meta="task.done ? $t('time.done') : formatTimeLeft(task.deadline, now)"
+        :overdue="!task.done && task.deadline !== null && task.deadline < now"
         @toggle="emit('toggle', task.id)"
       />
     </ul>
@@ -56,8 +62,8 @@ function submit(): void {
         :placeholder="$t('home.todo.placeholder')"
         autocomplete="off"
       />
-      <UiSegmented v-model="priority" :options="priorityOptions" :label="$t('priority.label')" />
-      <button type="submit" class="add-btn">{{ $t('home.todo.add') }}</button>
+      <Segmented v-model="priority" :options="priorityOptions" :label="$t('priority.label')" />
+      <Button type="submit" variant="primary">{{ $t('home.todo.add') }}</Button>
     </form>
   </section>
 </template>
@@ -68,19 +74,6 @@ function submit(): void {
   background: var(--paper);
   border: var(--border-thin) solid var(--line);
   border-radius: var(--radius-panel);
-}
-
-.head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 14px;
-}
-
-.heading {
-  font-family: var(--font-display);
-  font-weight: 800;
-  font-size: 22px;
 }
 
 .link {
@@ -126,33 +119,10 @@ function submit(): void {
   outline: none;
 }
 
-.input:focus-visible {
-  box-shadow: 0 0 0 4px var(--soft);
-}
-
-.add-btn {
-  padding: 13px 22px;
-  border: none;
-  border-radius: var(--radius-pill);
-  background: var(--accent);
-  color: var(--paper);
-  font-weight: 800;
-  font-size: var(--fs-body-lg);
-}
-
 @media (max-width: 599px) {
   .card {
     padding: 16px;
     border-radius: var(--radius-sticker);
-  }
-
-  .head {
-    align-items: baseline;
-    margin-bottom: 8px;
-  }
-
-  .heading {
-    font-size: var(--fs-h2);
   }
 
   .link {

@@ -1,11 +1,11 @@
 <template>
   <div class="panel">
-    <UiBrandMark wordmark="plain" tone="paper" :size="44" />
+    <BrandMark wordmark="plain" tone="paper" :size="44" />
     <div class="copy">
       <p class="headline">{{ $t('login.brand.headline') }}</p>
       <p class="sub">{{ $t('login.brand.sub') }}</p>
     </div>
-    <UiMascot class="mascot" name="kelinci" :size="120" />
+    <Mascot class="mascot" name="kelinci" :size="120" />
   </div>
 </template>
 

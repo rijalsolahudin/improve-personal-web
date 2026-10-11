@@ -22,15 +22,12 @@ const segments = computed(() => splitMentions(memo.text))
 const tape = computed(() => TAPE[index % TAPE.length] ?? TAPE[0])
 const style = computed(() => ({
   transform: `rotate(${TILT[index % TILT.length]}deg)`,
-  '--tape-x': `${tape.value.x}%`,
-  '--tape-rot': `${tape.value.rot}deg`,
-  '--tape': tape.value.color,
 }))
 </script>
 
 <template>
   <article class="entry" :style="style">
-    <span class="tape" aria-hidden="true" />
+    <Tape :width="96" :top="-13" :left="`${tape.x}%`" :rotate="tape.rot" :color="tape.color" />
     <span
       class="stamp"
       :style="{ background: mood === null ? '#f2e4cc' : moodTints[mood] }"
@@ -78,18 +75,6 @@ const style = computed(() => ({
     repeating-linear-gradient(transparent 0, transparent 31px, var(--mline) 31px, var(--mline) 32px);
   background-position: 0 22px;
   box-shadow: 0 5px 0 rgb(47 42 36 / 0.1);
-}
-
-.tape {
-  position: absolute;
-  top: -13px;
-  left: var(--tape-x);
-  width: 96px;
-  height: 24px;
-  border-radius: 3px;
-  background: var(--tape);
-  opacity: 0.75;
-  transform: rotate(var(--tape-rot));
 }
 
 .stamp {

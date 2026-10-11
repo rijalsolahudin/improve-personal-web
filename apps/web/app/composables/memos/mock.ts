@@ -38,6 +38,18 @@ export function createMemosMock(today: string): { memos: Memo[]; moods: MoodByDa
         paper: 'krem',
       },
     ],
-    moods: { [addDays(today, -4)]: 4, [addDays(today, -7)]: 3, [addDays(today, -8)]: 2 },
+    moods: createMoods(today),
   }
+}
+
+/** Mood deterministik ~30 hari terakhir (tanggal dari memo contoh tetap dipakai). */
+function createMoods(today: string): MoodByDate {
+  const moods: MoodByDate = { [addDays(today, -4)]: 4, [addDays(today, -7)]: 3, [addDays(today, -8)]: 2 }
+  let seed = 777
+  for (let offset = 1; offset <= 30; offset += 1) {
+    seed = (seed * 9301 + 49_297) % 233_280
+    const day = addDays(today, -offset)
+    if (moods[day] === undefined) moods[day] = 1 + Math.floor((seed / 233_280) * 4)
+  }
+  return moods
 }

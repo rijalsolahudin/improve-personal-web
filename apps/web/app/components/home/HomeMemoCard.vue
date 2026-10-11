@@ -41,12 +41,12 @@ function save(): void {
 
 <template>
   <section class="memo" aria-labelledby="home-memo-title">
-    <span class="tape" aria-hidden="true" />
-    <UiMascot class="mascot" name="beruang" :size="96" />
+    <Tape :width="90" :top="-13" :left="28" :rotate="-4" />
+    <Mascot class="mascot" name="beruang" :size="96" />
     <div class="pad">
       <h2 id="home-memo-title" class="title">{{ title }}</h2>
       <p class="feeling">{{ $t('memo.feeling') }}</p>
-      <MemoMoodPicker v-model="mood" class="moods" />
+      <MoodPicker v-model="mood" class="moods" :label="$t('memo.moodLabel')" />
     </div>
     <MemoPaperPicker v-model="paper" class="pad papers" />
     <div class="divider" />
@@ -78,18 +78,6 @@ function save(): void {
   border: var(--border-thick) solid var(--ink);
   border-radius: 28px;
   box-shadow: var(--shadow-drop-sm);
-}
-
-.tape {
-  position: absolute;
-  top: -13px;
-  left: 28px;
-  width: 90px;
-  height: 24px;
-  border-radius: 3px;
-  background: var(--primary);
-  opacity: 0.8;
-  transform: rotate(-4deg);
 }
 
 .mascot {
@@ -163,10 +151,6 @@ function save(): void {
   background-position: 0 6px;
 }
 
-.sheet:focus-visible {
-  box-shadow: inset 0 0 0 3px var(--accent);
-}
-
 .footer {
   display: flex;
   flex-wrap: wrap;
@@ -206,13 +190,6 @@ function save(): void {
     margin-top: 6px;
     padding: 18px 0 14px;
     border-radius: var(--radius-sticker);
-  }
-
-  .tape {
-    top: -12px;
-    left: 24px;
-    width: 80px;
-    height: 22px;
   }
 
   .mascot {

@@ -30,9 +30,9 @@ const pool = computed(() => unsortedTasks(tasks.value))
         <h1 class="title">{{ $t('feature.eisenhower.label') }}</h1>
         <p class="summary">{{ $t('eisenhower.summary') }}</p>
       </div>
-      <button type="button" class="clear" @click="clearDoneQuadrants">
+      <Button variant="outline" @click="clearDoneQuadrants">
         {{ $t('eisenhower.clearDone') }}
-      </button>
+      </Button>
     </header>
     <div class="layout">
       <div class="matrix">
@@ -90,17 +90,6 @@ const pool = computed(() => unsortedTasks(tasks.value))
   font-weight: 700;
   font-size: 16px;
   color: var(--mute);
-}
-
-.clear {
-  height: 44px;
-  padding: 0 18px;
-  border: 2.5px solid var(--ink);
-  border-radius: var(--radius-pill);
-  background: var(--paper);
-  font-weight: 800;
-  font-size: 15px;
-  white-space: nowrap;
 }
 
 .layout {

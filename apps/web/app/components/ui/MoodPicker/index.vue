@@ -4,13 +4,15 @@ import { moodTints } from '@improve-personal/tokens'
 /** Mood 5 skala (😢 … 😄). Emoji hanya dipakai untuk mood (readme design). */
 const MOOD_EMOJI = ['😢', '😕', '😐', '🙂', '😄'] as const
 
+const { label = undefined } = defineProps<{ label?: string }>()
+
 const model = defineModel<number | null>({ required: true })
 
 const moods = MOOD_EMOJI.map((emoji, index) => ({ emoji, index, tint: moodTints[index] }))
 </script>
 
 <template>
-  <div class="moods" role="group" :aria-label="$t('memo.moodLabel')">
+  <div class="moods" role="group" :aria-label="label">
     <button
       v-for="mood in moods"
       :key="mood.index"

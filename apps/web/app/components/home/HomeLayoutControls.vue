@@ -29,20 +29,17 @@ onBeforeUnmount(() => setEditing(false))
       </div>
       <div v-if="layout.hidden.length" class="hidden-list">
         <span class="hidden-label">{{ $t('home.layout.hiddenTitle') }}</span>
-        <button
+        <Chip
           v-for="id in layout.hidden"
           :key="id"
-          type="button"
-          class="chip"
+          variant="soft"
           @click="update(setHidden(layout, id, false))"
         >
           + {{ $t(`home.layout.widget.${id}`) }}
-        </button>
+        </Chip>
       </div>
-      <button type="button" class="reset" @click="reset">{{ $t('home.layout.reset') }}</button>
-      <button type="button" class="save" @click="setEditing(false)">
-        {{ $t('home.layout.save') }}
-      </button>
+      <Button variant="ghost" @click="reset">{{ $t('home.layout.reset') }}</Button>
+      <Button variant="primary" @click="setEditing(false)">{{ $t('home.layout.save') }}</Button>
     </section>
   </div>
 
@@ -124,42 +121,6 @@ onBeforeUnmount(() => setEditing(false))
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--mute);
-}
-
-.chip {
-  padding: 6px 12px;
-  border: none;
-  border-radius: var(--radius-pill);
-  background: var(--chip);
-  font-weight: 800;
-  font-size: 13px;
-}
-
-.chip:hover {
-  background: var(--hover);
-}
-
-.reset {
-  padding: 8px 6px;
-  border: none;
-  background: none;
-  font-weight: 800;
-  font-size: 14px;
-  color: var(--mute-3);
-}
-
-.reset:hover {
-  color: var(--accent);
-}
-
-.save {
-  padding: 10px 18px;
-  border: none;
-  border-radius: var(--radius-pill);
-  background: var(--accent);
-  color: var(--paper);
-  font-weight: 800;
-  font-size: 14px;
 }
 
 .fab {

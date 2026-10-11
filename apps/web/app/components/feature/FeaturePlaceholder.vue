@@ -6,7 +6,7 @@ const { feature } = defineProps<{ feature: Feature }>()
 
 <template>
   <section class="placeholder" :aria-labelledby="`placeholder-${feature.id}`">
-    <UiAppIcon :glyph="feature.glyph" :color="feature.color" :size="64" />
+    <AppIcon :glyph="feature.glyph" :color="feature.color" :size="64" />
     <h1 :id="`placeholder-${feature.id}`" class="title">
       {{ $t(`feature.${feature.id}.label`) }}
     </h1>

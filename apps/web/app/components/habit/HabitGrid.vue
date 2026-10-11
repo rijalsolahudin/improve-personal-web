@@ -174,9 +174,7 @@ const gridStyle = computed(() => ({
         </span>
         <span class="rate" role="cell">
           <span class="rate-n">{{ row.rate }}%</span>
-          <span class="bar" aria-hidden="true">
-            <span :style="{ width: `${row.rate}%`, background: row.solid }" />
-          </span>
+          <ProgressBar class="bar" :pct="row.rate" :color="row.solid" track="var(--chip)" />
         </span>
       </div>
     </div>
@@ -421,18 +419,5 @@ const gridStyle = computed(() => ({
   font-weight: 800;
   font-size: 13px;
   line-height: 1;
-}
-
-.bar {
-  height: 5px;
-  overflow: hidden;
-  border-radius: var(--radius-pill);
-  background: var(--chip);
-}
-
-.bar > span {
-  display: block;
-  height: 100%;
-  border-radius: var(--radius-pill);
 }
 </style>

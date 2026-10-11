@@ -12,7 +12,12 @@ const draft = defineModel<ScheduleDraft>({ required: true })
 
 const TYPES: readonly RecurrenceType[] = ['once', 'daily', 'weekly', 'monthly']
 const INTERVALS = [1, 2] as const
+const { t } = useI18n()
 const { weekdayOfIndex } = useDateFormat()
+
+const typeOptions = computed(() =>
+  TYPES.map((value) => ({ value, label: t(`calendar.form.rec.${value}`) })),
+)
 
 // Selalu ganti objek (bukan mutasi properti) supaya tidak memutasi prop milik parent.
 function set(change: Partial<ScheduleDraft>): void {
@@ -28,17 +33,13 @@ function toggleDay(day: number): void {
 <template>
   <fieldset class="rec">
     <legend class="label">{{ $t('calendar.form.repeat') }}</legend>
-    <div class="pills">
-      <button
-        v-for="type in TYPES"
-        :key="type"
-        type="button"
-        :aria-pressed="draft.rec === type"
-        @click="set({ rec: type })"
-      >
-        {{ $t(`calendar.form.rec.${type}`) }}
-      </button>
-    </div>
+    <Segmented
+      class="seg-fit"
+      :model-value="draft.rec"
+      :options="typeOptions"
+      :label="$t('calendar.form.repeat')"
+      @update:model-value="(value) => set({ rec: value })"
+    />
 
     <div v-if="draft.rec === 'daily'" class="line">
       <span>{{ $t('calendar.form.every') }}</span>
@@ -105,33 +106,21 @@ function toggleDay(day: number): void {
   color: var(--mute-2);
 }
 
-.pills {
+.seg-fit {
   width: fit-content;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 2px;
-  padding: 4px;
-  border-radius: var(--radius-pill);
-  background: var(--chip);
 }
 
-.pills button,
 .chip {
+  min-width: 28px;
   padding: 8px 14px;
   border: none;
   border-radius: var(--radius-pill);
-  background: transparent;
+  background: #f2e4cc;
   color: var(--mute-2);
   font-weight: 800;
   font-size: 14px;
 }
 
-.chip {
-  min-width: 28px;
-  background: #f2e4cc;
-}
-
-.pills button[aria-pressed='true'],
 .chip[aria-pressed='true'] {
   background: var(--accent);
   color: var(--paper);

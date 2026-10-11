@@ -4,7 +4,7 @@ const STEPS = ['1', '2', '3'] as const
 
 <template>
   <section id="cara" class="section dot-grid" aria-labelledby="landing-steps-title">
-    <UiMascot class="mascot" name="awan" :size="88" />
+    <Mascot class="mascot" name="awan" :size="88" />
     <div>
       <p class="kicker">{{ $t('landing.steps.kicker') }}</p>
       <h2 id="landing-steps-title" class="heading">{{ $t('landing.steps.title') }}</h2>

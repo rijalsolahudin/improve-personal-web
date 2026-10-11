@@ -9,5 +9,5 @@ const { name, size = 100 } = defineProps<{
 </script>
 
 <template>
-  <UiMascotCanvas :parts="MASCOTS[name]" :has-blush="BLUSHING_MASCOTS.has(name)" :size="size" />
+  <MascotCanvas :parts="MASCOTS[name]" :has-blush="BLUSHING_MASCOTS.has(name)" :size="size" />
 </template>

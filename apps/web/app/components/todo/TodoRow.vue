@@ -24,7 +24,7 @@ const deadlineLabel = computed(() =>
 
 <template>
   <li class="row" :class="{ done: task.done }">
-    <UiCheckbox
+    <Checkbox
       :checked="task.done"
       :label="$t('home.todo.toggle', { title: task.title })"
       @toggle="$emit('toggle')"
@@ -33,7 +33,7 @@ const deadlineLabel = computed(() =>
       <span class="title">{{ task.title }}</span>
       <span v-if="task.note" class="note">{{ task.note }}</span>
       <span class="chips">
-        <UiPriorityBadge :level="task.priority" />
+        <PriorityBadge :level="task.priority" />
         <span v-if="schedule" class="chip">
           <span class="dot" :style="{ background: scheduleColor }" aria-hidden="true" />
           {{ schedule.title }}
