@@ -35,7 +35,7 @@ const style = computed(() => (isPreset.value ? undefined : { background: tone })
   flex-direction: column;
   gap: clamp(6px, 3.4cqi, 14px);
   padding: clamp(14px, 7cqi, 28px) clamp(14px, 7.5cqi, 30px);
-  border-radius: clamp(20px, 4vw, 28px);
+  border-radius: clamp(calc(20px * var(--rk)), 4vw, calc(28px * var(--rk)));
 }
 
 .tile-paper {
@@ -59,7 +59,7 @@ const style = computed(() => (isPreset.value ? undefined : { background: tone })
 
 .value {
   font-family: var(--font-display);
-  font-weight: 800;
+  font-weight: var(--fw-display);
   font-size: clamp(24px, 14cqi, 54px);
   line-height: 1;
   white-space: nowrap;
@@ -84,7 +84,7 @@ const style = computed(() => (isPreset.value ? undefined : { background: tone })
 }
 
 .label {
-  font-weight: 800;
+  font-weight: var(--fw-strong);
   font-size: clamp(13px, 5.6cqi, 19px);
   line-height: 1.25;
   color: var(--deep);

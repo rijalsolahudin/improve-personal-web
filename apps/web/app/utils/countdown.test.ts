@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import {
   countdownTarget,
+  dayBadge,
   describeCountdown,
   groupCountdowns,
   validateCountdownDraft,
@@ -9,14 +10,8 @@ import {
   type Countdown,
 } from './countdown'
 
-const at = (
-  year: number,
-  month: number,
-  day: number,
-  hour = 0,
-  minute = 0,
-  second = 0,
-): number => new Date(year, month - 1, day, hour, minute, second).getTime()
+const at = (year: number, month: number, day: number, hour = 0, minute = 0, second = 0): number =>
+  new Date(year, month - 1, day, hour, minute, second).getTime()
 
 function countdown(overrides: Partial<Countdown> = {}): Countdown {
   return {
@@ -25,6 +20,7 @@ function countdown(overrides: Partial<Countdown> = {}): Countdown {
     date: '2026-05-10',
     time: '',
     emoji: '🎉',
+    sticker: null,
     color: '#F03FBF',
     yearly: false,
     archived: false,
@@ -34,7 +30,10 @@ function countdown(overrides: Partial<Countdown> = {}): Countdown {
 
 describe('countdownTarget', () => {
   it('sekali: tanggal + jam persis', () => {
-    const target = countdownTarget({ date: '2026-05-10', time: '19:30', yearly: false }, at(2026, 1, 1))
+    const target = countdownTarget(
+      { date: '2026-05-10', time: '19:30', yearly: false },
+      at(2026, 1, 1),
+    )
     expect(new Date(target).getHours()).toBe(19)
     expect(new Date(target).getMinutes()).toBe(30)
   })
@@ -96,7 +95,9 @@ describe('describeCountdown', () => {
   })
 
   it('baru saja lewat (< 1 jam)', () => {
-    expect(describeCountdown(at(2026, 1, 1, 0, 0), at(2026, 1, 1, 0, 5))).toEqual({ kind: 'justNow' })
+    expect(describeCountdown(at(2026, 1, 1, 0, 0), at(2026, 1, 1, 0, 5))).toEqual({
+      kind: 'justNow',
+    })
   })
 })
 
@@ -118,12 +119,19 @@ describe('groupCountdowns', () => {
 })
 
 describe('validateCountdownDraft', () => {
-  const base = { title: 'Liburan', date: '2026-06-01', time: '', emoji: '✈️', color: '#F03FBF' }
+  const base = {
+    title: 'Liburan',
+    date: '2026-06-01',
+    time: '',
+    emoji: '✈️',
+    sticker: null,
+    color: '#F03FBF',
+  }
 
   it('judul wajib', () => {
-    expect(validateCountdownDraft({ ...base, title: '  ', yearly: false }, at(2026, 1, 1), false)).toBe(
-      'titleRequired',
-    )
+    expect(
+      validateCountdownDraft({ ...base, title: '  ', yearly: false }, at(2026, 1, 1), false),
+    ).toBe('titleRequired')
   })
 
   it('tanggal lampau ditolak untuk momen baru', () => {
@@ -150,5 +158,19 @@ describe('yearlyEdition', () => {
     const target = countdownTarget({ date: '2000-05-10', time: '', yearly: true }, at(2026, 1, 1))
     expect(yearlyEdition({ date: '2000-05-10', yearly: true }, target)).toBe(26)
     expect(yearlyEdition({ date: '2000-05-10', yearly: false }, target)).toBe(0)
+  })
+})
+
+describe('dayBadge', () => {
+  const now = at(2026, 10, 17, 22)
+
+  it('selisih hari kalender, bukan 24 jam: besok pagi tetap "besok"', () => {
+    expect(dayBadge(at(2026, 10, 18, 6), now, false)).toEqual({ kind: 'tomorrow', days: 1 })
+    expect(dayBadge(at(2026, 10, 29), now, false)).toEqual({ kind: 'ahead', days: 12 })
+  })
+
+  it('hari ini & yang sudah lewat', () => {
+    expect(dayBadge(at(2026, 10, 17, 23), now, false)).toEqual({ kind: 'today' })
+    expect(dayBadge(at(2026, 10, 14), now, false)).toEqual({ kind: 'ago', days: 3 })
   })
 })

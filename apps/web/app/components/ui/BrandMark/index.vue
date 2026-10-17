@@ -46,16 +46,18 @@ const {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: calc(var(--tile-size) * 0.35);
-  border: 2.5px solid var(--ink);
+  border-radius: calc(var(--tile-size) * 0.35 * var(--rk));
+  border: var(--border) solid var(--outline);
   font-family: var(--font-display);
-  font-weight: 800;
+  font-weight: var(--fw-display);
   font-size: calc(var(--tile-size) * 0.5);
   line-height: 1;
 }
 
+/* Gaya non-Cute: tile aksen + huruf putih (token --logo-*; tidak terdefinisi di Cute). */
 .tile-primary {
-  background: var(--primary);
+  background: var(--logo-bg, var(--primary));
+  color: var(--logo-fg, var(--ink));
 }
 
 .tile-paper {
@@ -66,7 +68,7 @@ const {
   display: flex;
   flex-direction: column;
   font-family: var(--font-display);
-  font-weight: 800;
+  font-weight: var(--fw-display);
   font-size: 20px;
   line-height: 1;
   white-space: nowrap;

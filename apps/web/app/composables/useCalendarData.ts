@@ -24,7 +24,7 @@ const COUNTDOWN_GLYPH = '⏳'
 export function useCalendarData() {
   const { schedules, attendance, toggleAttendance } = useSchedules()
   const { tasks, toggle: toggleTask } = useTasks()
-  const { countdowns } = useHomeDashboard()
+  const { upcoming: countdowns } = useCountdowns()
   const { memos, moodOn } = useMemos()
   const { t } = useI18n()
   const { goals } = useGoals()

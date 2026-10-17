@@ -81,10 +81,11 @@ const summary = computed(() => {
 
 <style scoped>
 .habit {
+  /* Setinggi layar (design): kartu tabel memanjang walau habit sedikit. */
+  min-height: calc(100vh - 2 * var(--gap-desktop));
   display: flex;
   flex-direction: column;
   gap: 20px;
-  padding-bottom: 80px;
 }
 
 .header {
@@ -97,23 +98,26 @@ const summary = computed(() => {
 
 .title {
   font-family: var(--font-display);
-  font-weight: 800;
+  font-weight: var(--fw-display);
   font-size: 36px;
   line-height: 1.1;
 }
 
 .summary {
   margin-top: 4px;
-  font-weight: 700;
+  font-weight: var(--fw-body);
   font-size: 16px;
   color: var(--mute);
 }
 
 .board {
+  flex: 1;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
   padding: 18px 0 14px;
-  border: 2px solid var(--line);
-  border-radius: 28px;
+  border: var(--border-thin) solid var(--line);
+  border-radius: calc(28px * var(--rk));
   background: var(--paper);
 }
 
@@ -136,7 +140,7 @@ const summary = computed(() => {
   min-width: 160px;
   text-align: center;
   font-family: var(--font-display);
-  font-weight: 800;
+  font-weight: var(--fw-display);
   font-size: 22px;
 }
 
@@ -145,7 +149,7 @@ const summary = computed(() => {
   flex-wrap: wrap;
   align-items: center;
   gap: 14px;
-  font-weight: 800;
+  font-weight: var(--fw-strong);
   font-size: 12px;
   color: var(--mute);
 }
@@ -159,7 +163,7 @@ const summary = computed(() => {
 .key {
   width: 14px;
   height: 14px;
-  border-radius: 5px;
+  border-radius: calc(5px * var(--rk));
 }
 
 .key.met {
@@ -167,7 +171,7 @@ const summary = computed(() => {
 }
 
 .key.todo {
-  border: 2px solid var(--dash);
+  border: var(--border-thin) solid var(--dash);
 }
 
 .key.off {
@@ -186,12 +190,16 @@ const summary = computed(() => {
 .empty,
 .hint {
   padding: 14px 20px 0;
-  font-weight: 700;
+  font-weight: var(--fw-body);
   font-size: 12px;
   color: var(--mute);
 }
 
 @media (max-width: 599px) {
+  .habit {
+    min-height: 0;
+  }
+
   .title {
     font-size: 28px;
   }

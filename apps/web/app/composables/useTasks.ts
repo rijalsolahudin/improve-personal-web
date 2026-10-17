@@ -32,12 +32,12 @@ export function useTasks() {
     if (task) update(id, { done: !task.done })
   }
 
-  /** Tambah cepat; `false` kalau judul kosong. */
-  function add(title: string, priority: Priority, deadline: number | null): boolean {
+  /** Tambah cepat; id task baru, atau `null` kalau judul kosong. */
+  function add(title: string, priority: Priority, deadline: number | null): string | null {
     const task = quickTask(title, priority, deadline, crypto.randomUUID())
-    if (!task) return false
+    if (!task) return null
     tasks.value = [...tasks.value, task]
-    return true
+    return task.id
   }
 
   function save(

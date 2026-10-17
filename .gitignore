@@ -7,8 +7,12 @@ dist
 .data
 .turbo
 coverage
+.vitest
 *.log
 .DS_Store
+
+# referensi desain lokal, tidak di-commit
+apps/web/source-ui
 
 # env: hanya .env.example (tanpa nilai) yang boleh di-commit
 .env

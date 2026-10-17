@@ -84,7 +84,8 @@ export function useOverview() {
       const ms = bucket.start
       const minutes = bucket.minutes
       let tick = ''
-      if (focus.value.unit === 'jam') tick = index % 3 === 0 ? String(new Date(ms).getHours()).padStart(2, '0') : ''
+      if (focus.value.unit === 'jam')
+        tick = index % 3 === 0 ? String(new Date(ms).getHours()).padStart(2, '0') : ''
       else if (focus.value.unit === 'bulan') tick = monthShort(ms)
       else if (range.value === 'pekanan') tick = weekdayShort(ms)
       else if (index % 5 === 0) tick = String(new Date(ms).getDate())
@@ -126,15 +127,56 @@ export function useOverview() {
   const totals = computed(() => taskTotals(tasks.value, now.value))
   const rate = computed(() => {
     const floor = fromIsoDate(addDays(today.value, -HABIT_HISTORY_DAYS)).getTime()
-    return habitRate(habitsStore.habits.value, habitsStore.checkIns.value, Math.max(win.value.start, floor), win.value.end)
+    return habitRate(
+      habitsStore.habits.value,
+      habitsStore.checkIns.value,
+      Math.max(win.value.start, floor),
+      win.value.end,
+    )
   })
-  const fmtMinutes = (m: number): string => (m >= 60 ? `${Math.floor(m / 60)}j${m % 60 ? ` ${m % 60}m` : ''}` : `${m}m`)
+  const fmtMinutes = (m: number): string =>
+    m >= 60 ? `${Math.floor(m / 60)}j${m % 60 ? ` ${m % 60}m` : ''}` : `${m}m`
   const stats = computed(() => [
-    { key: 'focus', label: t('overview.stat.focus'), value: fmtMinutes(focusTotal.value), sub: t('overview.stat.focusSub'), bg: '#FFD9BF', fg: '#9A3A0C' },
-    { key: 'sessions', label: t('overview.stat.sessions'), value: String(focusSessions.value), sub: t('overview.stat.sessionsSub', { minutes: pomodoro.config.value.focus }), bg: '#DCD3F4', fg: '#5E3A9A' },
-    { key: 'habit', label: t('overview.stat.habit'), value: `${rate.value}%`, sub: t('overview.stat.habitSub'), bg: '#C7E3EE', fg: '#1E5D78' },
-    { key: 'done', label: t('overview.stat.done'), value: String(totals.value.done), sub: t('overview.stat.doneSub'), bg: '#CDE8C6', fg: '#2E6A26' },
-    { key: 'late', label: t('overview.stat.late'), value: String(totals.value.overdue), sub: t('overview.stat.lateSub'), bg: '#FFE1DA', fg: '#B0283E' },
+    {
+      key: 'focus',
+      label: t('overview.stat.focus'),
+      value: fmtMinutes(focusTotal.value),
+      sub: t('overview.stat.focusSub'),
+      bg: '#FFD9BF',
+      fg: '#9A3A0C',
+    },
+    {
+      key: 'sessions',
+      label: t('overview.stat.sessions'),
+      value: String(focusSessions.value),
+      sub: t('overview.stat.sessionsSub', { minutes: pomodoro.config.value.focus }),
+      bg: '#DCD3F4',
+      fg: '#5E3A9A',
+    },
+    {
+      key: 'habit',
+      label: t('overview.stat.habit'),
+      value: `${rate.value}%`,
+      sub: t('overview.stat.habitSub'),
+      bg: '#C7E3EE',
+      fg: '#1E5D78',
+    },
+    {
+      key: 'done',
+      label: t('overview.stat.done'),
+      value: String(totals.value.done),
+      sub: t('overview.stat.doneSub'),
+      bg: '#CDE8C6',
+      fg: '#2E6A26',
+    },
+    {
+      key: 'late',
+      label: t('overview.stat.late'),
+      value: String(totals.value.overdue),
+      sub: t('overview.stat.lateSub'),
+      bg: '#FFE1DA',
+      fg: '#B0283E',
+    },
   ])
 
   // ---- Streak -------------------------------------------------------------------------
@@ -151,15 +193,39 @@ export function useOverview() {
       : currentDayStreak(memoDays.value, today.value),
   )
   const bigStreaks = computed(() => [
-    { key: 'productive', n: productiveStreak.value, label: t(range.value === 'keseluruhan' ? 'overview.streak.productiveBest' : 'overview.streak.productive'), bg: '#FBDDB7', fg: '#8A5A12' },
-    { key: 'memo', n: memoSame.value, label: t(range.value === 'keseluruhan' ? 'overview.streak.memoBest' : 'overview.streak.memo'), bg: '#C7E3EE', fg: '#1E5D78' },
+    {
+      key: 'productive',
+      n: productiveStreak.value,
+      label: t(
+        range.value === 'keseluruhan'
+          ? 'overview.streak.productiveBest'
+          : 'overview.streak.productive',
+      ),
+      bg: '#FBDDB7',
+      fg: '#8A5A12',
+    },
+    {
+      key: 'memo',
+      n: memoSame.value,
+      label: t(range.value === 'keseluruhan' ? 'overview.streak.memoBest' : 'overview.streak.memo'),
+      bg: '#C7E3EE',
+      fg: '#1E5D78',
+    },
   ])
-  const habitRows = computed(() => habitStreaks(habitsStore.habits.value, habitsStore.checkIns.value, today.value))
-  const streakNote = computed(() => t(range.value === 'keseluruhan' ? 'overview.streak.noteBest' : 'overview.streak.note'))
+  const habitRows = computed(() =>
+    habitStreaks(habitsStore.habits.value, habitsStore.checkIns.value, today.value),
+  )
+  const streakNote = computed(() =>
+    t(range.value === 'keseluruhan' ? 'overview.streak.noteBest' : 'overview.streak.note'),
+  )
 
   // ---- Habit heatmap ------------------------------------------------------------------
   const heatmapHabits = computed(() =>
-    habitsStore.habits.value.map((habit) => ({ id: habit.id, name: habit.name, color: (HABIT_COLORS[habit.color] ?? HABIT_COLORS[0])[0] })),
+    habitsStore.habits.value.map((habit) => ({
+      id: habit.id,
+      name: habit.name,
+      color: (HABIT_COLORS[habit.color] ?? HABIT_COLORS[0])[0],
+    })),
   )
   const heatmap = computed(() => {
     const habit = habitsStore.habits.value[habitIndex.value] ?? habitsStore.habits.value[0]
@@ -173,7 +239,13 @@ export function useOverview() {
       weeks: grid.weeks.map((week) =>
         week.map((cell) => ({
           day: cell.day,
-          color: cell.future ? 'transparent' : cell.met ? color : cell.scheduled ? 'var(--chip)' : 'transparent',
+          color: cell.future
+            ? 'transparent'
+            : cell.met
+              ? color
+              : cell.scheduled
+                ? 'var(--chip)'
+                : 'transparent',
           tip: cell.future
             ? ''
             : `${dayMonth(fromIsoDate(cell.day).getTime())}${cell.met ? ` · ${t('overview.heatmap.met')}` : ''}`,
@@ -192,22 +264,37 @@ export function useOverview() {
         const key = point.day.slice(0, 7)
         byMonth.set(key, [...(byMonth.get(key) ?? []), point.mood])
       }
-      return [...byMonth.entries()].map(([key, list]) => ({ day: `${key}-01`, mood: list.reduce((a, b) => a + b, 0) / list.length }))
+      return [...byMonth.entries()].map(([key, list]) => ({
+        day: `${key}-01`,
+        mood: list.reduce((a, b) => a + b, 0) / list.length,
+      }))
     }
     return moodSeries(memosStore.moods.value, start, end)
   })
   const moodLine = computed(() =>
     moodPoints.value.length < 2
       ? ''
-      : moodPoints.value.map((p, i) => `${((i / (moodPoints.value.length - 1)) * 300).toFixed(1)},${(105 - (p.mood / 4) * 95).toFixed(1)}`).join(' '),
+      : moodPoints.value
+          .map(
+            (p, i) =>
+              `${((i / (moodPoints.value.length - 1)) * 300).toFixed(1)},${(105 - (p.mood / 4) * 95).toFixed(1)}`,
+          )
+          .join(' '),
   )
-  const moodArea = computed(() => (moodLine.value ? `M0,110 L${moodLine.value.split(' ').join(' L')} L300,110 Z` : ''))
-  const correlation = computed(() => moodCorrelation(memosStore.moods.value, focusByDay.value, win.value.start, win.value.end))
+  const moodArea = computed(() =>
+    moodLine.value ? `M0,110 L${moodLine.value.split(' ').join(' L')} L300,110 Z` : '',
+  )
+  const correlation = computed(() =>
+    moodCorrelation(memosStore.moods.value, focusByDay.value, win.value.start, win.value.end),
+  )
 
   // ---- Distribusi Eisenhower ----------------------------------------------------------
   const eisenhower = computed(() => {
     const counts = eisenhowerCounts(tasks.value)
-    const total = Math.max(1, QUADRANT_ORDER.reduce((acc, q) => acc + counts[q], 0))
+    const total = Math.max(
+      1,
+      QUADRANT_ORDER.reduce((acc, q) => acc + counts[q], 0),
+    )
     return QUADRANT_ORDER.map((quadrant) => ({
       key: quadrant,
       label: t(`eisenhower.quadrant.${quadrant}`),
@@ -223,9 +310,13 @@ export function useOverview() {
   })
 
   // ---- Waktu terjadwal ----------------------------------------------------------------
-  const scheduled = computed(() => scheduledMinutes(schedules.value, win.value.start, win.value.end))
+  const scheduled = computed(() =>
+    scheduledMinutes(schedules.value, win.value.start, win.value.end),
+  )
   const scheduledMax = computed(() => Math.max(1, ...scheduled.value.map((s) => s.minutes)))
-  const scheduledTotal = computed(() => fmtMinutes(scheduled.value.reduce((acc, s) => acc + s.minutes, 0)))
+  const scheduledTotal = computed(() =>
+    fmtMinutes(scheduled.value.reduce((acc, s) => acc + s.minutes, 0)),
+  )
 
   // ---- Goal, task terlambat, countdown ------------------------------------------------
   const goalRows = computed(() => activeGoals(goals.value, today.value))
@@ -283,9 +374,15 @@ export function useOverview() {
     // mood
     moodLine,
     moodArea,
-    moodHi: computed(() => (correlation.value.high === null ? '—' : correlation.value.high.toFixed(1))),
-    moodLo: computed(() => (correlation.value.low === null ? '—' : correlation.value.low.toFixed(1))),
-    moodFrom: computed(() => (moodPoints.value[0] ? dayMonth(fromIsoDate(moodPoints.value[0].day).getTime()) : '')),
+    moodHi: computed(() =>
+      correlation.value.high === null ? '—' : correlation.value.high.toFixed(1),
+    ),
+    moodLo: computed(() =>
+      correlation.value.low === null ? '—' : correlation.value.low.toFixed(1),
+    ),
+    moodFrom: computed(() =>
+      moodPoints.value[0] ? dayMonth(fromIsoDate(moodPoints.value[0].day).getTime()) : '',
+    ),
     moodTo: computed(() => t('overview.mood.today')),
     // eisenhower / scheduled / goals / late / countdown
     eisenhower,

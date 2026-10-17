@@ -43,13 +43,13 @@ const style = computed(() => {
 }
 
 .card-paper {
-  border: 2px solid var(--line);
+  border: var(--border-thin) solid var(--line);
   border-radius: var(--radius-hero);
   background: var(--paper);
 }
 
 .card-soft {
-  border-radius: 22px;
+  border-radius: var(--radius-card);
   background: var(--soft);
 }
 
@@ -63,7 +63,7 @@ const style = computed(() => {
 }
 
 .card-sticker {
-  border: var(--border-thick) solid var(--ink);
+  border: var(--border-thick) solid var(--outline);
   border-radius: var(--radius-sticker);
   background: var(--paper-2);
   box-shadow: var(--shadow-drop-sm);

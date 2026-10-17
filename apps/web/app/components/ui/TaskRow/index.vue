@@ -24,7 +24,7 @@ const {
 defineEmits<{ toggle: [] }>()
 
 const { t } = useI18n()
-const checkLabel = computed(() => label ?? t('home.todo.toggle', { title }))
+const checkLabel = computed(() => label ?? t('common.toggleDone', { title }))
 </script>
 
 <template>
@@ -64,7 +64,7 @@ const checkLabel = computed(() => label ?? t('home.todo.toggle', { title }))
 
 .row-card {
   padding: 8px 12px;
-  border: 2px solid var(--line);
+  border: var(--border-thin) solid var(--line);
   border-radius: var(--radius-row);
   background: var(--paper);
   cursor: default;
@@ -81,7 +81,7 @@ const checkLabel = computed(() => label ?? t('home.todo.toggle', { title }))
 .title {
   flex: 1;
   min-width: 0;
-  font-weight: 700;
+  font-weight: var(--fw-body);
   font-size: var(--fs-body-lg);
 }
 
@@ -98,7 +98,7 @@ const checkLabel = computed(() => label ?? t('home.todo.toggle', { title }))
 
 .left {
   min-width: 110px;
-  font-weight: 700;
+  font-weight: var(--fw-body);
   font-size: var(--fs-body-sm);
   color: var(--mute);
   text-align: right;
@@ -127,7 +127,7 @@ const checkLabel = computed(() => label ?? t('home.todo.toggle', { title }))
 
   .title {
     overflow: hidden;
-    font-weight: 800;
+    font-weight: var(--fw-strong);
     font-size: var(--fs-body);
     white-space: nowrap;
     text-overflow: ellipsis;

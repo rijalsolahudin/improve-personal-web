@@ -91,22 +91,22 @@ const summary = computed(() =>
 
 .title {
   font-family: var(--font-display);
-  font-weight: 800;
+  font-weight: var(--fw-display);
   font-size: 36px;
   line-height: 1.1;
 }
 
 .summary {
   margin-top: 4px;
-  font-weight: 700;
+  font-weight: var(--fw-body);
   font-size: 16px;
   color: var(--mute);
 }
 
 .list {
   padding: 8px 18px;
-  border: 2px solid var(--line);
-  border-radius: 28px;
+  border: var(--border-thin) solid var(--line);
+  border-radius: calc(28px * var(--rk));
   background: var(--paper);
 }
 
@@ -119,7 +119,7 @@ const summary = computed(() =>
 .empty {
   padding: 28px;
   text-align: center;
-  font-weight: 700;
+  font-weight: var(--fw-body);
   color: var(--mute);
 }
 

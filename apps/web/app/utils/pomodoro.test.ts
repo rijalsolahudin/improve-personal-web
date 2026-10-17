@@ -12,9 +12,11 @@ import {
   pomodoroProgress,
   pomodoroRemaining,
   resetPomodoro,
+  searchTargetOptions,
   selectPhase,
   sessionInCycle,
   startPomodoro,
+  uniqueTargetOptions,
   type FocusSession,
 } from './pomodoro'
 import { MS_PER_MINUTE } from './time'
@@ -131,5 +133,25 @@ describe('pomodoro: skip, pilih fase, pengaturan, riwayat', () => {
       },
     ]
     expect(focusMinutesOn(sessions, day)).toBe(25)
+  })
+})
+
+describe('pomodoro: pilihan target fokus', () => {
+  const option = (label: string, meta = '') => ({ label, color: '#000', meta })
+
+  it('buang judul kosong & duplikat, urutan asli tetap', () => {
+    expect(
+      uniqueTargetOptions([option('Lari'), option(''), option('Baca'), option('Lari', 'x')]).map(
+        (item) => item.label,
+      ),
+    ).toEqual(['Lari', 'Baca'])
+  })
+
+  it('cari tanpa peduli huruf besar; query kosong = semua', () => {
+    const options = [option('Kirim draft laporan'), option('Baca buku')]
+    expect(searchTargetOptions(options, '  LAPORAN ').map((item) => item.label)).toEqual([
+      'Kirim draft laporan',
+    ])
+    expect(searchTargetOptions(options, '')).toHaveLength(2)
   })
 })

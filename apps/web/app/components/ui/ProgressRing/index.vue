@@ -51,6 +51,6 @@ const style = computed(() => ({
   border-radius: 50%;
   background: var(--inner);
   font-family: var(--font-display);
-  font-weight: 800;
+  font-weight: var(--fw-display);
 }
 </style>

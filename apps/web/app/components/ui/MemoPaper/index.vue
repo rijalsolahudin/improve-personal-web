@@ -35,7 +35,7 @@ const style = computed(() => {
   width: 100%;
   box-sizing: border-box;
   border: none;
-  border-bottom: 2px dashed var(--mline);
+  border-bottom: var(--border-thin) dashed var(--mline);
   outline: none;
   color: var(--memo-ink);
   font-family: var(--font-hand);

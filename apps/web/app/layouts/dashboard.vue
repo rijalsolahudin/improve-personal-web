@@ -16,11 +16,8 @@ const isDecoMounted = computed(
   () => deco.isEditing.value || (!deco.isHidden.value && deco.itemsIn(scope.value).length > 0),
 )
 
-const { setEditing: setLayoutEditing } = useHomeLayout()
 function toggleDeco(): void {
-  const next = !deco.isEditing.value
-  if (next) setLayoutEditing(false)
-  deco.setEditing(next)
+  deco.setEditing(!deco.isEditing.value)
 }
 </script>
 
@@ -31,9 +28,8 @@ function toggleDeco(): void {
       <slot />
     </main>
     <LazyDecoLayer v-if="isDecoMounted" />
-    <!-- Halaman bisa menaruh tombol tambahan di sini (mis. "Atur" di Home) lewat Teleport. -->
     <div class="fab-dock" data-deco-ui>
-      <div id="fab-dock-extra" class="fab-extra" />
+      <ShellPomodoroPill />
       <button
         type="button"
         class="fab"
@@ -74,13 +70,12 @@ function toggleDeco(): void {
   right: 28px;
   bottom: 28px;
   z-index: 95;
+  max-width: calc(100vw - 28px);
   display: flex;
+  flex-wrap: wrap-reverse;
+  justify-content: flex-end;
   align-items: center;
   gap: 10px;
-}
-
-.fab-extra {
-  display: contents;
 }
 
 .fab {
@@ -89,14 +84,15 @@ function toggleDeco(): void {
   align-items: center;
   gap: 8px;
   padding: 0 20px;
-  border: 3px solid var(--ink);
+  border: var(--border-thick) solid var(--outline);
   border-radius: var(--radius-pill);
   background: var(--paper);
   color: var(--ink);
-  font-weight: 800;
+  font-weight: var(--fw-strong);
   font-size: 15px;
   white-space: nowrap;
-  box-shadow: 0 5px 0 rgb(47 42 36 / 0.15);
+  box-shadow: calc(5px * var(--sx)) calc(5px * var(--sy)) calc(5px * var(--sbl))
+    var(--shadow-color, rgb(47 42 36 / 0.15));
   transition: transform var(--dur) var(--ease);
 }
 

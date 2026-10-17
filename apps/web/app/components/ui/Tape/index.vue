@@ -32,7 +32,7 @@ const style = computed(() => ({
 </script>
 
 <template>
-  <span class="tape" :style="style" aria-hidden="true" />
+  <span class="tape" :style="style" aria-hidden="true" data-deco-builtin />
 </template>
 
 <style scoped>

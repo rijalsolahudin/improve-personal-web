@@ -1,1 +1,0 @@
-export interface AppIconProps { /** unicode glyph or 1–2 chars: ⌂ 30 ✓ ◎ ★ ⏳ 25 ✎ ⊞ ▤ */ glyph: React.ReactNode; color?: string; size?: number; /** -6° tilt on the inner paper tile (desktop nav) */ tilt?: boolean }

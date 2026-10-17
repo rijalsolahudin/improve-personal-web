@@ -2,7 +2,7 @@ import { MS_PER_MINUTE } from './time'
 
 /**
  * State mesin Pomodoro (murni, waktu di-inject). Sisa waktu dihitung dari `endsAt`, bukan
- * dari interval, supaya tetap akurat saat tab di-background (PRD F4, ARCHITECTURE §10).
+ * dari interval, supaya tetap akurat saat tab di-background (PRD F4, apps/web/ARCHITECTURE.md §5).
  */
 
 export type PomodoroPhase = 'focus' | 'short' | 'long'
@@ -202,4 +202,39 @@ export function focusMinutesOn(sessions: readonly FocusSession[], now: number): 
 /** Nomor sesi dalam siklus, 1..every (mis. "3/4"). */
 export function sessionInCycle(state: PomodoroState, config: PomodoroConfig): number {
   return Math.min((state.completedFocus % config.every) + 1, config.every)
+}
+
+// ---- Target fokus (design `pmPicker`) ----------------------------------------------
+
+/** Sumber target di picker; `free` = teks bebas. */
+export const POMODORO_TARGET_MODES = ['task', 'jadwal', 'habit', 'free'] as const
+export type PomodoroTargetMode = (typeof POMODORO_TARGET_MODES)[number]
+/** Jenis target terpilih (label kotak "target sekarang"). */
+export type PomodoroTargetKind = Exclude<PomodoroTargetMode, 'free'> | 'teks'
+
+export interface PomodoroTargetOption {
+  label: string
+  /** Warna titik (prioritas task / warna jadwal / warna habit). */
+  color: string
+  meta: string
+}
+
+/** Judul = identitas target: buang yang kosong & duplikat, urutan asli dipertahankan. */
+export function uniqueTargetOptions(
+  options: readonly PomodoroTargetOption[],
+): PomodoroTargetOption[] {
+  const seen = new Set<string>()
+  return options.filter((option) => {
+    if (!option.label || seen.has(option.label)) return false
+    seen.add(option.label)
+    return true
+  })
+}
+
+export function searchTargetOptions(
+  options: readonly PomodoroTargetOption[],
+  query: string,
+): PomodoroTargetOption[] {
+  const q = query.trim().toLowerCase()
+  return q ? options.filter((option) => option.label.toLowerCase().includes(q)) : [...options]
 }

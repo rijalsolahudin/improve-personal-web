@@ -1,1 +1,0 @@
-export interface ProgressRingProps { pct: number; size?: number; thickness?: number; color?: string; track?: string; /** center fill — match the parent card bg */ inner?: string; children?: React.ReactNode }

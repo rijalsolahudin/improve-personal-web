@@ -23,7 +23,7 @@ const { on = false, size = 'md' } = defineProps<{
   flex-shrink: 0;
   padding: 0;
   box-sizing: border-box;
-  border: 2px solid var(--ink);
+  border: var(--border-thin) solid var(--outline);
   border-radius: var(--radius-pill);
   background: var(--chip);
   transition: background var(--dur) var(--ease);
@@ -43,20 +43,24 @@ const { on = false, size = 'md' } = defineProps<{
   background: var(--accent);
 }
 
+/* Bulat (setinggi jalur dikurangi 2px tiap sisi); saat on menempel tepi kanan. */
 .knob {
   position: absolute;
   top: 2px;
+  bottom: 2px;
   left: 2px;
-  width: calc(100% - 8px);
-  height: calc(100% - 8px);
+  aspect-ratio: 1;
   box-sizing: border-box;
-  border: 2px solid var(--ink);
+  border: var(--border-thin) solid var(--outline);
   border-radius: 50%;
   background: var(--paper);
-  transition: transform var(--dur) var(--ease);
+  transition:
+    left var(--dur) var(--ease),
+    transform var(--dur) var(--ease);
 }
 
 .toggle.on .knob {
-  transform: translateX(100%);
+  left: calc(100% - 2px);
+  transform: translateX(-100%);
 }
 </style>

@@ -1,4 +1,4 @@
-import { isScheduled, type CheckIns, type Habit } from '~/utils/habits'
+import { isScheduled, type CheckIns, type Habit, type HabitIcon } from '~/utils/habits'
 import { addDays } from '~/utils/time'
 
 /** Riwayat contoh dibangkitkan untuk sekian hari ke belakang. */
@@ -22,7 +22,7 @@ export function createHabitsMock(today: string): { habits: Habit[]; checkIns: Ch
   const habit = (
     id: string,
     name: string,
-    icon: string,
+    icon: HabitIcon,
     color: number,
     extra: Partial<Habit> = {},
   ): Habit => ({
@@ -38,25 +38,33 @@ export function createHabitsMock(today: string): { habits: Habit[]; checkIns: Ch
   })
   const seeds: Seed[] = [
     {
-      habit: habit('h1', 'Belajar 1 jam', '✎', 0, { sticker: 'aktivitas/belajar', goalId: 'aws' }),
+      habit: habit('h1', 'Belajar 1 jam', 'book-open', 0, {
+        sticker: 'aktivitas/belajar',
+        goalId: 'aws',
+      }),
       streak: 8,
       rate: 0.9,
       today: 1,
     },
     {
-      habit: habit('h2', 'Olahraga', '♥', 1, { days: [1, 3, 5], goalId: 'run' }),
+      habit: habit('h2', 'Olahraga', 'heart', 1, { days: [1, 3, 5], goalId: 'run' }),
       streak: 3,
       rate: 0.7,
       today: 0,
     },
-    { habit: habit('h3', 'Baca 10 hal', '★', 2), streak: 12, rate: 0.8, today: 0 },
+    { habit: habit('h3', 'Baca 10 hal', 'star', 2), streak: 12, rate: 0.8, today: 0 },
     {
-      habit: habit('h4', 'Tidur ≤ 23:00', '☾', 3, { goalId: 'aws' }),
+      habit: habit('h4', 'Tidur ≤ 23:00', 'moon', 3, { goalId: 'aws' }),
       streak: 5,
       rate: 0.75,
       today: 1,
     },
-    { habit: habit('h5', 'Minum air', '◐', 7, { target: 8 }), streak: 0, rate: 0.6, today: 3 },
+    {
+      habit: habit('h5', 'Minum air', 'droplet', 7, { target: 8 }),
+      streak: 0,
+      rate: 0.6,
+      today: 3,
+    },
   ]
 
   const checkIns: CheckIns = {}

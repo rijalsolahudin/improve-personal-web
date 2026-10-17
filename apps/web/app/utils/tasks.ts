@@ -22,14 +22,12 @@ export const QUADRANT_STYLE: Record<
 }
 
 export const TASK_TITLE_MAX = 200
-export const TASK_NOTE_MAX = 1000
 /** Tambah cepat dengan tanggal → deadline akhir hari itu (design: 23:59). */
 export const END_OF_DAY = '23:59'
 
 export interface Task {
   id: string
   title: string
-  note: string
   priority: Priority
   /** Epoch ms, `null` = tanpa deadline. */
   deadline: number | null
@@ -97,7 +95,6 @@ export function countByFilter(tasks: readonly Task[], now: number): Record<TaskF
 
 export interface TaskDraft {
   title: string
-  note: string
   priority: Priority
   hasDeadline: boolean
   date: string
@@ -105,7 +102,7 @@ export interface TaskDraft {
   scheduleId: string | null
 }
 
-export type TaskDraftError = 'titleRequired' | 'titleTooLong' | 'noteTooLong' | 'deadline'
+export type TaskDraftError = 'titleRequired' | 'titleTooLong' | 'deadline'
 
 export function deadlineFrom(date: string, time: string): number {
   return new Date(`${date}T${time}:00`).getTime()
@@ -115,7 +112,6 @@ export function validateTaskDraft(draft: TaskDraft): TaskDraftError | null {
   const title = draft.title.trim()
   if (!title) return 'titleRequired'
   if (title.length > TASK_TITLE_MAX) return 'titleTooLong'
-  if (draft.note.trim().length > TASK_NOTE_MAX) return 'noteTooLong'
   if (draft.hasDeadline && (!isIsoDate(draft.date) || !isTime(draft.time))) return 'deadline'
   return null
 }
@@ -125,7 +121,6 @@ const DEFAULT_TIME = '17:00'
 export function emptyTaskDraft(today: string): TaskDraft {
   return {
     title: '',
-    note: '',
     priority: 'medium',
     hasDeadline: true,
     date: today,
@@ -140,7 +135,6 @@ export function draftFromTask(task: Task, today: string): TaskDraft {
   const date = task.deadline === null ? null : new Date(task.deadline)
   return {
     title: task.title,
-    note: task.note,
     priority: task.priority,
     hasDeadline: date !== null,
     date: date ? toIsoDate(date) : today,
@@ -156,7 +150,6 @@ export function applyTaskDraft(draft: TaskDraft, base: Task | null, id: string):
     done: base?.done ?? false,
     quadrant: base?.quadrant ?? null,
     title: draft.title.trim(),
-    note: draft.note.trim(),
     priority: draft.priority,
     deadline: draft.hasDeadline ? deadlineFrom(draft.date, draft.time) : null,
     scheduleId: draft.scheduleId,
@@ -175,7 +168,6 @@ export function quickTask(
   return {
     id,
     title: clean,
-    note: '',
     priority,
     deadline,
     done: false,

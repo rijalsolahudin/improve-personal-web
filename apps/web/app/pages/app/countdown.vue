@@ -43,7 +43,14 @@ function openEdit(id: string): void {
       <Button variant="primary" @click="editing = null">+ {{ $t('countdown.new') }}</Button>
     </header>
 
-    <CountdownHero v-if="hero" :view="hero" :now="now" @edit="openEdit(hero.countdown.id)" />
+    <CountdownHero
+      v-if="hero"
+      data-anchor="countdown-hero"
+      data-anchor-kind="content"
+      :view="hero"
+      :now="now"
+      @edit="openEdit(hero.countdown.id)"
+    />
 
     <section class="group" data-anchor="countdown-upcoming" data-anchor-kind="content">
       <h2 class="group-title">{{ $t('countdown.upcomingTitle') }}</h2>
@@ -60,7 +67,12 @@ function openEdit(id: string): void {
       <p v-else-if="!hero" class="empty">{{ $t('countdown.emptyUpcoming') }}</p>
     </section>
 
-    <section v-if="past.length" class="group" data-anchor="countdown-past" data-anchor-kind="content">
+    <section
+      v-if="past.length"
+      class="group"
+      data-anchor="countdown-past"
+      data-anchor-kind="content"
+    >
       <h2 class="group-title">{{ $t('countdown.pastTitle') }}</h2>
       <div class="grid">
         <CountdownListCard
@@ -121,14 +133,14 @@ function openEdit(id: string): void {
 
 .title {
   font-family: var(--font-display);
-  font-weight: 800;
+  font-weight: var(--fw-display);
   font-size: 36px;
   line-height: 1.1;
 }
 
 .summary {
   margin-top: 4px;
-  font-weight: 700;
+  font-weight: var(--fw-body);
   font-size: 16px;
   color: var(--mute);
 }
@@ -136,7 +148,7 @@ function openEdit(id: string): void {
 .group-title {
   margin-bottom: 12px;
   font-family: var(--font-display);
-  font-weight: 800;
+  font-weight: var(--fw-display);
   font-size: 22px;
 }
 
@@ -148,10 +160,10 @@ function openEdit(id: string): void {
 
 .empty {
   padding: 22px;
-  border: 2.5px dashed var(--dash-2);
-  border-radius: 24px;
+  border: var(--border) dashed var(--dash-2);
+  border-radius: var(--radius-hero);
   text-align: center;
-  font-weight: 700;
+  font-weight: var(--fw-body);
   color: var(--mute);
 }
 
@@ -160,7 +172,7 @@ function openEdit(id: string): void {
   border: none;
   background: none;
   color: var(--accent);
-  font-weight: 800;
+  font-weight: var(--fw-strong);
   font-size: 14px;
 }
 

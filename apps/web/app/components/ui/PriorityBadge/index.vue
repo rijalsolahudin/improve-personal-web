@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import type { Priority } from '~/utils/tasks'
 
-const { level } = defineProps<{ level: Priority }>()
+const { level, size = 'md' } = defineProps<{ level: Priority; size?: 'md' | 'sm' }>()
 </script>
 
 <template>
-  <span class="badge" :class="`badge-${level}`">{{ $t(`priority.${level}`) }}</span>
+  <span class="badge" :class="[`badge-${level}`, `size-${size}`]">
+    {{ $t(`priority.${level}`) }}
+  </span>
 </template>
 
 <style scoped>
@@ -13,9 +15,14 @@ const { level } = defineProps<{ level: Priority }>()
   display: inline-block;
   padding: 4px 12px;
   border-radius: var(--radius-pill);
-  font-weight: 800;
+  font-weight: var(--fw-strong);
   font-size: 13px;
   white-space: nowrap;
+}
+
+.badge.size-sm {
+  padding: 1px 7px;
+  font-size: 10.5px;
 }
 
 .badge-urgent {

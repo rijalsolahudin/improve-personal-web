@@ -5,3 +5,4 @@
 - When a document must be uploaded/shared, wants an all-in-one single file (e.g. a combined `docs/PRD.md`) generated alongside the split per-feature docs instead of replacing them. Confidence: 0.8
 - Prefers conventional, explicit document names (PRD.md, index.md, ARCHITECTURE.md) over a generic README.md. Confidence: 0.8
 - Wants an ARCHITECTURE.md that acts as a guideline: overall structure, conventions, how things are organized. Confidence: 0.75
+- Wants architecture docs scoped per app: each app (e.g. `apps/web`, `apps/mobile`) keeps its own ARCHITECTURE.md, and the root ARCHITECTURE.md covers only root-level/cross-cutting concerns ("arsitektur pisah dong taruh di masing2 web & mobile, yang di root itu architecture root aja"). Confidence: 0.7

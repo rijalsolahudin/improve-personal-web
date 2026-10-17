@@ -4,9 +4,17 @@
 - Wants every work task tracked in Ergonio (project `personal-productivity`) via the `ergonio` skill: create the task before working and keep updating it. Confidence: 0.9
 - Prefers direct execution and explicitly asks to skip the automated workflow pipeline ("jgn pake workflow kamu langsung aja"). Confidence: 0.85
 - Expects the named specialist subagents to be delegated to by role instead of the agent doing everything inline — asks why they weren't used ("kok kamu gk pake subagent tad ya si bayu dll?"); e.g. hands FE work to `dimas` then verifies itself. Confidence: 0.8
-- Wants spec/plan documents updated first, then implementation follows. Confidence: 0.75
+- Wants spec/plan documents updated first, then implementation follows — on a design decision he says "update dulu architecturenya" (update the architecture doc before code follows). Confidence: 0.8
 - Prefers additive, non-destructive file changes: new or consolidated artifacts are added as an alternative and existing files/folders are left intact ("yg pisah2 ini gk usah dihapus alternative aja"). Confidence: 0.75
 - Treats an existing feature silently disappearing (e.g. after a refactor/working-tree change) as an urgent regression: expects it root-caused and restored right away, not just noted ("kok fitur hias hilang ya, perbaiki dong"). Confidence: 0.65
+
+## Decisions & research
+- Before answering a technical/library decision (e.g. whether to add Pinia), expects the agent to read the existing project docs first — PRD, ARCHITECTURE — and ground the recommendation in them rather than answering from assumption ("coba cek PRD dulu"). Confidence: 0.7
+
+## Git
+- Expects finished work to be committed and pushed to the remote as the closing step, without being asked to plan it first ("commit perubahan2ya dan push ya"). Confidence: 0.75
+- When the push cannot work (e.g. the repo has no configured remote), wants a short report of what failed plus the exact commands and URL needed — no invented/guessed remote. Confidence: 0.6
+- Commit messages are conventional commits in English with a scope, a bulleted body describing each change, and a `Co-authored-by: CommandCodeBot <noreply@commandcode.ai>` trailer. Confidence: 0.65
 
 ## Project conventions
 - Every change must satisfy the three pillars — Keamanan, Performa, Kerapian — with any deliberate trade-off written down explicitly. Confidence: 0.9

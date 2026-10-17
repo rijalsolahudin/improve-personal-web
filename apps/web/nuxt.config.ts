@@ -1,19 +1,22 @@
-// Rendering (ARCHITECTURE.md §10, ADR #6): data user cuma ada di perangkat, jadi halaman app
+import { STYLE_FONT_FAMILIES } from '@improve-personal/tokens'
+
+// Rendering (apps/web/ARCHITECTURE.md §2, ADR #6): data user cuma ada di perangkat, jadi halaman app
 // dirender di client (`ssr: false` per route). Hanya landing publik yang di-prerender.
 // Output = situs statis (CDN) + SPA fallback (200.html) untuk route client.
 export default defineNuxtConfig({
   compatibilityDate: '2026-10-01',
 
-  modules: ['@nuxt/eslint', '@nuxt/fonts', '@nuxtjs/i18n', 'nuxt-security'],
+  modules: ['@pinia/nuxt', '@nuxt/eslint', '@nuxt/fonts', '@nuxtjs/i18n', 'nuxt-security'],
 
   devtools: { enabled: true },
 
   css: ['@improve-personal/tokens/css', '~/assets/css/main.css'],
 
   // Primitif UI tinggal di `components/ui/<Nama>/index.vue` dan dipakai tanpa prefix
-  // (`<Button>`). Folder `ui` dikecualikan dari pemindaian default yang ber-prefix path.
+  // (`<Button>`). Komponen domain tinggal di `components/features/<domain>/`; pemindaian
+  // dimulai dari `features` supaya nama tetap `<TodoRow>`, bukan `<FeaturesTodoRow>`.
   components: [
-    { path: '~/components', pathPrefix: true, ignore: ['ui/**'] },
+    { path: '~/components/features', pathPrefix: true },
     { path: '~/components/ui', pathPrefix: false },
   ],
 
@@ -50,12 +53,20 @@ export default defineNuxtConfig({
   },
 
   // Self-hosted saat build, subset latin saja. Patrick Hand cuma dipakai di permukaan jurnal.
+  // Font gaya non-Cute (PRD F16) cuma dideklarasikan, tidak di-preload: browser baru mengunduhnya
+  // saat gaya itu aktif, jadi gaya default tetap 3 file font.
   fonts: {
     defaults: { subsets: ['latin'], styles: ['normal'] },
     families: [
       { name: 'Baloo 2', provider: 'google', weights: [800] },
       { name: 'Nunito', provider: 'google', weights: [600, 700, 800] },
       { name: 'Patrick Hand', provider: 'google', weights: [400] },
+      ...STYLE_FONT_FAMILIES.map(({ name, weights }) => ({
+        name,
+        provider: 'google',
+        weights: [...weights],
+        preload: false,
+      })),
     ],
   },
 

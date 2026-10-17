@@ -12,8 +12,8 @@ describe('useTasks', () => {
   it('tambah cepat, centang, kuadran, hapus', () => {
     const { tasks, add, toggle, setQuadrant, remove, findTask } = useTasks()
     const count = tasks.value.length
-    expect(add('  ', 'low', null)).toBe(false)
-    expect(add('Bayar listrik', 'urgent', null)).toBe(true)
+    expect(add('  ', 'low', null)).toBeNull()
+    expect(add('Bayar listrik', 'urgent', null)).toEqual(expect.any(String))
     const created = tasks.value.at(-1)
     if (!created) throw new Error('task tidak dibuat')
     expect(tasks.value).toHaveLength(count + 1)

@@ -42,14 +42,15 @@ const moods = MOOD_EMOJI.map((emoji, index) => ({ emoji, index, tint: moodTints[
   gap: 3px;
   padding: 8px 2px 6px;
   border: var(--border) solid var(--line);
-  border-radius: 16px 16px 16px 6px;
+  border-radius: calc(16px * var(--rk)) calc(16px * var(--rk)) calc(16px * var(--rk))
+    calc(6px * var(--rk));
   background: var(--paper);
 }
 
 .mood[aria-pressed='true'] {
   background: var(--mood-tint);
-  border-color: var(--ink);
-  transform: rotate(-3deg);
+  border-color: var(--outline);
+  transform: rotate(calc(-3deg * var(--bev)));
 }
 
 .emoji {

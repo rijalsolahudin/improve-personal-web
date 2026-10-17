@@ -1,10 +1,16 @@
 <script setup lang="ts">
+import type { IconName } from '~/utils/icons'
+
 const {
-  glyph,
+  glyph = '',
+  icon = undefined,
   color,
   size = 32,
 } = defineProps<{
-  glyph: string
+  /** Glyph unicode / angka pendek (dipakai kalau `icon` kosong). */
+  glyph?: string
+  /** Ikon garis (Desktop.dc.html nav & kepala kartu). */
+  icon?: IconName
   /** Nama CSS custom property, mis. `--icon-todo`. */
   color: string
   size?: number
@@ -16,10 +22,10 @@ const style = computed(() => {
   const inner = Math.round(size * 0.63)
   return {
     '--tile-size': `${size}px`,
-    '--tile-radius': `${outer}px ${outer}px ${outer}px ${leaf}px`,
+    '--tile-radius': `calc(${outer}px * var(--rk)) calc(${outer}px * var(--rk)) calc(${outer}px * var(--rk)) calc(${leaf}px * var(--rk))`,
     '--tile-color': `var(${color})`,
     '--glyph-size': `${inner}px`,
-    '--glyph-radius': `${Math.round(inner * 0.35)}px`,
+    '--glyph-radius': `calc(${Math.round(inner * 0.35)}px * var(--rk))`,
     '--glyph-font': `${Math.round(size * 0.34)}px`,
   }
 })
@@ -27,11 +33,15 @@ const style = computed(() => {
 
 <template>
   <span class="app-icon" :style="style" aria-hidden="true">
-    <span class="glyph">{{ glyph }}</span>
+    <span class="glyph">
+      <Icon v-if="icon" class="line-icon" :name="icon" />
+      <template v-else>{{ glyph }}</template>
+    </span>
   </span>
 </template>
 
 <style scoped>
+/* --tile-* bisa ditimpa induk (mis. NavItem di gaya non-Cute → ikon polos tanpa tile). */
 .app-icon {
   width: var(--tile-size);
   height: var(--tile-size);
@@ -40,7 +50,7 @@ const style = computed(() => {
   align-items: center;
   justify-content: center;
   border-radius: var(--tile-radius);
-  background: var(--tile-color);
+  background: var(--tile-bg, var(--tile-color));
   box-shadow: var(--shadow-icon-inset);
 }
 
@@ -51,13 +61,19 @@ const style = computed(() => {
   align-items: center;
   justify-content: center;
   border-radius: var(--glyph-radius);
-  background: var(--paper);
-  border: 2px solid var(--ink);
+  background: var(--tile-inner-bg, var(--paper));
+  border: var(--tile-inner-border, var(--border-thin)) solid var(--outline);
   font-family: var(--font-display);
-  font-weight: 800;
+  font-weight: var(--fw-display);
   font-size: var(--glyph-font);
   line-height: 1;
-  color: var(--ink);
-  transform: rotate(-6deg);
+  color: var(--tile-fg, var(--ink));
+  transform: rotate(calc(-6deg * var(--bev)));
+}
+
+/* Design: ikon garis ~0,4× sisi tile (32 → 13px); gaya polos membesarkan lewat --tile-icon-scale. */
+.line-icon {
+  width: calc(var(--glyph-size) * 0.65 * var(--tile-icon-scale, 1));
+  height: calc(var(--glyph-size) * 0.65 * var(--tile-icon-scale, 1));
 }
 </style>

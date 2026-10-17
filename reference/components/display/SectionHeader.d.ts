@@ -1,1 +1,0 @@
-export interface SectionHeaderProps { title: string; /** right-aligned accent link, e.g. "Semua" or "2/4 · Semua" */ action?: string; onAction?: () => void; /** tracked caps line above */ eyebrow?: string }

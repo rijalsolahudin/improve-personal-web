@@ -1,4 +1,5 @@
 import { bucketForWidth, type DecoBucket } from '~/utils/deco'
+import { featureIdFromPath } from '~/utils/features'
 
 import type { DecoScope } from './useDeco'
 
@@ -21,10 +22,9 @@ export function useDecoScope() {
   })
   onBeforeUnmount(() => queries.forEach((query) => query.removeEventListener('change', sync)))
 
-  const page = computed(() => {
-    const feature = route.params.feature
-    return typeof feature === 'string' && feature ? feature : 'home'
-  })
+  // Dari path, bukan `route.params.feature`: param itu cuma ada di route `[feature]`, jadi
+  // halaman fitur yang punya file sendiri (goals, kalender, …) dulu semua terbaca "home".
+  const page = computed(() => featureIdFromPath(route.path))
 
   const scope = computed<DecoScope>(() => ({ page: page.value, bucket: bucket.value }))
   return { scope }

@@ -1,5 +1,8 @@
 <script setup lang="ts">
-import type { GoalCategoryFilter, GoalStatusFilter } from '~/components/goal/GoalFilters.vue'
+import type {
+  GoalCategoryFilter,
+  GoalStatusFilter,
+} from '~/components/features/goal/GoalFilters.vue'
 
 definePageMeta({ layout: 'dashboard' })
 
@@ -82,16 +85,19 @@ function onCoverCleared(): void {
     <GoalFilters v-model:status="status" v-model:category="category" />
 
     <div class="layout">
-      <div class="list">
-        <GoalListCard
-          v-for="goal in filtered"
-          :key="goal.id"
-          :goal="goal"
-          :today="today"
-          :is-selected="goal.id === selected?.id"
-          @select="select(goal.id)"
-        />
-        <p v-if="!filtered.length" class="empty">{{ $t('goals.empty') }}</p>
+      <!-- Rail sticky terpisah dari daftar yang di-scroll: sticker di atasnya tidak terpotong. -->
+      <div class="rail">
+        <div class="list" data-anchor="goals-list" data-anchor-kind="content">
+          <GoalListCard
+            v-for="goal in filtered"
+            :key="goal.id"
+            :goal="goal"
+            :today="today"
+            :is-selected="goal.id === selected?.id"
+            @select="select(goal.id)"
+          />
+          <p v-if="!filtered.length" class="empty">{{ $t('goals.empty') }}</p>
+        </div>
       </div>
       <GoalDetail
         v-if="selected"
@@ -143,40 +149,67 @@ function onCoverCleared(): void {
 
 .title {
   font-family: var(--font-display);
-  font-weight: 800;
+  font-weight: var(--fw-display);
   font-size: 36px;
   line-height: 1.1;
 }
 
 .summary {
   margin-top: 4px;
-  font-weight: 700;
+  font-weight: var(--fw-body);
   font-size: 16px;
   color: var(--mute);
 }
 
 .layout {
+  container-type: inline-size;
   display: flex;
   flex-wrap: wrap;
   align-items: flex-start;
   gap: 24px;
 }
 
-.list {
+.rail {
   flex: 1 1 260px;
   min-width: 240px;
   max-width: 340px;
+}
+
+.list {
   display: flex;
   flex-direction: column;
   gap: 12px;
 }
 
+/*
+ * Daftar ikut sticky saat detail di-scroll (design), hanya kalau dua kolom berdampingan
+ * (list 260 + gap 24 + detail 480). Daftar yang lebih tinggi dari layar di-scroll sendiri;
+ * padding/margin negatif = lebar ring fokus (3px + offset 2px) supaya tidak terpotong.
+ */
+@container (min-width: 764px) {
+  .rail {
+    position: sticky;
+    /* Kartu sejajar tepi atas sidebar (sidebar sticky di --gap-desktop). */
+    top: var(--gap-desktop);
+    /* Di atas kolom tetangga: sticker yang ditempel di dalam panel boleh menjorok keluar. */
+    z-index: 1;
+  }
+
+  .list {
+    max-height: calc(100vh - 2 * var(--gap-desktop) + 12px);
+    margin: -6px;
+    padding: 6px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+}
+
 .empty {
   padding: 24px;
-  border: 2.5px dashed var(--dash-2);
-  border-radius: 26px;
+  border: var(--border) dashed var(--dash-2);
+  border-radius: var(--radius-sticker);
   text-align: center;
-  font-weight: 700;
+  font-weight: var(--fw-body);
   color: var(--mute);
 }
 
@@ -189,7 +222,7 @@ function onCoverCleared(): void {
     font-size: 28px;
   }
 
-  .list {
+  .rail {
     max-width: none;
   }
 }

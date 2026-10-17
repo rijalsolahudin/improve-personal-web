@@ -52,6 +52,7 @@ export const palette = {
   'cat-trip-tint': '#C7E3EE',
 
   'icon-home': '#E6A800',
+  'icon-daily': '#F7A21B',
   'icon-cal': '#F9D857',
   'icon-todo': '#9B4FC9',
   'icon-more': '#10A8D8',

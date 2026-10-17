@@ -1,6 +1,6 @@
 # Architecture — Improve Personal
 
-Pegangan arsitektur. Sumber kebenaran produk: `docs/PRD/`. Aturan tiga pilar: `CLAUDE.md` + `apps/<app>/.claude/rules/`.
+Pegangan arsitektur. Sumber kebenaran produk: `docs/PRD.md`. Aturan tiga pilar: `CLAUDE.md` + `apps/<app>/.claude/rules/`.
 Kalau dokumen ini bentrok sama kode, update salah satunya di PR yang sama - jangan dibiarkan beda.
 
 ---
@@ -77,8 +77,8 @@ flowchart LR
 ```
 improve-personal/
 ├── apps/
-│   ├── web/                 # Nuxt 4 - web desktop + PWA
-│   ├── mobile/              # Expo / React Native - Android + iOS
+│   ├── web/                 # Nuxt 4 - web desktop + PWA  (+ ARCHITECTURE.md, docs/PRD.md)
+│   ├── mobile/              # Expo / React Native - Android + iOS  (+ ARCHITECTURE.md, docs/PRD.md)
 │   └── server/              # Hono + Postgres - auth + sync relay
 ├── packages/
 │   ├── core/                # domain + use case + repository interface + sync engine
@@ -86,8 +86,9 @@ improve-personal/
 │   ├── contracts/           # schema zod API + DTO + versi protokol
 │   ├── tokens/              # design token → CSS vars (web) & theme object (RN)
 │   └── config/              # tsconfig, eslint, prettier, vitest preset bersama
-├── docs/PRD/
-├── CLAUDE.md · ARCHITECTURE.md
+├── docs/PRD.md              # sumber kebenaran produk - di-symlink ke docs/ tiap app
+├── CLAUDE.md                # aturan bersama (per app: apps/<app>/CLAUDE.md)
+├── ARCHITECTURE.md          # arsitektur root - cuma hal lintas app (per app: §10)
 ├── pnpm-workspace.yaml · turbo.json
 └── .claude/                 # settings, agents
 ```
@@ -261,36 +262,21 @@ DELETE /v1/account
 
 ---
 
-## 10. Struktur per app
+## 10. Arsitektur per app
 
-### `apps/web` (Nuxt 4)
+Detail tiap app ada di dokumennya sendiri. Root ini cuma nampung hal yang berlaku buat semua.
 
-```
-app/
-├── pages/          # 15 halaman (F1–F15), tipis: panggil composable
-├── components/     # per fitur: components/todo/, components/calendar/, ...
-├── composables/    # jembatan Vue ↔ packages/core (useTodos, useSyncStatus)
-├── plugins/        # inisialisasi core: adapter IndexedDB, crypto, sync
-└── assets/
-server/             # KOSONG / minimal - API ada di apps/server
-public/             # manifest PWA, icon
-```
+| App | Dokumen | Isi |
+|---|---|---|
+| `apps/web` (Nuxt 4) | [`apps/web/ARCHITECTURE.md`](apps/web/ARCHITECTURE.md) | Struktur `app/`, mode render, PWA, state (Pinia) |
+| `apps/mobile` (Expo) | [`apps/mobile/ARCHITECTURE.md`](apps/mobile/ARCHITECTURE.md) | Struktur, adapter native, kunci app, build & OTA |
+| `apps/server` (Hono) | belum dipisah - `apps/server` belum ada | Struktur target di bawah |
 
-- Rendering: `ssr: false` untuk halaman app (data cuma ada di perangkat, SSR nggak berguna & berisiko bocor). Prerender cuma halaman publik (landing, Panduan).
-- PWA: `@vite-pwa/nuxt`. Service worker cache **aset statis saja**, `NetworkOnly` untuk `/v1/*`.
+Aturan:
 
-### `apps/mobile` (Expo)
-
-```
-app/                # Expo Router: file = route
-src/
-├── features/<fitur>/   # screens, components, hooks per fitur
-├── platform/           # adapter SQLite, SecureStore, biometrik
-└── theme/              # dari packages/tokens
-```
-
-- Kunci app biometrik saat buka/balik dari background.
-- Timer Pomodoro: simpan `startedAt`, hitung sisa dari jam, bukan interval (AC ±1 dtk setelah background).
+- Dokumen app boleh nambah detail, tapi **dilarang nulis ulang** hal root (§5–§9). Kalau bentrok, root yang menang dan selisihnya dibenerin di PR yang sama.
+- Tiap app punya `docs/PRD.md` sebagai **symlink** ke `../../docs/PRD.md`, bukan salinan.
+- Dokumen app nggak boleh nampung aturan lintas app (§11) - itu tetap di sini.
 
 ### `apps/server` (Hono)
 
@@ -302,6 +288,8 @@ src/
 ├── middleware/     # auth, rate limit, request id, error handler
 └── env.ts          # validasi env (zod) - gagal start kalau invalid
 ```
+
+Pindah ke `apps/server/ARCHITECTURE.md` begitu app-nya dibuat.
 
 ---
 
@@ -358,3 +346,4 @@ E2E (T16): Playwright (web/PWA) + Maestro (mobile), termasuk skenario 2 perangka
 | 6 | Web app `ssr: false` | Data nggak ada di server, SSR cuma risiko | SEO cuma untuk halaman publik |
 | 7 | Server terpisah (`apps/server`) | Dipakai web & mobile, deploy & skala independen | Satu deploy tambahan |
 | 8 | libsodium di dua platform | Primitive identik, teruji | Ukuran bundle web +~200 KB (lazy-load setelah login) |
+| 9 | Pinia di web sebagai **proyeksi reaktif**, bukan pemilik data | 16 fitur saling silang (task ↔ Eisenhower/kalender/Daily/goal/Overview) butuh satu sumber reaktif + getter turunan; `useState` per-key nggak punya getter, action, plugin, atau devtools, dan makin susah dirawat di skala ini | Ada satu lapisan cache lagi di atas repo → butuh disiplin: store nggak boleh nulis langsung ke DB, semua mutasi lewat use case `core` (kalau nggak, outbox & tombstone T21 bocor) |

@@ -23,7 +23,11 @@ const day = (year: number, month: number, d: number, hour = 0, minute = 0): numb
   new Date(year, month - 1, d, hour, minute).getTime()
 const iso = (ms: number): string => toIsoDate(new Date(ms))
 
-function session(endedAt: number, minutes: number, status: FocusSession['status'] = 'selesai'): FocusSession {
+function session(
+  endedAt: number,
+  minutes: number,
+  status: FocusSession['status'] = 'selesai',
+): FocusSession {
   return {
     id: `s-${endedAt}`,
     startedAt: endedAt - minutes * 60_000,
@@ -67,7 +71,9 @@ describe('focusBuckets', () => {
 
   it("harian: sesi 'dilewati' tidak dihitung", () => {
     const now = day(2026, 10, 14, 15)
-    const { buckets } = focusBuckets('harian', 0, now, [session(day(2026, 10, 14, 9, 0), 25, 'dilewati')])
+    const { buckets } = focusBuckets('harian', 0, now, [
+      session(day(2026, 10, 14, 9, 0), 25, 'dilewati'),
+    ])
     expect(buckets.reduce((acc, b) => acc + b.minutes, 0)).toBe(0)
   })
 })
@@ -89,7 +95,7 @@ describe('habit', () => {
   const habit: Habit = {
     id: 'h1',
     name: 'Belajar',
-    icon: '✎',
+    icon: 'book-open',
     sticker: null,
     color: 0,
     days: null,
@@ -133,7 +139,9 @@ describe('scheduledMinutes', () => {
   })
 
   it('all-day dilewati, jadwal di luar rentang tidak muncul', () => {
-    expect(scheduledMinutes([{ ...weekly, allDay: true }], day(2026, 10, 12), day(2026, 10, 19))).toEqual([])
+    expect(
+      scheduledMinutes([{ ...weekly, allDay: true }], day(2026, 10, 12), day(2026, 10, 19)),
+    ).toEqual([])
     // Selasa–Kamis (3–5 Nov 2026) tidak ketemu Senin.
     expect(scheduledMinutes([weekly], day(2026, 11, 3), day(2026, 11, 6))).toEqual([])
   })
@@ -154,8 +162,24 @@ describe('moodCorrelation', () => {
 
 describe('task & goal', () => {
   const tasks: Task[] = [
-    { id: 't1', title: 'A', note: '', priority: 'urgent', deadline: null, done: true, scheduleId: null, quadrant: 'do' },
-    { id: 't2', title: 'B', note: '', priority: 'low', deadline: day(2026, 10, 1), done: false, scheduleId: null, quadrant: 'plan' },
+    {
+      id: 't1',
+      title: 'A',
+      priority: 'urgent',
+      deadline: null,
+      done: true,
+      scheduleId: null,
+      quadrant: 'do',
+    },
+    {
+      id: 't2',
+      title: 'B',
+      priority: 'low',
+      deadline: day(2026, 10, 1),
+      done: false,
+      scheduleId: null,
+      quadrant: 'plan',
+    },
   ]
 
   it('taskTotals & eisenhowerCounts', () => {
@@ -176,7 +200,15 @@ describe('task & goal', () => {
         cover: null,
         along: [],
         chapters: [
-          { id: 'c1', title: 'Bab 1', start: '2026-10-01', end: '2026-10-31', isManualDone: false, isClosed: false, items: [] },
+          {
+            id: 'c1',
+            title: 'Bab 1',
+            start: '2026-10-01',
+            end: '2026-10-31',
+            isManualDone: false,
+            isClosed: false,
+            items: [],
+          },
         ],
       },
     ]

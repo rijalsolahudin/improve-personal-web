@@ -57,8 +57,8 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
   overflow-y: auto;
   padding: 14px 14px 10px;
   background: var(--paper);
-  border: var(--border-thick) solid var(--ink);
-  border-radius: 28px;
+  border: var(--border-thick) solid var(--outline);
+  border-radius: calc(28px * var(--rk));
   box-shadow: 0 8px 0 rgba(47, 42, 36, 0.15);
 }
 
@@ -74,7 +74,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 .title {
   margin-bottom: 12px;
   font-family: var(--font-display);
-  font-weight: 800;
+  font-weight: var(--fw-display);
   font-size: 22px;
 }
 </style>

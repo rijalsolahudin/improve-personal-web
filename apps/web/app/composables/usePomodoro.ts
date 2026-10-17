@@ -17,6 +17,8 @@ import {
   type PomodoroConfig,
   type PomodoroPhase,
   type PomodoroSetting,
+  type PomodoroTargetKind,
+  type PomodoroTargetMode,
 } from '~/utils/pomodoro'
 import { MS_PER_MINUTE } from '~/utils/time'
 
@@ -27,7 +29,6 @@ export const POMODORO_TARGET_MAX = 120
 const DEFAULT_TARGET = 'Fokus'
 
 export type PomodoroNotice = 'focusDone' | 'focusSkipped' | 'breakDone' | null
-export type PomodoroTargetMode = 'task' | 'free'
 
 function readStorage(key: string): string | null {
   if (!import.meta.client) return null
@@ -56,12 +57,23 @@ function readConfig(): PomodoroConfig {
 
 /** Riwayat contoh fase 1 (design: dua sesi pagi ini + riwayat hari sebelumnya). Diganti repository lokal (packages/core). */
 const HISTORY_DAYS = 90
-const HISTORY_TARGETS = ['Belajar AWS', 'Nulis laporan', 'Baca buku', 'Latihan soal', 'Rapikan catatan']
+const HISTORY_TARGETS = [
+  'Belajar AWS',
+  'Nulis laporan',
+  'Baca buku',
+  'Latihan soal',
+  'Rapikan catatan',
+]
 const HISTORY_DURATIONS = [25, 25, 25, 50]
 
 function seedHistory(now: number): FocusSession[] {
   const at = (dayOffset: number, hour: number, minute: number): number =>
-    new Date(new Date(now).setDate(new Date(now).getDate() - dayOffset)).setHours(hour, minute, 0, 0)
+    new Date(new Date(now).setDate(new Date(now).getDate() - dayOffset)).setHours(
+      hour,
+      minute,
+      0,
+      0,
+    )
   const sessions: FocusSession[] = [
     {
       id: 'p2',
@@ -87,7 +99,11 @@ function seedHistory(now: number): FocusSession[] {
   for (let offset = 1; offset <= HISTORY_DAYS; offset += 1) {
     const count = Math.floor(random() * 5)
     for (let index = 0; index < count; index += 1) {
-      const startedAt = at(offset, 7 + Math.floor(random() * 14), [0, 15, 30, 45][Math.floor(random() * 4)] ?? 0)
+      const startedAt = at(
+        offset,
+        7 + Math.floor(random() * 14),
+        [0, 15, 30, 45][Math.floor(random() * 4)] ?? 0,
+      )
       const duration = HISTORY_DURATIONS[Math.floor(random() * HISTORY_DURATIONS.length)] ?? 25
       sessions.push({
         id: `p${offset}-${index}`,
@@ -111,6 +127,7 @@ export function usePomodoro() {
   const state = useState('pomodoro', () => createPomodoro(config.value))
   const target = useState<string | null>('pomodoro-target', () => null)
   const targetMode = useState<PomodoroTargetMode>('pomodoro-target-mode', () => 'task')
+  const targetKind = useState<PomodoroTargetKind | null>('pomodoro-target-kind', () => null)
   const history = useState<FocusSession[]>('pomodoro-history', () => seedHistory(Date.now()))
   const isSoundOn = useState<boolean>(
     'pomodoro-sound',
@@ -158,6 +175,7 @@ export function usePomodoro() {
     sessionsPerCycle: computed(() => config.value.every),
     target: readonly(target),
     targetMode: readonly(targetMode),
+    targetKind: readonly(targetKind),
     history: readonly(history),
     focusMinutesToday: computed(() => focusMinutesOn(history.value, now.value)),
     isSoundOn: readonly(isSoundOn),
@@ -185,8 +203,10 @@ export function usePomodoro() {
     adjust(key: PomodoroSetting, direction: -1 | 1): void {
       updateConfig(adjustSetting(config.value, key, direction))
     },
-    setTarget(label: string): void {
+    /** `kind` kosong = asal tidak diketahui (mis. tombol "▶ Fokus" dari halaman lain). */
+    setTarget(label: string, kind: PomodoroTargetKind | null = null): void {
       target.value = label.trim().slice(0, POMODORO_TARGET_MAX) || null
+      targetKind.value = target.value ? kind : null
     },
     setTargetMode(mode: PomodoroTargetMode): void {
       targetMode.value = mode

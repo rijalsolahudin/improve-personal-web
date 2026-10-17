@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { ScheduleFormTarget } from '~/components/schedule/ScheduleForm.vue'
+import type { ScheduleFormTarget } from '~/components/features/schedule/ScheduleForm.vue'
 import { shiftAnchor, weekDays, type CalendarView, type Occurrence } from '~/utils/schedule'
 import { fromIsoDate, toIsoDate } from '~/utils/time'
 
@@ -20,6 +20,7 @@ const view = useState<CalendarView>('calendar-view', () =>
 const anchor = useState<string>('calendar-anchor', () => toIsoDate(new Date()))
 const selected = useState<string>('calendar-selected', () => toIsoDate(new Date()))
 const form = ref<ScheduleFormTarget | null>(null)
+const { focusOn } = useFocusTarget()
 
 // Ganti tampilan → mulai dari tanggal yang sedang dipilih (design).
 watch(view, () => (anchor.value = selected.value))
@@ -75,17 +76,24 @@ function openOccurrence(occurrence: Occurrence): void {
           :selected="selected"
           :today="today"
           :now="now"
+          :can-focus="view === 'hari'"
           @select="(day) => (selected = day)"
           @create="(day, time) => (form = { mode: 'new', date: day, time })"
           @open="openOccurrence"
+          @focus="focusOn"
         />
       </div>
-      <CalendarDayPanel
-        :day="selected"
-        :today="today"
-        @create="form = { mode: 'new', date: selected }"
-        @edit="openOccurrence"
-      />
+      <!-- Rail sticky terpisah dari panel yang di-scroll: sticker di atasnya tidak terpotong. -->
+      <div class="rail">
+        <CalendarDayPanel
+          class="side"
+          :day="selected"
+          :today="today"
+          @create="form = { mode: 'new', date: selected }"
+          @edit="openOccurrence"
+          @focus="focusOn"
+        />
+      </div>
     </div>
     <ScheduleForm v-if="form" :target="form" @close="form = null" @saved="onSaved" />
   </div>
@@ -100,6 +108,7 @@ function openOccurrence(occurrence: Occurrence): void {
 }
 
 .layout {
+  container-type: inline-size;
   display: flex;
   flex-wrap: wrap;
   align-items: flex-start;
@@ -110,16 +119,50 @@ function openOccurrence(occurrence: Occurrence): void {
   flex: 999 1 560px;
   min-width: 0;
   padding: 16px;
-  border: 2px solid var(--line);
-  border-radius: 28px;
+  border: var(--border-thin) solid var(--line);
+  border-radius: calc(28px * var(--rk));
   background: var(--paper);
 }
 
+/* Ukuran kolom panel hari (dulu di .panel, kini rail yang jadi item flex). */
+.rail {
+  flex: 1 1 280px;
+  min-width: 260px;
+  max-width: 380px;
+}
+
+/*
+ * Panel hari ikut sticky saat board di-scroll, hanya kalau berdampingan dengan board
+ * (board 560 + gap 20 + panel 280). Panel lebih tinggi dari layar di-scroll sendiri;
+ * padding/margin negatif = lebar ring fokus (3px + offset 2px) supaya tidak terpotong.
+ */
+@container (min-width: 860px) {
+  .rail {
+    position: sticky;
+    /* Sejajar tepi atas sidebar (sidebar sticky di --gap-desktop). */
+    top: var(--gap-desktop);
+    /* Di atas kolom tetangga: sticker yang ditempel di dalam panel boleh menjorok keluar. */
+    z-index: 1;
+  }
+
+  .side {
+    max-height: calc(100vh - 2 * var(--gap-desktop) + 12px);
+    margin: -6px;
+    padding: 6px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+}
+
 @media (max-width: 599px) {
+  .rail {
+    max-width: none;
+  }
+
   .board {
     flex-basis: 100%;
     padding: 10px;
-    border-radius: 22px;
+    border-radius: var(--radius-card);
   }
 }
 </style>

@@ -9,6 +9,7 @@ describe('usePomodoro', () => {
       'pomodoro',
       'pomodoro-config',
       'pomodoro-target',
+      'pomodoro-target-kind',
       'pomodoro-history',
       'pomodoro-sound',
       'pomodoro-notice',
@@ -46,5 +47,14 @@ describe('usePomodoro', () => {
     expect(JSON.parse(localStorage.getItem(POMODORO_CONFIG_KEY) ?? '{}').focus).toBe(30)
     clearNuxtState(['pomodoro-config'])
     expect(usePomodoro().config.value.focus).toBe(30)
+  })
+
+  it('target ikut jenisnya; target kosong mengosongkan jenis', () => {
+    const pomodoro = usePomodoro()
+    pomodoro.setTarget('Gym', 'jadwal')
+    expect(pomodoro.targetKind.value).toBe('jadwal')
+    pomodoro.setTarget('   ', 'teks')
+    expect(pomodoro.target.value).toBeNull()
+    expect(pomodoro.targetKind.value).toBeNull()
   })
 })

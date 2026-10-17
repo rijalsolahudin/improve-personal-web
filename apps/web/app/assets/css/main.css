@@ -85,8 +85,48 @@ select:focus-visible {
 
 /* Kartu hero: dot grid putih di atas warna primary. */
 .dot-grid {
-  background-image: radial-gradient(rgba(255, 255, 255, 0.35) 1.2px, transparent 1.2px);
+  background-image: var(--pattern-dots);
   background-size: 22px 22px;
+}
+
+/* Textarea tulisan tangan di kertas bergaris (Journal); jarak garis lewat `--line-h`. */
+.lined-text {
+  --line-h: 30px;
+
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: transparent
+    repeating-linear-gradient(
+      transparent 0 calc(var(--line-h) - 1px),
+      var(--mline) calc(var(--line-h) - 1px) var(--line-h)
+    );
+  background-attachment: local;
+  color: var(--ink);
+  font-family: var(--font-hand);
+  line-height: var(--line-h);
+  resize: none;
+  outline: none;
+}
+
+/* Aksi sekunder baris (mis. "▶ Fokus") muncul saat hover/fokus; selalu tampil di layar sentuh. */
+.hover-reveal .reveal {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+}
+
+.hover-reveal:hover .reveal,
+.hover-reveal:focus-within .reveal {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+@media (hover: none) {
+  .hover-reveal .reveal {
+    opacity: 1;
+    pointer-events: auto;
+  }
 }
 
 .eyebrow {

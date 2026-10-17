@@ -23,7 +23,9 @@ const style = computed(() => ({ '--cd-tint': bg, '--cd-ink': fg }))
 
 <template>
   <li v-if="layout === 'compact'" class="card compact" :style="style">
-    <span class="days">{{ days }}<span class="unit">{{ $t('home.countdown.days') }}</span></span>
+    <span class="days"
+      >{{ days }}<span class="unit">{{ $t('common.days') }}</span></span
+    >
     <span class="title">{{ title }}</span>
     <span class="date">{{ date }}</span>
   </li>
@@ -37,7 +39,7 @@ const style = computed(() => ({ '--cd-tint': bg, '--cd-ink': fg }))
     </div>
     <div class="badge">
       <span class="badge-n">{{ days }}</span>
-      <span class="badge-l">{{ $t('home.countdown.days') }}</span>
+      <span class="badge-l">{{ $t('common.days') }}</span>
     </div>
   </li>
 </template>
@@ -59,7 +61,7 @@ const style = computed(() => ({ '--cd-tint': bg, '--cd-ink': fg }))
 
 .compact .days {
   font-family: var(--font-display);
-  font-weight: 800;
+  font-weight: var(--fw-display);
   font-size: 30px;
   line-height: 1;
   color: var(--cd-ink);
@@ -72,14 +74,14 @@ const style = computed(() => ({ '--cd-tint': bg, '--cd-ink': fg }))
 
 .compact .title {
   margin-top: 4px;
-  font-weight: 800;
+  font-weight: var(--fw-strong);
   font-size: var(--fs-body-sm);
   line-height: 1.2;
 }
 
 .compact .date {
   margin-top: 2px;
-  font-weight: 700;
+  font-weight: var(--fw-body);
   font-size: var(--fs-meta);
   color: var(--cd-ink);
   text-transform: uppercase;
@@ -99,7 +101,7 @@ const style = computed(() => ({ '--cd-tint': bg, '--cd-ink': fg }))
 }
 
 .wide .date {
-  font-weight: 800;
+  font-weight: var(--fw-strong);
   font-size: 11px;
   letter-spacing: 0.1em;
   color: var(--cd-ink);
@@ -108,7 +110,7 @@ const style = computed(() => ({ '--cd-tint': bg, '--cd-ink': fg }))
 
 .wide .title {
   font-family: var(--font-display);
-  font-weight: 800;
+  font-weight: var(--fw-display);
   font-size: 20px;
   line-height: 1.15;
 }
@@ -138,21 +140,21 @@ const style = computed(() => ({ '--cd-tint': bg, '--cd-ink': fg }))
   align-items: center;
   justify-content: center;
   box-sizing: border-box;
-  border: 2.5px solid var(--ink);
+  border: var(--border) solid var(--outline);
   border-radius: var(--radius-leaf-lg);
   background: var(--paper);
 }
 
 .badge-n {
   font-family: var(--font-display);
-  font-weight: 800;
+  font-weight: var(--fw-display);
   font-size: 32px;
   line-height: 1;
   color: var(--cd-ink);
 }
 
 .badge-l {
-  font-weight: 800;
+  font-weight: var(--fw-strong);
   font-size: 11px;
   color: var(--mute);
 }

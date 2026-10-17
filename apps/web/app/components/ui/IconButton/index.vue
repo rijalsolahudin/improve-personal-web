@@ -45,10 +45,10 @@ const style = computed(() => ({
   justify-content: center;
   padding: 0;
   box-sizing: border-box;
-  border: 2.5px solid var(--ink);
+  border: var(--border) solid var(--outline);
   border-radius: var(--ib-radius);
   font-family: var(--font-body);
-  font-weight: 800;
+  font-weight: var(--fw-strong);
   font-size: var(--ib-font);
   color: var(--ink);
 }

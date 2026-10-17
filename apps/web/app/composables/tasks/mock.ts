@@ -11,11 +11,10 @@ export function createTasksMock(now: number): Task[] {
     title: string,
     priority: Priority,
     hoursFromNow: number | null,
-    extra: { note?: string; done?: boolean; scheduleId?: string; quadrant?: Quadrant } = {},
+    extra: { done?: boolean; scheduleId?: string; quadrant?: Quadrant } = {},
   ): Task => ({
     id,
     title,
-    note: extra.note ?? '',
     priority,
     deadline: hoursFromNow === null ? null : now + hoursFromNow * MS_PER_HOUR,
     done: extra.done ?? false,
@@ -25,7 +24,6 @@ export function createTasksMock(now: number): Task[] {
 
   return [
     task('t1', 'Selesai modul 4 — VPC', 'urgent', 3, {
-      note: 'Fokus subnet & route table',
       scheduleId: 'aws',
       quadrant: 'do',
     }),
@@ -36,7 +34,6 @@ export function createTasksMock(now: number): Task[] {
       quadrant: 'plan',
     }),
     task('t4', 'Kirim draft laporan', 'urgent', -2, {
-      note: 'Ke Bu Rina, format PDF',
       quadrant: 'do',
     }),
     task('t5', 'Balas email vendor', 'medium', 30, { quadrant: 'delegate' }),

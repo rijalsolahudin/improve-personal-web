@@ -48,9 +48,47 @@ const entries = computed(() => memosOn(matching.value, selected.value))
       />
     </header>
 
-    <MemoDateStrip v-model="selected" :dates="dates" :today="today" :memos="memos" :plain="plain" />
+    <MemoDateStrip
+      v-model="selected"
+      data-anchor="memo-dates"
+      data-anchor-kind="content"
+      :dates="dates"
+      :today="today"
+      :memos="memos"
+      :plain="plain"
+    />
 
     <div class="pages">
+      <JournalIntentions
+        :day="selected"
+        :today="today"
+        data-anchor="journal-intentions"
+        data-anchor-kind="content"
+      />
+      <div class="daily">
+        <div class="col">
+          <JournalFeeling
+            :day="selected"
+            data-anchor="journal-feeling"
+            data-anchor-kind="content"
+          />
+          <JournalNote
+            :day="selected"
+            kind="affirm"
+            data-anchor="journal-affirm"
+            data-anchor-kind="content"
+          />
+          <JournalNote
+            :day="selected"
+            kind="reflect"
+            data-anchor="journal-reflect"
+            data-anchor-kind="content"
+          />
+        </div>
+        <div class="col">
+          <JournalLists :day="selected" data-anchor="journal-lists" data-anchor-kind="content" />
+        </div>
+      </div>
       <MemoEditor :day="selected" />
       <MemoEntry
         v-for="(memo, index) in entries"
@@ -83,14 +121,14 @@ const entries = computed(() => memosOn(matching.value, selected.value))
 
 .title {
   font-family: var(--font-display);
-  font-weight: 800;
+  font-weight: var(--fw-display);
   font-size: 36px;
   line-height: 1.1;
 }
 
 .summary {
   margin-top: 4px;
-  font-weight: 700;
+  font-weight: var(--fw-body);
   font-size: 16px;
   color: var(--mute);
 }
@@ -99,10 +137,10 @@ const entries = computed(() => memosOn(matching.value, selected.value))
   width: 280px;
   max-width: 100%;
   padding: 11px 16px;
-  border: 2.5px solid var(--ink);
+  border: var(--border) solid var(--outline);
   border-radius: var(--radius-pill);
   background: var(--paper);
-  font-weight: 700;
+  font-weight: var(--fw-body);
   font-size: 15px;
   outline: none;
 }
@@ -112,6 +150,25 @@ const entries = computed(() => memosOn(matching.value, selected.value))
   flex-direction: column;
   gap: 28px;
   min-width: 0;
+}
+
+/* Dua kolom isian harian; kolom yang lebih pendek ikut sticky saat kolom lain di-scroll. */
+.daily {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 360px), 1fr));
+  align-items: start;
+  gap: 24px;
+}
+
+.col {
+  position: sticky;
+  top: var(--gap-desktop);
+  /* Di atas kolom tetangga: sticker yang ditempel di dalam kolom boleh menjorok keluar. */
+  z-index: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
 }
 
 .empty {

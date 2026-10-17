@@ -1,19 +1,38 @@
 import {
   countdownFromDraft,
+  countdownTarget,
+  countdownTint,
   validateCountdownDraft,
   type Countdown,
   type CountdownDraft,
   type CountdownDraftError,
 } from '~/utils/countdown'
+import { MS_PER_DAY } from '~/utils/time'
 
 import { createCountdownsMock } from './countdown/mock'
 
 /**
- * Data countdown (PRD F5) untuk halaman Countdown, Home, dan Overview. Fase 1:
+ * Data countdown (PRD F5) untuk halaman Countdown, Kalender, dan Overview. Fase 1:
  * in-memory dari mock, sama seperti store lain, sampai packages/core siap.
  */
 export function useCountdowns() {
   const countdowns = useState<Countdown[]>('countdowns', () => createCountdownsMock(Date.now()))
+  const now = useNow()
+
+  /** Momen yang belum lewat & tidak diarsip, terdekat dulu (penanda Kalender). */
+  const upcoming = computed(() =>
+    countdowns.value
+      .filter((countdown) => !countdown.archived)
+      .map((countdown) => ({ countdown, at: countdownTarget(countdown, now.value) }))
+      .filter(({ countdown, at }) => at + (countdown.time ? 0 : MS_PER_DAY) > now.value)
+      .sort((a, b) => a.at - b.at)
+      .map(({ countdown, at }) => ({
+        id: countdown.id,
+        title: countdown.title,
+        at,
+        ink: countdownTint(countdown.color)[1],
+      })),
+  )
 
   function find(id: string): Countdown | undefined {
     return countdowns.value.find((countdown) => countdown.id === id)
@@ -47,5 +66,12 @@ export function useCountdowns() {
     )
   }
 
-  return { countdowns: computed(() => countdowns.value), find, save, remove, toggleArchive }
+  return {
+    countdowns: computed(() => countdowns.value),
+    upcoming,
+    find,
+    save,
+    remove,
+    toggleArchive,
+  }
 }

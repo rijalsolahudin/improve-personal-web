@@ -80,7 +80,12 @@ const GOAL_COLORS: Record<GoalCategory, string> = {
     </header>
 
     <section class="stats" :aria-label="$t('overview.statsLabel')">
-      <div v-for="stat in stats" :key="stat.key" class="stat" :style="{ background: stat.bg, color: stat.fg }">
+      <div
+        v-for="stat in stats"
+        :key="stat.key"
+        class="stat"
+        :style="{ background: stat.bg, color: stat.fg }"
+      >
         <p class="stat-label">{{ stat.label }}</p>
         <p class="stat-value">{{ stat.value }}</p>
         <p class="stat-sub">{{ stat.sub }}</p>
@@ -168,7 +173,9 @@ const GOAL_COLORS: Record<GoalCategory, string> = {
             </div>
           </div>
           <div class="hm-legend">
-            <span>{{ $t('overview.heatmap.rate', { name: heatmap.name, rate: heatmap.rate }) }}</span>
+            <span>{{
+              $t('overview.heatmap.rate', { name: heatmap.name, rate: heatmap.rate })
+            }}</span>
             <span class="spacer" />
             <span>{{ $t('overview.heatmap.none') }}</span>
             <span class="hm-key" style="background: var(--chip)" />
@@ -194,7 +201,8 @@ const GOAL_COLORS: Record<GoalCategory, string> = {
           />
         </svg>
         <div class="mood-axis">
-          <span>{{ moodFrom }}</span><span>{{ moodTo }}</span>
+          <span>{{ moodFrom }}</span
+          ><span>{{ moodTo }}</span>
         </div>
         <div class="mood-tiles">
           <div class="mood-tile">
@@ -237,7 +245,8 @@ const GOAL_COLORS: Record<GoalCategory, string> = {
         <div v-if="scheduled.length" class="sched-list">
           <div v-for="item in scheduled" :key="item.id" class="sched-row">
             <div class="sched-head">
-              <span>{{ item.title }}</span><span class="mute">{{ item.minutes }}</span>
+              <span>{{ item.title }}</span
+              ><span class="mute">{{ item.minutes }}</span>
             </div>
             <ProgressBar
               class="track"
@@ -256,7 +265,8 @@ const GOAL_COLORS: Record<GoalCategory, string> = {
         <div v-if="goalRows.length" class="goal-list">
           <div v-for="goal in goalRows" :key="goal.id" class="goal-row">
             <div class="goal-head">
-              <span>{{ goal.title }}</span><span class="goal-pct">{{ goal.pct }}%</span>
+              <span>{{ goal.title }}</span
+              ><span class="goal-pct">{{ goal.pct }}%</span>
             </div>
             <ProgressBar
               class="track"
@@ -266,7 +276,11 @@ const GOAL_COLORS: Record<GoalCategory, string> = {
               :height="10"
             />
             <p class="goal-chapter">
-              {{ goal.chapter ? $t('overview.goals.running', { title: goal.chapter }) : $t('overview.goals.noChapter') }}
+              {{
+                goal.chapter
+                  ? $t('overview.goals.running', { title: goal.chapter })
+                  : $t('overview.goals.noChapter')
+              }}
             </p>
           </div>
         </div>
@@ -321,14 +335,14 @@ const GOAL_COLORS: Record<GoalCategory, string> = {
 
 .title {
   font-family: var(--font-display);
-  font-weight: 800;
+  font-weight: var(--fw-display);
   font-size: 36px;
   line-height: 1.1;
 }
 
 .label {
   margin-top: 4px;
-  font-weight: 700;
+  font-weight: var(--fw-body);
   font-size: 16px;
   color: var(--mute);
 }
@@ -355,7 +369,7 @@ const GOAL_COLORS: Record<GoalCategory, string> = {
   max-width: 100%;
   overflow-x: auto;
   padding: 3px;
-  border: 2.5px solid var(--ink);
+  border: var(--border) solid var(--outline);
   border-radius: var(--radius-pill);
   background: var(--paper);
   scrollbar-width: none;
@@ -368,7 +382,7 @@ const GOAL_COLORS: Record<GoalCategory, string> = {
   border-radius: var(--radius-pill);
   background: transparent;
   color: var(--mute-2);
-  font-weight: 800;
+  font-weight: var(--fw-strong);
   font-size: 14px;
   white-space: nowrap;
 }
@@ -386,11 +400,11 @@ const GOAL_COLORS: Record<GoalCategory, string> = {
 
 .stat {
   padding: 18px 20px;
-  border-radius: 24px;
+  border-radius: var(--radius-hero);
 }
 
 .stat-label {
-  font-weight: 800;
+  font-weight: var(--fw-strong);
   font-size: 12px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -399,13 +413,13 @@ const GOAL_COLORS: Record<GoalCategory, string> = {
 .stat-value {
   margin-top: 4px;
   font-family: var(--font-display);
-  font-weight: 800;
+  font-weight: var(--fw-display);
   font-size: 34px;
   line-height: 1.1;
 }
 
 .stat-sub {
-  font-weight: 700;
+  font-weight: var(--fw-body);
   font-size: 13px;
 }
 
@@ -420,8 +434,8 @@ const GOAL_COLORS: Record<GoalCategory, string> = {
   flex: 1 1 250px;
   min-width: 0;
   padding: 20px 22px;
-  border: 2px solid var(--line);
-  border-radius: 28px;
+  border: var(--border-thin) solid var(--line);
+  border-radius: calc(28px * var(--rk));
   background: var(--paper);
 }
 
@@ -439,7 +453,7 @@ const GOAL_COLORS: Record<GoalCategory, string> = {
 
 .card-title {
   font-family: var(--font-display);
-  font-weight: 800;
+  font-weight: var(--fw-display);
   font-size: 20px;
   line-height: 1.2;
 }
@@ -447,7 +461,7 @@ const GOAL_COLORS: Record<GoalCategory, string> = {
 .card-note,
 .card-total,
 .mute {
-  font-weight: 800;
+  font-weight: var(--fw-strong);
   font-size: 13px;
   color: var(--mute);
 }
@@ -463,14 +477,15 @@ const GOAL_COLORS: Record<GoalCategory, string> = {
   height: 180px;
   margin-top: 16px;
   padding-bottom: 2px;
-  border-bottom: 2.5px solid var(--ink);
+  border-bottom: var(--border) solid var(--outline);
 }
 
 .bar {
   flex: 1;
   min-width: 0;
-  border: 2px solid transparent;
-  border-radius: 8px 8px 3px 3px;
+  border: var(--border-thin) solid transparent;
+  border-radius: calc(8px * var(--rk)) calc(8px * var(--rk)) calc(3px * var(--rk))
+    calc(3px * var(--rk));
 }
 
 .ticks {
@@ -483,7 +498,7 @@ const GOAL_COLORS: Record<GoalCategory, string> = {
   flex: 1;
   min-width: 0;
   text-align: center;
-  font-weight: 800;
+  font-weight: var(--fw-strong);
   font-size: 11px;
   color: var(--mute-3);
   white-space: nowrap;
@@ -502,19 +517,19 @@ const GOAL_COLORS: Record<GoalCategory, string> = {
 
 .big-streak {
   padding: 12px 14px;
-  border-radius: 18px;
+  border-radius: var(--radius-row);
 }
 
 .big-n {
   font-family: var(--font-display);
-  font-weight: 800;
+  font-weight: var(--fw-display);
   font-size: 28px;
   line-height: 1;
 }
 
 .big-l {
   margin-top: 2px;
-  font-weight: 800;
+  font-weight: var(--fw-strong);
   font-size: 12px;
 }
 
@@ -529,32 +544,32 @@ const GOAL_COLORS: Record<GoalCategory, string> = {
   align-items: center;
   gap: 10px;
   padding: 8px 0;
-  border-top: 2px dashed var(--line-2);
+  border-top: var(--border-thin) dashed var(--line-2);
 }
 
 .dot {
   width: 12px;
   height: 12px;
   flex-shrink: 0;
-  border-radius: 4px;
+  border-radius: calc(4px * var(--rk));
 }
 
 .hs-name {
   flex: 1;
   min-width: 0;
-  font-weight: 800;
+  font-weight: var(--fw-strong);
   font-size: 14px;
 }
 
 .hs-cur {
-  font-weight: 800;
+  font-weight: var(--fw-strong);
   font-size: 13px;
 }
 
 .hs-best {
   width: 84px;
   text-align: right;
-  font-weight: 700;
+  font-weight: var(--fw-body);
   font-size: 12px;
   color: var(--mute);
 }
@@ -574,15 +589,15 @@ const GOAL_COLORS: Record<GoalCategory, string> = {
   align-items: center;
   gap: 6px;
   padding: 6px 12px;
-  border: 2px solid var(--line);
+  border: var(--border-thin) solid var(--line);
   border-radius: var(--radius-pill);
   background: var(--paper);
-  font-weight: 800;
+  font-weight: var(--fw-strong);
   font-size: 13px;
 }
 
 .habit-tab[aria-pressed='true'] {
-  border-color: var(--ink);
+  border-color: var(--outline);
   background: var(--alt);
 }
 
@@ -604,7 +619,7 @@ const GOAL_COLORS: Record<GoalCategory, string> = {
 .hm-cell {
   width: 16px;
   height: 16px;
-  border-radius: 5px;
+  border-radius: calc(5px * var(--rk));
 }
 
 .hm-legend {
@@ -612,7 +627,7 @@ const GOAL_COLORS: Record<GoalCategory, string> = {
   align-items: center;
   gap: 6px;
   margin-top: 10px;
-  font-weight: 800;
+  font-weight: var(--fw-strong);
   font-size: 12px;
   color: var(--mute);
 }
@@ -624,7 +639,7 @@ const GOAL_COLORS: Record<GoalCategory, string> = {
 .hm-key {
   width: 12px;
   height: 12px;
-  border-radius: 4px;
+  border-radius: calc(4px * var(--rk));
 }
 
 .mood-card {
@@ -647,7 +662,7 @@ const GOAL_COLORS: Record<GoalCategory, string> = {
   display: flex;
   justify-content: space-between;
   margin-top: 4px;
-  font-weight: 800;
+  font-weight: var(--fw-strong);
   font-size: 11px;
   color: #3f7590;
 }
@@ -661,7 +676,7 @@ const GOAL_COLORS: Record<GoalCategory, string> = {
 
 .mood-tile {
   padding: 10px 12px;
-  border-radius: 16px;
+  border-radius: var(--radius-btn-sq);
   background: var(--paper);
 }
 
@@ -671,13 +686,13 @@ const GOAL_COLORS: Record<GoalCategory, string> = {
 
 .mood-n {
   font-family: var(--font-display);
-  font-weight: 800;
+  font-weight: var(--fw-display);
   font-size: 22px;
   color: #143f52;
 }
 
 .mood-l {
-  font-weight: 800;
+  font-weight: var(--fw-strong);
   font-size: 12px;
   color: #1e5d78;
 }
@@ -686,7 +701,7 @@ const GOAL_COLORS: Record<GoalCategory, string> = {
   display: flex;
   height: 22px;
   margin-top: 14px;
-  border: 2.5px solid var(--ink);
+  border: var(--border) solid var(--outline);
   border-radius: var(--radius-pill);
   overflow: hidden;
 }
@@ -702,7 +717,7 @@ const GOAL_COLORS: Record<GoalCategory, string> = {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-weight: 800;
+  font-weight: var(--fw-strong);
   font-size: 14px;
 }
 
@@ -712,16 +727,16 @@ const GOAL_COLORS: Record<GoalCategory, string> = {
 
 .eis-n {
   font-family: var(--font-display);
-  font-weight: 800;
+  font-weight: var(--fw-display);
   font-size: 16px;
 }
 
 .note {
   margin-top: 12px;
   padding: 10px 12px;
-  border-radius: 14px;
+  border-radius: calc(14px * var(--rk));
   background: var(--alt);
-  font-weight: 700;
+  font-weight: var(--fw-body);
   font-size: 13px;
   color: var(--ink-2);
   text-wrap: pretty;
@@ -740,7 +755,7 @@ const GOAL_COLORS: Record<GoalCategory, string> = {
   display: flex;
   justify-content: space-between;
   gap: 8px;
-  font-weight: 800;
+  font-weight: var(--fw-strong);
   font-size: 13px;
 }
 
@@ -755,7 +770,7 @@ const GOAL_COLORS: Record<GoalCategory, string> = {
 
 .goal-chapter {
   margin-top: 3px;
-  font-weight: 700;
+  font-weight: var(--fw-body);
   font-size: 12px;
   color: var(--mute);
 }
@@ -799,25 +814,25 @@ const GOAL_COLORS: Record<GoalCategory, string> = {
   justify-content: space-between;
   gap: 8px;
   padding: 10px 12px;
-  border-radius: 16px;
+  border-radius: var(--radius-btn-sq);
   background: var(--paper);
 }
 
 .mini-title {
   display: block;
-  font-weight: 800;
+  font-weight: var(--fw-strong);
   font-size: 14px;
 }
 
 .mini-sub {
   display: block;
-  font-weight: 700;
+  font-weight: var(--fw-body);
   font-size: 12px;
   color: var(--mute);
 }
 
 .late-left {
-  font-weight: 800;
+  font-weight: var(--fw-strong);
   font-size: 12px;
   color: #c2381a;
   white-space: nowrap;
@@ -825,7 +840,7 @@ const GOAL_COLORS: Record<GoalCategory, string> = {
 
 .cd-left {
   font-family: var(--font-display);
-  font-weight: 800;
+  font-weight: var(--fw-display);
   font-size: 16px;
   color: #0a3fa8;
   white-space: nowrap;
@@ -834,7 +849,7 @@ const GOAL_COLORS: Record<GoalCategory, string> = {
 .late-empty,
 .cd-empty {
   margin-top: 10px;
-  font-weight: 700;
+  font-weight: var(--fw-body);
   font-size: 14px;
 }
 
@@ -844,7 +859,7 @@ const GOAL_COLORS: Record<GoalCategory, string> = {
 
 .empty {
   margin-top: 10px;
-  font-weight: 700;
+  font-weight: var(--fw-body);
   font-size: 14px;
   color: var(--mute);
 }

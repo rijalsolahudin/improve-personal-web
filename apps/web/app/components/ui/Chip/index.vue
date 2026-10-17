@@ -25,7 +25,7 @@ const { active = false, variant = 'filter' } = defineProps<{
   box-sizing: border-box;
   border-radius: var(--radius-pill);
   font-family: var(--font-body);
-  font-weight: 800;
+  font-weight: var(--fw-strong);
   white-space: nowrap;
 }
 
@@ -33,13 +33,13 @@ const { active = false, variant = 'filter' } = defineProps<{
   min-height: 38px;
   padding: 0 14px;
   font-size: 14px;
-  border: 2.5px solid var(--line);
+  border: var(--border) solid var(--line);
   background: var(--paper);
   color: var(--mute-2);
 }
 
 .chip-filter.active {
-  border-color: var(--ink);
+  border-color: var(--outline);
   background: var(--accent);
   color: var(--paper);
 }

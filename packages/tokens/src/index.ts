@@ -24,4 +24,12 @@ export {
   space,
   typography,
 } from './scale.ts'
+export {
+  DEFAULT_STYLE,
+  STYLE_FONT_FAMILIES,
+  STYLE_NAMES,
+  uiStyles,
+  type StyleDefinition,
+  type StyleName,
+} from './styles.ts'
 export { toCssVariables } from './css.ts'

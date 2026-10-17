@@ -19,7 +19,7 @@ const FRI = '2026-10-09'
 const habit = (overrides: Partial<Habit> = {}): Habit => ({
   id: 'h',
   name: 'Lari',
-  icon: '★',
+  icon: 'star',
   sticker: null,
   color: 0,
   days: null,

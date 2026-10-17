@@ -4,7 +4,14 @@
 import type { Countdown, CountdownView } from './countdown'
 import { groupCountdowns } from './countdown'
 import { chapterStatus, goalProgress, type Goal, type GoalCategory } from './goals'
-import { completionRate, currentStreak, isMet, isScheduled, type CheckIns, type Habit } from './habits'
+import {
+  completionRate,
+  currentStreak,
+  isMet,
+  isScheduled,
+  type CheckIns,
+  type Habit,
+} from './habits'
 import type { Memo, MoodByDate } from './memo'
 import { sessionMinutes, type FocusSession } from './pomodoro'
 import { occursOn, SCHEDULE_COLORS, type Schedule } from './schedule'
@@ -56,10 +63,18 @@ export function windowFor(range: OverviewRange, off: number, now: number): Overv
     }
     case 'tahunan': {
       const year = date.getFullYear() + off
-      return { start: new Date(year, 0, 1).getTime(), end: new Date(year + 1, 0, 1).getTime(), canNext: off < 0 }
+      return {
+        start: new Date(year, 0, 1).getTime(),
+        end: new Date(year + 1, 0, 1).getTime(),
+        canNext: off < 0,
+      }
     }
     case 'keseluruhan':
-      return { start: new Date(date.getFullYear(), 0, 1).getTime(), end: today + MS_PER_DAY, canNext: false }
+      return {
+        start: new Date(date.getFullYear(), 0, 1).getTime(),
+        end: today + MS_PER_DAY,
+        canNext: false,
+      }
   }
 }
 
@@ -92,7 +107,10 @@ export function focusBuckets(
     }
   } else if (range === 'pekanan') {
     const monday = mondayOfMs(now) + off * 7 * MS_PER_DAY
-    slots = Array.from({ length: 7 }, (_, i) => ({ start: monday + i * MS_PER_DAY, end: monday + (i + 1) * MS_PER_DAY }))
+    slots = Array.from({ length: 7 }, (_, i) => ({
+      start: monday + i * MS_PER_DAY,
+      end: monday + (i + 1) * MS_PER_DAY,
+    }))
   } else if (range === 'bulanan') {
     const first = new Date(date.getFullYear(), date.getMonth() + off, 1)
     const days = new Date(first.getFullYear(), first.getMonth() + 1, 0).getDate()
@@ -121,7 +139,9 @@ export function focusBuckets(
   for (const session of sessions) {
     if (session.status !== 'selesai') continue
     if (session.endedAt < win.start || session.endedAt >= win.end) continue
-    const bucket = buckets.find((slot) => session.endedAt >= slot.start && session.endedAt < slot.end)
+    const bucket = buckets.find(
+      (slot) => session.endedAt >= slot.start && session.endedAt < slot.end,
+    )
     if (!bucket) continue
     bucket.minutes += sessionMinutes(session)
     bucket.count += 1
@@ -130,12 +150,20 @@ export function focusBuckets(
 }
 
 /** Rata-rata completion rate antar habit di rentang [from, to) ms. */
-export function habitRate(habits: readonly Habit[], checkIns: CheckIns, from: number, to: number): number {
+export function habitRate(
+  habits: readonly Habit[],
+  checkIns: CheckIns,
+  from: number,
+  to: number,
+): number {
   if (!habits.length) return 0
   const fromIso = toIsoDate(new Date(from))
   const toIso = toIsoDate(new Date(to - 1))
   if (toIso < fromIso) return 0
-  const sum = habits.reduce((acc, habit) => acc + completionRate(habit, checkIns, fromIso, toIso), 0)
+  const sum = habits.reduce(
+    (acc, habit) => acc + completionRate(habit, checkIns, fromIso, toIso),
+    0,
+  )
   return Math.round(sum / habits.length)
 }
 

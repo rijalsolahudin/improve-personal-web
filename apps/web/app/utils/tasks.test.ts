@@ -21,7 +21,6 @@ const HOUR = 3_600_000
 const task = (id: string, overrides: Partial<Task> = {}): Task => ({
   id,
   title: id,
-  note: '',
   priority: 'medium',
   deadline: NOW + HOUR,
   done: false,

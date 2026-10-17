@@ -39,8 +39,8 @@ const flow = useLoginFlow()
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr));
   overflow: hidden;
   background: #fffdf8;
-  border: var(--border-thick) solid var(--ink);
-  border-radius: 36px;
+  border: var(--border-thick) solid var(--outline);
+  border-radius: calc(36px * var(--rk));
   box-shadow: 0 8px 0 rgba(47, 42, 36, 0.14);
 }
 
@@ -56,7 +56,7 @@ const flow = useLoginFlow()
 .terms {
   margin-top: auto;
   padding-top: 8px;
-  font-weight: 600;
+  font-weight: var(--fw-medium);
   font-size: var(--fs-meta);
   line-height: 1.5;
   color: #8a7a60;

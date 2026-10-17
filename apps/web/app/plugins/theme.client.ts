@@ -1,17 +1,10 @@
-function readStoredTheme(): string | null {
-  try {
-    return localStorage.getItem(THEME_STORAGE_KEY)
-  } catch {
-    // Storage diblokir (mode privat): pakai tema default.
-    return null
-  }
-}
-
+/** Dijalankan sebelum render pertama route client, jadi tidak ada kedip tema/gaya salah. */
 export default defineNuxtPlugin({
-  name: 'color-theme',
+  name: 'appearance',
+  // Store cuma bisa diakses setelah plugin `pinia` terpasang di nuxtApp.
+  dependsOn: ['pinia'],
   parallel: true,
   setup() {
-    const stored = readStoredTheme()
-    if (isThemeName(stored)) useColorTheme().setTheme(stored)
+    useAppearance().restore()
   },
 })

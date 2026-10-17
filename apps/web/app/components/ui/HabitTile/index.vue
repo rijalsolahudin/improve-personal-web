@@ -23,11 +23,7 @@ defineEmits<{ toggle: [] }>()
     :aria-pressed="done"
     @click="$emit('toggle')"
   >
-    <span
-      class="mark"
-      :style="{ background: done ? color : 'var(--icon-off)' }"
-      aria-hidden="true"
-    >
+    <span class="mark" :style="{ background: done ? color : 'var(--icon-off)' }" aria-hidden="true">
       {{ done ? '✓' : '' }}
     </span>
     <span class="text">
@@ -44,7 +40,7 @@ defineEmits<{ toggle: [] }>()
   gap: 10px;
   padding: 12px;
   border: var(--border-thin) solid transparent;
-  border-radius: 20px;
+  border-radius: calc(20px * var(--rk));
   background: var(--alt);
   text-align: left;
 }
@@ -63,7 +59,7 @@ defineEmits<{ toggle: [] }>()
   justify-content: center;
   border-radius: var(--radius-inner);
   color: var(--paper);
-  font-weight: 800;
+  font-weight: var(--fw-strong);
 }
 
 .text {
@@ -73,13 +69,13 @@ defineEmits<{ toggle: [] }>()
 }
 
 .name {
-  font-weight: 800;
+  font-weight: var(--fw-strong);
   font-size: var(--fs-body);
   line-height: 1.2;
 }
 
 .streak {
-  font-weight: 700;
+  font-weight: var(--fw-body);
   font-size: var(--fs-caption);
   color: var(--mute);
 }

@@ -31,9 +31,12 @@ const summary = computed(() => {
     </div>
     <div class="layout">
       <PomodoroTimer />
-      <div class="side">
-        <PomodoroSettings />
-        <PomodoroHistory />
+      <!-- Rail sticky terpisah dari kolom yang di-scroll: sticker di atasnya tidak terpotong. -->
+      <div class="rail">
+        <div class="side">
+          <PomodoroSettings />
+          <PomodoroHistory />
+        </div>
       </div>
     </div>
   </div>
@@ -49,14 +52,14 @@ const summary = computed(() => {
 
 .title {
   font-family: var(--font-display);
-  font-weight: 800;
+  font-weight: var(--fw-display);
   font-size: 36px;
   line-height: 1.1;
 }
 
 .summary {
   margin-top: 4px;
-  font-weight: 700;
+  font-weight: var(--fw-body);
   font-size: 16px;
   color: var(--mute);
 }
@@ -66,10 +69,10 @@ const summary = computed(() => {
   align-items: center;
   gap: 12px;
   padding: 14px 18px;
-  border-radius: 20px;
+  border-radius: calc(20px * var(--rk));
   background: var(--ink);
   color: var(--paper);
-  font-weight: 800;
+  font-weight: var(--fw-strong);
 }
 
 .bell {
@@ -85,22 +88,47 @@ const summary = computed(() => {
   border: none;
   background: none;
   color: #f3cb86;
-  font-weight: 800;
+  font-weight: var(--fw-strong);
 }
 
 .layout {
+  container-type: inline-size;
   display: flex;
   flex-wrap: wrap;
   align-items: flex-start;
   gap: 20px;
 }
 
-.side {
+.rail {
   flex: 1 1 300px;
   min-width: 0;
+}
+
+.side {
   display: flex;
   flex-direction: column;
   gap: 16px;
+}
+
+/*
+ * Pengaturan & riwayat ikut sticky (design), hanya kalau berdampingan dengan timer
+ * (timer 480 + gap 20 + kolom 300). Padding/margin negatif = lebar ring fokus.
+ */
+@container (min-width: 800px) {
+  .rail {
+    position: sticky;
+    top: var(--gap-desktop);
+    /* Di atas kolom tetangga: sticker yang ditempel di dalam panel boleh menjorok keluar. */
+    z-index: 1;
+  }
+
+  .side {
+    max-height: calc(100vh - 2 * var(--gap-desktop) + 12px);
+    margin: -6px;
+    padding: 6px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
 }
 
 @media (max-width: 599px) {

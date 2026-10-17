@@ -3,6 +3,8 @@ import { prettierCompat, sharedRules, typescriptRules } from '@improve-personal/
 import withNuxt from './.nuxt/eslint.config.mjs'
 
 export default withNuxt(
+  // Folder referensi desain (HTML/JS hasil ekspor) tidak ikut bundle dan bukan kode kita.
+  { ignores: ['source-ui/**'] },
   {
     rules: {
       ...sharedRules,

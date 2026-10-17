@@ -56,6 +56,8 @@ export interface Countdown {
   /** Jam target `HH:MM`; kosong = sepanjang hari. */
   time: string
   emoji: string
+  /** Sticker (F14) menggantikan emoji kalau diisi. */
+  sticker: string | null
   color: string
   /** Ulang tiap tahun (ulang tahun/anniversary). */
   yearly: boolean
@@ -65,7 +67,10 @@ export interface Countdown {
 const startOfDay = (ms: number): number => new Date(ms).setHours(0, 0, 0, 0)
 
 /** Epoch ms target; kalau `yearly`, ambil kejadian berikutnya (tahun ini atau depan). */
-export function countdownTarget(countdown: Pick<Countdown, 'date' | 'time' | 'yearly'>, now: number): number {
+export function countdownTarget(
+  countdown: Pick<Countdown, 'date' | 'time' | 'yearly'>,
+  now: number,
+): number {
   const time = countdown.time || '00:00'
   if (!countdown.yearly) return new Date(`${countdown.date}T${time}:00`).getTime()
   const occurrence = new Date(`${countdown.date}T${time}:00`)
@@ -228,9 +233,22 @@ export function groupCountdowns(countdowns: readonly Countdown[], now: number): 
 }
 
 /** Umur kejadian tahunan: 0 = tahun pertama, 3 = "yang ke-3". */
-export function yearlyEdition(countdown: Pick<Countdown, 'date' | 'yearly'>, target: number): number {
+export function yearlyEdition(
+  countdown: Pick<Countdown, 'date' | 'yearly'>,
+  target: number,
+): number {
   if (!countdown.yearly) return 0
   return new Date(target).getFullYear() - Number(countdown.date.slice(0, 4))
+}
+
+/** Kotak angka di kartu momen (design `dNum`/`dLbl`): selisih hari kalender. */
+export type DayBadge = { kind: 'today' } | { kind: 'tomorrow' | 'ahead' | 'ago'; days: number }
+
+export function dayBadge(target: number, now: number, isToday: boolean): DayBadge {
+  const days = Math.round((startOfDay(target) - startOfDay(now)) / MS_PER_DAY)
+  if (isToday || days === 0) return { kind: 'today' }
+  if (days > 0) return { kind: days === 1 ? 'tomorrow' : 'ahead', days }
+  return { kind: 'ago', days: -days }
 }
 
 // ---- Form ----------------------------------------------------------------------------
@@ -242,6 +260,7 @@ export interface CountdownDraft {
   date: string
   time: string
   emoji: string
+  sticker: string | null
   color: string
   yearly: boolean
 }
@@ -249,7 +268,15 @@ export interface CountdownDraft {
 export type CountdownDraftError = 'titleRequired' | 'titleTooLong' | 'dateRequired' | 'pastDate'
 
 export function newCountdownDraft(today: string): CountdownDraft {
-  return { title: '', date: today, time: '', emoji: '🎉', color: COUNTDOWN_COLORS[0], yearly: false }
+  return {
+    title: '',
+    date: today,
+    time: '',
+    emoji: '🎉',
+    sticker: null,
+    color: COUNTDOWN_COLORS[0],
+    yearly: false,
+  }
 }
 
 export function draftFromCountdown(countdown: Countdown): CountdownDraft {
@@ -258,6 +285,7 @@ export function draftFromCountdown(countdown: Countdown): CountdownDraft {
     date: countdown.date,
     time: countdown.time,
     emoji: countdown.emoji,
+    sticker: countdown.sticker,
     color: countdown.color,
     yearly: countdown.yearly,
   }
@@ -287,6 +315,7 @@ export function countdownFromDraft(draft: CountdownDraft, id: string): Countdown
     date: draft.date,
     time: draft.time,
     emoji: draft.emoji,
+    sticker: draft.sticker,
     color: draft.color,
     yearly: draft.yearly,
     archived: false,

@@ -1,5 +1,6 @@
 // Habit (PRD F7), mengikuti Home Desktop.dc.html `habitVals`. Fungsi murni; tanggal ISO lokal.
 
+import type { IconName } from './icons'
 import { addDays, fromIsoDate, toIsoDate } from './time'
 
 /** Palet habit design (solid → latar lembut). */
@@ -14,58 +15,61 @@ export const HABIT_COLORS = [
   ['#10A8D8', '#DDF1F8'],
 ] as const
 
+/** Pilihan ikon habit (Hugeicons, lihat utils/icons). */
 export const HABIT_ICONS = [
-  '★',
-  '♥',
-  '✎',
-  '☾',
-  '◐',
-  '♪',
-  '✿',
-  '⚡',
-  '☕',
-  '✓',
-  '☀',
-  '☁',
-  '☂',
-  '❄',
-  '♣',
-  '♠',
-  '♦',
-  '✦',
-  '✧',
-  '✪',
-  '❀',
-  '❁',
-  '✾',
-  '☘',
-  '⌂',
-  '✈',
-  '⚑',
-  '⚘',
-  '⚓',
-  '⚖',
-  '⚙',
-  '♨',
-  '☯',
-  '∞',
-  '♫',
-  '✉',
-  '✂',
-  '⌛',
-  '⏰',
-  '☎',
-  '✍',
-  '❖',
-  '◆',
-  '●',
-  '▲',
-  '■',
-  '◎',
-  '✚',
-  '☺',
-  '♡',
-] as const
+  'star',
+  'heart',
+  'book-open',
+  'moon',
+  'droplet',
+  'music',
+  'flower',
+  'flash',
+  'coffee',
+  'check',
+  'dumbbell',
+  'running-shoes',
+  'walking',
+  'bicycle',
+  'swimming',
+  'yoga',
+  'football',
+  'apple',
+  'salad',
+  'medicine',
+  'sleeping',
+  'brain',
+  'prayer-rug',
+  'shower',
+  'clean',
+  'home',
+  'plant',
+  'leaf',
+  'sun',
+  'mountain',
+  'wallet',
+  'piggy-bank',
+  'laptop',
+  'code',
+  'pencil',
+  'paint-brush',
+  'camera',
+  'guitar',
+  'headphones',
+  'gamepad',
+  'call',
+  'mail',
+  'message',
+  'users',
+  'gift',
+  'airplane',
+  'globe',
+  'flag',
+  'alarm-clock',
+  'smile',
+] as const satisfies readonly IconName[]
+
+export type HabitIcon = (typeof HABIT_ICONS)[number]
 
 export const HABIT_NAME_MAX = 80
 export const HABIT_TARGET_MAX = 20
@@ -75,7 +79,7 @@ const STREAK_LOOKBACK_DAYS = 400
 export interface Habit {
   id: string
   name: string
-  icon: string
+  icon: HabitIcon
   /** Sticker (F14) menggantikan ikon kalau diisi. */
   sticker: string | null
   /** Index `HABIT_COLORS`. */
@@ -156,7 +160,7 @@ export function setCount(
 
 export interface HabitDraft {
   name: string
-  icon: string
+  icon: HabitIcon
   sticker: string | null
   color: number
   days: number[] | null
@@ -178,7 +182,7 @@ export function validateHabitDraft(draft: HabitDraft): HabitDraftError | null {
 }
 
 export function emptyHabitDraft(): HabitDraft {
-  return { name: '', icon: '★', sticker: null, color: 0, days: null, target: 1, goalId: null }
+  return { name: '', icon: 'star', sticker: null, color: 0, days: null, target: 1, goalId: null }
 }
 
 export function draftFromHabit(habit: Habit): HabitDraft {

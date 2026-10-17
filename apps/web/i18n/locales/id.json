@@ -6,8 +6,8 @@
   },
   "feature": {
     "home": {
-      "label": "Home",
-      "tab": "Home"
+      "label": "Daily",
+      "tab": "Daily"
     },
     "goals": {
       "label": "Goals"
@@ -37,7 +37,7 @@
       "label": "Habit"
     },
     "memo": {
-      "label": "Memo"
+      "label": "Journal"
     },
     "overview": {
       "label": "Overview"
@@ -65,19 +65,29 @@
       "rencana": "Rencana",
       "fokus": "Fokus & refleksi",
       "lainnya": "Lainnya"
+    },
+    "user": {
+      "label": "Akun",
+      "initial": "F",
+      "name": "Friend",
+      "profile": "Edit profil",
+      "preferences": "Preferensi",
+      "guide": "Panduan",
+      "logout": "Logout"
     }
   },
   "placeholder": {
     "note": "Halaman ini belum didesain · {code}",
-    "back": "← Kembali ke Home"
+    "back": "← Kembali ke Daily"
   },
   "common": {
     "close": "Tutup",
-    "change": "Ganti"
+    "change": "Ganti",
+    "toggleDone": "Tandai selesai: {title}",
+    "focus": "Fokus",
+    "days": "hari"
   },
   "theme": {
-    "label": "Tema",
-    "cycle": "Ganti tema (sekarang {theme})",
     "kuning": "Kuning",
     "hijau": "Hijau",
     "ungu": "Ungu"
@@ -105,83 +115,78 @@
       "menit": "{n} menit"
     }
   },
-  "home": {
+  "daily": {
     "greeting": {
       "pagi": "Selamat pagi",
       "siang": "Selamat siang",
       "sore": "Selamat sore",
       "malam": "Selamat malam"
     },
-    "greetingWide": "{greeting}, Friend",
-    "greetingNarrow": "{greeting}!",
-    "summary": "{date} · {schedules} jadwal, {tasks} task tersisa",
-    "notifications": "Notifikasi",
-    "all": "Semua",
-    "next": {
-      "eyebrow": "Berikutnya",
-      "startsIn": "Mulai dalam",
-      "focus": "Fokus",
-      "empty": "Nggak ada jadwal lagi hari ini."
+    "greetingFriend": "{greeting}, Friend",
+    "weather": {
+      "label": "Cuaca hari ini",
+      "cerah": "Cerah",
+      "berawan": "Berawan",
+      "mendung": "Mendung",
+      "hujan": "Hujan"
     },
-    "stats": {
-      "label": "Statistik hari ini",
-      "streakLong": "hari produktif beruntun",
-      "streakShort": "hari beruntun",
-      "minutes": "mnt",
-      "focus": "fokus hari ini",
-      "tasks": "task selesai"
+    "links": {
+      "focus": "Fokus",
+      "focusValue": "{n} mnt",
+      "habit": "Habit",
+      "schedule": "Jadwal",
+      "scheduleValue": "{n} acara"
+    },
+    "progress": "Progres",
+    "progressValue": "{done}/{total} · {percent}%",
+    "meta": "{done}/{total} selesai",
+    "block": {
+      "pagi": "Pagi",
+      "siang": "Siang",
+      "malam": "Malam"
+    },
+    "now": "Sekarang: {block}",
+    "nowMeta": "{done}/{total} selesai · {range}",
+    "markDone": "Tandai selesai",
+    "allDone": "Blok ini beres semua. Mantap!",
+    "next": "Next",
+    "nextIn": {
+      "hours": "{h} jam {m} mnt lagi",
+      "hoursOnly": "{h} jam lagi",
+      "minutes": "{m} mnt lagi"
+    },
+    "noNext": "Nggak ada jadwal lagi hari ini.",
+    "openCalendar": "Kalender →",
+    "focus": "▶ Fokus",
+    "focusLabel": "Fokus pakai Pomodoro: {title}",
+    "editLabel": "Edit task: {title}",
+    "prio": {
+      "title": "Prioritas",
+      "link": "Buka Eisenhower →",
+      "linkHint": "Otomatis: kuadran Penting & Mendesak + to-do Urgent",
+      "empty": "Nggak ada yang mendesak hari ini",
+      "origin": {
+        "quadrant": "Penting & Mendesak"
+      },
+      "more": "Lihat {n} lagi",
+      "less": "Lipat lagi"
     },
     "todo": {
       "title": "To-do hari ini",
-      "seeAll": "Lihat semua",
-      "toggle": "Tandai selesai: {title}",
-      "empty": "Nggak ada task di sini.",
-      "addLabel": "Judul task baru",
-      "placeholder": "Tambah task penting…",
-      "add": "Tambah"
+      "link": "Buka To-do →",
+      "empty": "Belum ada to-do buat hari ini.",
+      "add": "Tambah to-do, lalu Enter…",
+      "addLabel": "Judul to-do baru"
     },
     "habit": {
       "title": "Habit hari ini",
-      "done": "{done}/{total} selesai",
-      "doneShort": "{done}/{total} · Semua",
+      "link": "Buka Habit →",
+      "empty": "Nggak ada habit yang jatuh hari ini.",
       "streak": "{n} hari beruntun",
-      "streakShort": "{n} hari"
+      "toggle": "Check-in: {name}"
     },
-    "goal": {
-      "eyebrow": "Goal aktif · {n} hari lagi",
-      "eyebrowShort": "Goal aktif · {n} hari",
-      "next": "Berikutnya: {item}",
-      "open": "Buka →",
-      "chapters": "Progres chapter",
-      "chapter": "{title}: {n}%"
-    },
-    "countdown": {
-      "title": "Countdown",
-      "days": "hari"
-    },
-    "layout": {
-      "open": "Atur",
-      "done": "Selesai atur",
-      "title": "Atur tata letak",
-      "hint": "Seret kartu buat mindahin, atau pakai tombol di pojok kartu.",
-      "hiddenTitle": "Tersembunyi",
-      "reset": "Reset",
-      "save": "Simpan",
-      "up": "Naik",
-      "down": "Turun",
-      "swap": "Pindah kolom",
-      "wide": "Lebar penuh",
-      "normal": "Ukuran normal",
-      "hide": "Sembunyikan",
-      "widget": {
-        "jadwal": "Jadwal berikutnya",
-        "stats": "Statistik",
-        "todo": "To-do hari ini",
-        "pomo": "Pomodoro",
-        "habit": "Habit hari ini",
-        "goal": "Goal aktif",
-        "memo": "Memo"
-      }
+    "schedule": {
+      "title": "Jadwal hari ini"
     }
   },
   "todo": {
@@ -212,8 +217,6 @@
       "editTitle": "Edit task",
       "title": "Judul",
       "titlePlaceholder": "Mis. Kirim draft laporan",
-      "note": "Catatan",
-      "notePlaceholder": "Opsional",
       "deadline": "Deadline",
       "noDeadline": "Tanpa deadline",
       "useDeadline": "+ Pakai deadline",
@@ -229,7 +232,6 @@
       "error": {
         "titleRequired": "Judul task wajib diisi.",
         "titleTooLong": "Judul task maksimal 200 karakter.",
-        "noteTooLong": "Catatan maksimal 1000 karakter.",
         "deadline": "Tanggal atau jam deadline belum valid."
       }
     }
@@ -284,8 +286,8 @@
     "schedules": "Jadwal",
     "add": "Tambah",
     "edit": "edit",
-    "attended": "Hadir",
-    "markAttend": "Tandai hadir",
+    "attended": "Selesai",
+    "markAttend": "Tandai selesai",
     "noSchedules": "Kosong. Klik slot di kalender buat bikin jadwal.",
     "noTasks": "Nggak ada deadline di tanggal ini.",
     "noMemoToday": "Belum ada memo hari ini.",
@@ -350,6 +352,14 @@
         "duration": "Jam selesai harus setelah jam mulai (maks. 24 jam).",
         "noDays": "Pilih minimal satu hari."
       }
+    },
+    "noDeadline": "Tanpa deadline",
+    "grid": {
+      "minutes": "{n} mnt",
+      "hours": "{n} jam",
+      "todos": "{n} to-do",
+      "more": "+{n} to-do",
+      "resize": "Tarik untuk ubah jam"
     }
   },
   "countdown": {
@@ -361,6 +371,7 @@
     "justNow": "Baru saja lewat",
     "today": "Hari ini! 🎉",
     "heroEyebrow": "Momen terdekat",
+    "heroLeft": "Tinggal",
     "upcomingTitle": "Akan datang",
     "pastTitle": "Sudah lewat",
     "emptyUpcoming": "Belum ada momen. Tandai hari spesialmu, nanti muncul di kalender juga.",
@@ -412,7 +423,17 @@
         "titleTooLong": "Nama momen maksimal 80 karakter.",
         "dateRequired": "Pilih tanggalnya dulu.",
         "pastDate": "Tanggal ini sudah lewat. Pilih tanggal mendatang atau nyalakan \"Ulang tiap tahun\"."
-      }
+      },
+      "useSticker": "Atau pakai sticker",
+      "changeSticker": "Ganti sticker",
+      "stickerTitle": "Sticker momen",
+      "removeSticker": "Pakai emoji biasa"
+    },
+    "badge": {
+      "today": "Hari ini",
+      "tomorrow": "Besok",
+      "ahead": "Hari lagi",
+      "ago": "Hari lalu"
     }
   },
   "overview": {
@@ -636,7 +657,10 @@
       "recent": "Terakhir dipakai",
       "notFound": "Nggak ketemu sticker \"{q}\".",
       "noRecent": "Belum ada yang dipakai. Coba buka pack lain."
-    }
+    },
+    "attachedCard": "Nempel ke kartu ini",
+    "attachedPage": "Nempel ke halaman",
+    "attachedHeader": "Nempel ke judul halaman"
   },
   "habit": {
     "new": "Habit baru",
@@ -694,6 +718,58 @@
         "noDays": "Pilih minimal satu hari.",
         "target": "Target per hari 1–20 kali."
       }
+    },
+    "icons": {
+      "star": "Bintang",
+      "heart": "Hati",
+      "book-open": "Buku",
+      "moon": "Bulan",
+      "droplet": "Tetes air",
+      "music": "Musik",
+      "flower": "Bunga",
+      "flash": "Petir",
+      "coffee": "Kopi",
+      "check": "Centang",
+      "dumbbell": "Dumbel",
+      "running-shoes": "Sepatu lari",
+      "walking": "Jalan kaki",
+      "bicycle": "Sepeda",
+      "swimming": "Renang",
+      "yoga": "Yoga",
+      "football": "Sepak bola",
+      "apple": "Apel",
+      "salad": "Salad",
+      "medicine": "Obat",
+      "sleeping": "Tidur",
+      "brain": "Otak",
+      "prayer-rug": "Sajadah",
+      "shower": "Mandi",
+      "clean": "Bersih-bersih",
+      "home": "Rumah",
+      "plant": "Tanaman",
+      "leaf": "Daun",
+      "sun": "Matahari",
+      "mountain": "Gunung",
+      "wallet": "Dompet",
+      "piggy-bank": "Celengan",
+      "laptop": "Laptop",
+      "code": "Kode",
+      "pencil": "Pensil",
+      "paint-brush": "Kuas",
+      "camera": "Kamera",
+      "guitar": "Gitar",
+      "headphones": "Headphone",
+      "gamepad": "Game",
+      "call": "Telepon",
+      "mail": "Surat",
+      "message": "Pesan",
+      "users": "Teman",
+      "gift": "Hadiah",
+      "airplane": "Pesawat",
+      "globe": "Bumi",
+      "flag": "Bendera",
+      "alarm-clock": "Alarm",
+      "smile": "Senyum"
     }
   },
   "pomodoro": {
@@ -727,11 +803,12 @@
     "cycle": "Sesi {n} dari {total}",
     "targetTitle": "Target fokus",
     "targetMode": {
-      "task": "Pilih task",
-      "free": "Teks bebas"
+      "task": "Task",
+      "jadwal": "Jadwal",
+      "habit": "Habit",
+      "free": "Bebas"
     },
     "freePlaceholder": "Mis. Nulis bab 2 skripsi",
-    "noTasks": "Nggak ada task aktif.",
     "settings": "Pengaturan",
     "setting": {
       "focus": "Durasi fokus",
@@ -751,6 +828,38 @@
       "focusDone": "Sesi fokus selesai! Waktunya istirahat.",
       "focusSkipped": "Sesi fokus dilewati.",
       "breakDone": "Istirahat selesai. Yuk fokus lagi!"
+    },
+    "targetModeCount": "{label} · {n}",
+    "targetKind": {
+      "task": "Task",
+      "jadwal": "Jadwal",
+      "habit": "Habit",
+      "teks": "Teks",
+      "none": "Target"
+    },
+    "targetNone": "Belum dipilih",
+    "targetSearch": {
+      "task": "Cari task…",
+      "jadwal": "Cari jadwal hari ini…",
+      "habit": "Cari habit hari ini…"
+    },
+    "targetEmpty": {
+      "task": "Semua task beres!",
+      "jadwal": "Nggak ada jadwal hari ini.",
+      "habit": "Habit hari ini udah beres semua."
+    },
+    "targetNotFound": "Nggak ketemu \"{q}\".",
+    "pill": {
+      "phase": {
+        "focus": "Fokus",
+        "short": "Istirahat",
+        "long": "Istirahat panjang"
+      },
+      "paused": "Jeda · {phase}",
+      "break": {
+        "short": "Tarik napas, minum air",
+        "long": "Rehat dulu yang lama"
+      }
     }
   },
   "memo": {
@@ -937,5 +1046,71 @@
       "generic": "Ada yang salah. Coba lagi sebentar lagi."
     },
     "terms": "Dengan masuk, kamu setuju dengan Ketentuan dan Kebijakan Privasi."
+  },
+  "appearance": {
+    "label": "Tampilan",
+    "color": "Warna",
+    "style": "Gaya"
+  },
+  "uiStyle": {
+    "cute": {
+      "label": "Cute",
+      "desc": "Bulat, tebal, playful"
+    },
+    "cute-pure": {
+      "label": "Cute Putih",
+      "desc": "Tetap lucu, dominan putih"
+    },
+    "kertas": {
+      "label": "Kertas",
+      "desc": "Planner cetak, garis hitam"
+    },
+    "simple": {
+      "label": "Simpel",
+      "desc": "Minimal, sedikit elemen"
+    },
+    "elegan": {
+      "label": "Elegan",
+      "desc": "Serif halus, ivory & emas"
+    },
+    "vintage": {
+      "label": "Vintage",
+      "desc": "Kertas tua, sepia, mesin tik"
+    },
+    "tegas": {
+      "label": "Tegas",
+      "desc": "Kotak, kontras, retro"
+    }
+  },
+  "journal": {
+    "intentionsToday": "Niat hari ini",
+    "intentions": "Niat",
+    "intentionsHint": "Maksimal {n} niat · klik kertas buat centang",
+    "leadIn": "Hari ini mau jadi orang yang…",
+    "word": "Kata hari ini",
+    "wordPlaceholder": "Satu kata…",
+    "newIntention": "Niat baru",
+    "newPlaceholder": "Hari ini aku mau…",
+    "add": "Tambah",
+    "goalLink": "+ Hubungkan goal",
+    "goalCycle": "Klik buat ganti goal",
+    "feelingNote": "Cerita perasaan hari ini",
+    "feelingPlaceholder": "Ceritain sedikit kenapa rasanya begitu…",
+    "affirm": {
+      "title": "Afirmasi hari ini",
+      "placeholder": "Aku cukup. Aku bisa pelan-pelan."
+    },
+    "reflect": {
+      "title": "Refleksi diri",
+      "hint": "Apa yang aku pelajari dari diriku hari ini?",
+      "placeholder": "…"
+    },
+    "list": {
+      "grat": "Hari ini bersyukur karena…",
+      "sad": "Yang bikin sedih",
+      "better": "Yang bisa lebih baik"
+    },
+    "listItem": "{list} nomor {n}",
+    "about": "Tentang hari ini"
   }
 }

@@ -17,4 +17,4 @@ Sumber kebenaran tetap `CLAUDE.md` (dipakai Claude Code). File ini men-import-ny
 
 Aturan per app dimuat otomatis saat menyentuh file di dalamnya (lihat `apps/web/AGENTS.md` dan `apps/mobile/AGENTS.md`).
 
-Arsitektur dan sumber kebenaran produk sengaja tidak di-import (biar tidak kena token tiap turn) - baca `ARCHITECTURE.md` dan `docs/PRD/` saat memang relevan.
+Arsitektur dan sumber kebenaran produk sengaja tidak di-import (biar tidak kena token tiap turn) - baca `ARCHITECTURE.md` dan `docs/PRD.md` saat memang relevan. Arsitektur per app ada di `apps/<app>/ARCHITECTURE.md`.

@@ -39,7 +39,7 @@ const {
   border: none;
   border-radius: var(--radius-pill);
   font-family: var(--font-body);
-  font-weight: 800;
+  font-weight: var(--fw-strong);
   white-space: nowrap;
 }
 
@@ -74,7 +74,7 @@ const {
 .btn-outline {
   background: var(--paper);
   color: var(--ink);
-  border: 2.5px solid var(--ink);
+  border: var(--border) solid var(--outline);
 }
 
 .btn-soft {
@@ -85,13 +85,13 @@ const {
 .btn-danger {
   background: transparent;
   color: var(--danger);
-  border: 2px solid #f3a99a;
+  border: var(--border-thin) solid #f3a99a;
 }
 
 .btn-dashed {
   background: var(--paper);
   color: var(--ink);
-  border: 2.5px dashed var(--dash-2);
+  border: var(--border) dashed var(--dash-2);
 }
 
 .btn-ghost {
@@ -100,7 +100,7 @@ const {
 }
 
 .chunky {
-  border: 3px solid var(--ink);
+  border: var(--border-thick) solid var(--outline);
   box-shadow: var(--shadow-press);
 }
 

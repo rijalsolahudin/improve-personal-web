@@ -1,7 +1,10 @@
+import { resizeEntry } from '~/utils/calendarGrid'
 import {
   createSchedule,
   deleteSchedules,
   editSchedules,
+  formatMinutes,
+  toMinutes,
   validateScheduleDraft,
   type EditScope,
   type Schedule,
@@ -54,6 +57,22 @@ export function useSchedules() {
     if (original) schedules.value = deleteSchedules(schedules.value, original, occurrence, scope)
   }
 
+  /**
+   * Hasil tarik tepi jadwal di timeline (design): jam mulai/durasi seluruh seri ikut berubah.
+   * Nilai dijepit lewat `resizeEntry` (slot 15 menit, di dalam grid, minimal 15 menit).
+   */
+  function retime(id: string, start: number, dur: number): void {
+    const original = findSchedule(id)
+    if (!original || original.allDay) return
+    const clamped = resizeEntry('bottom', start, dur, 0)
+    if (clamped.start === toMinutes(original.time) && clamped.dur === original.dur) return
+    schedules.value = schedules.value.map((schedule) =>
+      schedule.id === id
+        ? { ...schedule, time: formatMinutes(clamped.start), dur: clamped.dur }
+        : schedule,
+    )
+  }
+
   function toggleAttendance(key: string): void {
     attendance.value = { ...attendance.value, [key]: !attendance.value[key] }
   }
@@ -64,6 +83,7 @@ export function useSchedules() {
     findSchedule,
     save,
     remove,
+    retime,
     toggleAttendance,
   }
 }

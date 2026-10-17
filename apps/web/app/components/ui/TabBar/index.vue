@@ -1,8 +1,12 @@
 <script lang="ts">
+import type { IconName } from '~/utils/icons'
+
 export interface TabBarItem {
   key: string
   label: string
   glyph: string
+  /** Ikon garis; kalau diisi menggantikan glyph. */
+  icon?: IconName
   color: string
   /** Kalau diisi, tab jadi NuxtLink. */
   to?: string
@@ -42,7 +46,10 @@ function onTab(item: TabBarItem): void {
       :style="{ '--tab-color': `var(${item.color})` }"
       @click="onTab(item)"
     >
-      <span class="tab-icon" aria-hidden="true">{{ item.glyph }}</span>
+      <span class="tab-icon" aria-hidden="true">
+        <Icon v-if="item.icon" :name="item.icon" :size="18" />
+        <template v-else>{{ item.glyph }}</template>
+      </span>
       <span class="tab-label">{{ item.label }}</span>
     </component>
 
@@ -59,7 +66,10 @@ function onTab(item: TabBarItem): void {
       :style="{ '--tab-color': `var(${item.color})` }"
       @click="onTab(item)"
     >
-      <span class="tab-icon" aria-hidden="true">{{ item.glyph }}</span>
+      <span class="tab-icon" aria-hidden="true">
+        <Icon v-if="item.icon" :name="item.icon" :size="18" />
+        <template v-else>{{ item.glyph }}</template>
+      </span>
       <span class="tab-label">{{ item.label }}</span>
     </component>
   </nav>
@@ -77,8 +87,8 @@ function onTab(item: TabBarItem): void {
   align-items: center;
   padding: 0 4px;
   background: var(--paper);
-  border: var(--border-thick) solid var(--ink);
-  border-radius: 28px;
+  border: var(--border-thick) solid var(--outline);
+  border-radius: calc(28px * var(--rk));
   box-shadow: var(--shadow-drop);
 }
 
@@ -112,13 +122,13 @@ function onTab(item: TabBarItem): void {
   justify-content: center;
   border-radius: var(--radius-leaf-sm);
   font-family: var(--font-display);
-  font-weight: 800;
+  font-weight: var(--fw-display);
   font-size: 14px;
   line-height: 1;
 }
 
 .tab-label {
-  font-weight: 800;
+  font-weight: var(--fw-strong);
   font-size: 11px;
 }
 

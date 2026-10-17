@@ -56,7 +56,7 @@ const model = defineModel<T>({ required: true })
 .framed {
   gap: 4px;
   background: var(--paper);
-  border: var(--border) solid var(--ink);
+  border: var(--border) solid var(--outline);
 }
 
 .option {
@@ -69,7 +69,7 @@ const model = defineModel<T>({ required: true })
   border-radius: var(--radius-pill);
   background: transparent;
   color: var(--mute-2);
-  font-weight: 800;
+  font-weight: var(--fw-strong);
   font-size: 14px;
   white-space: nowrap;
 }
@@ -83,6 +83,6 @@ const model = defineModel<T>({ required: true })
   width: 16px;
   height: 16px;
   border-radius: 50%;
-  border: 2px solid var(--ink);
+  border: var(--border-thin) solid var(--outline);
 }
 </style>

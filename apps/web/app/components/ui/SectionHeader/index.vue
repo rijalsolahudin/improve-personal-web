@@ -42,7 +42,7 @@ const emit = defineEmits<{ action: [] }>()
 
 .eyebrow {
   display: block;
-  font-weight: 800;
+  font-weight: var(--fw-strong);
   font-size: 11px;
   letter-spacing: 0.1em;
   color: var(--deep);
@@ -50,7 +50,7 @@ const emit = defineEmits<{ action: [] }>()
 
 .title {
   font-family: var(--font-display);
-  font-weight: 800;
+  font-weight: var(--fw-display);
   font-size: 20px;
   line-height: 1.15;
 }
@@ -60,7 +60,7 @@ const emit = defineEmits<{ action: [] }>()
   border: none;
   background: none;
   color: var(--accent);
-  font-weight: 800;
+  font-weight: var(--fw-strong);
   font-size: 13px;
   white-space: nowrap;
 }
