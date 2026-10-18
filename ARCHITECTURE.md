@@ -59,7 +59,7 @@ flowchart LR
     API[API v1 - Nitro/H3 di apps/web/server]
     PG[(Postgres: ciphertext + metadata)]
   end
-  MAIL[Resend / SendGrid]
+  MAIL[Resend / SendGrid / SMTP]
   G[Google OAuth]
   U --> W & M
   W & M --> LDB
@@ -238,7 +238,9 @@ flowchart TD
 ## 8. Auth
 
 - Email OTP: kode 6 digit, hash di DB, TTL ≤ 10 menit, sekali pakai, rate limit per email + per IP. Respons selalu generik (nggak bocorin email terdaftar).
-- OTP fix `777777`: cuma kalau `APP_ENV ∈ {development, staging, test, preview}`. Env kosong/lain = production. Server **nolak start** kalau `APP_ENV=production` dan mode fix aktif. Ada test-nya.
+- Transport email: production pakai **Resend** (kode random); non-production pakai **SMTP lewat `NUXT_SMTP_URL`** kalau terisi (nodemailer) - juga kode random, jadi mode OTP fix mati otomatis begitu ada transport email. `NUXT_MAIL_FROM` wajib diisi kalau ada transport email (SMTP di non-production, Resend di production).
+- OTP fix `777777`: cuma kalau `APP_ENV ∈ {development, staging, test, preview}` **dan** `NUXT_SMTP_URL` kosong. Env kosong/lain = production. Server **nolak start** kalau `APP_ENV=production` dan mode fix aktif.
+- Production **nolak start** kalau `NUXT_SMTP_URL` ikut terisi - tanda berkas env non-production kebaca di deployment production. Ada test-nya.
 - Google: Authorization Code + PKCE, validasi `state`, `nonce`, ID token (`aud`, `iss`, `exp`).
 - Sesi: token opaque per perangkat (hash di DB). Web: cookie `HttpOnly; Secure; SameSite=Lax`. Mobile: `SecureStore`. Revoke per perangkat = hapus sesi.
 - Setiap endpoint: `user_id` diambil dari sesi, **bukan** dari body/param.
@@ -338,11 +340,13 @@ Detail struktur server ada di [`apps/web/ARCHITECTURE.md`](apps/web/ARCHITECTURE
 
 | Env | Web (Nitro: UI + API) | Mobile | Host server | OTP |
 |---|---|---|---|---|
-| development | `nuxi dev` (Nitro lokal, sekaligus API) | Expo dev build | lokal + Postgres docker | `777777` |
-| preview | per PR (Nitro Node) | EAS internal | preview | `777777` |
-| staging | staging URL (Nitro Node) | EAS internal/TestFlight | staging | `777777` |
-| production | Nitro Node server (sajikan UI + API `/v1/*`) | Play Store / App Store | host Node produksi + Postgres | random via email |
+| development | `nuxi dev` (Nitro lokal, sekaligus API) | Expo dev build | lokal + Postgres docker | email via SMTP (Mailpit), atau `777777` kalau `NUXT_SMTP_URL` kosong |
+| preview | per PR (Nitro Node) | EAS internal | preview | `777777`, atau email via SMTP kalau `NUXT_SMTP_URL` diisi |
+| staging | staging URL (Nitro Node) | EAS internal/TestFlight | staging | `777777`, atau email via SMTP kalau `NUXT_SMTP_URL` diisi |
+| production | Nitro Node server (sajikan UI + API `/v1/*`) | Play Store / App Store | host Node produksi + Postgres | random via email (Resend) |
 
+- Transport email: `NUXT_SMTP_URL` (`smtp://…`/`smtps://…`, nodemailer) kalau terisi = email benar-benar dikirim, dan mode OTP fix `777777` **mati otomatis** di env itu. Kalau kosong, non-production balik ke `777777` tanpa kirim email; production tetap Resend (`NUXT_RESEND_API_KEY`) + `NUXT_MAIL_FROM`. `NUXT_MAIL_FROM` wajib diisi kalau ada transport email.
+- **Konteks lokal:** Mailpit jalan sebagai container `local-mailpit` (axllent/mailpit) - SMTP `127.0.0.1:1025`, UI inbox `http://127.0.0.1:8025`. `apps/web/.env.example` memuat `NUXT_SMTP_URL=smtp://127.0.0.1:1025`.
 - Web = satu Nitro Node server yang sajikan UI + API `/v1/*` (bukan static/SPA build di CDN) - konsekuensinya butuh host Node (container, mis. Dokploy), nggak bisa cuma CDN statis. Postgres managed + backup harian.
 - Secret cuma dari env/secret manager. `.env*` nggak di-commit.
 - Mobile OTA (EAS Update) cuma JS; ditandatangani, channel per env.

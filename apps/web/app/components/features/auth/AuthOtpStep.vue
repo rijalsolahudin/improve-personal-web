@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { DEMO_OTP } from '~/composables/auth/gateway'
 import type { LoginFlow } from '~/composables/useLoginFlow'
 
 const { flow } = defineProps<{ flow: LoginFlow }>()
@@ -110,12 +109,8 @@ const resendCountdown = computed(() => `0:${String(flow.resendSecondsLeft.value)
         {{ $t('login.otp.resendIn', { time: resendCountdown }) }}
       </span>
     </p>
-    <p v-if="flow.isDemo" class="preview-note">
-      {{ $t('login.otp.demoNote', { code: DEMO_OTP }) }}
-    </p>
-    <p v-else-if="!flow.isServerConnected" class="preview-note">
-      {{ $t('login.otp.previewNote') }}
-    </p>
+    <!-- Sengaja TANPA catatan kode demo: hanya server yang tahu apakah mode OTP fix aktif
+         (env `NUXT_SMTP_URL` - lihat log startup server), jadi UI tidak menebak kodenya. -->
   </div>
 </template>
 
@@ -218,11 +213,5 @@ const resendCountdown = computed(() => `0:${String(flow.resendSecondsLeft.value)
   font-weight: var(--fw-strong);
   color: #8a7a60;
   font-variant-numeric: tabular-nums;
-}
-
-.preview-note {
-  font-family: var(--font-hand);
-  font-size: 17px;
-  color: #8a7a60;
 }
 </style>

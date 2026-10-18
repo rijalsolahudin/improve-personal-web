@@ -66,6 +66,11 @@ export default defineNuxtConfig({
     trustedProxyHops: 0,
     resendApiKey: '',
     mailFrom: '',
+    // Transport email non-production, mis. Mailpit lokal `smtp://127.0.0.1:1025`. Terisi = email OTP
+    // BENAR-BENAR dikirim lewat SMTP, dan mode OTP fix `777777` mati otomatis di env itu
+    // (`server/utils/env.ts`). Production tidak memakainya (jalurnya Resend) dan menolak start kalau
+    // key ini terisi - supaya berkas env non-production yang ikut ter-deploy ketahuan saat startup.
+    smtpUrl: '',
     // `public.appEnv` cuma untuk UI (mis. login demo). Kosong = production.
     public: { appEnv: 'production' },
   },

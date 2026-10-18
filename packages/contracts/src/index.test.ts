@@ -41,6 +41,7 @@ const NAMA_WAJIB = [
   'googleStartResultSchema',
   'googleCallbackQuerySchema',
   'sessionDtoSchema',
+  'currentSessionResultSchema',
   'deviceDtoSchema',
   'sealedRecordDtoSchema',
   'syncPushInputSchema',

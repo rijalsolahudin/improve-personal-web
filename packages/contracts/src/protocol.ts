@@ -14,6 +14,7 @@ import { z } from 'zod'
  *   POST   /v1/auth/logout             auth.ts     (tanpa body; sesi perangkat ini dicabut; 204)
  *   GET    /v1/auth/google/start       auth.ts     googleStartQuerySchema -> googleStartResultSchema
  *   GET    /v1/auth/google/callback    auth.ts     googleCallbackQuerySchema -> sessionDtoSchema
+ *   GET    /v1/auth/session            auth.ts     currentSessionResultSchema
  *   GET    /v1/devices                 devices.ts  deviceListResultSchema
  *   DELETE /v1/devices/:id             devices.ts  deviceRevokeParamsSchema
  *   GET    /v1/keys/envelopes          keys.ts     keyEnvelopeListResultSchema

@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
   CLIENT_KINDS,
   clientKindSchema,
+  currentSessionResultSchema,
   deviceInfoSchema,
   emailSchema,
   googleCallbackQuerySchema,
@@ -246,5 +247,20 @@ describe('sessionDtoSchema', () => {
     expect(
       sessionDtoSchema.safeParse({ ...SESSION_BASE, client: 'web', refreshToken: 'x' }).success,
     ).toBe(false)
+  })
+})
+
+describe('currentSessionResultSchema', () => {
+  it('menerima sesi tanpa client dan tanpa token (berlaku untuk web maupun mobile)', () => {
+    expect(currentSessionResultSchema.safeParse(SESSION_BASE).success).toBe(true)
+  })
+
+  it('menolak token dan field asing - endpoint ini cuma membaca sesi, tidak menerbitkan', () => {
+    expect(
+      currentSessionResultSchema.safeParse({ ...SESSION_BASE, token: 'x'.repeat(43) }).success,
+    ).toBe(false)
+    expect(currentSessionResultSchema.safeParse({ ...SESSION_BASE, client: 'web' }).success).toBe(
+      false,
+    )
   })
 })

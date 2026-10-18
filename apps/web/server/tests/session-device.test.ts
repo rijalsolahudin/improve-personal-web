@@ -7,6 +7,7 @@
 // aktif". Test untuk bentuk respons/cookie ada di `http.test.ts`.
 import {
   MAX_ACTIVE_DEVICES_PER_USER,
+  currentSessionResultSchema,
   deviceListResultSchema,
   sessionDtoSchema,
 } from '@improve-personal/contracts'
@@ -19,7 +20,12 @@ import {
   resolveDeviceForLogin,
   revokeDevice,
 } from '../services/device'
-import { buildSessionDto, findSessionByToken, revokeSession } from '../services/session'
+import {
+  buildSessionDto,
+  findSessionByToken,
+  revokeSession,
+  sessionResultFrom,
+} from '../services/session'
 import { findOrCreateUserByEmail } from '../services/user'
 import { sha256Hex } from '../utils/crypto'
 import { uuidv7 } from '../utils/uuid'
@@ -178,6 +184,39 @@ describe('DTO sesi (kontrak bersama web/mobile)', () => {
     const withoutToken: Record<string, unknown> = { ...dto }
     delete withoutToken.token
     expect(sessionDtoSchema.safeParse(withoutToken).success).toBe(false)
+  })
+
+  it('sessionResultFrom: tanpa token & tanpa client, dan TIDAK memakai bentuk DTO login', () => {
+    // Endpoint `GET /v1/auth/session` cuma MEMBACA sesi, jadi bentuknya `currentSessionResultSchema`
+    // - bukan `sessionDtoSchema` yang mewajibkan token untuk mobile. Bedanya inilah yang menjaga
+    // "membaca sesi" tidak pernah diam-diam jadi "menerbitkan token".
+    const auth = {
+      sessionId: uuidv7(FIXED_NOW.getTime()),
+      userId: uuidv7(FIXED_NOW.getTime()),
+      deviceId: uuidv7(FIXED_NOW.getTime()),
+      client: 'web' as const,
+      expiresAt,
+      email: 'qa@qa.test',
+      deviceName: 'QA Laptop',
+    }
+
+    const dto = sessionResultFrom(auth)
+
+    expect(currentSessionResultSchema.safeParse(dto).success).toBe(true)
+    expect(dto).toEqual({
+      user: { id: auth.userId, email: auth.email },
+      device: { id: auth.deviceId, name: auth.deviceName },
+      expiresAt: expiresAt.toISOString(),
+    })
+
+    // Field internal sesi TIDAK ikut; itu yang membuat endpoint ini aman untuk dipanggil klien.
+    expect('token' in dto).toBe(false)
+    expect('client' in dto).toBe(false)
+    expect('sessionId' in dto).toBe(false)
+    expect(JSON.stringify(dto)).not.toContain(auth.sessionId)
+
+    // Berlaku sama untuk sesi mobile - pembacaan sesi tidak memandang jenis klien.
+    expect(sessionResultFrom({ ...auth, client: 'mobile' })).toEqual(dto)
   })
 })
 

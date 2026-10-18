@@ -199,6 +199,21 @@ export const mobileSessionDtoSchema = z
 export type MobileSessionDto = z.infer<typeof mobileSessionDtoSchema>
 
 /**
+ * `GET /v1/auth/session` - sesi yang SEDANG berlaku untuk request ini.
+ *
+ * Sengaja tanpa `client` dan tanpa `token`: endpoint ini cuma MEMBACA sesi yang sudah ada, bukan
+ * menerbitkannya. `sessionDtoSchema` tidak bisa dipakai di sini karena union-nya mewajibkan `client`
+ * terisi - dan `mobile` tanpa `token` ditolak schema-nya, padahal pembacaan sesi berlaku sama untuk
+ * web (cookie HttpOnly) maupun mobile (bearer).
+ *
+ * Dipakai klien web untuk memulihkan state login setelah reload: token ada di cookie `HttpOnly`, jadi
+ * JavaScript tidak punya cara lain untuk tahu apakah sesinya masih hidup.
+ */
+export const currentSessionResultSchema = z.object(SESSION_DTO_FIELDS).strict()
+
+export type CurrentSessionResult = z.infer<typeof currentSessionResultSchema>
+
+/**
  * DTO sesi hasil login (OTP maupun Google).
  *
  * Bentuk union atas `client`, BUKAN satu objek dengan `token` opsional: token untuk web bukan cuma

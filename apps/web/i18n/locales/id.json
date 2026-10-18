@@ -1033,16 +1033,17 @@
       "verifying": "Memeriksa…",
       "noCode": "Belum dapat kode?",
       "resend": "Kirim ulang",
-      "resendIn": "Kirim ulang dalam {time}",
-      "previewNote": "Pratinjau: server login belum tersambung, jadi kode belum benar-benar dikirim.",
-      "demoNote": "Mode demo: kode tidak dikirim. Masukkan {code} untuk masuk."
+      "resendIn": "Kirim ulang dalam {time}"
     },
     "error": {
       "emailEmpty": "Isi email dulu ya.",
       "emailInvalid": "Format email belum benar.",
       "otpIncomplete": "Lengkapi 6 digit kodenya.",
       "otpInvalid": "Kode salah atau sudah kedaluwarsa.",
-      "unavailable": "Login belum tersedia — server belum tersambung.",
+      "otpExpired": "Kode sudah kedaluwarsa. Minta kode baru ya.",
+      "rateLimited": "Kebanyakan percobaan. Tunggu sebentar, lalu coba lagi.",
+      "oauthFailed": "Masuk dengan Google gagal. Coba lagi ya.",
+      "unavailable": "Server login belum bisa dihubungi. Cek koneksimu, lalu coba lagi.",
       "generic": "Ada yang salah. Coba lagi sebentar lagi."
     },
     "terms": "Dengan masuk, kamu setuju dengan Ketentuan dan Kebijakan Privasi."

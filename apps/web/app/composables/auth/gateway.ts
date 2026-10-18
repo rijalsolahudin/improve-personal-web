@@ -1,73 +1,48 @@
+import type { CurrentSessionResult, ErrorCode, WebSessionDto } from '@improve-personal/contracts'
+
 /**
- * Kontrak login (ARCHITECTURE §8–9: POST /v1/auth/otp/request|verify, GET /v1/auth/google/start).
- * Login ≠ unlock: gateway ini cuma soal sesi API, tidak menyentuh kunci enkripsi.
+ * Kontrak login (ARCHITECTURE §8–9: `POST /v1/auth/otp/request|verify`, `GET /v1/auth/session`,
+ * `POST /v1/auth/logout`, `GET /v1/auth/google/start`). Login ≠ unlock: gateway ini cuma soal sesi
+ * API, tidak menyentuh kunci enkripsi.
+ *
+ * Sesi HANYA lewat cookie `HttpOnly` yang dipasang server - tidak ada token di JS, `localStorage`,
+ * atau Pinia (security.md §7). Karena itu `verifyEmailOtp` mengembalikan DTO web yang memang tanpa
+ * `token`, dan `webSessionDtoSchema` (`.strict()`) MENOLAK respons yang memuat token: satu token yang
+ * salah dikirim server tidak akan pernah masuk ke state client.
+ *
+ * Implementasi nyatanya di `./http-gateway`.
  */
 export interface AuthGateway {
-  /** `false` selama belum ada server: UI wajib memberi tahu user bahwa kode tidak terkirim. */
-  readonly isConnected: boolean
-  /** `true` = gateway demo (OTP fix), cuma boleh aktif di env non-production. */
-  readonly isDemo: boolean
   /** Respons selalu generik - tidak membocorkan apakah email terdaftar. */
   requestEmailOtp(email: string): Promise<void>
-  verifyEmailOtp(email: string, code: string): Promise<void>
+  /** Sukses = sesi terbit (cookie sudah dipasang server) + DTO sesi untuk state client. */
+  verifyEmailOtp(email: string, code: string): Promise<CurrentSessionResult | WebSessionDto>
+  /** Navigasi penuh: server yang me-redirect ke Google, browser yang jadi agen alur OAuth. */
   startGoogleLogin(): Promise<void>
-}
-
-export class AuthUnavailableError extends Error {
-  constructor() {
-    super('Auth server belum tersambung')
-    this.name = 'AuthUnavailableError'
-  }
+  /** Sesi yang sedang berlaku, atau `null` kalau memang belum ada (401 bukan kegagalan). */
+  currentSession(): Promise<CurrentSessionResult | null>
+  /** Cabut sesi perangkat ini di server (cookie ikut dibersihkan server). */
+  signOut(): Promise<void>
 }
 
 /**
- * Stub fase 1 (tanpa server). Tidak pernah meloloskan login: verifikasi & Google selalu gagal.
- * TODO(ergonio#1): ganti dengan gateway HTTP berbasis schema packages/contracts setelah
- * apps/server siap - sesi via cookie HttpOnly dari server, bukan disimpan di JS.
+ * Kegagalan request auth, selalu membawa `code` kontrak.
+ *
+ * Pesan SERVER sengaja tidak pernah dibawa ke sini: teks yang dilihat user datang dari i18n, jadi
+ * satu pesan server yang bocor (atau disusupi) tidak bisa jadi teks UI (security.md §3).
  */
-export const pendingAuthGateway: AuthGateway = {
-  isConnected: false,
-  isDemo: false,
-  async requestEmailOtp() {},
-  async verifyEmailOtp() {
-    throw new AuthUnavailableError()
-  },
-  async startGoogleLogin() {
-    throw new AuthUnavailableError()
-  },
-}
+export class AuthRequestError extends Error {
+  readonly code: ErrorCode
+  /**
+   * `true` = permintaan tidak pernah dapat respons HTTP (offline, DNS, diblokir). Dibedakan dari
+   * `INTERNAL` supaya UI bisa bilang "server tidak terjangkau", bukan menyalahkan kode user.
+   */
+  readonly isNetworkError: boolean
 
-/** OTP fix env non-production (ARCHITECTURE §8, §12). */
-export const DEMO_OTP = '777777'
-/** Env yang boleh pakai OTP fix. Selain ini (termasuk kosong) = production. */
-const DEMO_ENVS: ReadonlySet<string> = new Set(['development', 'staging', 'test', 'preview'])
-
-export const isDemoEnv = (appEnv: string): boolean => DEMO_ENVS.has(appEnv)
-
-export class InvalidOtpError extends Error {
-  constructor() {
-    super('Kode OTP salah')
-    this.name = 'InvalidOtpError'
+  constructor(code: ErrorCode, options: { isNetworkError?: boolean } = {}) {
+    super(`Request auth gagal (${code})`)
+    this.name = 'AuthRequestError'
+    this.code = code
+    this.isNetworkError = options.isNetworkError ?? false
   }
-}
-
-/**
- * Demo tanpa server: OTP `777777` diterima, Google langsung lolos. Tidak membuat sesi apa pun -
- * cuma mengizinkan navigasi UI. Hanya dipilih oleh `useAuthGateway` saat env non-production.
- */
-export const demoAuthGateway: AuthGateway = {
-  isConnected: false,
-  isDemo: true,
-  async requestEmailOtp() {},
-  async verifyEmailOtp(_email, code) {
-    if (code !== DEMO_OTP) throw new InvalidOtpError()
-  },
-  async startGoogleLogin() {
-    await navigateTo('/app')
-  },
-}
-
-export function useAuthGateway(): AuthGateway {
-  const { appEnv } = useRuntimeConfig().public
-  return isDemoEnv(appEnv) ? demoAuthGateway : pendingAuthGateway
 }

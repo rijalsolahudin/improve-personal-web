@@ -13,6 +13,7 @@ import { randomUUID } from 'node:crypto'
 import {
   apiDataEnvelopeSchema,
   apiErrorBodySchema,
+  currentSessionResultSchema,
   deviceListResultSchema,
   GENERIC_ERROR_MESSAGES,
   keyEnvelopeListResultSchema,
@@ -238,6 +239,7 @@ describe('/health', () => {
 
 describe('authz: tanpa sesi => 401 untuk semua endpoint non-publik', () => {
   const protectedEndpoints: readonly (readonly [string, string, unknown?])[] = [
+    ['GET', '/v1/auth/session'],
     ['GET', '/v1/devices'],
     ['DELETE', `/v1/devices/${randomUUID()}`],
     ['GET', '/v1/keys/envelopes'],
@@ -394,6 +396,34 @@ describe('login OTP lewat HTTP', () => {
     const second = await api('/v1/auth/otp/verify', { method: 'POST', body })
     expect(second.status).toBe(400)
     expect(problemOf(second).error.code).toBe('OTP_INVALID')
+  })
+
+  it('kode demo (`FIXED_OTP_CODE`) tetap menerbitkan sesi NYATA yang dibaca `/v1/auth/session`', async () => {
+    // Mode demo cuma soal KODE yang diterima saat `APP_ENV` non-production. Ia TIDAK melewati satu
+    // langkah pun dari jalur sesi: challenge tetap dibuat, rate limit tetap dihitung, dan sesi tetap
+    // lahir dari `loginDevice`. Test ini mengunci konsekuensinya - klien web (siapa pun, termasuk
+    // email yang belum pernah ada) benar-benar memegang cookie sesi yang SAH di server, bukan cuma
+    // "lolos" di UI. Tanpa assertion ini, login demo bisa tampak berhasil padahal tidak ada satu pun
+    // baris `sessions` yang bisa dipakai request berikutnya.
+    const fixture = scope.fixture({ prefix: 'http-demo-session' })
+    const { cookie } = await loginOverHttp(fixture, 'web')
+
+    const session = await api('/v1/auth/session', { cookie })
+    expect(session.status).toBe(200)
+
+    const dto = apiDataEnvelopeSchema(currentSessionResultSchema).parse(session.body).data
+    expect(dto.user.email).toBe(fixture.email)
+    // Endpoint ini cuma MEMBACA sesi: token tidak pernah ikut, karena cookie `HttpOnly` yang membawanya.
+    expect(JSON.stringify(session.body)).not.toContain('"token"')
+
+    // Sesi demo dicabut seperti sesi lain - satu jalur, tidak ada perlakuan khusus.
+    const logout = await fetch(url('/v1/auth/logout'), {
+      method: 'POST',
+      headers: { cookie, 'sec-fetch-site': 'same-origin' },
+    })
+    expect(logout.status).toBe(204)
+
+    expect((await api('/v1/auth/session', { cookie })).status).toBe(401)
   })
 
   it('tidak ada header/query/field client yang bisa menyalakan mode OTP fix', async () => {

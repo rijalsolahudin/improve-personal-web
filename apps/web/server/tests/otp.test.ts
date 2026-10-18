@@ -363,14 +363,71 @@ describe('rate limit OTP di Postgres (bukan in-memory)', () => {
   })
 })
 
-describe('pemilihan mailer (batas keluar Resend - satu-satunya jaringan keluar)', () => {
-  it('non-production: email TIDAK dikirim - mailer-nya no-op, tanpa jalur jaringan sama sekali', async () => {
+describe('pemilihan mailer (batas keluar email: Resend / SMTP - tidak ada yang menyentuh jaringan)', () => {
+  it('non-production TANPA transport: email tidak dikirim - mailer-nya no-op, tanpa jalur jaringan sama sekali', async () => {
     const mailer = createOtpMailer(makeEnv({ appEnv: 'test' }))
 
     expect(mailer).toBe(noopOtpMailer)
     await expect(
       mailer.sendOtp({ to: 'qa@qa.test', code: FIXED_OTP_CODE, purpose: 'login' }),
     ).resolves.toBeUndefined()
+  })
+
+  it('non-production + `NUXT_SMTP_URL`: email BENAR-BENAR dikirim, dan kode fix mati di env itu', async () => {
+    const sent: Array<{ from: string; to: string; subject: string; text: string }> = []
+    const env = makeEnv({
+      appEnv: 'development',
+      smtpUrl: 'smtp://127.0.0.1:1025',
+      mailFrom: 'Improve Personal <no-reply@local.test>',
+    })
+
+    const mailer = createOtpMailer(env, {
+      smtpSend: async (message) => {
+        sent.push(message)
+      },
+    })
+
+    expect(mailer).not.toBe(noopOtpMailer)
+
+    await mailer.sendOtp({ to: 'qa@qa.test', code: '123456', purpose: 'login' })
+
+    expect(sent).toHaveLength(1)
+    expect(sent.at(0)).toMatchObject({
+      from: 'Improve Personal <no-reply@local.test>',
+      to: 'qa@qa.test',
+    })
+    expect(sent.at(0)?.subject.length ?? 0).toBeGreaterThan(0)
+    expect(sent.at(0)?.text).toContain('123456')
+
+    // Keterkaitan yang mudah terlewat: begitu transport ada, `fixedOtpEnabled` HARUS false. Kalau
+    // tetap true, `requestOtp` akan mengirim kode fix sementara `verifyOtp` membandingkan dengan kode
+    // yang benar-benar dikirim - dua-duanya sepakat di `777777`, tapi user yang membaca inbox-nya
+    // melihat kode random dan login tidak pernah bisa selesai.
+    expect(env.fixedOtpEnabled).toBe(false)
+  })
+
+  it('subject mengikuti purpose, jadi kode hapus akun tidak tertukar dengan kode login', async () => {
+    const sent: Array<{ subject: string; text: string }> = []
+    const mailer = createOtpMailer(
+      makeEnv({
+        appEnv: 'staging',
+        smtpUrl: 'smtp://127.0.0.1:1025',
+        mailFrom: 'qa@improve-personal.test',
+      }),
+      {
+        smtpSend: async (message) => {
+          sent.push(message)
+        },
+      },
+    )
+
+    await mailer.sendOtp({ to: 'qa@qa.test', code: '111111', purpose: 'login' })
+    await mailer.sendOtp({ to: 'qa@qa.test', code: '222222', purpose: 'delete_account' })
+
+    expect(sent).toHaveLength(2)
+    expect(sent[0]?.subject).not.toBe(sent[1]?.subject)
+    expect(sent[0]?.text).toContain('111111')
+    expect(sent[1]?.text).toContain('222222')
   })
 
   it('production: kode benar-benar dikirim lewat Resend (fetch disuntik, tidak menyentuh jaringan)', async () => {
@@ -381,14 +438,16 @@ describe('pemilihan mailer (batas keluar Resend - satu-satunya jaringan keluar)'
         resendApiKey: 'qa-resend-key',
         mailFrom: 'qa@improve-personal.test',
       }),
-      async (url: string, init: RequestInit) => {
-        calls.push({
-          url: String(url),
-          body: String(init.body),
-          authorization: String((init.headers as Record<string, string>)['authorization']),
-        })
+      {
+        fetchImpl: async (url: string, init: RequestInit) => {
+          calls.push({
+            url: String(url),
+            body: String(init.body),
+            authorization: String((init.headers as Record<string, string>)['authorization']),
+          })
 
-        return new Response('{}', { status: 200 })
+          return new Response('{}', { status: 200 })
+        },
       },
     )
 

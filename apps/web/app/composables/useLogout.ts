@@ -1,6 +1,11 @@
+import { LOGIN_PATH } from '~/utils/features'
+
+import type { AuthGateway } from './auth/gateway'
+import { useAuthGateway } from './auth/http-gateway'
+import { useAuthSession } from './useAuthSession'
+
 /** Semua key localStorage milik app memakai prefix ini (tampilan, hiasan, sidebar, Pomodoro…). */
 export const APP_STORAGE_PREFIX = 'ip-'
-export const LOGIN_PATH = '/login'
 
 /** Hapus key milik app saja; key situs lain di origin yang sama tidak disentuh. */
 export function clearAppStorage(storage: Storage): void {
@@ -11,13 +16,28 @@ export function clearAppStorage(storage: Storage): void {
 }
 
 /**
- * Logout fase 1 - belum ada sesi server (PRD F15), jadi tidak ada request yang dipanggil.
- * Cukup bersihkan state sisi client lalu muat ulang ke halaman login: reload penuh membuang
- * semua state in-memory (data contoh, timer, popover) tanpa harus mereset tiap store satu-satu.
- * Begitu auth siap, fungsi ini yang diganti (cabut sesi di server dulu, baru bersihkan client).
+ * Logout: cabut sesi di SERVER dulu, baru bersihkan state client.
+ *
+ * Urutannya mengikat - kalau state lokal dibuang lebih dulu dan pencabutan gagal, tidak ada lagi yang
+ * bisa mengulang permintaan itu. Kegagalan jaringan tetap dilanjutkan (user tidak boleh terjebak di
+ * app hanya karena offline), dan itulah trade-off yang disadari: cookie sesi di browser MASIH SAH
+ * sampai server mencabutnya sendiri saat kedaluwarsa. Jadi "sudah logout" tidak pernah disimpulkan di
+ * client: request berikutnya tetap diverifikasi server.
+ *
+ * Reload penuh (`external`) dipakai seperti sebelumnya: membuang semua state in-memory (data contoh,
+ * timer, popover) tanpa harus mereset tiap store satu-satu.
  */
-export function useLogout() {
+export function useLogout(gateway: AuthGateway = useAuthGateway()) {
+  const { clear } = useAuthSession(gateway)
+
   async function logout(): Promise<void> {
+    try {
+      await gateway.signOut()
+    } catch {
+      // Best-effort (konsekuensinya di catatan atas): sesi server bisa masih hidup sampai kedaluwarsa.
+    }
+
+    clear()
     try {
       clearAppStorage(localStorage)
     } catch {

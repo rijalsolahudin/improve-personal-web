@@ -1,7 +1,7 @@
 // @vitest-environment node
 //
 // Test HTTP untuk perbaikan audit keamanan backend: batas ukuran body (H1), limiter endpoint mahal
-// (M4), dan binding `state` OAuth (M2).
+// (M4), binding `state` OAuth (M2), dan bentuk kegagalan callback per jenis klien.
 //
 // Kenapa harus lewat HTTP sungguhan (server Nitro hasil build, `setup({ server: true })`):
 // - H1 hanya terbukti di jalur nyata: middleware, framing body oleh HTTP parser, dan bentuk respons
@@ -10,6 +10,14 @@
 // - M2 butuh Set-Cookie dari `/start` dan pembacaan cookie itu di `/callback` - perilaku khas HTTP,
 //   bukan sesuatu yang bisa disimpulkan dari service.
 // - M4 diverifikasi pada jalur yang benar-benar dipanggil klien, termasuk header `retry-after`.
+// - Bentuk kegagalan callback Google per jenis klien (302 ke halaman login untuk alur web vs JSON
+//   untuk klien mobile) juga diuji di sini, BUKAN di `auth-session.test.ts`. Alasannya isolasi:
+//   `google:callback:ip` adalah scope per-IP yang bucket-nya dihitung dari alamat SOCKET
+//   (`NUXT_TRUSTED_PROXY_HOPS=0` di test, jadi selalu `127.0.0.1`), artinya SATU bucket dipakai
+//   bersama SELURUH berkas test. Berkas test berjalan PARALEL (worker terpisah, Postgres yang sama),
+//   sedangkan test dalam satu berkas berjalan berurutan. Test yang sengaja men-SATURASI bucket itu ada
+//   di berkas ini, jadi test yang butuh bucket itu TIDAK jenuh harus ikut di sini - kalau dipisah, satu
+//   berkas bisa menabrak jendela jenuh milik berkas lain dan request yang sah dijawab `429`.
 import http from 'node:http'
 import { randomUUID } from 'node:crypto'
 
@@ -20,13 +28,14 @@ import {
   googleStartResultSchema,
   type ApiErrorBody,
 } from '@improve-personal/contracts'
-import { eq } from 'drizzle-orm'
+import { and, eq, inArray } from 'drizzle-orm'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import { setup, url } from '@nuxt/test-utils/e2e'
 
 import { RATE_LIMIT_RULES, type RateLimitScope } from '../services/rate-limit'
 import { startGoogleLogin } from '../services/google'
+import { OAUTH_STATE_COOKIE_NAME } from '../utils/oauth-state-cookie'
 import { bytesToBase64, hmacSha256, sha256Hex } from '../utils/crypto'
 import { rateLimits } from '../db/schema'
 import {
@@ -109,6 +118,19 @@ function liveCtx(fixture: Fixture) {
 
 function cookieFor(token: string): string {
   return `ip_session=${token}`
+}
+
+/** Cookie binding web untuk `state` dari `startGoogleLogin` (hash state, seperti `/start` memasangnya). */
+function bindingCookieFor(state: string): string {
+  return `${OAUTH_STATE_COOKIE_NAME}=${sha256Hex(state)}`
+}
+
+/** `true` kalau respons membuang cookie binding (sekali pakai), bukan karena kedaluwarsa. */
+function bindingCookieClear(response: ApiResponse): boolean {
+  const cleared = response.setCookie.find((entry) =>
+    entry.startsWith(`${OAUTH_STATE_COOKIE_NAME}=`),
+  )
+  return cleared !== undefined && /Max-Age=0/i.test(cleared)
 }
 
 /** Blob base64 valid untuk body kecil yang sah. */
@@ -473,6 +495,183 @@ describe('M4/M1: limiter endpoint mahal & bucket per akun', () => {
   })
 })
 
+/**
+ * Bentuk kegagalan callback per jenis klien.
+ *
+ * Dulu blok ini tinggal di `auth-session.test.ts`. Di sana ia flaky, dan sebabnya bukan produk:
+ * `google:callback:ip` (limit 60 / 15 menit) dihitung dari IP SOCKET, jadi seluruh berkas test berbagi
+ * SATU bucket. Test `M2 > callback dibatasi per IP` di bawah sengaja menjenuhkan bucket itu, sementara
+ * berkas test berjalan PARALEL - request callback yang sah dari berkas lain ikut dijawab `429`
+ * (`expected 429 to be 400`). Dipindah ke sini, urutannya berurutan: berkas ini membersihkan scope
+ * `google:callback:ip` di `beforeAll`, blok ini berjalan SEBELUM test yang menjenuhkan bucket, dan
+ * penghitung yang dipakai test penjenuhan dikembalikan setelah assertions-nya selesai.
+ *
+ * Cakupan yang diuji (semuanya tetap utuh setelah pemindahan):
+ * - alur web (cookie binding ada) gagal -> 302 ke `/login?error=oauth`, BUKAN JSON;
+ * - alur web dengan `state` tidak sah -> tetap 302 (satu bentuk, tanpa oracle);
+ * - alur mobile (tanpa cookie binding) gagal -> 400 JSON `OAUTH_INVALID`;
+ * - callback web SUKSES tidak pernah menerbitkan cookie sesi saat gagal, dan target redirect-nya tetap;
+ * - anti open redirect: input klien tidak bisa membelokkan `location`;
+ * - query callback rusak -> 400 JSON (bukan redirect).
+ *
+ * Catatan yang menjelaskan bentuk gejalanya: tabrakan bucket itu muncul sebagai `expected 429 to be 400`
+ * pada test JSON, BUKAN pada test redirect. Sebabnya, semua kegagalan login jalur web - termasuk
+ * `RATE_LIMITED` - memang di-`302` ke `/login?error=oauth` yang sama, jadi test berbentuk redirect
+ * tidak bisa membedakan "login gagal" dari "kena rate limit" (dan itu memang perilaku produk yang
+ * diinginkan: satu bentuk, tanpa oracle). Yang benar-benar sensitif adalah test yang mengharapkan
+ * amplop JSON.
+ *
+ * "web TANPA cookie binding -> 400 JSON" diuji di describe M2 (`callback web TANPA cookie binding
+ * ditolak OAUTH_INVALID`), bukan di sini lagi: skenarionya sama persis, dan assertion-nya sudah
+ * digabung ke test yang memang sudah ada di sana.
+ */
+describe('callback Google: bentuk kegagalan per jenis klien', () => {
+  // Isolasi: Google BELUM tersambung, dan tiap `completeGoogleLogin` yang lolos binding memicu satu
+  // request keluar ke `oauth2.googleapis.com`. Kalau test di blok ini bergantung pada jawaban Google,
+  // hasilnya ditentukan cuaca jaringan (pernah nyata: 500 INTERNAL saat koneksi keluar gagal, bukan
+  // 302). Karena itu sebab kegagalan yang dipakai di sini sengaja dipilih yang terjadi SEBELUM
+  // penukaran code (`state` tidak dikenal, atau binding tidak cocok) - bentuk respons ke klien tidak
+  // bergantung pada sebabnya, jadi yang diuji tetap benar. Penukaran code & validasi ID token diuji di
+  // `google-oauth.test.ts` lewat seam `fetchImpl` (satu-satunya tempat yang memang boleh menembak
+  // Google, dan di sana batasnya diganti).
+  it('alur web gagal (`state` tidak dikenal) -> 302 ke /login?error=oauth, bukan JSON', async () => {
+    // `state` yang tidak pernah diterbitkan: ditolak sebagai `OAUTH_INVALID`, dan justru inilah jalur
+    // yang dulu mengirim JSON mentah ke browser. Tidak ada baris `oauth_states` yang lahir dari test
+    // ini, jadi tidak ada fixture yang perlu dibersihkan.
+    const state = 'state-yang-tidak-pernah-diterbitkan'
+
+    // Cookie binding tetap dikirim: keberadaannya yang menandai "ini alur web", jadi kegagalannya harus
+    // dialihkan ke halaman login - bukan karena `state`-nya sah.
+    const response = await api(
+      `/v1/auth/google/callback?code=kode-karangan&state=${encodeURIComponent(state)}`,
+      { cookie: bindingCookieFor(state) },
+    )
+
+    expect(response.status).toBe(302)
+    // `location` harus PERSIS konstanta tetap itu - jadi tidak ada ruang bagi `code`/`state`/host
+    // Google, maupun pesan error internal, untuk ikut menyelinap ke URL.
+    expect(response.headers.get('location')).toBe('/login?error=oauth')
+    expect(response.body).not.toContain('OAUTH_INVALID')
+    expect(response.body).not.toContain('kode-karangan')
+    expect(apiErrorBodySchema.safeParse(response.body).success).toBe(false)
+
+    // Cookie binding tetap dibuang: sekali pakai, gagal maupun berhasil.
+    expect(bindingCookieClear(response)).toBe(true)
+  })
+
+  it('alur web dengan `state` sah tapi binding tidak cocok juga di-redirect (satu bentuk, tanpa oracle)', async () => {
+    const fixture = scope.fixture({ prefix: 'http-google-redirect-badstate' })
+    const start = await startGoogleLogin(liveCtx(fixture), { client: 'web' })
+    const state = new URL(start.authorizationUrl).searchParams.get('state') ?? ''
+    // Binding milik `state` LAIN: `completeGoogleLogin` menolak, dan kegagalan itu pun harus redirect.
+    // `state`-nya sendiri SAH - jadi yang menolak memang pemeriksaan binding (temuan M2), bukan
+    // "state tidak ditemukan" seperti test sebelumnya.
+    const otherState = (await startGoogleLogin(liveCtx(fixture), { client: 'web' })).state
+
+    const rejected = await api(
+      `/v1/auth/google/callback?code=kode&state=${encodeURIComponent(state)}`,
+      { cookie: bindingCookieFor(otherState) },
+    )
+
+    expect(rejected.status).toBe(302)
+    expect(rejected.headers.get('location')).toBe('/login?error=oauth')
+    expect(bindingCookieClear(rejected)).toBe(true)
+  })
+
+  it('alur mobile (tanpa cookie binding) gagal -> JSON `OAUTH_INVALID` seperti sebelumnya', async () => {
+    // Tanpa cookie binding, jadi `isWebFlow` false dan kegagalannya tetap JSON (native tidak punya
+    // halaman login untuk dilihat user). Sebabnya `state` tidak dikenal supaya tidak menembak Google.
+    const state = 'state-mobile-yang-tidak-dikenal'
+
+    const response = await api(
+      `/v1/auth/google/callback?code=kode-karangan&state=${encodeURIComponent(state)}`,
+    )
+
+    // Klien native tidak punya browser/halaman login: yang dibacanya amplop error JSON.
+    expect(response.status).toBe(400)
+    expect(problemOf(response).error.code).toBe('OAUTH_INVALID')
+    expect(problemOf(response).error.message).toBe(GENERIC_ERROR_MESSAGES.OAUTH_INVALID)
+    expect(response.headers.get('location')).toBeNull()
+  })
+
+  it('callback web yang GAGAL tidak pernah menerbitkan cookie sesi (tidak ada jalur setengah login)', async () => {
+    const fixture = scope.fixture({ prefix: 'http-google-web-ok' })
+    const start = await startGoogleLogin(liveCtx(fixture), { client: 'web' })
+    const state = new URL(start.authorizationUrl).searchParams.get('state') ?? ''
+
+    // Sebab kegagalannya sengaja binding yang tidak cocok, bukan `code` yang ditolak Google: jalur
+    // SUKSES sungguhan butuh menukar `code` ke Google, dan server test berjalan sebagai proses
+    // TERPISAH - seam `fetchImpl` (yang dipakai `google-oauth.test.ts`) tidak bisa disuntik dari sini.
+    // Yang dikunci di HTTP adalah kontraknya: alur web yang gagal tidak boleh meninggalkan sesi
+    // setengah jadi, apa pun sebab kegagalannya.
+    const otherState = (await startGoogleLogin(liveCtx(fixture), { client: 'web' })).state
+
+    const failed = await api(
+      `/v1/auth/google/callback?code=kode-karangan&state=${encodeURIComponent(state)}`,
+      { cookie: bindingCookieFor(otherState) },
+    )
+
+    expect(failed.status).toBe(302)
+    for (const entry of failed.setCookie) {
+      expect(entry.startsWith('ip_session='), `cookie sesi terbit walau gagal: ${entry}`).toBe(
+        false,
+      )
+    }
+    // Target redirect selalu path relatif: tidak ada nilai dari klien (code/state/host) yang ikut.
+    expect(failed.headers.get('location')).toBe('/login?error=oauth')
+  })
+
+  it('target redirect TIDAK bisa dibelokkan oleh input klien (anti open redirect)', async () => {
+    const fixture = scope.fixture({ prefix: 'http-google-openredirect' })
+    const start = await startGoogleLogin(liveCtx(fixture), { client: 'web' })
+    const state = new URL(start.authorizationUrl).searchParams.get('state') ?? ''
+
+    // `code` yang memuat URL absolut/kontrol tidak boleh muncul di `location`. Kalau target redirect
+    // pernah diambil dari input, inilah bentuk serangannya. Binding-nya sengaja milik `state` lain
+    // supaya kegagalannya deterministik (tidak menembak Google) - `code` yang berbahaya tetap ikut di
+    // query, jadi yang diuji tetap kebocoran nilai klien ke URL redirect.
+    const otherState = (await startGoogleLogin(liveCtx(fixture), { client: 'web' })).state
+    const hostile = 'https://jahat.example/pwn'
+    const response = await api(
+      `/v1/auth/google/callback?code=${encodeURIComponent(hostile)}&state=${encodeURIComponent(state)}`,
+      { cookie: bindingCookieFor(otherState) },
+    )
+
+    expect(response.status).toBe(302)
+    expect(response.headers.get('location')).toBe('/login?error=oauth')
+    expect(response.headers.get('location')).not.toContain('jahat.example')
+  })
+
+  it('query callback yang rusak: web -> 400 JSON (bukan redirect), mobile -> 400 JSON', async () => {
+    // Batas yang sengaja dipilih: yang dialihkan ke halaman login HANYA kegagalan login
+    // (`ApiProblem`), bukan kegagalan validasi query. Alasannya dua:
+    // 1. Query rusak berarti URL callback-nya memang tidak utuh (bukan alur yang normal terjadi), jadi
+    //    tidak ada "kesempatan mencoba lagi" yang hilang kalau user melihat 400.
+    // 2. Kegagalan validasi & kegagalan server harus tetap terlihat sebagai error - menelannya jadi
+    //    redirect membuat bug server menyamar sebagai "login gagal biasa".
+    // Test ini yang MENGUNCI batas itu: kalau suatu saat `catch`-nya diperlebar, test ini gagal.
+    //
+    // Catatan isolasi: kasus ini TIDAK menyentuh penghitung per-IP sama sekali (validasi query jalan
+    // sebelum `completeGoogleLogin`), jadi ia juga tak terpengaruh bucket yang dijenuhkan test M2.
+    const webFixture = scope.fixture({ prefix: 'http-google-badquery-web' })
+    const webStart = await startGoogleLogin(liveCtx(webFixture), { client: 'web' })
+    const webState = new URL(webStart.authorizationUrl).searchParams.get('state') ?? ''
+
+    // `code` hilang sepenuhnya: skema strict menolak, dan `getValidatedQuery` melempar `H3Error` 400.
+    const webBroken = await api(`/v1/auth/google/callback?state=${encodeURIComponent(webState)}`, {
+      cookie: bindingCookieFor(webState),
+    })
+    expect(webBroken.status).toBe(400)
+    expect(problemOf(webBroken).error.code).toBe('VALIDATION_FAILED')
+    expect(webBroken.headers.get('location')).toBeNull()
+
+    const mobileBroken = await api(`/v1/auth/google/callback?state=${encodeURIComponent(webState)}`)
+    expect(mobileBroken.status).toBe(400)
+    expect(problemOf(mobileBroken).error.code).toBe('VALIDATION_FAILED')
+    expect(mobileBroken.headers.get('location')).toBeNull()
+  })
+})
+
 describe('M2: binding `state` OAuth lewat HTTP', () => {
   it('`/start?client=web` memasang cookie binding berisi HASH state; `mobile` tanpa `state` di body', async () => {
     const webStart = await api('/v1/auth/google/start?client=web')
@@ -511,13 +710,21 @@ describe('M2: binding `state` OAuth lewat HTTP', () => {
 
   it('callback web TANPA cookie binding ditolak `OAUTH_INVALID`, dan cookie-nya dibuang', async () => {
     const fixture = scope.fixture({ prefix: 'http-google-binding' })
-    const start = await startGoogleLogin(fixture.ctx(), { client: 'web' })
+    // Jam NYATA untuk baris `oauth_states`-nya: server test berjalan dengan waktu nyata, sedangkan
+    // `fixture.ctx()` memakai `FIXED_NOW` (2026-05-01) yang sudah lewat. Dengan `FIXED_NOW`, `state`
+    // keburu kedaluwarsa dan yang menolak request ini adalah pemeriksaan EXPIRY - test-nya lulus
+    // tanpa pernah menyentuh pemeriksaan binding yang mau dibuktikan di sini.
+    const start = await startGoogleLogin(liveCtx(fixture), { client: 'web' })
     const state = new URL(start.authorizationUrl).searchParams.get('state') ?? ''
 
     const rejected = await api(`/v1/auth/google/callback?code=kode-dari-google&state=${state}`)
 
     expect(rejected.status).toBe(400)
     expect(problemOf(rejected).error.code).toBe('OAUTH_INVALID')
+    // "Bukan redirect: penanda alur web tidak ada". Browser yang memulai flow web SELALU membawa
+    // cookie binding, jadi request tanpa cookie binding memang bukan alur web - jawabannya JSON
+    // generik, bukan `302` ke halaman login.
+    expect(rejected.headers.get('location')).toBeNull()
     // Sekali pakai: cookie binding selalu dibuang di akhir callback, gagal maupun berhasil.
     const cleared = rejected.setCookie.find((entry) => entry.startsWith('ip_oauth_state='))
     expect(cleared).toMatch(/Max-Age=0/i)
@@ -528,20 +735,81 @@ describe('M2: binding `state` OAuth lewat HTTP', () => {
     const start = await startGoogleLogin(fixture.ctx(), { client: 'web' })
     const state = new URL(start.authorizationUrl).searchParams.get('state') ?? ''
 
-    // Satu request sah (ditolak binding, tapi tercatat di scope per-IP) supaya barisnya ada - bucket
-    // per-IP dihitung dari alamat socket, jadi test tidak perlu menebak identifier-nya.
+    // Jendela fixed yang sedang berjalan - aritmetika yang sama dengan `consumeRateLimit`.
+    const windowMs = RATE_LIMIT_RULES['google:callback:ip'].windowSeconds * 1_000
+    const windowStart = new Date(Math.floor(Date.now() / windowMs) * windowMs)
+
+    // Bucket scope ini dihitung dari alamat SOCKET (bukan IP fixture), jadi baris milik test ini
+    // dikenali dari PERUBAHANNYA di jendela yang sedang berjalan - bukan dengan menebak alamat socket.
+    //
+    // Kenapa harus seteliti ini: bucket per-IP dipakai BERSAMA seluruh berkas test (alamat socket
+    // semua request sama) dan jendelanya 15 menit, jadi perlakuan borongan pada scope ini berbahaya ke
+    // DUA arah. Menyetel `limit` ke baris identifier lain membuat test berkas lain yang sedang berjalan
+    // - mis. `google-oauth.test.ts` yang membuktikan aturan binding pada bucket IP fixture-nya sendiri -
+    // menerima `429`, bukan kode yang dia harapkan. Dan baris yang dibiarkan jenuh sesudah test membuat
+    // setiap request callback di jendela yang sama (berkas lain, atau run berikutnya) dijawab `429`.
+    const scopeRows = () =>
+      testDb().select().from(rateLimits).where(eq(rateLimits.scope, 'google:callback:ip'))
+    const rowKey = (row: { bucket: string; windowStart: Date }): string =>
+      `${row.bucket}|${row.windowStart.getTime()}`
+    const rowWhere = (row: { bucket: string; windowStart: Date }) =>
+      and(
+        eq(rateLimits.scope, 'google:callback:ip'),
+        eq(rateLimits.bucket, row.bucket),
+        eq(rateLimits.windowStart, row.windowStart),
+      )
+
+    const before = new Map((await scopeRows()).map((row) => [rowKey(row), row.count]))
+
+    // Satu request sah (ditolak binding, tapi tercatat di scope per-IP) supaya barisnya ada.
     const first = await api(`/v1/auth/google/callback?code=kode&state=${state}`)
     expect(first.status).toBe(400)
 
-    await testDb()
-      .update(rateLimits)
-      .set({ count: RATE_LIMIT_RULES['google:callback:ip'].limit })
-      .where(eq(rateLimits.scope, 'google:callback:ip'))
+    const written = (await scopeRows()).filter(
+      (row) =>
+        row.windowStart.getTime() === windowStart.getTime() &&
+        before.get(rowKey(row)) !== row.count,
+    )
+    expect(
+      written.length,
+      'request callback tidak menulis penghitung per-IP di jendela ini',
+    ).toBeGreaterThan(0)
 
-    const limited = await api(`/v1/auth/google/callback?code=kode&state=${state}`)
+    try {
+      // HANYA baris yang baru saja ditulis request di atas yang dijenuhkan: `count = limit` + satu
+      // request berikutnya = `limit + 1` > limit, jadi 429-nya datang dari limiter - dan karena
+      // limiter jalan sebelum `state` disentuh, `state` yang sudah kedaluwarsa di sini tidak pernah
+      // sampai diperiksa.
+      await testDb()
+        .update(rateLimits)
+        .set({ count: RATE_LIMIT_RULES['google:callback:ip'].limit })
+        .where(
+          and(
+            eq(rateLimits.scope, 'google:callback:ip'),
+            eq(rateLimits.windowStart, windowStart),
+            inArray(
+              rateLimits.bucket,
+              written.map((row) => row.bucket),
+            ),
+          ),
+        )
 
-    expect(limited.status).toBe(429)
-    expect(problemOf(limited).error.code).toBe('RATE_LIMITED')
-    expect(limited.headers.get('retry-after')).toMatch(/^[1-9][0-9]*$/)
+      const limited = await api(`/v1/auth/google/callback?code=kode&state=${state}`)
+
+      expect(limited.status).toBe(429)
+      expect(problemOf(limited).error.code).toBe('RATE_LIMITED')
+      expect(limited.headers.get('retry-after')).toMatch(/^[1-9][0-9]*$/)
+    } finally {
+      // Bucket bersama ini DIKEMBALIKAN ke kondisi semula, apa pun hasil assertion di atas: baris yang
+      // sudah ada dikembalikan ke hitungan lamanya, baris yang baru dibuat test ini dihapus. Tanpa ini,
+      // sisa `count = limit` membuat request callback dari berkas atau run lain di jendela yang sama
+      // dijawab 429 - flaky, padahal tidak ada bug produk.
+      for (const row of written) {
+        const previous = before.get(rowKey(row))
+
+        if (previous === undefined) await testDb().delete(rateLimits).where(rowWhere(row))
+        else await testDb().update(rateLimits).set({ count: previous }).where(rowWhere(row))
+      }
+    }
   })
 })

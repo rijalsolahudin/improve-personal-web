@@ -42,6 +42,13 @@ export interface Feature {
 
 export const APP_HOME_PATH = '/app'
 
+/**
+ * Halaman login. Tinggal di sini (bersama `APP_HOME_PATH`), bukan di composable yang memakainya:
+ * guard rute dan `useLogout` dua-duanya menavigasi ke path ini, dan dua literal terpisah bisa
+ * menyimpang diam-diam saat route login berubah.
+ */
+export const LOGIN_PATH = '/login'
+
 const feature = (
   id: FeatureId,
   code: string,

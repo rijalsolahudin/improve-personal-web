@@ -9,6 +9,11 @@ useDismiss(root, isOpen)
 const { isPickerOpen } = useAppearance()
 const { logout } = useLogout()
 
+// Identitas kartu dari sesi asli (email); tanpa request - guard halaman sudah memuatnya.
+const { session } = useAuthSession()
+const accountEmail = computed(() => session.value?.user.email ?? '')
+const accountInitial = computed(() => accountEmail.value.slice(0, 1).toUpperCase())
+
 const items = [
   { key: 'profile', glyph: '☺', to: getFeature('akun').path },
   { key: 'preferences', glyph: '⚙', to: APP_HOME_PATH },
@@ -49,9 +54,11 @@ function onItem(key: (typeof items)[number]['key']): void {
       aria-controls="user-menu"
       @click="isOpen = !isOpen"
     >
-      <span class="avatar" aria-hidden="true">{{ $t('shell.user.initial') }}</span>
+      <span class="avatar" aria-hidden="true">{{
+        accountInitial || $t('shell.user.initial')
+      }}</span>
       <span v-if="!collapsed" class="who">
-        <span class="name">{{ $t('shell.user.name') }}</span>
+        <span class="name">{{ accountEmail || $t('shell.user.name') }}</span>
         <span class="sub">{{ $t('feature.akun.label') }}</span>
       </span>
       <span v-if="!collapsed" class="caret" aria-hidden="true">{{ isOpen ? '▾' : '▴' }}</span>

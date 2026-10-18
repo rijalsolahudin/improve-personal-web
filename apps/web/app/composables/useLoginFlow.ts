@@ -1,17 +1,67 @@
+import { OTP_RESEND_COOLDOWN_SECONDS, type ErrorCode } from '@improve-personal/contracts'
+
 import { MS_PER_SECOND } from '~/utils/time'
 import { isValidEmail, safeRedirectPath } from '~/utils/validation'
 
-import { AuthUnavailableError, useAuthGateway, type AuthGateway } from './auth/gateway'
-
-const RESEND_COOLDOWN_MS = 30 * MS_PER_SECOND
+import { AuthRequestError, type AuthGateway } from './auth/gateway'
+import { useAuthGateway } from './auth/http-gateway'
+import { useAuthSession } from './useAuthSession'
 
 export type LoginStep = 'choose' | 'otp'
-/** Kunci pesan di i18n `login.error.*` - semua generik (F15: jangan bocorkan email terdaftar). */
-export type LoginError =
-  'emailEmpty' | 'emailInvalid' | 'otpIncomplete' | 'otpInvalid' | 'unavailable' | 'generic'
 
-const toLoginError = (error: unknown, fallback: LoginError): LoginError =>
-  error instanceof AuthUnavailableError ? 'unavailable' : fallback
+/** Kunci pesan di i18n `login.error.*` - semua generik (F15: jangan bocorkan email terdaftar). */
+export const LOGIN_ERROR_KEYS = [
+  'emailEmpty',
+  'emailInvalid',
+  'otpIncomplete',
+  'otpInvalid',
+  /** Kode benar tapi kedaluwarsa: user cuma butuh kode baru, bukan mengulang dari awal. */
+  'otpExpired',
+  'rateLimited',
+  /** Kegagalan callback Google (`/login?error=oauth`). */
+  'oauthFailed',
+  'unavailable',
+  'generic',
+] as const
+
+export type LoginError = (typeof LOGIN_ERROR_KEYS)[number]
+
+/**
+ * Kode kontrak -> kunci pesan.
+ *
+ * `VALIDATION_FAILED` sengaja TIDAK ada di sini: server memakai kode itu untuk "email tidak valid"
+ * maupun "kode tidak valid", jadi kuncinya ditentukan pemanggil (per langkah). Kode lain - termasuk
+ * `UNAUTHENTICATED` - jatuh ke `generic`, sesuai kebijakan pesan generik F15.
+ */
+const LOGIN_ERROR_BY_CODE: Readonly<Partial<Record<ErrorCode, LoginError>>> = {
+  OTP_INVALID: 'otpInvalid',
+  OTP_EXPIRED: 'otpExpired',
+  RATE_LIMITED: 'rateLimited',
+}
+
+/** Nilai `?error=` yang dipasang server saat alur Google gagal (`server/routes/v1/auth/google/callback.get.ts`). */
+const OAUTH_ERROR_QUERY_VALUE = 'oauth'
+
+/** Kode dari callback `?error=oauth`: tampil di blok Google, tidak menyamar jadi error email. */
+function initialGoogleError(queryValue: unknown): LoginError | null {
+  return queryValue === OAUTH_ERROR_QUERY_VALUE ? 'oauthFailed' : null
+}
+
+/**
+ * Kegagalan request -> kunci pesan. `validation` = kunci untuk `VALIDATION_FAILED` di langkah yang
+ * sedang berjalan. Error yang tidak dikenali sama sekali jatuh ke `generic`, bukan diteruskan apa
+ * adanya ke UI.
+ */
+function toLoginError(error: unknown, validation: LoginError): LoginError {
+  if (!(error instanceof AuthRequestError)) return 'generic'
+
+  // Permintaan tidak pernah sampai ke server: "server tidak terjangkau" lebih jujur daripada
+  // menyalahkan kode/email user yang mungkin saja benar.
+  if (error.isNetworkError) return 'unavailable'
+  if (error.code === 'VALIDATION_FAILED') return validation
+
+  return LOGIN_ERROR_BY_CODE[error.code] ?? 'generic'
+}
 
 export type LoginFlow = ReturnType<typeof useLoginFlow>
 
@@ -20,12 +70,15 @@ export function useLoginFlow(gateway: AuthGateway = useAuthGateway()) {
   const now = useNow()
   const route = useRoute()
   const otp = useOtpInput()
+  const auth = useAuthSession(gateway)
 
   const step = ref<LoginStep>('choose')
   const email = ref('')
   const emailError = ref<LoginError | null>(null)
   const otpError = ref<LoginError | null>(null)
-  const googleError = ref<LoginError | null>(null)
+  // Kegagalan callback Google datang lewat `?error=oauth`: itu sebab pertama user melihat form ini,
+  // jadi pesannya sudah ada sejak render pertama.
+  const googleError = ref<LoginError | null>(initialGoogleError(route.query.error))
   const isSending = ref(false)
   const isVerifying = ref(false)
   const isGooglePending = ref(false)
@@ -39,7 +92,9 @@ export function useLoginFlow(gateway: AuthGateway = useAuthGateway()) {
     await gateway.requestEmailOtp(address)
     otp.clear()
     otpError.value = null
-    resendAt.value = Date.now() + RESEND_COOLDOWN_MS
+    // Jeda kirim ulang dari KONTRAK: server menegakkannya juga, jadi angkanya tidak boleh ditulis
+    // ulang di sini (kalau menyimpang, tombol aktif saat server masih menolak).
+    resendAt.value = Date.now() + OTP_RESEND_COOLDOWN_SECONDS * MS_PER_SECOND
   }
 
   async function submitEmail(): Promise<void> {
@@ -54,7 +109,7 @@ export function useLoginFlow(gateway: AuthGateway = useAuthGateway()) {
       email.value = address
       step.value = 'otp'
     } catch (error) {
-      emailError.value = toLoginError(error, 'generic')
+      emailError.value = toLoginError(error, 'emailInvalid')
     } finally {
       isSending.value = false
     }
@@ -69,7 +124,9 @@ export function useLoginFlow(gateway: AuthGateway = useAuthGateway()) {
 
     isVerifying.value = true
     try {
-      await gateway.verifyEmailOtp(email.value, otp.code.value)
+      const session = await gateway.verifyEmailOtp(email.value, otp.code.value)
+      // Hasil login langsung jadi state sesi: guard & kartu akun tidak perlu request tambahan.
+      auth.setSession(session)
       await navigateTo(safeRedirectPath(route.query.redirect))
     } catch (error) {
       otpError.value = toLoginError(error, 'otpInvalid')
@@ -85,7 +142,7 @@ export function useLoginFlow(gateway: AuthGateway = useAuthGateway()) {
     try {
       await requestCode(email.value)
     } catch (error) {
-      otpError.value = toLoginError(error, 'generic')
+      otpError.value = toLoginError(error, 'emailInvalid')
     } finally {
       isSending.value = false
     }
@@ -100,6 +157,8 @@ export function useLoginFlow(gateway: AuthGateway = useAuthGateway()) {
     } catch (error) {
       googleError.value = toLoginError(error, 'generic')
     } finally {
+      // Selalu dibuka lagi: `startGoogleLogin` memicu navigasi PENUH, jadi kalau halaman ternyata
+      // tidak pindah (mis. navigasi diblokir), tombol tidak boleh menggantung di state pending.
       isGooglePending.value = false
     }
   }
@@ -123,8 +182,6 @@ export function useLoginFlow(gateway: AuthGateway = useAuthGateway()) {
     isSending: readonly(isSending),
     isVerifying: readonly(isVerifying),
     isGooglePending: readonly(isGooglePending),
-    isServerConnected: gateway.isConnected,
-    isDemo: gateway.isDemo,
     resendSecondsLeft,
     otp,
     setEmail,

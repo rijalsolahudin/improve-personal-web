@@ -11,7 +11,10 @@ import { z } from 'zod'
  *   boleh bergantung padanya).
  * - Nilai env yang tidak dikenal/kosong = `production` (fail-closed). Karena itu `777777` tidak
  *   pernah diterima di production: mode OTP fix hanya turunan dari `APP_ENV` yang EKSPLISIT
- *   non-production, dan tidak ada flag/header/query client yang bisa menyalakannya.
+ *   non-production, DAN cuma hidup kalau tidak ada transport email (`NUXT_SMTP_URL` kosong), dan tidak
+ *   ada flag/header/query client yang bisa menyalakannya.
+ * - Mengisi `NUXT_SMTP_URL` hanya bisa MEMPERKETAT: transport yang ada berarti email benar-benar
+ *   dikirim dan kode fix mati. Tidak ada kombinasi yang mematikan transport demi menyalakan fix.
  * - Validasi jalan saat startup (plugin `server/plugins/env.ts`): env tidak valid = server nolak
  *   start, bukan gagal diam-diam saat request pertama.
  *
@@ -53,9 +56,22 @@ export function resolveAppEnv(raw: unknown): AppEnv {
   return match ?? 'production'
 }
 
-/** Mode OTP fix aktif HANYA di env non-production yang eksplisit. */
-export function isFixedOtpEnabled(appEnv: AppEnv): boolean {
-  return appEnv !== 'production'
+/**
+ * Mode OTP fix aktif HANYA di env non-production yang eksplisit, dan HANYA kalau tidak ada transport
+ * email.
+ *
+ * Syarat kedua ada karena alasan praktis dan keamanan sekaligus: kode fix itu jalan pintas untuk env
+ * yang memang tidak bisa mengirim email. Begitu ada transport (`NUXT_SMTP_URL` - Mailpit di lokal,
+ * SMTP provider di staging), jalan pintas itu tidak punya alasan hidup lagi, dan justru berbahaya:
+ * `777777` membuat siapa pun bisa masuk sebagai email siapa pun - termasuk di staging yang datanya
+ * nyata. Jadi mengisi transport MEMATIKAN fix, bukan sekadar menambah jalur email di sampingnya.
+ *
+ * Arahnya satu: transport hanya bisa memperketat. Tidak ada nilai `NUXT_SMTP_URL` yang menyalakan fix,
+ * jadi tidak ada jalur kedua yang bisa lupa dimatikan saat deploy production.
+ */
+export function isFixedOtpEnabled(appEnv: AppEnv, smtpUrl = ''): boolean {
+  if (appEnv === 'production') return false
+  return smtpUrl.trim() === ''
 }
 
 const pepperSchema = (variableName: string) =>
@@ -113,19 +129,40 @@ const serverEnvSchema = z
     corsAllowedOrigins: corsOriginsSchema,
     trustedProxyHops: trustedProxyHopsSchema,
     /**
-     * Kredensial email: wajib HANYA di production (dicek di `resolveServerEnv`).
+     * Kredensial email: wajib HANYA di production (dicek di `resolveServerEnv`), plus `NUXT_MAIL_FROM`
+     * kalau `NUXT_SMTP_URL` dipakai.
      *
-     * Di non-production email tidak pernah dikirim (PRD F15), jadi mewajibkannya di semua env hanya
-     * akan membuat developer mengisi nilai palsu - dan nilai palsu itulah yang nanti ikut ke
-     * production.
+     * Di non-production TANPA transport email, email memang tidak dikirim (PRD F15), jadi mewajibkan
+     * kredensial di semua env hanya akan membuat developer mengisi nilai palsu - dan nilai palsu itulah
+     * yang nanti ikut ke production.
      */
     resendApiKey: z.string().default(''),
     mailFrom: z.string().default(''),
+    /**
+     * Transport email non-production, mis. Mailpit lokal: `smtp://127.0.0.1:1025`. Kalau terisi, email
+     * OTP benar-benar dikirim (`server/services/mailer.ts`) dan mode OTP fix dimatikan
+     * (`isFixedOtpEnabled`).
+     *
+     * Production TIDAK memakai ini (jalurnya Resend) dan menolak start kalau key ini terisi - lihat
+     * `resolveServerEnv`.
+     */
+    smtpUrl: z
+      .string()
+      .default('')
+      // `\S+` (bukan `.+`) dan `.trim()` di ujung: URL dengan spasi - biasanya hasil copy-paste dari
+      // berkas env - adalah salah setel yang gampang terjadi, dan nodemailer baru akan mengeluhkannya
+      // jauh kemudian (saat user pertama minta OTP). Ditolak di sini, dan nilainya disimpan sudah
+      // di-trim supaya perbandingan `smtpUrl !== ''` di seluruh kode tidak bergantung spasi.
+      .refine(
+        (value) => value.trim() === '' || /^smtps?:\/\/\S+$/.test(value.trim()),
+        'NUXT_SMTP_URL harus URL `smtp://` atau `smtps://`',
+      )
+      .transform((value) => value.trim()),
   })
   .transform((value) => ({
     ...value,
     isProduction: value.appEnv === 'production',
-    fixedOtpEnabled: isFixedOtpEnabled(value.appEnv),
+    fixedOtpEnabled: isFixedOtpEnabled(value.appEnv, value.smtpUrl),
   }))
 
 export type ServerEnv = z.infer<typeof serverEnvSchema>
@@ -215,6 +252,22 @@ export function resolveServerEnv(config: Record<string, unknown>): ServerEnv {
     throw new ServerEnvError(missingProductionKeys.map((name) => `${name} wajib di production`))
   }
 
+  // Production memakai Resend. `NUXT_SMTP_URL` yang terisi di sini hampir selalu berarti berkas env
+  // non-production (atau variabel milik staging) ikut ter-deploy - kelas salah setel yang sama dengan
+  // temuan M3. Ditegaskan: ditolak, bukan diam-diam diabaikan, karena "diabaikan" berarti transport
+  // yang dikonfigurasi tidak dipakai dan tidak ada yang tahu.
+  if (env.isProduction && env.smtpUrl !== '') {
+    throw new ServerEnvError(['NUXT_SMTP_URL (tidak dipakai di production)'])
+  }
+
+  // Transport yang terkonfigurasi tapi tidak bisa dipakai = LOGIN MATI, bukan sekadar email gagal:
+  // `smtpUrl` yang terisi sudah mematikan kode fix, jadi satu-satunya jalan masuk adalah email - dan
+  // SMTP menolak pesan tanpa pengirim yang valid. Di non-production kegagalan ini hanya diperingatkan
+  // plugin startup (kebijakan yang sudah ada), tapi namanya tetap muncul di log startup.
+  if (!env.isProduction && env.smtpUrl !== '' && env.mailFrom.trim() === '') {
+    throw new ServerEnvError(['NUXT_MAIL_FROM wajib diisi kalau NUXT_SMTP_URL dipakai'])
+  }
+
   return env
 }
 
@@ -241,8 +294,9 @@ const PRODUCTION_NODE_ENV = 'production'
  * tetap murni & bisa diuji tanpa menyentuh environment proses. Yang membacanya plugin startup.
  *
  * Yang SENGAJA tidak dianggap produksi: `NODE_ENV` selain `production` (termasuk kosong). Non-production
- * adalah tempat mode fix memang boleh hidup (login demo, e2e), dan menolak start di sana akan mematikan
- * `nuxt dev`/suite test tanpa menambah keamanan apa pun - jalur ini murni soal "deployment produksi".
+ * adalah tempat mode fix memang boleh hidup (login demo/e2e kalau tidak ada transport email), dan
+ * menolak start di sana akan mematikan `nuxt dev`/suite test tanpa menambah keamanan apa pun - jalur ini
+ * murni soal "deployment produksi".
  */
 export function assertFixedOtpNotInProduction(env: ServerEnv, nodeEnv: string | undefined): void {
   if (!env.fixedOtpEnabled) return

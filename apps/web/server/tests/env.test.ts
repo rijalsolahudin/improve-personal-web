@@ -96,6 +96,64 @@ describe('isFixedOtpEnabled', () => {
     expect(isFixedOtpEnabled(resolveAppEnv(''))).toBe(false)
     expect(isFixedOtpEnabled(resolveAppEnv('prod'))).toBe(false)
   })
+
+  it('transport email yang terisi MEMATIKAN mode fix (jalan pintasnya tidak berlaku lagi)', () => {
+    for (const appEnv of NON_PRODUCTION_APP_ENVS) {
+      expect(isFixedOtpEnabled(appEnv, 'smtp://127.0.0.1:1025')).toBe(false)
+    }
+
+    // Production tetap mati, dengan atau tanpa transport - tidak ada nilai yang menyalakannya.
+    expect(isFixedOtpEnabled('production', 'smtp://127.0.0.1:1025')).toBe(false)
+  })
+})
+
+describe('transport email non-production (`NUXT_SMTP_URL`)', () => {
+  const SMTP = {
+    smtpUrl: 'smtp://127.0.0.1:1025',
+    mailFrom: 'Improve Personal <no-reply@local.test>',
+  }
+
+  it('transport terisi -> email benar-benar dikirim, jadi kode fix mati di SEMUA env non-production', () => {
+    for (const appEnv of NON_PRODUCTION_APP_ENVS) {
+      const env = resolveServerEnv(baseConfig({ appEnv, ...SMTP }))
+
+      expect(env.fixedOtpEnabled, `APP_ENV=${appEnv}`).toBe(false)
+      expect(env.smtpUrl).toBe(SMTP.smtpUrl)
+    }
+
+    // Tanpa transport, perilaku lama TIDAK berubah: inilah yang dipakai suite test HTTP & e2e.
+    for (const appEnv of NON_PRODUCTION_APP_ENVS) {
+      expect(resolveServerEnv(baseConfig({ appEnv })).fixedOtpEnabled).toBe(true)
+    }
+  })
+
+  it('production MENOLAK start kalau `NUXT_SMTP_URL` terisi (jalurnya Resend)', () => {
+    // Sama kelasnya dengan temuan M3: berkas env non-production (atau variabel staging) yang ikut
+    // ter-deploy. Ditegaskan: ditolak, bukan diabaikan - transport yang dikonfigurasi tapi tidak
+    // dipakai tidak boleh berlalu tanpa jejak.
+    expect(() =>
+      resolveServerEnv(baseConfig({ appEnv: 'production', ...PRODUCTION_MAIL, ...SMTP })),
+    ).toThrow(ServerEnvError)
+  })
+
+  it('`NUXT_SMTP_URL` tanpa `NUXT_MAIL_FROM` ditolak: tanpa kode fix, email itu satu-satunya jalan masuk', () => {
+    expect(() =>
+      resolveServerEnv(
+        baseConfig({ appEnv: 'development', smtpUrl: SMTP.smtpUrl, mailFrom: '   ' }),
+      ),
+    ).toThrow(ServerEnvError)
+  })
+
+  it('`NUXT_SMTP_URL` yang bukan URL smtp:// / smtps:// ditolak', () => {
+    const invalid = ['127.0.0.1:1025', 'http://127.0.0.1:8025', 'smtp:/host', 'smtp://', 'smtp:// ']
+
+    for (const smtpUrl of invalid) {
+      expect(
+        () => resolveServerEnv(baseConfig({ appEnv: 'development', ...SMTP, smtpUrl })),
+        `smtpUrl="${smtpUrl}" seharusnya ditolak`,
+      ).toThrow(ServerEnvError)
+    }
+  })
 })
 
 describe('resolveServerEnv - server menolak start kalau env tidak valid', () => {

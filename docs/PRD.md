@@ -799,20 +799,24 @@ Web + PWA (Nuxt) dan native Android/iOS (React Native), dengan logika inti di-sh
 - Daftar pakai email
 - Setiap login: kirim kode 6 digit ke inbox
 - OTP kedaluwarsa ≤ 10 menit
-- Dikirim via Resend/SendGrid (service)
+- Dikirim via Resend/SendGrid (production) atau SMTP (`NUXT_SMTP_URL`, nodemailer; non-production)
 - Rate limit per email (prevent brute force)
 
 #### OTP per Environment
 | Environment | OTP | Email dikirim? |
 |---|---|---|
 | `production` | Random 6 digit, sekali pakai, ≤ 10 menit | Ya (Resend/SendGrid) |
-| Selain production (`development`, `staging`, `test`, preview) | Fix **`777777`** | Nggak |
+| Selain production (`development`, `staging`, `test`, `preview`) dengan `NUXT_SMTP_URL` terisi | Random 6 digit, sekali pakai, ≤ 10 menit | Ya (SMTP/nodemailer) |
+| Selain production (`development`, `staging`, `test`, `preview`) tanpa `NUXT_SMTP_URL` | Fix **`777777`** | Nggak |
 
 - Tujuan: dev/QA/e2e test bisa login tanpa inbox beneran.
+- **Kalau `NUXT_SMTP_URL` terisi, server benar-benar mengirim email OTP lewat SMTP (nodemailer), dan mode OTP fix `777777` mati otomatis di env itu** — kode yang dikirim jadi random 6 digit seperti production.
+- Konteks lokal developer: Mailpit jalan sebagai container `local-mailpit` (axllent/mailpit) — SMTP `127.0.0.1:1025`, UI inbox `http://127.0.0.1:8025`. `apps/web/.env.example` memuat `NUXT_SMTP_URL=smtp://127.0.0.1:1025`.
+- `NUXT_MAIL_FROM` wajib diisi kalau ada transport email (SMTP di non-production, Resend di production).
 - Flow & UI tetap sama di semua environment (email → OTP); yang beda cuma generate + kirim kode.
 - Rate limit & expiry tetap jalan di non-production (biar perilakunya identik).
-- **Fail-closed:** OTP fix cuma aktif kalau env server **eksplisit** non-production (mis. `APP_ENV`). Env kosong/nggak dikenal = dianggap production. Nggak ada flag client/header/query yang bisa nyalain.
-- Build/deploy production wajib gagal (atau server nolak start) kalau mode OTP fix kebaca aktif.
+- **Fail-closed:** OTP fix cuma aktif kalau env server **eksplisit** non-production (mis. `APP_ENV`) **dan** `NUXT_SMTP_URL` kosong. Env kosong/nggak dikenal = dianggap production. Nggak ada flag client/header/query yang bisa nyalain.
+- Build/deploy production wajib gagal (atau server nolak start) kalau mode OTP fix kebaca aktif, dan production **nolak start** kalau `NUXT_SMTP_URL` ikut terisi (tanda berkas env non-production kebaca di deployment production).
 - Kode `777777` nggak pernah diterima di production, walau dikirim manual.
 
 #### Google SSO
@@ -954,7 +958,7 @@ Tiap salinan digembok dengan pembuka berbeda:
 - OTP nggak pernah di-log
 - Recovery key hanya ada di berkas backup user — server nggak menyimpannya sama sekali
 - Secret (API key, dsb) cuma dari env
-- OTP fix `777777` cuma di non-production, ditentukan env server (fail-closed) — lihat [OTP per Environment](#otp-per-environment)
+- OTP fix `777777` cuma di non-production **dan** cuma kalau `NUXT_SMTP_URL` kosong, ditentukan env server (fail-closed) — lihat [OTP per Environment](#otp-per-environment)
 
 #### HTTPS & Rate Limit
 - Semua lalu lintas HTTPS
@@ -1047,7 +1051,7 @@ Data utama ada di perangkat dan diakses lewat interface repository; server cuma 
 |---|---|---|---|---|---|---|
 | M1 Fondasi | T1 | Setup project, routing, layout + nav semua halaman | Semua 15 halaman (termasuk Akun & Keamanan) bisa dibuka lewat nav; lint/typecheck/build lulus; responsif ≥360px sampai desktop | `fe` | - | M |
 | M1 Fondasi | T2 | Lapisan data (interface repository) + skema ber-versi + adapter IndexedDB (web/PWA) | Semua fitur akses data lewat satu interface repo; skema punya `version`; tiap record punya ID, `updatedAt`, ID perangkat, tanda hapus; query list bisa difilter per rentang tanggal (pakai index, bukan scan penuh di jalur panas) | `be` | - | M |
-| M1 Fondasi | T19 | Server: akun (daftar/login email OTP + Google SSO), sesi per perangkat, logout jarak jauh, hapus akun | Production: OTP random 6 digit dikirim via service (Resend/SendGrid) dengan rate limit, sekali pakai; OTP kedaluwarsa ≤ 10 menit; non-production (env server eksplisit dev/staging/test/preview): OTP fix `777777`, email nggak dikirim, rate limit & expiry tetap jalan; env kosong/nggak dikenal diperlakukan production (fail-closed); `777777` ditolak di production (ada test-nya); nggak ada flag client/header/query buat nyalain OTP fix; Google SSO aktif di semua env, OAuth2 Authorization Code + PKCE dengan validasi `state` & ID token, client ID/redirect URI per env; login dibatasi rate limit per email; token sesi bisa dicabut per perangkat; tiap endpoint cek kepemilikan data di server; hapus akun menghapus semua record user; recovery key TIDAK disimpan server (ADR 11) jadi nggak ada backup kunci yang perlu dihapus; secret cuma dari env; semua lalu lintas HTTPS | `be` | - | L |
+| M1 Fondasi | T19 | Server: akun (daftar/login email OTP + Google SSO), sesi per perangkat, logout jarak jauh, hapus akun | Production: OTP random 6 digit dikirim via service (Resend/SendGrid) dengan rate limit, sekali pakai; OTP kedaluwarsa ≤ 10 menit; non-production (env server eksplisit dev/staging/test/preview): OTP fix `777777`, email nggak dikirim, rate limit & expiry tetap jalan, TAPI kalau `NUXT_SMTP_URL` terisi maka email benar-benar dikirim via SMTP (nodemailer) dan mode fix mati otomatis (kode random 6 digit); `NUXT_MAIL_FROM` wajib kalau ada transport email; production nolak start kalau `NUXT_SMTP_URL` ikut terisi; env kosong/nggak dikenal diperlakukan production (fail-closed); `777777` ditolak di production (ada test-nya); nggak ada flag client/header/query buat nyalain OTP fix; Google SSO aktif di semua env, OAuth2 Authorization Code + PKCE dengan validasi `state` & ID token, client ID/redirect URI per env; login dibatasi rate limit per email; token sesi bisa dicabut per perangkat; tiap endpoint cek kepemilikan data di server; hapus akun menghapus semua record user; recovery key TIDAK disimpan server (ADR 11) jadi nggak ada backup kunci yang perlu dihapus; secret cuma dari env; semua lalu lintas HTTPS | `be` | - | L |
 | M2 Jadwal & Task | T3 | Engine recurrence (harian N=1–6, mingguan 1/2 minggu multi-hari, bulanan tgl/minggu-ke-N, end rule, exception) | Unit test: tiap pola menghasilkan tanggal benar untuk rentang 1 tahun; tgl 31 di bulan pendek dilewati; ekspansi cuma di rentang yang diminta; edit "ini saja/berikutnya/semua" benar | `be` | T2 | L |
 | M2 Jadwal & Task | T4 | UI jadwal: form (mulai–selesai / durasi), recurrence, edit/hapus 3 opsi, tautan task, tandai kejadian hadir | Dua mode waktu menghasilkan data identik; validasi selesai > mulai; input teks di-escape (no HTML injection) | `fe` | T1, T3 | L |
 | M2 Jadwal & Task | T5 | To-do list: CRUD, deadline, prioritas, sisa waktu dinamis, filter/sort, tautan jadwal | Format sisa waktu sesuai F2 (unit test batas: 59 mnt, 1 jam, 1 hari, 1 bulan, lewat); satu timer global, bukan satu interval per item | `fe` | T1, T2 | M |
@@ -1095,7 +1099,7 @@ Data utama ada di perangkat dan diakses lewat interface repository; server cuma 
 
 #### Login & Keamanan
 - **Login = Email OTP + Google SSO (tanpa password)** — lebih simpel. Email cuma pembuka untuk **sesi API**, bukan pembuka kunci; yang membuka kunci adalah kunci perangkat, passkey, dan recovery key (ADR 10).
-- **OTP non-production = fix `777777`, tanpa kirim email** — biar dev/QA/e2e gampang login; production tetap OTP random via email. Penentuan pakai env server, default (env kosong/nggak dikenal) = production. Google SSO aktif di semua environment.
+- **OTP non-production = email sungguhan lewat SMTP kalau `NUXT_SMTP_URL` diisi, kalau kosong fallback fix `777777` tanpa kirim email** — dev/QA login pakai email sungguhan (Mailpit) supaya jalur email benar-benar teruji, sementara `777777` tetap ada sebagai kemudahan non-production yang mati sendiri begitu ada transport email. Production tetap OTP random via Resend. Penentuan pakai env server, default (env kosong/nggak dikenal) = production. Google SSO aktif di semua environment.
 - **Recovery key wajib backup di ≥2 tempat** (salin/download/email/QR/password manager) — user nggak boleh skip, dan server TIDAK menyimpan salinannya (ADR 11). Backup user harus membawa envelope kuncinya, bukan cuma 24 kata; format yang cuma memuat 24 kata (salin manual, password manager) nggak bisa berdiri sendiri.
 
 #### Penyimpanan & Sync

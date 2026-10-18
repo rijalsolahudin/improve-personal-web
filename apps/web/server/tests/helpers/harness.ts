@@ -70,6 +70,21 @@ for (const [name, value] of Object.entries(TEST_ENV_VARS)) {
   process.env[name] ??= value
 }
 
+/**
+ * Transport email DIPAKSA kosong di runtime test, dan sengaja bukan `??=`.
+ *
+ * Seluruh test login memakai kode fix (`FIXED_OTP_CODE`) supaya tidak bergantung pada inbox mana pun -
+ * dan kode fix hanya hidup kalau TIDAK ada transport email (`isFixedOtpEnabled`). Masalahnya,
+ * `NUXT_SMTP_URL` di `.env` developer ikut terbaca: `nuxt build` memuat `.env`, dan proses test
+ * mewarisi env itu, jadi tanpa baris ini suite test tiba-tiba mengirim email sungguhan lewat Mailpit
+ * dan semua test kode fix gagal (`expected 400 to be 200`) - tergantung apa yang ada di mesin orang.
+ *
+ * Ditulis sebagai assignment biasa (bukan `??=`) justru karena yang ditutup adalah nilai yang SUDAH
+ * ada di environment. Test yang butuh jalur SMTP mengujinya di level service dengan transport
+ * disuntik (`otp.test.ts`), bukan lewat HTTP - jadi tidak ada cakupan yang hilang.
+ */
+process.env.NUXT_SMTP_URL = ''
+
 /** Waktu tetap: TTL/expiry diuji dengan menggeser `ctx.now`, bukan `setTimeout`. */
 export const FIXED_NOW = new Date('2026-05-01T10:00:00.000Z')
 

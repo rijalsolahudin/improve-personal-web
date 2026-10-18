@@ -1,4 +1,9 @@
-import type { ClientKind, DeviceInfo, SessionDto } from '@improve-personal/contracts'
+import type {
+  ClientKind,
+  CurrentSessionResult,
+  DeviceInfo,
+  SessionDto,
+} from '@improve-personal/contracts'
 import { and, eq, isNull, lt } from 'drizzle-orm'
 
 import { devices, sessions, users } from '../db/schema'
@@ -211,6 +216,31 @@ export function buildSessionDto(input: {
   return input.client === 'web'
     ? { ...shared, client: 'web' }
     : { ...shared, client: 'mobile', token: input.token }
+}
+
+/**
+ * DTO "sesi yang SEDANG berlaku" (`currentSessionResultSchema`) dari sesi terautentikasi.
+ *
+ * Kenapa dipisah dari `buildSessionDto`, bukan sekadar memanggilnya dengan `client` yang diisi:
+ * - `buildSessionDto` menyusun DTO HASIL LOGIN, dan kontraknya (`sessionDtoSchema`) adalah union atas
+ *   `client` yang mewajibkan token untuk `mobile`. DTO itu memang harus membawa token - mobile
+ *   menyimpannya di SecureStore saat login.
+ * - Fungsi ini cuma MEMBACA sesi yang sudah ada (`GET /v1/auth/session`, dipanggil tiap muat halaman
+ *   app). Kalau ia memakai `buildSessionDto`, parameter `token` wajib diisi sesuatu, dan nilai itulah
+ *   yang akhirnya bocor ke body - padahal endpoint ini justru ada supaya klien web (yang tokennya di
+ *   cookie `HttpOnly`) bisa tahu sesinya masih hidup TANPA pernah memegang token.
+ *
+ * Karena itu bentuknya sengaja diambil dari `currentSessionResultSchema`: tanpa `client`, tanpa
+ * `token`, dan berlaku sama untuk web (cookie) maupun mobile (bearer). Yang tidak ada di sini tidak
+ * bisa bocor ke respons, jadi `AuthenticatedSession` dipetakan field-per-field - bukan disebar
+ * (`{...auth}`) yang akan ikut membawa `sessionId`/`userId`/`client`.
+ */
+export function sessionResultFrom(auth: AuthenticatedSession): CurrentSessionResult {
+  return {
+    user: { id: auth.userId, email: auth.email },
+    device: { id: auth.deviceId, name: auth.deviceName },
+    expiresAt: auth.expiresAt.toISOString(),
+  }
 }
 
 export type LoginResult = {
