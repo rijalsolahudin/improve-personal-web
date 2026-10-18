@@ -13,11 +13,21 @@
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "prepare": "husky"
   },
   "prettier": "@improve-personal/config/prettier",
+  "lint-staged": {
+    "apps/web/**/*.{ts,mts,cts,js,mjs,cjs,vue}": "pnpm --filter @improve-personal/web exec eslint --max-warnings 0 --no-warn-ignored",
+    "packages/contracts/**/*.{ts,mts,cts,js,mjs,cjs}": "pnpm --filter @improve-personal/contracts exec eslint --max-warnings 0 --no-warn-ignored",
+    "packages/core/**/*.{ts,mts,cts,js,mjs,cjs}": "pnpm --filter @improve-personal/core exec eslint --max-warnings 0 --no-warn-ignored",
+    "packages/tokens/**/*.{ts,mts,cts,js,mjs,cjs}": "pnpm --filter @improve-personal/tokens exec eslint --max-warnings 0 --no-warn-ignored",
+    "*.{ts,mts,cts,js,mjs,cjs,vue,json,jsonc,yml,yaml,css,html}": "prettier --check"
+  },
   "devDependencies": {
     "@improve-personal/config": "workspace:*",
+    "husky": "9.1.7",
+    "lint-staged": "17.6.0",
     "prettier": "3.9.9",
     "turbo": "2.11.7"
   }
