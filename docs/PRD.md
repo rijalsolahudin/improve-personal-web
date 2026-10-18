@@ -1105,7 +1105,7 @@ Data utama ada di perangkat dan diakses lewat interface repository; server cuma 
 
 #### Platform & Stack
 - **Satu rilis buat semua platform** (web desktop, PWA, Android, iOS) — sesuai permintaan.
-- **Stack client:** web + PWA pakai **Nuxt** (Vue + TypeScript); native Android & iOS pakai **React Native** (TypeScript). UI dua codebase, tapi logika murni (lapisan data/repository, kripto, sync, recurrence, dsb) + design token di-share sebagai package TypeScript tanpa ketergantungan framework UI. Stack server ditentukan di fase kontrak, syaratnya cuma simpan ciphertext + metadata minimal.
+- **Stack client:** web + PWA pakai **Nuxt** (Vue + TypeScript); native Android & iOS pakai **React Native** (TypeScript). UI dua codebase, tapi logika murni (lapisan data/repository, kripto, sync, recurrence, dsb) + design token di-share sebagai package TypeScript tanpa ketergantungan framework UI. Stack server sudah diputuskan: API (auth + relay ciphertext) pakai **Nitro/H3** di dalam `apps/web` (`server/routes/v1/**`) + **PostgreSQL** + **Drizzle**; syaratnya tetap cuma simpan ciphertext + metadata minimal, dan nggak ada app server terpisah.
 
 #### Fitur Khusus
 - **Sticker** = koleksi bawaan buat dekorasi jurnal, ikon habit/countdown/goal, dan hias semua halaman; bisa diganti kapan aja; upload sticker sendiri ditunda (butuh validasi file + storage terenkripsi).

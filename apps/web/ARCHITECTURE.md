@@ -27,22 +27,29 @@ app/
 i18n/               # locale (default id)
 public/             # manifest PWA, icon
 docs/               # symlink ke docs/ root
-server/             # KOSONG / minimal - API ada di apps/server
+server/             # API v1 (auth + relay ciphertext) - Nitro/H3 di app yang sama
+├── routes/api/     # endpoint /v1/** (auth, devices, keys, sync, account)
+├── services/       # logika (OTP, sesi, sync upsert)
+├── db/             # drizzle schema + migrasi
+├── middleware/     # auth, rate limit, request id, error handler
+├── utils/          # helper server (validasi env, hmac)
+└── tasks/          # job terjadwal (purge tombstone, bersihkan OTP kedaluwarsa)
 ```
 
-- `server/` sengaja kosong (ADR 7): API ada di `apps/server`. Web **nggak boleh** punya kemampuan dekripsi atau pegang secret server.
+- Nggak ada app server terpisah (ADR 7 direvisi): API tinggal di `server/**` app ini dan dilayani Nitro bersama UI-nya.
+- Web **tetap dilarang** punya kemampuan dekripsi dan tetap nggak boleh pegang plaintext data user - server cuma simpan ciphertext + metadata minimal (arsitektur root §6, §8, §9).
 - Konvensi penamaan & batas ukuran file: [`.claude/rules/code-quality.md`](.claude/rules/code-quality.md).
 
 ## 2. Mode render & output build
 
 - Data user cuma ada di perangkat, jadi halaman app dirender di client (`ssr: false`) dan hanya landing publik yang di-prerender (ADR 6).
 - Ditetapkan per route di `routeRules` (`nuxt.config.ts`), bukan global: `/` prerender, `/login` dan `/app/**` `ssr: false`.
-- Output: `nitro.preset: 'static'` → situs statis + SPA fallback `200.html`, disajikan dari CDN.
+- Output: `nitro.preset` **bukan** `static` lagi - ada server route API di app ini, jadi build-nya preset server (Node). Konsekuensi deploy: butuh host Node, `apps/web` nggak bisa lagi disajikan murni sebagai situs statis dari CDN.
 
 ## 3. PWA
 
 - `@vite-pwa/nuxt`: manifest + service worker (belum terpasang, masuk T23).
-- Service worker cache **aset statis saja**. `NetworkOnly` untuk `/v1/*` - respons berisi data user nggak boleh masuk cache browser.
+- Service worker cache **aset statis saja**. `NetworkOnly` untuk `/v1/*` - respons berisi data user nggak boleh masuk cache browser. Route `/v1/*` dilayani app ini sendiri (same-origin, Nitro di `server/routes`), jadi aturan `NetworkOnly` tetap berlaku dan nggak ada respons API yang boleh dilayani dari cache.
 - Offline: data app udah lokal di IndexedDB, jadi yang perlu ke-cache cuma shell-nya.
 
 ## 4. State (Pinia) — ADR 9

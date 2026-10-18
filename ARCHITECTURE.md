@@ -26,7 +26,7 @@ tidak bisa berdiri sendiri.
 
 | # | Topik | Rekomendasi = default |
 |---|---|---|
-| Q3 | Stack server | `apps/server`: Node + **Hono** + **PostgreSQL** + **Drizzle**. Tipis (auth + relay ciphertext), TypeScript bareng client, kontrak dari `packages/contracts`. |
+| Q3 | Stack server | **Nitro/H3** di dalam `apps/web` (`server/routes/v1/**`) + **PostgreSQL** + **Drizzle**. Tipis (auth + relay ciphertext), TypeScript bareng client, kontrak dari `packages/contracts`. Nggak ada app server terpisah (ADR 7 direvisi). |
 | Q4 | Mobile | **Expo** (dev build, Expo Router, EAS Build/Update). |
 | Q5 | Monorepo tool | **pnpm workspaces + Turborepo**. |
 | Q6 | Library kripto | **libsodium** (`libsodium-wrappers-sumo` di web, `react-native-libsodium` di native) - API identik dua platform, ada XChaCha20-Poly1305 + Argon2id. |
@@ -56,7 +56,7 @@ flowchart LR
     KS[[Keychain / Keystore / WebCrypto]]
   end
   subgraph Cloud["Server (untrusted untuk isi data)"]
-    API[apps/server - Hono]
+    API[API v1 - Nitro/H3 di apps/web/server]
     PG[(Postgres: ciphertext + metadata)]
   end
   MAIL[Resend / SendGrid]
@@ -64,7 +64,8 @@ flowchart LR
   U --> W & M
   W & M --> LDB
   W & M --> KS
-  W & M -- HTTPS: sesi + ciphertext --> API
+  W -- "satu server Nitro: sajikan UI + layani API-nya sendiri" --> API
+  M -- "HTTPS: sesi + ciphertext" --> API
   API --> PG
   API --> MAIL
   W & M --> G
@@ -79,9 +80,8 @@ flowchart LR
 ```
 improve-personal/
 ├── apps/
-│   ├── web/                 # Nuxt 4 - web desktop + PWA  (+ ARCHITECTURE.md, docs/PRD.md)
-│   ├── mobile/              # Expo / React Native - Android + iOS  (+ ARCHITECTURE.md, docs/PRD.md)
-│   └── server/              # Hono + Postgres - auth + sync relay
+│   ├── web/                 # Nuxt 4 - web desktop + PWA; API v1 (auth + sync relay) jalan di server/ (Nitro/H3)  (+ ARCHITECTURE.md, docs/PRD.md)
+│   └── mobile/              # Expo / React Native - Android + iOS  (+ ARCHITECTURE.md, docs/PRD.md)
 ├── packages/
 │   ├── core/                # domain + use case + repository interface + sync engine
 │   ├── crypto/              # key hierarchy, encrypt/decrypt, recovery key (BIP39)
@@ -95,6 +95,8 @@ improve-personal/
 └── .claude/                 # settings, agents
 ```
 
+Nggak ada app server terpisah: `apps/server` tidak ada dan tidak akan dibuat - API (auth + relay ciphertext) tinggal di `apps/web/server/**` dan dilayani Nitro/H3 di app yang sama (ADR 7 direvisi). Karena itu `apps/web` di-build sebagai preset server (Node), bukan situs statis di CDN.
+
 ### Aturan dependensi
 
 ```mermaid
@@ -103,13 +105,13 @@ flowchart TD
   mobile[apps/mobile] --> core
   web --> tokens
   mobile --> tokens
-  server[apps/server] --> contracts
+  web --> contracts
   core --> crypto
   core --> contracts
 ```
 
 - `packages/*` **dilarang** import Vue, React, Nuxt, React Native, Node API (`fs`, `crypto` Node), atau DOM. Kebutuhan platform masuk lewat interface (lihat §5).
-- `apps/server` **dilarang** import `core` / `crypto` - server nggak boleh punya kemampuan dekripsi.
+- Kode server di `apps/web/server/**` **cuma boleh** import `contracts` - **dilarang** import `core` / `crypto`, karena server nggak boleh punya kemampuan dekripsi. Nggak ada app server terpisah, jadi aturan ini berlaku untuk folder `server/` di dalam app web (ADR 7 direvisi).
 - `apps/web` dan `apps/mobile` nggak saling import.
 - Dicek otomatis di CI (`eslint-plugin-boundaries` atau `dependency-cruiser`).
 
@@ -273,11 +275,17 @@ sequenceDiagram
 ```
 POST /v1/auth/otp/request      POST /v1/auth/otp/verify
 GET  /v1/auth/google/start     GET  /v1/auth/google/callback
-GET  /v1/devices               DELETE /v1/devices/:id
-GET/PUT /v1/keys/envelopes     POST/GET /v1/keys/transfer/:id
+POST /v1/auth/logout           GET  /v1/devices
+DELETE /v1/devices/:id         GET/PUT /v1/keys/envelopes
+POST /v1/keys/transfer         POST /v1/keys/transfer/:id
 POST /v1/sync/push             GET  /v1/sync/pull
-DELETE /v1/account
+POST /v1/account/deletion-otp  DELETE /v1/account
+GET  /health
 ```
+
+Bentuk respons seragam untuk SEMUA endpoint: sukses `{ data: <DTO> }`, gagal `{ error: { code, message, details? } }` dengan status dari `ERROR_HTTP_STATUS`; endpoint yang memang nggak punya body (logout, revoke perangkat, hapus akun, permintaan OTP) balas `204` tanpa body. Pembungkusan sukses terpusat di `apps/web/server/utils/api-error.ts` (bukan diulang di tiap route), dan schema-nya satu sumber di `packages/contracts/src/protocol.ts` (`apiDataEnvelopeSchema`, `apiErrorBodySchema`, `apiResponseSchema`) supaya web & mobile nggak merakit amplop sendiri.
+
+Endpoint ini dilayani Nitro di dalam `apps/web` (`server/routes/v1/**`), bukan app terpisah.
 
 ---
 
@@ -289,7 +297,7 @@ Detail tiap app ada di dokumennya sendiri. Root ini cuma nampung hal yang berlak
 |---|---|---|
 | `apps/web` (Nuxt 4) | [`apps/web/ARCHITECTURE.md`](apps/web/ARCHITECTURE.md) | Struktur `app/`, mode render, PWA, state (Pinia) |
 | `apps/mobile` (Expo) | [`apps/mobile/ARCHITECTURE.md`](apps/mobile/ARCHITECTURE.md) | Struktur, adapter native, kunci app, build & OTA |
-| `apps/server` (Hono) | belum dipisah - `apps/server` belum ada | Struktur target di bawah |
+| API server (di dalam `apps/web`) | [`apps/web/ARCHITECTURE.md`](apps/web/ARCHITECTURE.md) | Struktur `server/**`, route `/v1/**`, auth, relay sync - nggak ada app terpisah (ADR 7 direvisi) |
 
 Aturan:
 
@@ -297,18 +305,21 @@ Aturan:
 - Tiap app punya `docs/PRD.md` sebagai **symlink** ke `../../docs/PRD.md`, bukan salinan.
 - Dokumen app nggak boleh nampung aturan lintas app (§11) - itu tetap di sini.
 
-### `apps/server` (Hono)
+### Server DI DALAM `apps/web` (Nitro/H3)
+
+Nggak ada app server terpisah - API (auth + relay ciphertext) tinggal di `apps/web/server/**`.
 
 ```
-src/
-├── routes/         # per resource: auth, devices, keys, sync, account
+server/
+├── routes/         # endpoint /v1/** per resource: auth, devices, keys, sync, account
 ├── services/       # logika (OTP, sesi, sync upsert)
 ├── db/             # drizzle schema + migrasi
 ├── middleware/     # auth, rate limit, request id, error handler
-└── env.ts          # validasi env (zod) - gagal start kalau invalid
+├── utils/          # validasi env (zod) - gagal start kalau invalid
+└── tasks/          # job terjadwal (purge tombstone, bersihkan OTP kedaluwarsa)
 ```
 
-Pindah ke `apps/server/ARCHITECTURE.md` begitu app-nya dibuat.
+Detail struktur server ada di [`apps/web/ARCHITECTURE.md`](apps/web/ARCHITECTURE.md) §1.
 
 ---
 
@@ -325,14 +336,14 @@ Pindah ke `apps/server/ARCHITECTURE.md` begitu app-nya dibuat.
 
 ## 12. Environment & deploy
 
-| Env | Web | Mobile | Server | OTP |
+| Env | Web (Nitro: UI + API) | Mobile | Host server | OTP |
 |---|---|---|---|---|
-| development | `nuxi dev` | Expo dev build | lokal + Postgres docker | `777777` |
-| preview | per PR | EAS internal | preview | `777777` |
-| staging | staging URL | EAS internal/TestFlight | staging | `777777` |
-| production | CDN statis | Play Store / App Store | production | random via email |
+| development | `nuxi dev` (Nitro lokal, sekaligus API) | Expo dev build | lokal + Postgres docker | `777777` |
+| preview | per PR (Nitro Node) | EAS internal | preview | `777777` |
+| staging | staging URL (Nitro Node) | EAS internal/TestFlight | staging | `777777` |
+| production | Nitro Node server (sajikan UI + API `/v1/*`) | Play Store / App Store | host Node produksi + Postgres | random via email |
 
-- Web = static/SPA build → CDN. Server = container (Dokploy). Postgres managed + backup harian.
+- Web = satu Nitro Node server yang sajikan UI + API `/v1/*` (bukan static/SPA build di CDN) - konsekuensinya butuh host Node (container, mis. Dokploy), nggak bisa cuma CDN statis. Postgres managed + backup harian.
 - Secret cuma dari env/secret manager. `.env*` nggak di-commit.
 - Mobile OTA (EAS Update) cuma JS; ditandatangani, channel per env.
 
@@ -362,8 +373,8 @@ E2E (T16): Playwright (web/PWA) + Maestro (mobile), termasuk skenario 2 perangka
 | 3 | LWW per record pakai HLC | Cukup untuk 1 user, simpel | Edit bersamaan di 2 perangkat: satu kalah utuh |
 | 4 | `type` ikut dienkripsi | Server nggak tahu pola pemakaian per fitur | Server nggak bisa filter per tipe (memang nggak perlu) |
 | 5 | Logika di `packages/*` murni | Satu sumber logika web & mobile, test deterministik | Butuh disiplin port/adapter |
-| 6 | Web app `ssr: false` | Data nggak ada di server, SSR cuma risiko | SEO cuma untuk halaman publik |
-| 7 | Server terpisah (`apps/server`) | Dipakai web & mobile, deploy & skala independen | Satu deploy tambahan |
+| 6 | Web app `ssr: false` - **direvisi 2026-10-17** | Data user nggak ada di server, SSR cuma risiko. Revisi: halaman app tetap `ssr: false`, tapi output build web bukan lagi static - API `/v1/*` dilayani di app yang sama (`server/routes/v1/**`), jadi build-nya preset server (Node) | SEO cuma untuk halaman publik; `apps/web` nggak bisa lagi disajikan sebagai situs statis dari CDN - butuh host Node |
+| 7 | Server terpisah (`apps/server`) - **direvisi 2026-10-17** | Dulu: dipakai web & mobile, deploy & skala independen. Revisi: API (auth + relay ciphertext) tinggal DI DALAM `apps/web` (`server/routes/v1/**`, Nitro/H3) - satu app, satu deploy, kontrak & sesi lebih gampang karena nggak ada boundary app. `apps/server` tidak ada dan tidak akan dibuat | Keuntungan: nggak ada deploy kedua. Kerugian: `apps/web` nggak bisa lagi disajikan sebagai situs statis dari CDN (butuh host Node), dan mobile bergantung pada API yang di-host bareng frontend web |
 | 8 | libsodium di dua platform | Primitive identik, teruji | Ukuran bundle web +~200 KB (lazy-load setelah login) |
 | 9 | Pinia di web sebagai **proyeksi reaktif**, bukan pemilik data | 16 fitur saling silang (task ↔ Eisenhower/kalender/Daily/goal/Overview) butuh satu sumber reaktif + getter turunan; `useState` per-key nggak punya getter, action, plugin, atau devtools, dan makin susah dirawat di skala ini | Ada satu lapisan cache lagi di atas repo → butuh disiplin: store nggak boleh nulis langsung ke DB, semua mutasi lewat use case `core` (kalau nggak, outbox & tombstone T21 bocor) |
 | 10 | Server **tidak** menyimpan envelope yang digembok OTP (PRD F15 "Salinan 1" dihapus) | OTP dibuat server, jadi server tahu pembukanya; ruang OTP cuma 10⁶ sehingga brute-force offline praktis instan walau Argon2id. Menyimpannya menurunkan keamanan total ke titik terlemah | Perangkat baru tidak bisa pulih lewat OTP - wajib lewat passkey, QR dari perangkat lama, atau recovery key |

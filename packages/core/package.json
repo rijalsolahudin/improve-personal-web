@@ -1,0 +1,30 @@
+{
+  "name": "@improve-personal/core",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Domain, use case, interface repository, dan sync engine. TypeScript murni, platform-agnostic.",
+  "exports": {
+    ".": "./src/index.ts",
+    "./testing": "./src/adapters/contract.ts"
+  },
+  "files": [
+    "src"
+  ],
+  "scripts": {
+    "lint": "eslint . --max-warnings 0",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@improve-personal/contracts": "workspace:*",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@improve-personal/config": "workspace:*",
+    "@types/node": "24.19.1",
+    "eslint": "10.12.0",
+    "typescript": "5.9.3",
+    "vitest": "5.0.3"
+  }
+}

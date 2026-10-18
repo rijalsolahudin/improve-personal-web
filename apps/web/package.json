@@ -10,18 +10,27 @@
     "postinstall": "nuxt prepare",
     "lint": "eslint . --max-warnings 0",
     "typecheck": "nuxt typecheck",
-    "test": "vitest run"
+    "test": "vitest run",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:test:create": "sh scripts/db-test-create.sh",
+    "cron:purge-tombstones": "tsx scripts/task.ts purge-tombstones",
+    "cron:cleanup-ephemeral": "tsx scripts/task.ts cleanup-ephemeral"
   },
   "dependencies": {
+    "@improve-personal/contracts": "workspace:*",
     "@improve-personal/tokens": "workspace:*",
     "@nuxt/fonts": "0.14.0",
     "@nuxtjs/i18n": "10.6.0",
     "@pinia/nuxt": "1.0.3",
+    "drizzle-orm": "0.45.4",
     "nuxt": "4.5.2",
     "nuxt-security": "2.6.0",
     "pinia": "4.1.0",
+    "postgres": "3.4.9",
     "vue": "3.5.43",
-    "vue-router": "5.4.0"
+    "vue-router": "5.4.0",
+    "zod": "4.6.7"
   },
   "devDependencies": {
     "@improve-personal/config": "workspace:*",
@@ -29,8 +38,10 @@
     "@nuxt/test-utils": "4.3.3",
     "@types/node": "24.19.1",
     "@vue/test-utils": "2.5.1",
+    "drizzle-kit": "0.31.11",
     "eslint": "10.12.0",
     "happy-dom": "20.14.5",
+    "tsx": "4.23.15",
     "typescript": "5.9.3",
     "vitest": "5.0.3",
     "vue-tsc": "3.3.12"

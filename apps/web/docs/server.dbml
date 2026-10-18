@@ -1,6 +1,6 @@
 // =============================================================================
 // SERVER — Improve Personal (relay ciphertext + metadata minimal)
-// Target: apps/server — Node + Hono + PostgreSQL + Drizzle
+// Target: apps/web (Nitro server route) + PostgreSQL + Drizzle
 //
 // Sumber : ARCHITECTURE.md §6 (skema Postgres) + §8 auth + §9 sync + docs/PRD.md F15
 // Render : https://dbdiagram.io  (paste berkas ini)

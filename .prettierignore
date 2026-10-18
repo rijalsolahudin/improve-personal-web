@@ -5,6 +5,10 @@ dist
 .turbo
 coverage
 pnpm-lock.yaml
+# Output tool `drizzle-kit` (snapshot + journal), bukan gaya Prettier: `db:generate` menulis ulang
+# berkas ini dengan formatnya sendiri. Dijaga di sini supaya `format:check` tidak merah karena
+# berkas generate - jangan diformat tangan.
+apps/web/server/db/migrations/meta
 graphify-out
 Home Desktop UI Progress (1)
 docs

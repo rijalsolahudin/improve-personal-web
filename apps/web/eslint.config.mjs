@@ -18,5 +18,28 @@ export default withNuxt(
     files: ['**/*.ts', '**/*.vue'],
     rules: typescriptRules,
   },
+  {
+    // ARCHITECTURE.md §3: server tetap DILARANG punya kemampuan dekripsi. Record disimpan sebagai
+    // ciphertext dan kuncinya cuma ada di perangkat, jadi mengimpor paket ini di `server/**` akan
+    // menghapus jaminan itu - biasanya tanpa disadari (mis. demi memakai satu tipe).
+    files: ['server/**/*.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['@improve-personal/core', '@improve-personal/core/*'],
+              message: 'server tidak boleh memakai packages/core (ARCHITECTURE.md §3).',
+            },
+            {
+              group: ['@improve-personal/crypto', '@improve-personal/crypto/*'],
+              message: 'server tidak boleh mendekripsi data user (ARCHITECTURE.md §3).',
+            },
+          ],
+        },
+      ],
+    },
+  },
   prettierCompat,
 )

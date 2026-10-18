@@ -1,0 +1,10 @@
+{
+  "extends": "@improve-personal/config/tsconfig.base.json",
+  "compilerOptions": {
+    // `types: []`: paket ini platform-agnostic (ARCHITECTURE.md §3). Test ikut termasuk di sini supaya
+    // satu `tsc -p tsconfig.json` memeriksa paket sekaligus test-nya; vitest diimpor eksplisit,
+    // jadi tidak butuh global maupun tipe Node.
+    "types": []
+  },
+  "include": ["src"]
+}
