@@ -9,7 +9,7 @@ Satu app di **web desktop, PWA, dan aplikasi native Android (APK) & iOS** yang b
 - User bisa bikin task urgent dari Daily, lihat sisa waktunya turun real-time, taruh di kuadran Eisenhower, lalu fokusin lewat Pomodoro — tanpa pindah konteks data.
 - User bisa bikin main goal dengan 2 chapter + item "Sepanjang goal", nyelesaiin task/habit di dalamnya, dan progress chapter & main goal berubah sesuai rumus.
 - Task yang dibuat di HP (offline) muncul di web desktop setelah online, dan database server cuma berisi data terenkripsi (nggak ada judul/isi yang terbaca).
-- User yang lupa OTP bisa buka akun lewat device lain yang masih login, passkey, atau recovery key — tanpa kehilangan data.
+- User yang kehilangan akses ke email bisa membuka data lewat device lain yang masih login, passkey, atau recovery key — tanpa kehilangan data.
 
 ## Cakupan
 **Masuk:**
@@ -390,7 +390,7 @@ Halaman statis: section tiap fitur, FAQ, backup guide, keamanan data (bahasa awa
 3. **Cara Backup** — export/import (F10)
 4. **Gimana Data Lo Dijaga** (khusus)
    - E2EE dalam bahasa awam: "Data lo dienkripsi sebelum kirim ke server. Bahkan kami nggak bisa baca."
-   - Pembuka berlapis: OTP, sidik jari, passkey, recovery key
+   - Pembuka berlapis: sidik jari, passkey, recovery key (OTP cuma buat login, bukan buka kunci)
    - Apa yang server tahu vs nggak tahu
    - Recovery key: kenapa penting, di mana simpan
    - Lupa OTP? Gimana cara pulih?
@@ -851,10 +851,10 @@ Web + PWA (Nuxt) dan native Android/iOS (React Native), dengan logika inti di-sh
 #### Kunci Utama Disimpan dalam Salinan Berlapis
 Tiap salinan digembok dengan pembuka berbeda:
 
-##### Salinan 1: Digembok OTP (dari email login)
-- OTP diturunkan pakai PBKDF2 atau Argon2id
-- Disimpan terenkripsi salinan kunci di server
-- Digunakan saat login pertama kali
+##### Salinan 1: Digembok OTP (dari email login) — DIHAPUS
+- OTP/Google cuma buat **login (autentikasi)**, bukan buat **buka kunci**.
+- Perangkat baru buka kunci lewat: QR dari perangkat lama, passkey PRF, atau recovery key.
+- Alasan dihapus: OTP dibuat server, jadi server tahu pembukanya. Ruang OTP cuma 10⁶ → brute-force offline praktis instan walau pakai Argon2id. Lihat ADR 10 di `ARCHITECTURE.md` §14.
 
 ##### Salinan 2: Digembok Sidik Jari / Face ID
 - Kunci local di Keychain (iOS) / Keystore (Android) / WebCrypto (web)
@@ -870,12 +870,13 @@ Tiap salinan digembok dengan pembuka berbeda:
 ##### Salinan 4: Digembok Recovery Key (24 kata)
 - Emergency final
 - User simpan di ≥2 tempat
-- Server juga simpan terenkripsi untuk bantuan
+- Envelope kuncinya IKUT tersimpan di berkas backup user — server TIDAK menyimpannya (ADR 11)
+- 24 kata saja tidak cukup: kunci utama dibuat acak, jadi tanpa envelope-nya recovery tidak bisa memulihkan apa pun
 
 #### Lupa OTP / Email Nggak Bisa Akses
 - Buka pakai passkey atau recovery key
 - Dapat kunci utama
-- Set password ulang (hanya gembok OTP yang dibuat ulang, data nggak dienkripsi ulang)
+- Tidak ada lagi "gembok OTP yang dibuat ulang" — Salinan 1 sudah dihapus, jadi login OTP/Google murni buat sesi API dan nggak menyentuh data terenkripsi
 
 #### Semua Pembuka Hilang
 - Data nggak bisa dipulihkan
@@ -894,10 +895,12 @@ Tiap salinan digembok dengan pembuka berbeda:
 - User **wajib pilih minimal 2 opsi** sebelum selesai setup
 - Nggak boleh skip
 
-#### Server Simpan Recovery Key Terenkripsi
-- Kalau user lupa di mana nyimpen
-- Minta bantuan: konfirmasi email + OTP → server kirim ulang (encrypted)
-- Recovery key di-encrypt dengan kunci terpisah (bukan master key)
+#### Server TIDAK Menyimpan Recovery Key
+- Keputusan: server nggak menyimpan recovery key dalam bentuk apa pun (ADR 11)
+- Alasan: "dienkripsi dengan kunci terpisah" nggak menolong — kunci terpisahnya juga dipegang server, jadi server tetap bisa membuka
+- Kalau user lupa di mana menyimpannya, nggak ada bantuan dari server. Karena itu backup ≥2 tempat wajib dan nggak boleh di-skip
+- **Format yang membawa envelope kunci (ADR 12):** **QR cetak** dan **berkas terenkripsi**. Format yang cuma memuat 24 kata (salin manual, password manager) nggak bisa berdiri sendiri
+- **Onboarding wajib MENOLAK** kalau user hanya memilih format yang nggak membawa envelope - minta pilih ulang. Jangan biarkan user merasa "sudah backup" padahal backup-nya nggak bisa dipakai pulih
 
 ### Tambah Perangkat (ala WhatsApp)
 
@@ -949,14 +952,14 @@ Tiap salinan digembok dengan pembuka berbeda:
 #### Kunci & Secret
 - Kunci utama nggak pernah logged
 - OTP nggak pernah di-log
-- Recovery key hanya tersimpan encrypted
+- Recovery key hanya ada di berkas backup user — server nggak menyimpannya sama sekali
 - Secret (API key, dsb) cuma dari env
 - OTP fix `777777` cuma di non-production, ditentukan env server (fail-closed) — lihat [OTP per Environment](#otp-per-environment)
 
 #### HTTPS & Rate Limit
 - Semua lalu lintas HTTPS
 - Login: rate limit per email
-- Recovery key attempt: rate limit (max 3–5x, lock sebentar)
+- Recovery key attempt: rate limit DI PERANGKAT (max 3–5x, lock sebentar) — server nggak mengirim envelope recovery, jadi nggak ada yang bisa di-rate-limit di server
 
 #### Biometric Local
 - Di native: Keychain/Keystore menangani security
@@ -1044,7 +1047,7 @@ Data utama ada di perangkat dan diakses lewat interface repository; server cuma 
 |---|---|---|---|---|---|---|
 | M1 Fondasi | T1 | Setup project, routing, layout + nav semua halaman | Semua 15 halaman (termasuk Akun & Keamanan) bisa dibuka lewat nav; lint/typecheck/build lulus; responsif ≥360px sampai desktop | `fe` | - | M |
 | M1 Fondasi | T2 | Lapisan data (interface repository) + skema ber-versi + adapter IndexedDB (web/PWA) | Semua fitur akses data lewat satu interface repo; skema punya `version`; tiap record punya ID, `updatedAt`, ID perangkat, tanda hapus; query list bisa difilter per rentang tanggal (pakai index, bukan scan penuh di jalur panas) | `be` | - | M |
-| M1 Fondasi | T19 | Server: akun (daftar/login email OTP + Google SSO), sesi per perangkat, logout jarak jauh, hapus akun, recovery key backup terenkripsi | Production: OTP random 6 digit dikirim via service (Resend/SendGrid) dengan rate limit, sekali pakai; OTP kedaluwarsa ≤ 10 menit; non-production (env server eksplisit dev/staging/test/preview): OTP fix `777777`, email nggak dikirim, rate limit & expiry tetap jalan; env kosong/nggak dikenal diperlakukan production (fail-closed); `777777` ditolak di production (ada test-nya); nggak ada flag client/header/query buat nyalain OTP fix; Google SSO aktif di semua env, OAuth2 Authorization Code + PKCE dengan validasi `state` & ID token, client ID/redirect URI per env; login dibatasi rate limit per email; token sesi bisa dicabut per perangkat; tiap endpoint cek kepemilikan data di server; hapus akun menghapus semua record user + recovery key backup; recovery key disimpan terenkripsi & bisa di-request ulang; secret cuma dari env; semua lalu lintas HTTPS | `be` | - | L |
+| M1 Fondasi | T19 | Server: akun (daftar/login email OTP + Google SSO), sesi per perangkat, logout jarak jauh, hapus akun | Production: OTP random 6 digit dikirim via service (Resend/SendGrid) dengan rate limit, sekali pakai; OTP kedaluwarsa ≤ 10 menit; non-production (env server eksplisit dev/staging/test/preview): OTP fix `777777`, email nggak dikirim, rate limit & expiry tetap jalan; env kosong/nggak dikenal diperlakukan production (fail-closed); `777777` ditolak di production (ada test-nya); nggak ada flag client/header/query buat nyalain OTP fix; Google SSO aktif di semua env, OAuth2 Authorization Code + PKCE dengan validasi `state` & ID token, client ID/redirect URI per env; login dibatasi rate limit per email; token sesi bisa dicabut per perangkat; tiap endpoint cek kepemilikan data di server; hapus akun menghapus semua record user; recovery key TIDAK disimpan server (ADR 11) jadi nggak ada backup kunci yang perlu dihapus; secret cuma dari env; semua lalu lintas HTTPS | `be` | - | L |
 | M2 Jadwal & Task | T3 | Engine recurrence (harian N=1–6, mingguan 1/2 minggu multi-hari, bulanan tgl/minggu-ke-N, end rule, exception) | Unit test: tiap pola menghasilkan tanggal benar untuk rentang 1 tahun; tgl 31 di bulan pendek dilewati; ekspansi cuma di rentang yang diminta; edit "ini saja/berikutnya/semua" benar | `be` | T2 | L |
 | M2 Jadwal & Task | T4 | UI jadwal: form (mulai–selesai / durasi), recurrence, edit/hapus 3 opsi, tautan task, tandai kejadian hadir | Dua mode waktu menghasilkan data identik; validasi selesai > mulai; input teks di-escape (no HTML injection) | `fe` | T1, T3 | L |
 | M2 Jadwal & Task | T5 | To-do list: CRUD, deadline, prioritas, sisa waktu dinamis, filter/sort, tautan jadwal | Format sisa waktu sesuai F2 (unit test batas: 59 mnt, 1 jam, 1 hari, 1 bulan, lewat); satu timer global, bukan satu interval per item | `fe` | T1, T2 | M |
@@ -1061,9 +1064,9 @@ Data utama ada di perangkat dan diakses lewat interface repository; server cuma 
 | M7 Dashboard | T15 | Halaman Panduan (termasuk "Gimana data lo dijaga") | Ada section tiap fitur F1–F16 + FAQ + backup + penjelasan E2EE & pemulihan; daftar isi bisa diklik | `fe` | T1 | S |
 | M8 Goals | T17 | Model goal + chapter + tautan item, kalkulasi progress & status chapter | Unit test: progress task/habit/jadwal, Sepanjang goal ikut rata-rata, goal tanpa chapter, chapter selesai manual, status terlewat; periode chapter di luar main goal ditolak; satu item cuma satu tautan; hapus goal/chapter sesuai edge case F13 | `be` | T2 | M |
 | M8 Goals | T18 | Halaman Goals + field "Untuk goal" di form task/habit/jadwal + sticker sampul + review berkala + integrasi (jurnal `#goal`, countdown, kalender, Overview, Daily) | Stepper chapter + progress tampil benar; dropdown "Untuk goal" berisi Sepanjang goal + chapter; kartu review muncul saat chapter berakhir/terlewat & akhir pekan, jawabannya jadi bagian jurnal; teks goal dirender aman (escape) | `fe` | T4, T5, T10, T11, T17, T24 | L |
-| M9 Akun & Sync | T20 | Kripto E2EE: kunci utama, gembok per pembuka (OTP, kunci perangkat, passkey PRF, recovery key 24 kata), lupa OTP pakai recovery key/passkey, transfer kunci via QR | Unit test: data bisa dibuka lewat OTP; bisa dibuka lewat sidik jari/passkey setelah login pertama; recovery key salah ditolak dengan rate limit; kunci perangkat non-extractable / di Keychain-Keystore; kunci utama & OTP nggak pernah dikirim/di-log polos; recovery key 24 kata bisa dibuka dari 5 format (plaintext, file encrypted, email encrypted, QR code, password manager); server recovery key terenkripsi; pakai library kripto teruji (bukan bikin algoritma sendiri) | `be` | T2 | L |
+| M9 Akun & Sync | T20 | Kripto E2EE: kunci utama, gembok per pembuka (kunci perangkat, passkey PRF, recovery key 24 kata), lupa akses pakai recovery key/passkey, transfer kunci via QR | Unit test: data TIDAK bisa dibuka lewat OTP (Salinan 1 dihapus); bisa dibuka lewat sidik jari/passkey setelah login pertama; recovery key salah ditolak dengan rate limit di perangkat; kunci perangkat non-extractable / di Keychain-Keystore; kunci utama & OTP nggak pernah dikirim/di-log polos; recovery key 24 kata bisa dibuka dari 5 format (plaintext, file encrypted, email encrypted, QR code, password manager), dan format yang membawa envelope kunci bisa memulihkan data; server TIDAK menyimpan recovery key; pakai library kripto teruji (bukan bikin algoritma sendiri) | `be` | T2 | L |
 | M9 Akun & Sync | T21 | Sync engine: antrean lokal, push/pull delta berhalaman, konflik update-terakhir-menang, tombstone, status sync | Uji 2 perangkat: edit offline di keduanya → setelah online hasil sama di dua sisi; hapus ikut tersinkron; pull cuma ambil perubahan sejak cursor terakhir (berhalaman); isi DB server terbukti cuma ciphertext (cek manual tabel) | `be` | T19, T20 | L |
-| M9 Akun & Sync | T22 | UI akun: daftar/login email OTP + Google SSO, onboarding recovery key (5 format, wajib ≥2), sidik jari/Face ID setup, tambah perangkat via QR, daftar perangkat + logout jarak jauh, lupa OTP flow, hapus akun, kunci app biometrik (native), indikator status sync | Daftar: email → OTP kirim 30 detik → ketik OTP → setup recovery key (wajib pilih ≥2 dari 5 format sebelum lanjut); onboarding tanya "Aktifin sidik jari/Face ID?"; login: email → OTP atau Google SSO atau sidik jari/Face ID (kalau udah aktif); lupa OTP: email → "Pakai passkey atau recovery key?" → pilihan ke masing-masing flow; QR tambah perangkat kedaluwarsa ≤ 2 menit & sekali pakai; daftar perangkat tampil nama, waktu login terakhir, lokasi (dari IP); hapus akun minta konfirmasi email + OTP ulang; pesan error nggak membocorkan apakah email terdaftar | `fe` | T19, T20, T23, T24 | L |
+| M9 Akun & Sync | T22 | UI akun: daftar/login email OTP + Google SSO, onboarding recovery key (5 format, wajib ≥2), sidik jari/Face ID setup, tambah perangkat via QR, daftar perangkat + logout jarak jauh, lupa OTP flow, hapus akun, kunci app biometrik (native), indikator status sync | Daftar: email → OTP kirim 30 detik → ketik OTP → setup recovery key (wajib pilih ≥2 dari 5 format sebelum lanjut, dan minimal salah satunya QR cetak atau berkas terenkripsi karena itu yang membawa envelope kunci — server nggak menyimpannya; onboarding menolak kalau syarat ini nggak terpenuhi); onboarding tanya "Aktifin sidik jari/Face ID?"; login: email → OTP atau Google SSO atau sidik jari/Face ID (kalau udah aktif); lupa OTP: email → "Pakai passkey atau recovery key?" → pilihan ke masing-masing flow; QR tambah perangkat kedaluwarsa ≤ 2 menit & sekali pakai; daftar perangkat tampil nama, waktu login terakhir, lokasi (dari IP); hapus akun minta konfirmasi email + OTP ulang; pesan error nggak membocorkan apakah email terdaftar | `fe` | T19, T20, T23, T24 | L |
 | M10 Platform | T23 | App native React Native (Android APK + iOS) pakai package logika bersama + PWA Nuxt (manifest, service worker, offline) + adapter SQLite di native | Build APK & iOS jalan di perangkat nyata; app RN pakai package inti yang sama dengan web (nggak ada duplikasi logika data/kripto/sync); PWA bisa di-install & dibuka offline; adapter SQLite lolos test repository yang sama dengan IndexedDB; service worker nggak cache respons API berisi data user | `fe` | T1, T2 | L |
 | M10 Platform | T25 | Tampilan: tema warna (Kuning/Hijau/Ungu) + 7 gaya (Cute default, Cute Pure, Kertas, Simple, Elegan, Vintage, Tegas) sebagai design token, menu Tampilan + preview, simpan per akun & sync | Ganti gaya/tema langsung tanpa reload & tanpa layout shift; pilihan bertahan setelah restart dan tersinkron antar perangkat; default Cute + Kuning; nilai tak dikenal → default tanpa error; gaya terpasang sebelum render pertama (tanpa kedip); font gaya di-lazy-load & offline; kontras AA di semua kombinasi gaya × tema; semua halaman yang ada tampil benar di tiap gaya | `fe` | T2, T24 | L |
 | M11 QA | T16 | Uji end-to-end seluruh AC + kriteria sukses di web desktop, PWA, Android, iOS | Semua AC terverifikasi dengan bukti per platform; nol `blocker`/`mayor` kebuka | `qa` | T4–T15, T17–T25 | L |
@@ -1082,7 +1085,7 @@ Data utama ada di perangkat dan diakses lewat interface repository; server cuma 
 - Semua task T1–T15, T17–T25 `done`, QA (T16) verdict LULUS.
 - Lint, typecheck, unit test (recurrence, sisa waktu, countdown, streak, progress goal, import/export, kripto, sync), build web + PWA + APK + iOS lulus.
 - Nggak ada `innerHTML` dari input user tanpa sanitasi; import divalidasi skema sebelum nulis apa pun.
-- Database server terbukti nggak berisi data user yang terbaca; OTP & kunci utama nggak pernah di-log; recovery key hanya tersimpan encrypted.
+- Database server terbukti nggak berisi data user yang terbaca; OTP & kunci utama nggak pernah di-log; recovery key nggak disimpan di server sama sekali.
 - Data bertahan setelah app ditutup, jalan offline, dan tersinkron antar perangkat.
 - Panduan sesuai fitur yang benar-benar jadi.
 
@@ -1091,12 +1094,12 @@ Data utama ada di perangkat dan diakses lewat interface repository; server cuma 
 ### Assumptions
 
 #### Login & Keamanan
-- **Login = Email OTP + Google SSO (tanpa password)** — lebih simpel, email jadi pembuka pertama; sidik jari & passkey jadi backup.
+- **Login = Email OTP + Google SSO (tanpa password)** — lebih simpel. Email cuma pembuka untuk **sesi API**, bukan pembuka kunci; yang membuka kunci adalah kunci perangkat, passkey, dan recovery key (ADR 10).
 - **OTP non-production = fix `777777`, tanpa kirim email** — biar dev/QA/e2e gampang login; production tetap OTP random via email. Penentuan pakai env server, default (env kosong/nggak dikenal) = production. Google SSO aktif di semua environment.
-- **Recovery key wajib backup di ≥2 tempat** (salin/download/email/QR/password manager) — user nggak boleh skip; server juga simpan encrypted untuk bantuan; ini buat "lupa semua" jarang terjadi.
+- **Recovery key wajib backup di ≥2 tempat** (salin/download/email/QR/password manager) — user nggak boleh skip, dan server TIDAK menyimpan salinannya (ADR 11). Backup user harus membawa envelope kuncinya, bukan cuma 24 kata; format yang cuma memuat 24 kata (salin manual, password manager) nggak bisa berdiri sendiri.
 
 #### Penyimpanan & Sync
-- **Penyimpanan = local-first + sync + E2EE dengan pembuka berlapis** (OTP, perangkat, passkey, recovery key) + tambah perangkat via QR — hasil diskusi; sudah diputuskan.
+- **Penyimpanan = local-first + sync + E2EE dengan pembuka berlapis** (perangkat, passkey, recovery key) + tambah perangkat via QR — hasil diskusi; sudah diputuskan.
 - **Tanpa mode titip kunci & HSM** di rilis ini — biar klaim "server nggak bisa baca" konsisten dan biaya rendah.
 - **Konflik sync: update terakhir menang per record** — cukup buat app personal satu orang; merge per field/CRDT ditunda.
 

@@ -1,0 +1,821 @@
+// =============================================================================
+// DATABASE — Improve Personal (data di perangkat)
+// Model data lokal: IndexedDB di web/PWA, SQLite di mobile.
+//
+// Sumber : ARCHITECTURE.md §6 (model data) + §11 (lintas fitur) + docs/PRD.md F1-F16
+// Render : https://dbdiagram.io  (paste berkas ini)
+//
+// -----------------------------------------------------------------------------
+// CARA BACA — ada DUA lapisan, dan pemisahan ini disengaja
+// -----------------------------------------------------------------------------
+//
+//  A. PENYIMPANAN FISIK
+//     Yang benar-benar jadi tabel/object store di perangkat. Semua entitas
+//     disimpan generik: satu baris = satu record, isinya `blob` terenkripsi.
+//     `type` entitas IKUT masuk ke dalam blob (ADR 4), jadi secara fisik
+//     TIDAK ADA tabel per entitas.
+//
+//  B. PAYLOAD DOMAIN
+//     Bentuk `data: T` di dalam blob, dijabarkan sebagai tabel logis supaya bisa
+//     dibaca dan direview. Bentuk yang sama dipakai untuk:
+//       - tipe di packages/core/domain
+//       - validasi skema saat import  (PRD F10)
+//       - bentuk berkas export JSON   (PRD F10, plaintext)
+//     Tabel di bagian B BUKAN tabel terpisah di disk.
+//
+//  Envelope: tiap entitas dibungkus
+//      { id, type, hlc, deleted, schemaVersion, data: T }
+//  Kolom envelope itu TIDAK diulang di bagian B. Jadi `id` di tabel bagian B
+//  maksudnya `record.id`.
+//
+//  Relay di server ada di berkas terpisah: server.dbml.
+//  Server TIDAK melihat apa pun dari berkas ini kecuali record yang sudah ter-seal.
+//
+//  Aturan yang berlaku di semua entitas:
+//   - hlc dipakai untuk menang konflik sync (LWW). Dibandingkan sebagai tuple
+//     (wallMs, counter, deviceId), BUKAN sebagai string mentah.
+//   - Hapus = tombstone (`deleted = true`), diikuti sync, dibersihkan > 90 hari.
+//   - Waktu disimpan sebagai epoch ms UTC. `tz` disimpan terpisah untuk jadwal
+//     berulang. Minggu mulai Senin (ARCHITECTURE §11).
+//   - Referensi ke record yang sudah dihapus wajib ditangani aman, bukan error.
+// =============================================================================
+
+
+// #############################################################################
+// BAGIAN A — PENYIMPANAN FISIK DI PERANGKAT
+// #############################################################################
+
+Enum entity_type {
+  schedule
+  schedule_exception
+  schedule_occurrence
+  todo
+  eisenhower_placement
+  pomodoro_settings
+  pomodoro_session
+  countdown
+  habit
+  habit_checkin
+  journal_entry
+  journal_reflection
+  journal_affirmation
+  journal_sticker
+  journal_mention
+  goal
+  goal_chapter
+  goal_link
+  decoration
+  user_prefs
+}
+
+Enum sync_op {
+  put
+  delete
+}
+
+Enum sync_status {
+  synced
+  pending
+  offline
+  error
+}
+
+Enum key_slot_lokal {
+  device
+  passkey
+  recovery
+}
+
+Table record {
+  id         uuid        [pk, note: 'UUID v7 — urut waktu, dibuat di client']
+  hlc        text        [not null, note: 'metadata plaintext: ${wallMs}-${counter}-${deviceId}']
+  deleted    bool        [not null, default: false, note: 'tombstone, ikut tersinkron']
+  blob       text        [not null, note: 'XChaCha20-Poly1305(type + schemaVersion + data), AAD = id. Di web disimpan base64']
+  created_at timestamptz [not null, default: `now()`, note: 'pembukuan lokal, tidak disync']
+  updated_at timestamptz [not null, default: `now()`]
+
+  indexes {
+    (deleted, updated_at) [name: 'idx_record_purge']
+    hlc [name: 'idx_record_hlc']
+  }
+
+  Note: '''
+  Satu-satunya tempat isi data user disimpan. Isinya SELALU ciphertext.
+  `type` dan `schemaVersion` ada di dalam blob, bukan kolom, supaya server
+  tidak tahu record ini memo atau todo (ADR 4).
+  Didekripsi hanya saat unlock; plaintext cuma hidup di memori.
+  '''
+}
+
+Table record_index {
+  record_id      uuid        [pk, note: '1:1 dengan record.id']
+  entity_type    entity_type [not null, note: 'perlu plaintext untuk query tanpa decrypt semua record']
+  range_start_ms bigint      [null, note: 'kunci rentang: jadwal, deadline task, check-in, target countdown, tanggal jurnal']
+  range_end_ms   bigint      [null, note: 'untuk entitas berdurasi; null kalau titik waktu tunggal']
+  updated_at     timestamptz [not null, default: `now()`]
+
+  indexes {
+    (entity_type, range_start_ms) [name: 'idx_record_index_type_range']
+    (range_start_ms, range_end_ms) [name: 'idx_record_index_range']
+  }
+
+  Note: '''
+  ARCHITECTURE §6: jalur panas (kalender, overview, Daily) harus query index,
+  bukan decrypt semua record. Tabel ini boleh dibangun ulang di memori saat unlock,
+  ATAU disimpan di disk dengan syarat ikut terenkripsi.
+  '''
+}
+
+Table sync_outbox {
+  id         uuid        [pk]
+  record_id  uuid        [not null, note: 'record yang menunggu dikirim']
+  op         sync_op     [not null]
+  queued_at  timestamptz [not null, default: `now()`]
+  attempts   int         [not null, default: 0]
+  last_error text        [null, note: 'pesan error terakhir; JANGAN pernah muat isi blob/token']
+
+  indexes {
+    queued_at [name: 'idx_outbox_queued']
+    record_id [name: 'idx_outbox_record']
+  }
+
+  Note: '''
+  Ditulis dalam SATU transaksi bersama record — kalau tidak, outbox dan tombstone
+  bisa tidak konsisten (ARCHITECTURE §4, ADR 9).
+  Baris dibuang hanya setelah server balas status `applied` untuk record itu.
+  '''
+}
+
+Table sync_state {
+  id           text        [pk, note: 'singleton, nilainya tetap: CURRENT_STATE_KEY']
+  device_id    uuid        [not null, note: 'dipakai sebagai tie-breaker HLC']
+  cursor       bigint      [not null, default: 0, note: 'server_seq terakhir yang sudah ditarik (delta pull)']
+  status       sync_status [not null, default: 'offline']
+  last_pull_at timestamptz [null]
+  last_push_at timestamptz [null]
+
+  Note: '''
+  Cursor disimpan di CLIENT (server tetap stateless).
+  Kalau server balas 409 SYNC_RESET_REQUIRED (cursor di bawah watermark purge),
+  cursor harus di-reset ke 0 dan dilakukan full pull.
+  Status inilah yang jadi indikator UI: tersinkron / menunggu / offline / gagal.
+  '''
+}
+
+Table local_key_meta {
+  id            uuid            [pk]
+  slot          key_slot_lokal  [not null]
+  kdf_hint      text            [null, note: 'info non-rahasia untuk UI, mis. jenis KDF. JANGAN muat bahan kunci']
+  created_at    timestamptz     [not null, default: `now()`]
+  last_used_at  timestamptz     [null]
+
+  indexes {
+    slot [unique, name: 'uq_local_key_slot']
+  }
+
+  Note: '''
+  CUMA metadata. Bahan kunci ada di Keychain (iOS) / Keystore (Android) /
+  WebCrypto non-extractable (web) — tidak pernah masuk tabel ini.
+  Kunci utama dan OTP dilarang di-log, di-export, atau dikirim polos.
+
+  Slot yang sah di perangkat:
+   - device   : kunci perangkat, jalur biometrik sehari-hari. Lokal saja, tidak
+                pernah dikirim ke server.
+   - passkey  : passkey bisa dipakai di perangkat ini. Envelope-nya dititip di
+                server (key_envelopes), tapi isinya cuma bisa dibuka di sini.
+   - recovery : envelope yang diimpor user dari berkas backup miliknya sendiri.
+
+  TIDAK ADA slot OTP dan tidak akan pernah ada: Salinan 1 "digembok OTP" sudah
+  dihapus (keputusan D1) karena server yang membuat OTP, jadi server tahu pembukanya.
+  '''
+}
+
+Table sticker_recent {
+  sticker_id text        [pk]
+  used_at    timestamptz [not null, default: `now()`]
+
+  Note: '''
+  Tab "Terakhir dipakai" di sticker picker (PRD F14).
+  State UI lokal per perangkat — tidak ikut sync.
+  '''
+}
+
+
+// #############################################################################
+// BAGIAN B — PAYLOAD DOMAIN (bentuk `data: T` di dalam blob)
+// #############################################################################
+
+// --- Enum domain ------------------------------------------------------------
+
+Enum weekday {
+  senin
+  selasa
+  rabu
+  kamis
+  jumat
+  sabtu
+  minggu
+}
+
+Enum recurrence_type {
+  once
+  daily
+  weekly
+  monthly
+}
+
+Enum recurrence_month_mode {
+  by_day_of_month
+  by_nth_weekday
+}
+
+Enum recurrence_end_mode {
+  never
+  until_date
+  after_count
+}
+
+Enum exception_mode {
+  only_this
+  this_and_following
+}
+
+Enum occurrence_status {
+  pending
+  done
+  missed
+}
+
+Enum todo_priority {
+  low
+  medium
+  urgent
+}
+
+Enum quadrant {
+  do
+  schedule
+  delegate
+  delete
+}
+
+Enum pomodoro_target_type {
+  todo
+  free_text
+}
+
+Enum pomodoro_session_status {
+  completed
+  skipped
+}
+
+Enum habit_frequency_type {
+  daily
+  weekly_days
+}
+
+Enum mood {
+  sangat_sedih
+  sedih
+  netral
+  bahagia
+  sangat_bahagia
+}
+
+Enum reflection_kind {
+  bersyukur
+  sedih
+  bisa_lebih_baik
+}
+
+Enum goal_category {
+  karier
+  kesehatan
+  keuangan
+  diri
+  relasi
+}
+
+Enum goal_status {
+  aktif
+  selesai
+  ditunda
+  dibatalkan
+}
+
+Enum linkable_item_type {
+  todo
+  habit
+  schedule
+}
+
+Enum mention_target_type {
+  schedule
+  goal
+  goal_chapter
+}
+
+Enum breakpoint {
+  phone
+  tablet
+  desktop
+}
+
+Enum theme_color {
+  kuning
+  hijau
+  ungu
+}
+
+Enum app_style {
+  cute
+  cute_pure
+  kertas
+  simple
+  elegan
+  vintage
+  tegas
+}
+
+// --- F1. Schedule -----------------------------------------------------------
+
+Table schedule {
+  id          uuid        [pk, note: '= record.id']
+  title       text        [not null]
+  description text        [null]
+  color       text        [null, note: 'warna/kategori, opsional']
+  start_at    bigint      [not null, note: 'epoch ms UTC. Disimpan sebagai start + durasi; dua mode input cuma beda UI']
+  duration_ms bigint      [not null, note: 'durasi (menit dikonversi ke ms); 0 kalau tidak berdurasi']
+  is_all_day  bool        [not null, default: false]
+  tz          text        [not null, note: 'IANA tz perangkat, untuk ekspansi recurrence']
+  created_at  bigint      [not null]
+  updated_at  bigint      [not null]
+
+  indexes {
+    start_at [name: 'idx_schedule_start']
+    (start_at, duration_ms) [name: 'idx_schedule_range']
+  }
+
+  Note: '''
+  PRD F1. Recurring di-expand HANYA untuk rentang yang sedang dilihat
+  (kalender/Daily), bukan seluruh kejadian sampai selamanya.
+  Tautan ke goal lewat `goal_link`, bukan kolom di sini.
+  '''
+}
+
+Table schedule_recurrence {
+  id              uuid                 [pk]
+  schedule_id     uuid                 [not null, note: '1:1 dengan schedule']
+  type            recurrence_type      [not null]
+  interval_n      int                  [not null, default: 1, note: 'harian 1-6; mingguan 1-2']
+  by_weekdays     weekday              [null, note: 'multi-nilai untuk mingguan (multi-select Senin-Minggu)']
+  month_mode      recurrence_month_mode [null]
+  month_day       int                  [null, note: 'Opsi A: tanggal X. Tanggal 29-31 di bulan pendek DILEWATI']
+  week_of_month   int                  [null, note: 'Opsi B: minggu ke-N (1-5)']
+  month_weekday   weekday              [null, note: 'Opsi B: hari Y']
+  end_mode        recurrence_end_mode  [not null, default: 'never']
+  end_date        bigint               [null, note: 'kalau end_mode = until_date']
+  occurrence_count int                 [null, note: 'kalau end_mode = after_count']
+
+  indexes {
+    schedule_id [unique, name: 'uq_schedule_recurrence']
+  }
+
+  Note: '''
+  Bagian embedded dari payload `schedule` (bukan tabel terpisah di disk).
+  Perilaku mengikuti Google Calendar: tanggal 29-31 yang tidak ada di bulan pendek
+  dilewati, bukan digeser ke tanggal 1.
+  '''
+}
+
+Table schedule_exception {
+  id            uuid           [pk]
+  schedule_id   uuid           [not null]
+  occurrence_at bigint         [not null, note: 'waktu occurrence asal yang dimodifikasi/dihapus']
+  mode          exception_mode [not null, note: 'dari dialog 3 opsi PRD F1']
+  is_cancelled  bool           [not null, default: false, note: 'true = occurrence dihapus']
+  title_override       text    [null]
+  start_at_override    bigint  [null]
+  duration_override_ms bigint  [null]
+  created_at    bigint         [not null]
+
+  indexes {
+    (schedule_id, occurrence_at) [name: 'idx_schedule_exception_lookup']
+  }
+
+  Note: '''
+  PRD F1 "Edit/Hapus Jadwal Rutin": hanya kejadian ini / kejadian ini dan berikutnya /
+  semua. Pilihan "semua" tidak membuat baris di sini — dia mengubah `schedule` induknya.
+  '''
+}
+
+Table schedule_occurrence {
+  id            uuid              [pk]
+  schedule_id   uuid              [not null]
+  occurrence_at bigint            [not null, note: 'kunci kejadian (start efektif setelah exception)']
+  status        occurrence_status [not null, default: 'pending', note: 'ditandai selesai/hadir -> dipakai progress Goals F13']
+  marked_at     bigint            [null]
+
+  indexes {
+    (schedule_id, occurrence_at) [unique, name: 'uq_schedule_occurrence']
+    (occurrence_at, status) [name: 'idx_occurrence_range_status']
+  }
+
+  Note: '''
+  Status per kejadian. Tabel ini kecil dan dipakai progress goal:
+  persentase kejadian ditandai selesai/hadir selama periode chapter.
+  '''
+}
+
+// --- F2. To-do --------------------------------------------------------------
+
+Table todo {
+  id                  uuid          [pk, note: '= record.id']
+  title               text          [not null]
+  note                text          [null]
+  deadline_at         bigint        [null, note: 'epoch ms UTC; opsional']
+  priority            todo_priority [not null, default: 'low']
+  is_done             bool          [not null, default: false]
+  completed_at        bigint        [null]
+  schedule_id         uuid          [null, note: 'soft ref ke jadwal; bisa ke kejadian tertentu']
+  schedule_occurrence_at bigint     [null, note: 'kalau tertaut ke satu kejadian dari jadwal rutin']
+  created_at          bigint        [not null]
+  updated_at          bigint        [not null]
+
+  indexes {
+    (is_done, deadline_at) [name: 'idx_todo_status_deadline', note: 'filter: semua/hari ini/mendatang/terlambat/selesai']
+    schedule_id [name: 'idx_todo_schedule']
+    priority [name: 'idx_todo_priority']
+  }
+
+  Note: '''
+  PRD F2. Sisa waktu dinamis TIDAK disimpan — dihitung dari deadline_at oleh
+  satu ticker global, bukan setInterval per item.
+  '''
+}
+
+// --- F3. Eisenhower ---------------------------------------------------------
+
+Table eisenhower_placement {
+  id         uuid     [pk]
+  todo_id    uuid     [not null]
+  quadrant   quadrant [not null]
+  position   int      [not null, note: 'posisi ordinal di dalam kuadran — BUKAN pixel absolut']
+  created_at bigint   [not null]
+
+  indexes {
+    todo_id [unique, name: 'uq_eisenhower_todo', note: 'wajib pilih dari to-do, tidak boleh dobel masuk matrix']
+    (quadrant, position) [name: 'idx_eisenhower_quadrant_pos']
+  }
+
+  Note: '''
+  PRD F3. Item wajib diambil dari to-do yang belum ada di matrix (tidak ada teks bebas).
+  "Bersihkan yang selesai" = hapus baris di sini untuk task yang is_done = true,
+  task-nya sendiri tetap ada.
+  '''
+}
+
+// --- F4. Pomodoro -----------------------------------------------------------
+
+Table pomodoro_settings {
+  id                    uuid   [pk, note: 'singleton per akun']
+  focus_ms              bigint [not null, default: 1500000, note: 'default 25 menit']
+  short_break_ms        bigint [not null, default: 300000, note: 'default 5 menit']
+  long_break_ms         bigint [not null, default: 900000, note: 'default 15 menit']
+  sessions_before_long  int    [not null, default: 4]
+  updated_at            bigint [not null]
+
+  Note: 'PRD F4. Setting global satu-satunya; tidak per task.'
+}
+
+Table pomodoro_session {
+  id                  uuid                    [pk]
+  started_at          bigint                  [not null]
+  ended_at            bigint                  [null, note: 'null kalau masih berjalan']
+  actual_duration_ms  bigint                  [null, note: 'durasi aktual start -> end, bukan durasi setting']
+  target_type         pomodoro_target_type    [not null]
+  target_todo_id      uuid                    [null, note: 'soft ref, diisi kalau target_type = todo']
+  target_text         text                    [null, note: 'diisi kalau target_type = free_text']
+  status              pomodoro_session_status [not null, default: 'completed']
+
+  indexes {
+    started_at [name: 'idx_pomodoro_started', note: 'grafik fokus & total menit di Overview F11']
+  }
+
+  Note: '''
+  PRD F4. Dipakai Overview: total menit fokus, jumlah sesi, streak hari produktif.
+  Waktu timer dihitung dari timestamp, bukan setInterval, supaya tetap akurat
+  walau tab/app di-background.
+  '''
+}
+
+// --- F5. Countdown ----------------------------------------------------------
+
+Table countdown {
+  id           uuid   [pk]
+  name         text   [not null]
+  target_at    bigint [not null, note: 'epoch ms UTC']
+  color        text   [null]
+  sticker_id   text   [null, note: 'soft ref ke sticker bundled; ikon/emoji. ID tak dikenal -> placeholder, bukan error']
+  is_archived  bool   [not null, default: false, note: 'opsi arsipkan setelah lewat']
+  archived_at  bigint [null, note: 'dipakai sorting: yang diarsipkan tidak ikut hitungan terdekat']
+  created_at   bigint [not null]
+  updated_at   bigint [not null]
+
+  indexes {
+    (is_archived, target_at) [name: 'idx_countdown_sort', note: 'default sort: paling dekat dulu']
+  }
+
+  Note: '''
+  PRD F5. Unit dinamis (mis. "2 bulan 10 hari lagi") dihitung, tidak disimpan.
+  '''
+}
+
+// --- F7. Habit --------------------------------------------------------------
+
+Table habit {
+  id             uuid                   [pk]
+  name           text                   [not null]
+  icon_sticker   text                   [null, note: 'sticker bundled atau emoji']
+  frequency_type habit_frequency_type   [not null, default: 'daily']
+  frequency_days weekday                [null, note: 'multi-nilai, dipakai kalau weekly_days']
+  target_per_day int                    [not null, default: 1]
+  is_archived    bool                   [not null, default: false]
+  created_at     bigint                 [not null]
+  updated_at     bigint                 [not null]
+
+  indexes {
+    is_archived [name: 'idx_habit_active']
+  }
+
+  Note: '''
+  PRD F7. Streak TIDAK disimpan — dihitung mundur sampai streak putus.
+  Hari yang bukan jadwal habit tidak memutus streak (mis. habit Senin-Jumat,
+  weekend tidak break streak).
+  '''
+}
+
+Table habit_checkin {
+  id         uuid   [pk]
+  habit_id   uuid   [not null]
+  local_date text   [not null, note: 'tanggal lokal YYYY-MM-DD, kunci agregasi per hari']
+  amount     int    [not null, default: 1, note: 'bisa berkali-kali sehari, diakumulasi ke target_per_day']
+  checkin_at bigint [not null]
+
+  indexes {
+    (habit_id, local_date) [name: 'idx_habit_checkin_date', note: 'satu hari boleh banyak baris (akumulasi), jadi bukan unique']
+    local_date [name: 'idx_habit_checkin_all', note: 'heatmap Overview F11']
+  }
+
+  Note: '''
+  PRD F7. Riwayat per hari: actual count vs target.
+  local_date dipakai (bukan UTC) karena hari habit mengikuti zona waktu perangkat.
+  '''
+}
+
+// --- F8. Journal ------------------------------------------------------------
+
+Table journal_entry {
+  id             uuid   [pk]
+  entry_date     text   [not null, note: 'tanggal lokal YYYY-MM-DD — SATU jurnal per hari']
+  identity_today text   [null, note: 'bagian 1: mau jadi orang yang gimana']
+  mood           mood   [null, note: 'bagian 2: satu mood per hari, 5 skala']
+  mood_story_md  text   [null, note: 'cerita detail, markdown']
+  diary_md       text   [null, note: 'bagian 5: Tentang Hari Ini, markdown']
+  created_at     bigint [not null]
+  updated_at     bigint [not null]
+
+  indexes {
+    entry_date [unique, name: 'uq_journal_entry_date']
+  }
+
+  Note: '''
+  PRD F8 (ARCHITECTURE §6 menyebutnya `Memo`). Isi jurnal SELALU terenkripsi;
+  server tidak pernah melihat plaintext. Pencarian teks murni lokal.
+  Markdown disanitasi saat render (web: DOMPurify; RN: renderer tanpa HTML).
+  Review berkala Goals disimpan di sini sebagai bagian Tentang Hari Ini,
+  dengan auto-mention goal.
+  '''
+}
+
+Table journal_reflection {
+  id         uuid            [pk]
+  entry_id   uuid            [not null]
+  kind       reflection_kind [not null]
+  text       text            [not null]
+  position   int             [not null, default: 0]
+
+  indexes {
+    (entry_id, kind, position) [name: 'idx_journal_reflection']
+  }
+
+  Note: 'PRD F8 bagian 4: tiga daftar (bersyukur / sedih / bisa lebih baik), masing-masing boleh lebih dari satu poin.'
+}
+
+Table journal_affirmation {
+  id       uuid   [pk]
+  entry_id uuid   [not null]
+  text     text   [not null]
+  position int    [not null, default: 0]
+
+  indexes {
+    (entry_id, position) [name: 'idx_journal_affirmation']
+  }
+
+  Note: 'PRD F8 bagian 3. Afirmasi bisa diketik sendiri atau dipilih dari daftar bawaan.'
+}
+
+Table journal_sticker {
+  id         uuid   [pk]
+  entry_id   uuid   [not null]
+  sticker_id text   [not null, note: 'HANYA simpan ID sticker, bukan gambarnya (PRD F14)']
+  position   int    [not null, default: 0]
+
+  indexes {
+    (entry_id, position) [name: 'idx_journal_sticker']
+  }
+
+  Note: 'PRD F8. Sticker di jurnal boleh lebih dari satu dan bisa diganti/dihapus kapan saja.'
+}
+
+Table journal_mention {
+  id           uuid                [pk]
+  entry_id     uuid                [not null]
+  target_type  mention_target_type [not null]
+  target_id    uuid                [not null, note: 'SOFT REF — target boleh sudah dihapus']
+  token        text                [not null, note: 'teks mention asli, mis. @Olahraga atau #goal']
+  position     int                 [not null, default: 0]
+
+  indexes {
+    (entry_id, position) [name: 'idx_journal_mention']
+    (target_type, target_id) [name: 'idx_journal_mention_target']
+  }
+
+  Note: '''
+  PRD F8. Mention jadwal yang sudah DIHAPUS harus tampil sebagai chip
+  "jadwal dihapus" tanpa error — jadi referensinya sengaja tidak ditegakkan
+  sebagai foreign key.
+  '''
+}
+
+// --- F13. Goals -------------------------------------------------------------
+
+Table goal {
+  id              uuid          [pk]
+  title           text          [not null]
+  reason          text          [null, note: '"Kenapa penting?"']
+  category        goal_category [not null]
+  cover_sticker   text          [null, note: 'sticker sampul / emoji']
+  start_date      text          [not null, note: 'tanggal lokal YYYY-MM-DD']
+  target_date     text          [not null]
+  status          goal_status   [not null, default: 'aktif']
+  created_at      bigint        [not null]
+  updated_at      bigint        [not null]
+
+  indexes {
+    status [name: 'idx_goal_status']
+    (start_date, target_date) [name: 'idx_goal_period']
+  }
+
+  Note: '''
+  PRD F13. Jumlah goal aktif bebas. Progress TIDAK disimpan — dihitung dari
+  item di dalamnya, jadi selalu konsisten.
+  '''
+}
+
+Table goal_chapter {
+  id            uuid   [pk]
+  goal_id       uuid   [not null]
+  title         text   [not null]
+  start_date    text   [not null, note: 'wajib di dalam rentang main goal']
+  end_date      text   [not null]
+  sort_order    int    [not null, default: 0, note: 'urutan bisa di-drag untuk reorder']
+  is_completed  bool   [not null, default: false, note: 'tandai selesai manual -> progress 100%']
+  created_at    bigint [not null]
+  updated_at    bigint [not null]
+
+  indexes {
+    (goal_id, sort_order) [name: 'idx_chapter_order']
+    (goal_id, start_date, end_date) [name: 'idx_chapter_period']
+  }
+
+  Note: '''
+  PRD F13. Tabel ini TIDAK menampung "Sepanjang Goal" (virtual chapter).
+  Item yang ditaut langsung ke main goal diwakili `goal_link` dengan chapter_id = null.
+  Geser periode main goal yang membuat chapter keluar rentang -> DITOLAK dengan pesan jelas.
+  Status chapter (belum mulai / berjalan / selesai / terlewat) dihitung dari tanggal + progress.
+  '''
+}
+
+Table goal_link {
+  id         uuid                [pk]
+  goal_id    uuid                [not null]
+  chapter_id uuid                [null, note: 'null = Sepanjang Goal (nempel langsung ke main goal)']
+  item_type  linkable_item_type  [not null]
+  item_id    uuid                [not null, note: 'soft ref ke todo / habit / schedule']
+  created_at bigint              [not null]
+
+  indexes {
+    (item_type, item_id) [unique, name: 'uq_goal_link_item', note: 'PRD F13: satu item hanya di satu tempat, tidak boleh dobel hitung']
+    (chapter_id) [name: 'idx_goal_link_chapter']
+    goal_id [name: 'idx_goal_link_goal']
+  }
+
+  Note: '''
+  Menghubungkan todo/habit/schedule ke main goal ATAU ke salah satu chapter.
+  Aturan integritas yang penting:
+   - unique (item_type, item_id) menegakkan "satu item cuma di satu tempat".
+   - hapus main goal -> chapter ikut terhapus, tapi ITEM TETAP ADA (tautan dilepas).
+   - hapus chapter -> item pindah ke Sepanjang Goal (default) atau dilepas.
+  '''
+}
+
+// --- F14. Decoration --------------------------------------------------------
+
+Table decoration {
+  id           uuid       [pk]
+  breakpoint   breakpoint [not null, note: 'HP <600px, tablet 600-1024px, desktop >1024px']
+  anchor_key   text       [not null, note: 'kunci slot semantik dari registry bersama, mis. daily.priority-card. BUKAN id DOM']
+  instance_key text       [null, note: 'pembeda kalau satu anchor muncul berkali-kali (mis. id goal di list kartu). null = anchor tunggal']
+  sticker_id   text       [not null, note: 'hanya ID sticker (bukan gambar)']
+  pos_x_pct    real       [not null, note: 'posisi dalam persen relatif elemen -> elemen melebar, sticker ikut']
+  pos_y_pct    real       [not null]
+  size_pct     real       [not null, default: 100]
+  rotation_deg real       [not null, default: 0]
+  z_order      int        [not null, default: 0, note: 'urutan tumpuk']
+  created_at   bigint     [not null]
+  updated_at   bigint     [not null]
+
+  indexes {
+    (breakpoint, anchor_key, instance_key) [name: 'idx_decoration_anchor', note: 'jalur render halaman']
+    (breakpoint, z_order) [name: 'idx_decoration_z']
+  }
+
+  Note: '''
+  PRD F14. Disimpan PER UKURAN LAYAR, bukan per device — supaya ikut sync dan
+  tetap rapi di layar berbeda. Perangkat baru otomatis dapat hiasan sesuai ukurannya.
+  Ringan buat sync: cuma metadata, bukan gambar.
+
+  anchor_key WAJIB kunci semantik dari registry halaman di packages/core, dipakai
+  bersama Nuxt dan React Native. DILARANG memakai id DOM: hiasan ikut sync lintas
+  platform per ukuran layar, sedangkan React Native tidak punya DOM id sama sekali —
+  anchor berbasis DOM akan selalu yatim di HP native, dan rename komponen akan
+  melepas semua hiasan tanpa error apa pun.
+
+  Halaman tidak disimpan sebagai kolom terpisah: diturunkan dari prefix anchor_key
+  (mis. daily.priority-card -> halaman Daily). Jadi reset hiasan per halaman cukup
+  scan prefix, dan tidak ada dua kolom yang bisa saling bertentangan.
+
+  instance_key dipakai kalau satu anchor muncul berkali-kali dalam satu halaman
+  (mis. daftar kartu goal) supaya sticker nempel ke instance yang benar.
+
+  Pengaman: anchor_key tak dikenal atau elemen tempelannya hilang -> sticker
+  DISEMBUNYIKAN, barisnya JANGAN dihapus. Jadi refactor halaman tidak menghancurkan
+  hiasan user secara permanen.
+  '''
+}
+
+// --- F16. Preferensi --------------------------------------------------------
+
+Table user_prefs {
+  id                uuid        [pk, note: 'singleton per akun']
+  theme_color       theme_color [not null, default: 'kuning']
+  style             app_style   [not null, default: 'cute']
+  hide_decorations  bool        [not null, default: false, note: 'toggle global "Sembunyikan hiasan"']
+  updated_at        bigint      [not null]
+
+  Note: '''
+  PRD F16. Tersimpan per akun dan ikut sync (terenkripsi seperti data lain).
+  Default pertama kali: Cute + Kuning.
+  Nilai tak dikenal (mis. dari sync/import versi lain) -> kembalikan ke default
+  TANPA error. Ini bukan cuma soal sanitasi input, tapi jalur upgrade lintas versi.
+  '''
+}
+
+
+// #############################################################################
+// RELASI
+// #############################################################################
+
+// Lapisan fisik
+Ref: record_index.record_id > record.id
+Ref: sync_outbox.record_id > record.id
+
+// Lapisan domain (bentuk payload; FK-nya logis, bukan constraint DB)
+Ref: schedule_recurrence.schedule_id > schedule.id
+Ref: schedule_exception.schedule_id > schedule.id
+Ref: schedule_occurrence.schedule_id > schedule.id
+
+Ref: eisenhower_placement.todo_id > todo.id
+Ref: todo.schedule_id > schedule.id
+
+Ref: habit_checkin.habit_id > habit.id
+
+Ref: journal_reflection.entry_id > journal_entry.id
+Ref: journal_affirmation.entry_id > journal_entry.id
+Ref: journal_sticker.entry_id > journal_entry.id
+Ref: journal_mention.entry_id > journal_entry.id
+
+Ref: goal_chapter.goal_id > goal.id
+Ref: goal_link.goal_id > goal.id
+Ref: goal_link.chapter_id > goal_chapter.id

@@ -1,0 +1,317 @@
+// =============================================================================
+// SERVER — Improve Personal (relay ciphertext + metadata minimal)
+// Target: apps/server — Node + Hono + PostgreSQL + Drizzle
+//
+// Sumber : ARCHITECTURE.md §6 (skema Postgres) + §8 auth + §9 sync + docs/PRD.md F15
+// Render : https://dbdiagram.io  (paste berkas ini)
+//
+// -----------------------------------------------------------------------------
+// Server TIDAK punya tabel jadwal / todo / habit / jurnal — dan memang tidak boleh.
+// Yang disimpan hanya:
+//   - ciphertext  -> records.blob
+//   - metadata    -> user, perangkat, sesi, id record, hlc, tombstone, server_seq
+// `type` entitas ikut dienkripsi (ADR 4), jadi server tidak tahu record itu memo
+// atau todo. Nama habit, isi jurnal, dan mood tidak pernah terbaca di sini.
+//
+// Data di perangkat ada di berkas terpisah: database.dbml.
+// Kalau suatu saat muncul tabel `todo` atau `schedule` di berkas ini, artinya
+// arsitektur zero-knowledge-nya sudah dilanggar.
+// -----------------------------------------------------------------------------
+//
+// Catatan implementasi yang memengaruhi skema:
+//  - rate limit disimpan di Postgres, bukan memori, supaya benar kalau pod-nya banyak.
+//  - sesi pakai token opaque (hash di DB), BUKAN JWT panjang: revoke per perangkat
+//    harus instan.
+//  - HLC dipecah jadi kolom turunan (hlc_wall_ms, hlc_counter, hlc_device) untuk
+//    dibandingkan. Membandingkan string hlc mentah akan salah.
+//  - tombstone dibersihkan > 90 hari; klien yang cursor-nya ketinggalan dapat
+//    409 SYNC_RESET_REQUIRED (lihat sync_watermarks).
+//
+// -----------------------------------------------------------------------------
+// KEPUTUSAN KRIPTO — sudah diambil (sebelumnya pertanyaan terbuka Q1/Q2)
+// -----------------------------------------------------------------------------
+//  D1. Salinan kunci "digembok OTP" (PRD F15 "Salinan 1") DIHAPUS.
+//      Alasan: OTP dibuat server, jadi server tahu pembukanya. Ruang OTP cuma 10^6,
+//      sehingga brute-force offline praktis instan walau pakai Argon2id. Menyimpannya
+//      tidak menambah lapisan, justru menurunkan keamanan total ke titik terlemah.
+//  D2. Server TIDAK menyimpan recovery key sama sekali.
+//      Alasan: "dienkripsi dengan kunci terpisah yang dipegang server" tetap bisa
+//      dibuka server, jadi klaim zero-knowledge-nya tidak sah.
+//
+//  Akibatnya di skema ini: TIDAK ADA slot `otp` maupun `recovery`. Yang tersisa
+//  hanya `passkey`, dibungkus output PRF passkey yang diproduksi di perangkat dan
+//  tidak pernah dikirim ke server.
+//
+//  Sudah diselaraskan di perubahan yang sama:
+//   - ARCHITECTURE.md §0 (Q1/Q2 jadi "sudah diputuskan"), §6 (kind[passkey]),
+//     §7 (envelope recovery pindah ke berkas backup user, rate limit pindah ke
+//     perangkat), §14 (ADR 10-12), §5 (aturan penyimpanan lokal).
+//   - docs/PRD.md F15, AC T19/T20/T22, dan bagian Keputusan.
+//
+//  SUDAH DIPUTUSKAN (ADR 12) — envelope recovery jadi tanggungan berkas backup user:
+//   Karena server tidak menyimpan envelope recovery, envelope itu HARUS ikut terbawa
+//   di berkas backup milik user. 24 kata saja tidak cukup: kunci utama dibuat acak,
+//   jadi tanpa envelope-nya recovery tidak bisa memulihkan apa pun. Yang membawa
+//   envelope adalah **QR cetak** dan **berkas terenkripsi**; format yang cuma memuat
+//   24 kata (salin manual, password manager) TIDAK bisa berdiri sendiri. Onboarding
+//   wajib MENOLAK kalau user hanya memilih format yang tidak membawa envelope.
+// =============================================================================
+
+
+Enum device_platform {
+  web
+  ios
+  android
+}
+
+Enum client_kind {
+  web
+  mobile
+}
+
+Enum otp_purpose {
+  login
+  delete_account
+}
+
+// Server HANYA menyimpan envelope yang dibungkus passkey.
+// Slot `otp` dan `recovery` sudah dihapus sesuai keputusan D1/D2 di header berkas.
+Enum key_slot {
+  passkey
+}
+
+Table users {
+  id          uuid        [pk, note: 'UUID v7']
+  email       text        [not null, note: 'disimpan lowercase, hasil normalisasi di service']
+  created_at  timestamptz [not null, default: `now()`]
+
+  indexes {
+    email [unique, name: 'uq_users_email']
+  }
+
+  Note: '''
+  Akun. Hapus akun = hard delete semua baris turunan dalam satu transaksi (PRD F15),
+  jadi nggak ada kolom deleted_at di sini.
+  '''
+}
+
+Table devices {
+  id            uuid            [pk, note: 'UUID v7, dibuat server saat login']
+  user_id       uuid            [not null]
+  name          text            [not null, note: 'di-trim + panjang dibatasi di kontrak']
+  platform      device_platform [not null]
+  created_at    timestamptz     [not null, default: `now()`]
+  last_seen_at  timestamptz     [not null, default: `now()`, note: 'di-update throttled (>= 5 menit), bukan tiap request']
+  last_ip_city  text            [null, note: 'metadata kota dari IP; sumber (CDN/GeoLite) belum diputuskan']
+  revoked_at    timestamptz     [null, note: 'soft revoke -> jejak audit; butuh retensi']
+
+  indexes {
+    // PARTIAL (DBML belum bisa menulis WHERE): create index where revoked_at is null
+    (user_id, revoked_at) [name: 'idx_devices_user_active']
+    (user_id, created_at) [name: 'idx_devices_user_created']
+  }
+
+  Note: '''
+  Halaman "Perangkat" (PRD F15): daftar perangkat login, nama, waktu login terakhir,
+  lokasi dari IP, logout jarak jauh. Batas maks 10 device aktif per user (rate limit).
+  '''
+}
+
+Table sessions {
+  id           uuid        [pk]
+  user_id      uuid        [not null, note: 'denormalisasi: jalur panas cek ownership tiap request']
+  device_id    uuid        [not null]
+  token_hash   text        [not null, note: 'sha256(token). Token mentah TIDAK PERNAH disimpan/di-log']
+  client       client_kind [not null]
+  created_at   timestamptz [not null, default: `now()`]
+  last_used_at timestamptz [not null, default: `now()`]
+  expires_at   timestamptz [not null, note: 'idle 30 hari; absolut 180 hari (usulan bayu)']
+  revoked_at   timestamptz [null]
+
+  indexes {
+    token_hash [unique, name: 'uq_sessions_token_hash']
+    (user_id, revoked_at) [name: 'idx_sessions_user_active']
+    (expires_at) [name: 'idx_sessions_expires']
+  }
+
+  Note: '''
+  Token opaque 32 byte, server cuma simpan hash. Dipakai tiap request -> index token_hash
+  harus benar. JWT panjang sengaja TIDAK dipakai: revoke per perangkat harus instan (AC T19).
+  '''
+}
+
+Table otp_challenges {
+  id          uuid        [pk]
+  email_hash  text        [not null, note: 'HMAC-SHA256(email, OTP_PEPPER) — bukan email polos']
+  code_hash   text        [not null, note: 'HMAC-SHA256(code, OTP_PEPPER); banding pakai timing-safe']
+  purpose     otp_purpose [not null, default: 'login']
+  ip_hash     text        [null]
+  attempts    int         [not null, default: 0]
+  created_at  timestamptz [not null, default: `now()`]
+  expires_at  timestamptz [not null, note: '<= 10 menit (PRD F15)']
+  consumed_at timestamptz [null, note: 'sekali pakai: UPDATE ... WHERE consumed_at IS NULL']
+
+  indexes {
+    // PARTIAL: where consumed_at is null
+    (email_hash, created_at) [name: 'idx_otp_email_open']
+    (expires_at) [name: 'idx_otp_expires']
+  }
+
+  Note: '''
+  Kode OTP 6 digit dari crypto.randomInt. Konsumsi harus atomik supaya dua verify
+  paralel dengan kode sama -> tepat satu yang sukses. Retensi baris: 24 jam.
+  OTP TIDAK PERNAH di-log (PRD F15).
+  '''
+}
+
+Table oauth_states {
+  state_hash   text        [pk, note: 'sha256(state); state mentah cuma dikirim ke Google']
+  code_verifier text       [not null, note: 'PKCE S256']
+  nonce        text        [not null, note: 'dicek ke klaim nonce di ID token']
+  client       client_kind [not null]
+  redirect_uri text        [not null, note: 'validasi harus persis salah satu yang terdaftar per env']
+  created_at   timestamptz [not null, default: `now()`]
+  expires_at   timestamptz [not null, note: '<= 10 menit']
+  consumed_at  timestamptz [null]
+
+  indexes {
+    (expires_at) [name: 'idx_oauth_states_expires']
+  }
+
+  Note: '''
+  Google SSO (Authorization Code + PKCE). Validasi: state, nonce, aud, iss, exp, email_verified.
+  Client secret cuma di env server. Retensi: 1 jam.
+  '''
+}
+
+Table rate_limits {
+  scope        text        [not null, note: 'mis. otp:email | otp:ip | keys:envelope | weather']
+  bucket       text        [not null, note: 'HMAC dari identifier (email/IP/user) — bukan nilai polos']
+  window_start timestamptz [not null]
+  count        int         [not null, default: 0]
+
+  indexes {
+    (scope, bucket, window_start) [pk, name: 'pk_rate_limits']
+  }
+
+  Note: '''
+  Fixed window di Postgres, BUKAN memori — biar benar kalau pod-nya banyak.
+  Angka limitnya masih perlu diputuskan (PRD cuma bilang "3-5x" untuk recovery key).
+  Retensi: buang window > 24 jam.
+  '''
+}
+
+Table key_envelopes {
+  id          uuid     [pk]
+  user_id     uuid     [not null]
+  slot        key_slot [not null]
+  wrapped_key bytea    [not null, note: 'blob opak; server nggak pernah dekripsi. batas ukuran ~4 KB']
+  kdf_params  jsonb    [not null, note: 'parameter KDF; batas ~1 KB']
+  created_at  timestamptz [not null, default: `now()`]
+  updated_at  timestamptz [not null, default: `now()`]
+
+  indexes {
+    (user_id, slot) [unique, name: 'uq_key_envelopes_user_slot']
+  }
+
+  Note: '''
+  Keputusan D1/D2 (sudah diambil, lihat header berkas): server HANYA menyimpan
+  envelope yang dibungkus PASSKEY. Slot `otp` dan `recovery` dihapus.
+  Isi envelope cuma bisa dibuka di client; server tidak pernah mendekripsi.
+  Envelope kunci perangkat TIDAK pernah sampai ke sini — disimpan lokal
+  (Keychain / Keystore / WebCrypto non-extractable).
+  '''
+}
+
+Table key_transfers {
+  id         text        [pk, note: 'random 128-bit, non-enumerable — bukan uuid berurut']
+  user_id    uuid        [not null]
+  device_id  uuid        [not null, note: 'hanya perangkat target yang sudah login boleh claim']
+  blob       bytea       [not null, note: 'MK terenkripsi ke pubkey ephemeral perangkat baru']
+  created_at timestamptz [not null, default: `now()`]
+  expires_at timestamptz [not null, note: 'now() + 120 detik (TTL <= 2 menit)']
+  claimed_at timestamptz [null, note: 'sekali pakai: UPDATE ... WHERE claimed_at IS NULL RETURNING blob']
+
+  indexes {
+    (expires_at) [name: 'idx_key_transfers_expires']
+  }
+
+  Note: '''
+  Relay tambah perangkat ala WhatsApp. Server nggak bisa buka isinya. Konsumsi harus
+  atomik (dua GET paralel -> tepat satu sukses). Baris dihapus job cron, bukan disimpan.
+  '''
+}
+
+Table records {
+  user_id     uuid        [not null]
+  id          uuid        [not null, note: 'UUID v7 dibuat client']
+  hlc         text        [not null, note: 'string asli ${wallMs}-${counter}-${deviceId}, dikembalikan apa adanya']
+  hlc_wall_ms bigint      [not null, note: 'hasil pecah hlc — dipakai untuk BANDING, bukan hlc mentah']
+  hlc_counter int         [not null]
+  hlc_device  text        [not null, note: 'deviceId lowercase tanpa dash, biar urutan leksikografis konsisten']
+  deleted     bool        [not null, default: false, note: 'tombstone']
+  blob        bytea       [not null, note: 'XChaCha20-Poly1305(type + schemaVersion + data), AAD = id']
+  server_seq  bigint      [not null, note: 'nextval(records_seq) — cursor pull']
+  created_at  timestamptz [not null, default: `now()`]
+  updated_at  timestamptz [not null, default: `now()`, note: 'dipakai job purge tombstone']
+
+  indexes {
+    (user_id, id) [pk, name: 'pk_records']
+    (user_id, server_seq) [unique, name: 'uq_records_user_server_seq']
+    (hlc_wall_ms, hlc_counter, hlc_device, user_id) [name: 'idx_records_hlc']
+    // PARTIAL: where deleted — untuk job purge
+    (deleted, updated_at) [name: 'idx_records_purge']
+  }
+
+  Note: '''
+  Satu-satunya tabel isi data user, dan isinya selalu ciphertext.
+  Nggak ada kolom type/title/content: `type` ikut dienkripsi di dalam blob (ADR 4).
+
+  Catatan penting soal HLC: membandingkan string hlc mentah akan SALAH begitu panjang
+  digitnya beda ("999-0-a" > "1000-0-b"). Karena itu dibandingkan sebagai tuple
+  (hlc_wall_ms, hlc_counter, hlc_device). Poison compare-nya ditulis SEKALI di
+  packages/contracts/src/hlc.ts dan dipakai server + client — kalau dua implementasi
+  berbeda, data bisa divergen permanen.
+
+  Tombstone dibersihkan > 90 hari (job cron), bukan lewat HTTP.
+  '''
+}
+
+Table sync_watermarks {
+  user_id     uuid        [pk, note: '1:1 dengan users']
+  purged_seq  bigint      [not null, default: 0, note: 'server_seq tertinggi yang sudah dipurge']
+  updated_at  timestamptz [not null, default: `now()`]
+
+  Note: '''
+  Sabuk pengaman purge: kalau cursor klien < purged_seq, server balas 409
+  SYNC_RESET_REQUIRED supaya klien full resync. Tanpa ini, HP yang lama offline bisa
+  "menghidupkan lagi" data yang user sudah hapus (zombie resurrection).
+  '''
+}
+
+// -----------------------------------------------------------------------------
+// KEPUTUSAN TERBUKA [2]: aktifkan hanya kalau purge perlu tahu posisi pull per
+// perangkat. Kalau pakai pendekatan sync_watermarks di atas, tabel ini nggak perlu.
+//
+// Table device_cursors {
+//   device_id    uuid        [pk]
+//   user_id      uuid        [not null]
+//   last_pull_seq bigint     [not null, default: 0]
+//   updated_at   timestamptz [not null, default: `now()`]
+// }
+// -----------------------------------------------------------------------------
+
+Ref: devices.user_id > users.id
+
+Ref: sessions.user_id > users.id
+Ref: sessions.device_id > devices.id
+
+Ref: key_envelopes.user_id > users.id
+
+Ref: key_transfers.user_id > users.id
+Ref: key_transfers.device_id > devices.id
+
+Ref: records.user_id > users.id
+
+// 1:1 ditegakkan lewat [pk] di sync_watermarks.user_id (bukan Ref 1:1, biar FK-nya nggak terbalik)
+Ref: sync_watermarks.user_id > users.id

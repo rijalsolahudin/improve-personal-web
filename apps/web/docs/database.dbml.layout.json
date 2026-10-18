@@ -1,0 +1,113 @@
+{
+  "version": 1,
+  "positions": {
+    "table-record": {
+      "x": 93.5,
+      "y": 640
+    },
+    "table-record_index": {
+      "x": 0,
+      "y": 105
+    },
+    "table-sync_outbox": {
+      "x": 267,
+      "y": 90
+    },
+    "table-sync_state": {
+      "x": 520,
+      "y": 106
+    },
+    "table-local_key_meta": {
+      "x": 794,
+      "y": 105
+    },
+    "table-sticker_recent": {
+      "x": 1068,
+      "y": 166
+    },
+    "table-schedule": {
+      "x": 950.75,
+      "y": 1100
+    },
+    "table-schedule_recurrence": {
+      "x": 463.75,
+      "y": 550
+    },
+    "table-schedule_exception": {
+      "x": 783.75,
+      "y": 595
+    },
+    "table-schedule_occurrence": {
+      "x": 1083.75,
+      "y": 655
+    },
+    "table-todo": {
+      "x": 1351.75,
+      "y": 565
+    },
+    "table-eisenhower_placement": {
+      "x": 1377.75,
+      "y": 105
+    },
+    "table-pomodoro_settings": {
+      "x": 1639.75,
+      "y": 106
+    },
+    "table-pomodoro_session": {
+      "x": 1938.0292519293719,
+      "y": 66.78302163723833
+    },
+    "table-countdown": {
+      "x": 2242.75,
+      "y": 45
+    },
+    "table-habit": {
+      "x": 2446.75,
+      "y": 595
+    },
+    "table-habit_checkin": {
+      "x": 2492.75,
+      "y": 105
+    },
+    "table-journal_entry": {
+      "x": 3120.75,
+      "y": 610
+    },
+    "table-journal_reflection": {
+      "x": 2742.75,
+      "y": 105
+    },
+    "table-journal_affirmation": {
+      "x": 2992.75,
+      "y": 120
+    },
+    "table-journal_sticker": {
+      "x": 3246.75,
+      "y": 120
+    },
+    "table-journal_mention": {
+      "x": 3496.75,
+      "y": 90
+    },
+    "table-goal": {
+      "x": 3830.25,
+      "y": 1100
+    },
+    "table-goal_chapter": {
+      "x": 3766.75,
+      "y": 595
+    },
+    "table-goal_link": {
+      "x": 3811.75,
+      "y": 90
+    },
+    "table-decoration": {
+      "x": 4106.75,
+      "y": 0
+    },
+    "table-user_prefs": {
+      "x": 4373.75,
+      "y": 121
+    }
+  }
+}

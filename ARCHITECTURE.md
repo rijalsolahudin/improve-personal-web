@@ -7,18 +7,20 @@ Kalau dokumen ini bentrok sama kode, update salah satunya di PR yang sama - jang
 
 ## 0. Pertanyaan terbuka
 
-### Butuh keputusan (ngaruh ke klaim "server nggak bisa baca data")
+### Sudah diputuskan (dulu daftarnya di sini)
 
-**Q1. Salinan kunci utama yang digembok OTP (F15 "Salinan 1") bikin E2EE bocor.**
-OTP dibuat dan dikirim oleh server, jadi server tahu OTP-nya. Ruang OTP cuma 10⁶, jadi brute-force offline instan walau pakai Argon2id. Akibatnya server (atau siapa pun yang dapet DB + log email) bisa buka kunci utama.
-- Opsi A (rekomendasi): hapus Salinan 1. OTP/Google cuma buat **login (autentikasi)**, bukan buat **buka kunci**. Perangkat baru buka kunci lewat: QR dari perangkat lama, passkey PRF, atau recovery key.
-- Opsi B: tetap pakai Salinan 1, tapi klaim di Panduan diubah jadi "terenkripsi di server", bukan E2EE.
-- Default kalau di-skip: **A**.
+**Q1 (salinan kunci digembok OTP) dan Q2 (recovery key disimpan server) sudah diputuskan:
+KEDUANYA DIHAPUS.** Lihat ADR 10 dan 11 di §14.
 
-**Q2. Recovery key yang disimpan server "dienkripsi kunci terpisah" juga bocor.** Kunci terpisah itu dipegang server, jadi server bisa buka recovery key → kunci utama.
-- Opsi A (rekomendasi): server nggak nyimpen recovery key sama sekali. Wajib backup ≥2 tempat (udah ada di PRD) jadi jaring pengamannya.
-- Opsi B: server simpan recovery key yang dienkripsi pakai passkey PRF user (server tetap nggak bisa buka). Ribet, manfaat kecil.
-- Default: **A**.
+Ringkasnya: OTP dibuat server, jadi server tahu pembukanya - ruang OTP cuma 10⁶, brute-force
+offline praktis instan walau pakai Argon2id. Dan "recovery key yang dienkripsi kunci terpisah"
+tetap bisa dibuka server, karena kunci terpisahnya juga dipegang server. Keduanya tidak
+menambah lapisan keamanan, malah menurunkan keamanan total ke titik terlemah.
+
+Akibatnya server **hanya** menyimpan envelope milik passkey. Envelope `recovery` jadi tanggungan
+berkas backup user - lihat ADR 12: yang membawa envelope adalah **QR cetak** dan **berkas
+terenkripsi**, sedangkan format yang cuma memuat 24 kata (salin manual, password manager)
+tidak bisa berdiri sendiri.
 
 ### Default (diasumsikan, bisa diganti)
 
@@ -144,6 +146,22 @@ Semua fungsi di `domain/`, `recurrence/`, `calc/` **murni** (input → output, t
 
 Satu **contract test suite** di `packages/core/test/adapters/` dijalankan ke tiap `StorageAdapter` - IndexedDB dan SQLite harus lolos test yang sama (AC T23).
 
+### Aturan penyimpanan lokal (wajib)
+
+Keamanan data di sini tidak datang dari pilihan library, tapi dari cara pakainya. Library yang benar tetap bisa kehilangan data kalau aturan ini dilanggar.
+
+- **Server buta, client yang tahu.** Prinsip induk; semua aturan di bawah ikut dari sini.
+- **Tulis lokal dulu, selalu.** UI tidak pernah menunggu jaringan. Kalau ragu antara kirim dulu atau simpan dulu - simpan dulu.
+- **Record + outbox dalam SATU transaksi.** Kalau tidak, crash di antara keduanya bikin data tersimpan tapi tidak pernah terkirim - hilang diam-diam.
+- **Satu penulis per origin di web** (`navigator.locks`, mis. lock `ip-writer`). IndexedDB tidak punya lock antar tab, jadi dua tab bisa saling menimpa. `BroadcastChannel` cuma memberi tahu, bukan mengunci.
+- **Dilarang `await` non-IndexedDB di dalam transaksi** (fetch, timer, apa pun). Transaksi IndexedDB auto-commit begitu tidak ada request pending, jadi tulisan sisanya hilang tanpa error.
+- **Durability transaksi tulis: `strict`.** Default Chrome sekarang `relaxed` - commit terakhir bisa hilang saat mati listrik, OS crash, atau disk penuh.
+- **Mobile: `synchronous = FULL`** untuk transaksi record + outbox. WAL dengan `NORMAL` masih bisa kehilangan transaksi terakhir saat mati listrik.
+- **`navigator.storage.persist()` wajib dipanggil** dan PWA didorong untuk di-install. Tanpa itu browser bisa menghapus storage (Safari membersihkan situs yang tidak dibuka ~7 hari kalau tidak di-install).
+- **Tulis per record.** Dilarang pola hapus-semua-lalu-tulis-ulang.
+- **Restore wajib diuji, bukan diasumsikan.** Drill: hapus total storage di perangkat bersih, lalu restore hanya dari berkas backup + 24 kata. Selama belum pernah lulus, "backup aman" masih asumsi.
+- **Jangan pakai sync engine yang butuh server membaca data** (PowerSync, Electric, Zero, RxDB replication). Semuanya mereplikasi database server ke client, jadi server harus mengerti isi record - itu membatalkan klaim zero-knowledge.
+
 ---
 
 ## 6. Model data
@@ -186,7 +204,7 @@ users(id, email, created_at)
 devices(id, user_id, name, last_seen_at, last_ip_city, revoked_at)
 sessions(id, device_id, token_hash, expires_at)
 otp_challenges(id, email_hash, code_hash, expires_at, attempts)
-key_envelopes(id, user_id, kind[device|passkey|recovery], wrapped_key, kdf_params, created_at)
+key_envelopes(id, user_id, kind[passkey], wrapped_key, kdf_params, created_at)   -- ADR 10-11: cuma passkey
 records(user_id, id, hlc, deleted, blob, server_seq BIGSERIAL)   -- PK (user_id, id)
 ```
 
@@ -202,12 +220,13 @@ flowchart TD
   MK -->|KDF subkey 'data'| DK[Data Key → enkripsi semua record]
   DEV[Device Key - Keychain/Keystore/WebCrypto non-extractable] -->|wrap| E1[MK envelope: device - lokal saja]
   PK[Passkey PRF output] -->|wrap| E2[MK envelope: passkey - di server]
-  RK[Recovery Key 24 kata BIP39 → Argon2id] -->|wrap| E3[MK envelope: recovery - di server]
+  RK[Recovery Key 24 kata BIP39 → Argon2id] -->|wrap| E3[MK envelope: recovery - di berkas backup user]
   QR[QR transfer: X25519 ephemeral] -->|kirim MK ke perangkat baru| MK
 ```
 
-- Semua envelope di server **cuma bisa dibuka di client** (passkey / recovery key). Server cuma simpan blob.
-- Recovery key salah → rate limit di server (envelope cuma dikasih setelah sesi login valid, max 5x lalu lock).
+- Satu-satunya envelope di server adalah milik passkey, dan cuma bisa dibuka di client. Server cuma simpan blob.
+- Envelope `recovery` IKUT tersimpan di berkas backup user, bukan di server (ADR 11). 24 kata saja tidak cukup: MK dibuat acak, jadi tanpa envelope-nya recovery tidak bisa memulihkan apa pun.
+- Recovery key salah → rate limit DI PERANGKAT (max 5x lalu lock sebentar). Server tidak mengirim envelope recovery, jadi jalur ini jalan tanpa server.
 - QR tambah perangkat: perangkat baru tampilkan QR berisi public key ephemeral + nonce; perangkat lama scan, kirim MK terenkripsi lewat server (relay), TTL ≤ 2 menit, sekali pakai.
 - **Dilarang** bikin algoritma sendiri, log kunci/OTP/recovery key, atau kirim MK polos ke mana pun.
 - Lupa semua pembuka = data hilang. Dijelaskan jujur di onboarding + Panduan.
@@ -339,7 +358,7 @@ E2E (T16): Playwright (web/PWA) + Maestro (mobile), termasuk skenario 2 perangka
 | # | Keputusan | Alasan | Trade-off |
 |---|---|---|---|
 | 1 | Local-first + server relay | Offline penuh, UI instan, privasi | Sync & konflik jadi tanggung jawab client |
-| 2 | Login terpisah dari unlock | Klaim E2EE jujur (lihat Q1, Q2) | Perangkat baru butuh QR/passkey/recovery key |
+| 2 | Login terpisah dari unlock | Klaim E2EE jujur (lihat ADR 10-11) | Perangkat baru butuh QR/passkey/recovery key |
 | 3 | LWW per record pakai HLC | Cukup untuk 1 user, simpel | Edit bersamaan di 2 perangkat: satu kalah utuh |
 | 4 | `type` ikut dienkripsi | Server nggak tahu pola pemakaian per fitur | Server nggak bisa filter per tipe (memang nggak perlu) |
 | 5 | Logika di `packages/*` murni | Satu sumber logika web & mobile, test deterministik | Butuh disiplin port/adapter |
@@ -347,3 +366,6 @@ E2E (T16): Playwright (web/PWA) + Maestro (mobile), termasuk skenario 2 perangka
 | 7 | Server terpisah (`apps/server`) | Dipakai web & mobile, deploy & skala independen | Satu deploy tambahan |
 | 8 | libsodium di dua platform | Primitive identik, teruji | Ukuran bundle web +~200 KB (lazy-load setelah login) |
 | 9 | Pinia di web sebagai **proyeksi reaktif**, bukan pemilik data | 16 fitur saling silang (task ↔ Eisenhower/kalender/Daily/goal/Overview) butuh satu sumber reaktif + getter turunan; `useState` per-key nggak punya getter, action, plugin, atau devtools, dan makin susah dirawat di skala ini | Ada satu lapisan cache lagi di atas repo → butuh disiplin: store nggak boleh nulis langsung ke DB, semua mutasi lewat use case `core` (kalau nggak, outbox & tombstone T21 bocor) |
+| 10 | Server **tidak** menyimpan envelope yang digembok OTP (PRD F15 "Salinan 1" dihapus) | OTP dibuat server, jadi server tahu pembukanya; ruang OTP cuma 10⁶ sehingga brute-force offline praktis instan walau Argon2id. Menyimpannya menurunkan keamanan total ke titik terlemah | Perangkat baru tidak bisa pulih lewat OTP - wajib lewat passkey, QR dari perangkat lama, atau recovery key |
+| 11 | Server **tidak** menyimpan recovery key sama sekali | "Dienkripsi dengan kunci terpisah yang dipegang server" tetap bisa dibuka server, jadi klaim zero-knowledge-nya gugur | Envelope recovery harus ikut di berkas backup user; format backup yang cuma memuat 24 kata tidak bisa berdiri sendiri; kehilangan semua backup = data hilang permanen |
+| 12 | Format backup yang membawa envelope kunci: **QR cetak** dan **berkas terenkripsi** | Server tidak menyimpan envelope recovery (ADR 11), jadi envelope harus ikut terbawa di backup user. 24 kata saja tidak cukup karena MK dibuat acak | Onboarding wajib MENOLAK kalau user hanya memilih format yang tidak membawa envelope; "salin manual" dan "password manager" tidak bisa berdiri sendiri |

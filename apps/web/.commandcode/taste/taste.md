@@ -1,5 +1,2 @@
 # Taste — Command Code
-
-## Communication
-
-- Communicates in casual Indonesian and expects replies in Indonesian. Confidence: 0.7
+See [taste-—-command-code/taste.md](taste-—-command-code/taste.md)
