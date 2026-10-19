@@ -25,8 +25,11 @@ function toggleDeco(): void {
   <div class="shell paper-grid">
     <ShellSidebar class="desktop-only" />
     <main class="main" data-anchor="page" data-anchor-kind="page">
+      <AccountKeyStatusNotice />
       <slot />
     </main>
+    <!-- Onboarding pembuka kunci: satu tap Face ID/passkey, tidak bisa ditutup sampai selesai. -->
+    <AccountPasskeyOnboarding />
     <LazyDecoLayer v-if="isDecoMounted" />
     <div class="fab-dock" data-deco-ui>
       <ShellPomodoroPill />

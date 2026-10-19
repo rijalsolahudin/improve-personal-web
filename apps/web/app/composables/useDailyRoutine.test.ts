@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 
 import { useDailyRoutine } from './useDailyRoutine'
+import { useTasks } from './useTasks'
 
 describe('useDailyRoutine', () => {
   beforeEach(() => {
@@ -8,9 +9,16 @@ describe('useDailyRoutine', () => {
   })
 
   it('centang dari Daily: task prioritas tetap tampil dicoret sampai ganti hari', () => {
+    // Data task sekarang datang dari penyimpanan, bukan mock: test ini menyemai satu task sendiri
+    // (kuadran "do" selalu masuk Prioritas) supaya tidak bergantung pada isi mock.
+    const { add, setQuadrant } = useTasks()
+    const seededId = add('Selesaikan modul 4', 'urgent', null)
+    if (!seededId) throw new Error('task uji tidak terbentuk')
+    setQuadrant(seededId, 'do')
+
     const { priorities, toggleTask } = useDailyRoutine()
     const first = priorities.value[0]
-    if (!first) throw new Error('mock kosong')
+    if (!first) throw new Error('prioritas kosong setelah disemai')
 
     toggleTask(first.task.id)
     expect(priorities.value.find(({ task }) => task.id === first.task.id)?.task.done).toBe(true)

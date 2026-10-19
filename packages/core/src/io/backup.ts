@@ -30,7 +30,7 @@ import { localDateOf } from '../recurrence/timezone.ts'
  */
 
 /** Penanda jenis berkas, supaya JSON lain tidak pernah dianggap backup. */
-export const BACKUP_FORMAT = 'improve-personal-backup'
+export const BACKUP_FORMAT = 'ip-backup'
 
 /** Versi FORMAT berkas (bukan versi payload). Naikkan kalau bentuk berkasnya berubah. */
 export const BACKUP_FORMAT_VERSION = '1.0.0'

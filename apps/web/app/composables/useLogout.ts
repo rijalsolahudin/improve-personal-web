@@ -1,3 +1,4 @@
+import { TECH_IDENTITY } from '#shared/tech-identity'
 import { LOGIN_PATH } from '~/utils/features'
 
 import type { AuthGateway } from './auth/gateway'
@@ -5,7 +6,7 @@ import { useAuthGateway } from './auth/http-gateway'
 import { useAuthSession } from './useAuthSession'
 
 /** Semua key localStorage milik app memakai prefix ini (tampilan, hiasan, sidebar, Pomodoro…). */
-export const APP_STORAGE_PREFIX = 'ip-'
+export const APP_STORAGE_PREFIX = TECH_IDENTITY.storagePrefix
 
 /** Hapus key milik app saja; key situs lain di origin yang sama tidak disentuh. */
 export function clearAppStorage(storage: Storage): void {

@@ -1,5 +1,5 @@
 /**
- * Warna dari design system "Improve Personal" (tokens/colors.css).
+ * Warna dari design system (tokens/colors.css).
  * Key = nama CSS custom property tanpa `--`, supaya web (CSS vars) dan RN (theme object) identik.
  */
 

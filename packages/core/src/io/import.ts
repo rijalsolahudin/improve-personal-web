@@ -174,7 +174,7 @@ export function validateBackupText(
   if (!documentResult.success) {
     return reject(
       'SCHEMA_MISMATCH',
-      'Struktur berkas tidak cocok dengan backup Improve Personal.',
+      'Struktur berkas tidak cocok dengan backup aplikasi.',
       documentResult.error.issues
         .slice(0, MAX_REPORTED_ISSUES)
         .map((issue) => `${issue.path.join('.') || '(root)'}: ${issue.message}`),

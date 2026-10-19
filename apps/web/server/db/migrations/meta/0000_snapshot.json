@@ -88,12 +88,8 @@
           "name": "devices_user_id_users_id_fk",
           "tableFrom": "devices",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -182,12 +178,8 @@
           "name": "key_envelopes_user_id_users_id_fk",
           "tableFrom": "key_envelopes",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -268,12 +260,8 @@
           "name": "key_transfers_user_id_users_id_fk",
           "tableFrom": "key_transfers",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -281,12 +269,8 @@
           "name": "key_transfers_device_id_devices_id_fk",
           "tableFrom": "key_transfers",
           "tableTo": "devices",
-          "columnsFrom": [
-            "device_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["device_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -498,11 +482,7 @@
       "compositePrimaryKeys": {
         "pk_rate_limits": {
           "name": "pk_rate_limits",
-          "columns": [
-            "scope",
-            "bucket",
-            "window_start"
-          ]
+          "columns": ["scope", "bucket", "window_start"]
         }
       },
       "uniqueConstraints": {},
@@ -646,12 +626,8 @@
           "name": "records_user_id_users_id_fk",
           "tableFrom": "records",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -659,10 +635,7 @@
       "compositePrimaryKeys": {
         "pk_records": {
           "name": "pk_records",
-          "columns": [
-            "user_id",
-            "id"
-          ]
+          "columns": ["user_id", "id"]
         }
       },
       "uniqueConstraints": {},
@@ -769,12 +742,8 @@
           "name": "sessions_user_id_users_id_fk",
           "tableFrom": "sessions",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -782,12 +751,8 @@
           "name": "sessions_device_id_devices_id_fk",
           "tableFrom": "sessions",
           "tableTo": "devices",
-          "columnsFrom": [
-            "device_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["device_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -829,12 +794,8 @@
           "name": "sync_watermarks_user_id_users_id_fk",
           "tableFrom": "sync_watermarks",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -898,34 +859,22 @@
     "public.client_kind": {
       "name": "client_kind",
       "schema": "public",
-      "values": [
-        "web",
-        "mobile"
-      ]
+      "values": ["web", "mobile"]
     },
     "public.device_platform": {
       "name": "device_platform",
       "schema": "public",
-      "values": [
-        "web",
-        "ios",
-        "android"
-      ]
+      "values": ["web", "ios", "android"]
     },
     "public.key_slot": {
       "name": "key_slot",
       "schema": "public",
-      "values": [
-        "passkey"
-      ]
+      "values": ["passkey"]
     },
     "public.otp_purpose": {
       "name": "otp_purpose",
       "schema": "public",
-      "values": [
-        "login",
-        "delete_account"
-      ]
+      "values": ["login", "delete_account"]
     }
   },
   "schemas": {},

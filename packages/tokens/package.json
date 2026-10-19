@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Design token Improve Personal: sumber tunggal untuk CSS vars (web) dan theme object (RN).",
+  "description": "Design token: sumber tunggal untuk CSS vars (web) dan theme object (RN).",
   "exports": {
     ".": "./src/index.ts",
     "./css": "./dist/tokens.css"

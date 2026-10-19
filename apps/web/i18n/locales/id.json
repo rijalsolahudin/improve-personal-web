@@ -1113,5 +1113,66 @@
     },
     "listItem": "{list} nomor {n}",
     "about": "Tentang hari ini"
+  },
+  "keys": {
+    "freshKeyWarning": "Data di perangkat ini dienkripsi dengan kunci baru. Recovery key belum diatur: kalau perangkat ini hilang atau datanya terhapus, isinya tidak bisa dipulihkan. Jangan dipakai untuk data penting sampai onboarding kunci selesai.",
+    "localDataError": "Data lokal tidak bisa dibuka, jadi daftar ini kosong. Coba muat ulang halaman; kalau tetap gagal, periksa penyimpanan browser.",
+    "localDataErrorDetail": "Sebab teknis:"
+  },
+  "account": {
+    "title": "Akun & perangkat",
+    "errorPrefix": "Gagal:",
+    "keyStatus": {
+      "title": "Status kunci",
+      "passkey": "Passkey",
+      "set": "sudah diatur",
+      "unset": "belum diatur",
+      "hint": "Kunci utama tidak pernah dikirim ke server. Server hanya menyimpan envelope passkey, dan itu pun tidak bisa dibuka tanpa passkey kamu."
+    },
+    "passkey": {
+      "title": "Passkey",
+      "intro": "Passkey (sidik jari/Face ID/kunci keamanan) membuat login berikutnya tidak perlu OTP. Envelope kuncinya dititip ke server, tapi cuma bisa dibuka oleh passkey ini.",
+      "activate": "Aktifkan passkey",
+      "replace": "Ganti passkey"
+    },
+    "devices": {
+      "title": "Perangkat",
+      "empty": "Belum ada perangkat lain.",
+      "current": "perangkat ini",
+      "lastSeen": "terakhir aktif",
+      "revoke": "Cabut akses"
+    },
+    "backup": {
+      "title": "Backup kode pemulihan",
+      "intro": "Kode pemulihan adalah satu teks yang memuat kunci pemulihmu. Kamu tidak perlu menulis atau menghafal apa pun - simpan saja kode itu di tempat yang kamu percaya.",
+      "statusLabel": "Kode pemulihan",
+      "status": {
+        "set": "sudah disimpan",
+        "unset": "belum disimpan"
+      },
+      "readyToSave": "Kode kamu siap disimpan. Pilih satu cara:",
+      "create": "Buat kode pemulihan",
+      "recreate": "Buat kode baru",
+      "saveToCloud": "Simpan ke cloud",
+      "copy": "Salin kode",
+      "download": "Unduh berkas",
+      "saved": "Sudah saya simpan",
+      "copied": "Kode sudah disalin.",
+      "shareUnavailable": "Browser ini belum punya menu simpan-ke-cloud. Pakai Salin atau Unduh, lalu simpan ke cloud-mu sendiri.",
+      "shareCancelled": "Penyimpanan dibatalkan. Kodenya ditampilkan di bawah kalau mau kamu salin/unduh manual.",
+      "warning": "Siapa pun yang memegang kode ini bisa membuka datamu. Simpan di tempat yang memang menyimpan rahasia (password manager, cloud pribadimu).",
+      "driveNote": "Simpan langsung ke Google Drive dari dalam app belum ada - untuk sekarang lewat menu Simpan ke cloud / unduh berkas."
+    },
+    "passkeyOnboarding": {
+      "title": "Satu langkah lagi: aktifkan Face ID/passkey",
+      "why": "Datamu dienkripsi dengan kunci yang dibuat di perangkat ini, dan kunci itu tidak pernah dikirim ke server. Kalau perangkat ini hilang, satu-satunya jalan kembali adalah pembuka yang kamu pegang sendiri - dan itu passkey ini. Sekali sentuh Face ID atau sidik jari, selesai: tidak ada kata-kata yang perlu ditulis.",
+      "cannotSkip": "Jendela ini belum bisa ditutup. Bukan untuk mengganggu: tanpa pembuka ini, data di perangkatmu tidak bisa dipulihkan oleh siapa pun - termasuk kami.",
+      "activate": "Aktifkan Face ID/passkey",
+      "activating": "Menunggu konfirmasi perangkat…",
+      "continueWithout": "Lanjut tanpa passkey",
+      "backupHint": "Terakhir: simpan kode pemulihanmu. Satu tap ke cloud-mu, dan kamu selesai.",
+      "done": "Tutup",
+      "backupFirst": "Simpan kode pemulihan dulu"
+    }
   }
 }

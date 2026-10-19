@@ -146,7 +146,14 @@ export default defineNuxtConfig({
         // Nonce per request + 'strict-dynamic' (security.md §6): skrip yang disuntik tidak lolos
         // hanya karena berasal dari origin kita. `'self'` dipertahankan untuk browser yang belum
         // mendukung CSP3 - di browser CSP3 ia diabaikan begitu 'strict-dynamic' ada.
-        'script-src': ["'self'", "'nonce-{{nonce}}'", "'strict-dynamic'"],
+        //
+        // `'wasm-unsafe-eval'`: libsodium (kripto E2EE) berjalan sebagai WebAssembly, dan CSP3
+        // MENOLAK kompilasi WASM tanpa token ini - gejalanya `CompileError: WebAssembly.instantiate()
+        // ... violates the following Content Security Policy`, dan bagi user hanya terlihat "data
+        // lokal tidak bisa dibuka". Bedanya dengan yang dilarang security.md §6: `'unsafe-eval'`
+        // (mengizinkan `eval()`/`Function()`) TETAP tidak ada di daftar ini; token ini HANYA
+        // mengizinkan kompilasi WebAssembly.
+        'script-src': ["'self'", "'wasm-unsafe-eval'", "'nonce-{{nonce}}'", "'strict-dynamic'"],
         'script-src-attr': ["'none'"],
         'upgrade-insecure-requests': true,
       },

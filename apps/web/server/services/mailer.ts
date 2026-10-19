@@ -1,4 +1,6 @@
 import { createTransport } from 'nodemailer'
+
+import { MAIL_SUBJECTS } from '#shared/brand'
 import type { OtpPurpose } from '@improve-personal/contracts'
 
 import type { ServerEnv } from '../utils/env'
@@ -34,10 +36,7 @@ const RESEND_ENDPOINT = 'https://api.resend.com/emails'
 /** Batas waktu panggilan keluar. Email yang lambat tidak boleh menahan request login. */
 const REQUEST_TIMEOUT_MS = 5_000
 
-const SUBJECT_BY_PURPOSE: Record<OtpPurpose, string> = {
-  login: 'Kode masuk Improve Personal',
-  delete_account: 'Kode konfirmasi hapus akun Improve Personal',
-}
+const SUBJECT_BY_PURPOSE: Record<OtpPurpose, string> = MAIL_SUBJECTS
 
 const TEXT_BY_PURPOSE: Record<OtpPurpose, (code: string) => string> = {
   login: (code) => `Kode masuk kamu: ${code}\n\nBerlaku sebentar dan hanya bisa dipakai sekali.`,
