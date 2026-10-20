@@ -36,11 +36,10 @@ export const ENCRYPTED_BACKUP_VERSION = 1
  * Panjang minimum kata sandi.
  *
  * Bukan angka keamanan yang ajaib: kata sandi ini membungkus rahasia yang bisa membuka seluruh data user,
- * dan satu kali tebak yang berhasil berarti kehilangan total. Dengan Argon2id, 12 karakter acak sudah
- * sangat mahal untuk ditebak - dan menolak yang lebih pendek lebih baik daripada membiarkan user merasa
- * aman dengan "1234".
+ * dan satu kali tebak yang berhasil berarti kehilangan total. 8 karakter adalah batas yang diminta untuk
+ * kemudahan user; kata sandi yang lebih panjang tetap dianjurkan, dan menolak "1234" tetap dijaga.
  */
-export const MIN_PASSPHRASE_LENGTH = 12
+export const MIN_PASSPHRASE_LENGTH = 8
 
 /** Dinyatakan di berkasnya sendiri, bukan cuma di UI. */
 export const ENCRYPTED_BACKUP_WARNING =
@@ -54,6 +53,16 @@ const SALT_BYTES = 16
 /** Panjang kunci pembungkus (byte). */
 const KEY_BYTES = 32
 
+/**
+ * Batas atas parameter Argon2id yang diterima dari berkas.
+ *
+ * `ops`/`mem` dibaca dari berkasnya sendiri, jadi berkas buatan orang lain bisa meminta KDF yang
+ * membuat tab membeku atau kehabisan memori. Batasnya setara preset libsodium `SENSITIVE` (ops) dan
+ * `MODERATE` (mem) - jauh di atas `INTERACTIVE` yang dipakai saat membuat berkas.
+ */
+const MAX_KDF_OPS = 4
+const MAX_KDF_MEM_BYTES = 256 * 1024 * 1024
+
 export const encryptedBackupDocumentSchema = z
   .object({
     format: z.literal(ENCRYPTED_BACKUP_FORMAT),
@@ -63,8 +72,8 @@ export const encryptedBackupDocumentSchema = z
     warning: z.literal(ENCRYPTED_BACKUP_WARNING),
     /** Salt Argon2id, base64. */
     salt: z.string().min(1).max(256),
-    ops: z.int().min(1),
-    mem: z.int().min(1),
+    ops: z.int().min(1).max(MAX_KDF_OPS),
+    mem: z.int().min(1).max(MAX_KDF_MEM_BYTES),
     /** base64( nonce[24] || ciphertext||tag ). */
     blob: z.string().min(1).max(16384),
   })
@@ -153,6 +162,25 @@ export function serializeEncryptedBackup(document: EncryptedBackupDocument): str
 /** Nama berkas unduhan. */
 export function encryptedBackupFileName(): string {
   return `${BRAND.slug}-recovery-encrypted.json`
+}
+
+/**
+ * Apakah teks berkas yang dipilih user mengaku sebagai berkas terenkripsi (cuma penanda `format`).
+ *
+ * Dipakai layar pulih untuk memilih alur: berkas terenkripsi butuh kata sandi, berkas `.txt` berisi
+ * kode langsung dipakai. Isi berkas tetap divalidasi penuh oleh `parseEncryptedBackup` saat dibuka.
+ */
+export function isEncryptedBackupText(text: string): boolean {
+  try {
+    const raw: unknown = JSON.parse(text)
+    return (
+      typeof raw === 'object' &&
+      raw !== null &&
+      (raw as { format?: unknown }).format === ENCRYPTED_BACKUP_FORMAT
+    )
+  } catch {
+    return false
+  }
 }
 
 /** Baca berkas terenkripsi; bentuk yang tidak sesuai DITOLAK sebelum KDF dijalankan. */

@@ -13,6 +13,11 @@ import { unwrapMasterKeyWithRecovery } from '../crypto/recovery'
 import type { RecoveryGuard } from '../crypto/recovery-guard'
 
 import { parseBackupCode } from './backup-code'
+import {
+  decryptRecoveryBackup,
+  parseEncryptedBackup,
+  type EncryptedBackupDocument,
+} from './encrypted-backup'
 
 /**
  * Buka kunci di perangkat yang BELUM punya pembuka (perangkat baru, atau penyimpanan kunci terhapus).
@@ -49,6 +54,20 @@ export class RecoveryCodeRejectedError extends Error {
     super('kode pemulihan tidak cocok')
     this.name = 'RecoveryCodeRejectedError'
     this.remainingAttempts = remainingAttempts
+  }
+}
+
+/**
+ * Kata sandi berkas terenkripsi salah, atau berkasnya berubah (auth tag yang sama).
+ *
+ * Tidak dihitung ke jatah percobaan: siapa pun yang memegang berkasnya bisa menebak kata sandi secara
+ * offline, jadi jatah di perangkat ini tidak melindungi apa pun - dan hanya menghukum user yang salah
+ * ketik. Yang dilindungi jatah tetap kodenya (setelah berkas terbuka, lewat `unlockWithRecoveryCode`).
+ */
+export class BackupPassphraseError extends Error {
+  constructor(options?: ErrorOptions) {
+    super('kata sandi berkas salah', options)
+    this.name = 'BackupPassphraseError'
   }
 }
 
@@ -89,6 +108,33 @@ export async function unlockWithRecoveryCode(input: {
   }
 
   await input.guard.reset()
+}
+
+/**
+ * Buka kunci dari berkas terenkripsi kata sandi. Isi berkasnya kode cadangan, jadi setelah dibuka
+ * jalurnya sama persis dengan kode yang ditempel (termasuk jatah percobaan).
+ */
+export async function unlockWithEncryptedBackup(input: {
+  readonly text: string
+  readonly passphrase: string
+  readonly keyStore: SecureKeyStore
+  readonly guard: RecoveryGuard
+}): Promise<void> {
+  let document: EncryptedBackupDocument
+  try {
+    document = parseEncryptedBackup(input.text)
+  } catch (cause) {
+    throw new BackupCodeFormatError({ cause })
+  }
+
+  let code: string
+  try {
+    code = await decryptRecoveryBackup(document, input.passphrase)
+  } catch (cause) {
+    throw new BackupPassphraseError({ cause })
+  }
+
+  await unlockWithRecoveryCode({ code, keyStore: input.keyStore, guard: input.guard })
 }
 
 export async function unlockWithPasskey(input: {

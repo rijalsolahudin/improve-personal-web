@@ -2,6 +2,7 @@ import { mountSuspended } from '@nuxt/test-utils/runtime'
 import { flushPromises, type VueWrapper } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
+import { ENCRYPTED_BACKUP_FORMAT } from '~/utils/account/encrypted-backup'
 import type { LocalDataState } from '~/composables/useLocalData'
 
 import KeyRecoveryGate from './KeyRecoveryGate.vue'
@@ -66,5 +67,30 @@ describe('layar pulih kunci', () => {
 
     await mounted.find('textarea').setValue('iprk1.abc')
     expect(submit.attributes('disabled')).toBeUndefined()
+  })
+  it('berkas terenkripsi meminta kata sandinya, dan bisa kembali ke kode biasa', async () => {
+    mounted = await mountSuspended(KeyRecoveryGate)
+    setStatus('locked')
+    await nextTick()
+
+    const input = mounted.find('input[type="file"]')
+    const file = new File([JSON.stringify({ format: ENCRYPTED_BACKUP_FORMAT })], 'cadangan.json', {
+      type: 'application/json',
+    })
+    Object.defineProperty(input.element, 'files', { value: [file] })
+    await input.trigger('change')
+    await flushPromises()
+
+    expect(mounted.find('textarea').exists()).toBe(false)
+    const passphrase = mounted.find('input[type="password"]')
+    expect(passphrase.exists()).toBe(true)
+
+    const submit = mounted.find('button[type="submit"]')
+    expect(submit.attributes('disabled')).toBeDefined()
+    await passphrase.setValue('kata-sandi-panjang')
+    expect(submit.attributes('disabled')).toBeUndefined()
+
+    await mounted.find('button[type="button"].file').trigger('click')
+    expect(mounted.find('textarea').exists()).toBe(true)
   })
 })

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { BRAND } from '#shared/brand'
+import { downloadTextFile } from '~/utils/download'
 
 /**
  * Kartu "Backup kode pemulihan" (PRD T22).
@@ -79,12 +80,7 @@ function downloadCode(): void {
   const file = account.recoveryBackupFile()
   if (file === null) return
 
-  const url = URL.createObjectURL(new Blob([file.text], { type: 'text/plain' }))
-  const anchor = document.createElement('a')
-  anchor.href = url
-  anchor.download = file.name
-  anchor.click()
-  URL.revokeObjectURL(url)
+  downloadTextFile(file.name, file.text, 'text/plain')
 }
 
 async function confirmSaved(): Promise<void> {
@@ -127,6 +123,10 @@ async function confirmSaved(): Promise<void> {
           </Button>
         </div>
         <p class="warning">{{ t('account.backup.warning') }}</p>
+        <details class="encrypted">
+          <summary>{{ t('account.backup.encrypted.toggle') }}</summary>
+          <AccountEncryptedBackupForm :code="code" />
+        </details>
       </section>
 
       <section class="step">
@@ -279,6 +279,17 @@ async function confirmSaved(): Promise<void> {
   color: var(--prio-medium-fg);
   font-size: var(--fs-caption);
   line-height: var(--lh-body);
+}
+
+.encrypted summary {
+  color: var(--accent);
+  font-weight: var(--fw-medium);
+  font-size: var(--fs-body-sm);
+  cursor: pointer;
+}
+
+.encrypted[open] summary {
+  margin-bottom: var(--space-6);
 }
 
 .confirm {

@@ -21,10 +21,13 @@ import { RECOVERY_MAX_ATTEMPTS, type RecoveryGuard } from '../crypto/recovery-gu
 import { loadSodium } from '../crypto/sodium'
 
 import { buildBackupCode } from './backup-code'
+import { encryptRecoveryBackup, serializeEncryptedBackup } from './encrypted-backup'
 import {
   BackupCodeFormatError,
+  BackupPassphraseError,
   RecoveryCodeRejectedError,
   RecoveryLockedError,
+  unlockWithEncryptedBackup,
   unlockWithPasskey,
   unlockWithRecoveryCode,
 } from './unlock'
@@ -156,6 +159,57 @@ describe('unlockWithRecoveryCode', () => {
     await expect(unlockWithRecoveryCode({ code, keyStore, guard })).rejects.toBeInstanceOf(
       RecoveryLockedError,
     )
+  })
+})
+
+describe('unlockWithEncryptedBackup', () => {
+  const PASSPHRASE = 'kata-sandi-yang-cukup-panjang'
+
+  async function encryptedFileFor(masterKey: Uint8Array): Promise<string> {
+    const document = await encryptRecoveryBackup({
+      payload: await backupFor(masterKey),
+      passphrase: PASSPHRASE,
+      createdAtMs: 1,
+    })
+    return serializeEncryptedBackup(document)
+  }
+
+  it('kata sandi benar membuka kunci yang sama dan memasang pembuka perangkat', async () => {
+    const original = createMasterKey(await loadSodium())
+    const keyStore = memoryKeyStore()
+
+    await unlockWithEncryptedBackup({
+      text: await encryptedFileFor(original),
+      passphrase: PASSPHRASE,
+      keyStore,
+      guard: memoryGuard(),
+    })
+
+    expect([...(await unlockMasterKeyWithDevice(keyStore))]).toEqual([...original])
+  })
+
+  it('kata sandi salah ditolak tanpa menghabiskan jatah dan tanpa menulis apa pun', async () => {
+    const text = await encryptedFileFor(createMasterKey(await loadSodium()))
+    const keyStore = memoryKeyStore()
+    const guard = memoryGuard()
+
+    await expect(
+      unlockWithEncryptedBackup({ text, passphrase: `${PASSPHRASE}-salah`, keyStore, guard }),
+    ).rejects.toBeInstanceOf(BackupPassphraseError)
+
+    expect((await guard.status()).remainingAttempts).toBe(RECOVERY_MAX_ATTEMPTS)
+    expect(await keyStore.has('device')).toBe(false)
+  })
+
+  it('berkas yang bukan berkas terenkripsi ditolak sebagai format salah', async () => {
+    await expect(
+      unlockWithEncryptedBackup({
+        text: '{"format":"aplikasi-lain"}',
+        passphrase: PASSPHRASE,
+        keyStore: memoryKeyStore(),
+        guard: memoryGuard(),
+      }),
+    ).rejects.toBeInstanceOf(BackupCodeFormatError)
   })
 })
 

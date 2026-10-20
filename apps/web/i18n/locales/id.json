@@ -85,7 +85,9 @@
     "change": "Ganti",
     "toggleDone": "Tandai selesai: {title}",
     "focus": "Fokus",
-    "days": "hari"
+    "days": "hari",
+    "showPassword": "Tampilkan kata sandi",
+    "hidePassword": "Sembunyikan kata sandi"
   },
   "theme": {
     "kuning": "Kuning",
@@ -1161,7 +1163,21 @@
       "share": "Bagikan",
       "confirmLabel": "Saya sudah menyimpan kode ini di tempat yang aman",
       "finish": "Selesai",
-      "preparing": "Menyiapkan kode pemulihan…"
+      "preparing": "Menyiapkan kode pemulihan…",
+      "encrypted": {
+        "toggle": "Atau unduh sebagai berkas terenkripsi kata sandi",
+        "intro": "Berkas ini aman ditaruh di flashdisk atau email, karena isinya tidak terbaca tanpa kata sandimu.",
+        "label": "Kata sandi berkas",
+        "rule": "Minimal {min} karakter. Huruf besar/kecil dihitung.",
+        "confirmLabel": "Ulangi kata sandi",
+        "tooShort": "Kata sandinya masih kurang panjang.",
+        "mismatch": "Kata sandinya belum sama.",
+        "warning": "Kata sandi ini tidak bisa dipulihkan. Lupa kata sandi = berkasnya tidak bisa dibuka.",
+        "download": "Unduh berkas terenkripsi",
+        "downloaded": "Terunduh ✓ (unduh lagi)",
+        "busy": "Mengenkripsi…",
+        "failed": "Berkas gagal dibuat. Coba lagi."
+      }
     },
     "passkeyOnboarding": {
       "title": "Privasimu Sepenuhnya Dijaga",
@@ -1199,12 +1215,17 @@
       "or": "atau pakai kode pemulihan",
       "codeLabel": "Kode pemulihan",
       "codePlaceholder": "Tempel kode pemulihanmu di sini",
-      "pickFile": "Pilih berkas kode (.txt)",
+      "pickFile": "Pilih berkas kode (.txt) atau berkas terenkripsi (.json)",
+      "passphraseLabel": "Kata sandi berkas",
+      "passphraseHint": "Kata sandi yang kamu pilih saat mengunduh berkas ini. Huruf besar/kecil dihitung.",
+      "useCode": "Pakai kode pemulihan saja",
       "submit": "Buka dengan kode pemulihan",
+      "submitFile": "Buka berkas terenkripsi",
       "busy": "Membuka kunci…",
       "logout": "Keluar dari akun",
       "errors": {
         "badFormat": "Kode tidak dikenali. Tempel seluruh kodenya, dari awal sampai akhir.",
+        "wrongPassphrase": "Kata sandi salah, atau berkasnya sudah berubah. Periksa huruf besar/kecilnya, lalu coba lagi.",
         "rejected": "Kode tidak cocok dengan akun ini. Sisa percobaan: {remaining}.",
         "locked": "Terlalu banyak percobaan. Coba lagi sekitar {minutes} menit lagi.",
         "noPasskey": "Akun ini belum punya passkey yang tersimpan. Pakai kode pemulihan.",

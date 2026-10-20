@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { isEncryptedBackupText } from '~/utils/account/encrypted-backup'
+
 /**
  * Layar "buka datamu di perangkat ini" - muncul saat `localData.status === 'locked'`: akunnya sudah
  * punya kunci, tapi perangkat ini belum punya pembukanya (perangkat baru, atau data situs terhapus).
@@ -6,6 +8,9 @@
  * Sama seperti onboarding passkey, dialog ini tidak bisa ditutup: di belakangnya tidak ada data yang
  * bisa dipakai, dan membiarkan user melewatinya berarti melihat aplikasi kosong tanpa penjelasan. Jalan
  * keluarnya adalah logout, supaya tidak jadi jalan buntu.
+ *
+ * Berkas yang dipilih bisa `.txt` berisi kode (langsung masuk ke kolom kode) atau berkas terenkripsi
+ * kata sandi (`.json`) - yang kedua mengganti kolom kode dengan kolom kata sandinya.
  */
 const MAX_CODE_FILE_BYTES = 64 * 1024
 const MS_PER_MINUTE = 60_000
@@ -17,8 +22,21 @@ const { t } = useI18n()
 
 const code = ref('')
 const fileError = ref(false)
+/** Isi berkas terenkripsi yang dipilih; `null` = alur kode biasa. */
+const encryptedBackup = ref<string | null>(null)
+const passphrase = ref('')
 
 const isOpen = computed(() => localData.state.value.status === 'locked')
+
+const canSubmit = computed(() => {
+  if (recovery.isBusy.value) return false
+  return encryptedBackup.value === null ? code.value.trim() !== '' : passphrase.value !== ''
+})
+
+const submitLabel = computed(() => {
+  if (recovery.isBusy.value) return t('account.unlock.busy')
+  return t(`account.unlock.${encryptedBackup.value === null ? 'submit' : 'submitFile'}`)
+})
 
 const errorText = computed(() => {
   if (fileError.value) return t('account.unlock.errors.fileTooLarge')
@@ -45,7 +63,26 @@ async function readCodeFile(event: Event): Promise<void> {
     return
   }
 
-  code.value = await file.text()
+  const text = await file.text()
+  if (isEncryptedBackupText(text)) {
+    encryptedBackup.value = text
+    passphrase.value = ''
+  } else {
+    encryptedBackup.value = null
+    code.value = text
+  }
+}
+
+function useCodeInstead(): void {
+  encryptedBackup.value = null
+  passphrase.value = ''
+}
+
+async function submit(): Promise<void> {
+  if (!canSubmit.value) return
+
+  if (encryptedBackup.value === null) await recovery.recoverWithCode(code.value)
+  else await recovery.recoverWithEncryptedBackup(encryptedBackup.value, passphrase.value)
 }
 </script>
 
@@ -66,29 +103,40 @@ async function readCodeFile(event: Event): Promise<void> {
 
     <p class="divider">{{ $t('account.unlock.or') }}</p>
 
-    <form class="code-form" @submit.prevent="recovery.recoverWithCode(code)">
-      <label class="code-label" for="recovery-code">{{ $t('account.unlock.codeLabel') }}</label>
-      <textarea
-        id="recovery-code"
-        v-model="code"
-        class="code"
-        rows="3"
-        autocomplete="off"
-        autocapitalize="off"
-        spellcheck="false"
-        :placeholder="$t('account.unlock.codePlaceholder')"
-      />
-      <label class="file">
-        <input type="file" accept=".txt,text/plain" @change="readCodeFile" />
-        {{ $t('account.unlock.pickFile') }}
-      </label>
-      <Button
-        type="submit"
-        variant="outline"
-        block
-        :disabled="recovery.isBusy.value || code.trim() === ''"
-      >
-        {{ recovery.isBusy.value ? $t('account.unlock.busy') : $t('account.unlock.submit') }}
+    <form class="code-form" @submit.prevent="submit">
+      <template v-if="encryptedBackup !== null">
+        <label class="code-label" for="recovery-passphrase">
+          {{ $t('account.unlock.passphraseLabel') }}
+        </label>
+        <PasswordInput id="recovery-passphrase" v-model="passphrase" />
+        <p class="hint">{{ $t('account.unlock.passphraseHint') }}</p>
+        <button type="button" class="file" @click="useCodeInstead">
+          {{ $t('account.unlock.useCode') }}
+        </button>
+      </template>
+      <template v-else>
+        <label class="code-label" for="recovery-code">{{ $t('account.unlock.codeLabel') }}</label>
+        <textarea
+          id="recovery-code"
+          v-model="code"
+          class="code"
+          rows="3"
+          autocomplete="off"
+          autocapitalize="off"
+          spellcheck="false"
+          :placeholder="$t('account.unlock.codePlaceholder')"
+        />
+        <label class="file">
+          <input
+            type="file"
+            accept=".txt,.json,text/plain,application/json"
+            @change="readCodeFile"
+          />
+          {{ $t('account.unlock.pickFile') }}
+        </label>
+      </template>
+      <Button type="submit" variant="outline" block :disabled="!canSubmit">
+        {{ submitLabel }}
       </Button>
     </form>
 
@@ -149,7 +197,16 @@ async function readCodeFile(event: Event): Promise<void> {
   word-break: break-all;
 }
 
+.hint {
+  color: var(--text-subtle);
+  font-size: var(--fs-caption);
+}
+
 .file {
+  align-self: flex-start;
+  padding: 0;
+  border: none;
+  background: none;
   color: var(--accent);
   font-weight: var(--fw-medium);
   font-size: var(--fs-body-sm);

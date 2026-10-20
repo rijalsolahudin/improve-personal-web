@@ -22,6 +22,7 @@ import {
   decryptRecoveryBackup,
   encryptRecoveryBackup,
   encryptedBackupFileName,
+  isEncryptedBackupText,
   parseEncryptedBackup,
   serializeEncryptedBackup,
 } from './encrypted-backup'
@@ -188,5 +189,33 @@ describe('berkas backup terenkripsi', () => {
     expect(() =>
       parseEncryptedBackup(JSON.stringify({ format: 'aplikasi-lain', version: 1 })),
     ).toThrow(/tidak dikenali/)
+  })
+
+  it('berkas yang meminta KDF berlebihan ditolak sebelum KDF dijalankan', async () => {
+    const document = await encryptRecoveryBackup({
+      payload: 'apa saja',
+      passphrase: PASSPHRASE,
+      createdAtMs: 1,
+    })
+
+    // 4 GiB memori: cukup untuk membekukan/mematikan tab kalau dipercaya mentah.
+    const greedy = serializeEncryptedBackup({ ...document, mem: 4 * 1024 * 1024 * 1024 })
+    expect(() => parseEncryptedBackup(greedy)).toThrow(/tidak dikenali/)
+    expect(() =>
+      parseEncryptedBackup(serializeEncryptedBackup({ ...document, ops: 1000 })),
+    ).toThrow(/tidak dikenali/)
+  })
+
+  it('mengenali berkas terenkripsi dari penandanya, dan tidak salah menganggap kode biasa', async () => {
+    const { words, envelope } = await freshPair()
+    const code = await buildBackupCode({ words, envelope })
+    const text = serializeEncryptedBackup(
+      await encryptRecoveryBackup({ payload: code, passphrase: PASSPHRASE, createdAtMs: 1 }),
+    )
+
+    expect(isEncryptedBackupText(text)).toBe(true)
+    expect(isEncryptedBackupText(code)).toBe(false)
+    expect(isEncryptedBackupText(JSON.stringify({ format: 'aplikasi-lain' }))).toBe(false)
+    expect(isEncryptedBackupText('null')).toBe(false)
   })
 })

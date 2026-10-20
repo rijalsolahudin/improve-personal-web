@@ -882,7 +882,7 @@ Tiap salinan digembok dengan pembuka berbeda:
 
 #### Lupa OTP / Email Nggak Bisa Akses
 - Buka pakai passkey, atau kode pemulihan
-- Layar pemulihan sudah ada: perangkat yang belum punya pembuka kunci melihat dialog "Buka datamu di perangkat ini" (passkey, atau tempel/unggah kode `iprk1.*`; 5 salah → dikunci 5 menit)
+- Layar pemulihan sudah ada: perangkat yang belum punya pembuka kunci melihat dialog "Buka datamu di perangkat ini" (passkey, tempel/unggah kode `iprk1.*`, atau unggah berkas terenkripsi `.json` + kata sandinya; 5 kode salah → dikunci 5 menit)
 - Dapat kunci utama
 - Tidak ada lagi "gembok OTP yang dibuat ulang" — Salinan 1 sudah dihapus, jadi login OTP/Google murni buat sesi API dan nggak menyentuh data terenkripsi
 
@@ -903,9 +903,13 @@ Tiap salinan digembok dengan pembuka berbeda:
 - **Disarankan, bukan gerbang:** user boleh menutup langkah ini; kartu yang sama bisa dibuka kapan saja dari halaman Akun
 - Berkas yang cuma memuat envelope (tanpa 24 kata) **nggak bisa berdiri sendiri** — itu sebabnya unduhan berisi kode, bukan cuma envelope
 
-#### Format Tambahan (ada di level data, UI menyusul)
-- **Berkas terenkripsi kata sandi pilihan user** — Argon2id + XChaCha20-Poly1305, kata sandi minimum 12 karakter, huruf besar/kecil dihitung. Kode & test-nya sudah ada; **UI-nya belum ada**
-- Kode tunggal `iprk1.*` adalah satu-satunya isi backup yang benar-benar ada di UI sekarang (dibagikan lewat share sheet, Salin, atau unduh `.txt`)
+#### Format Tambahan: Berkas Terenkripsi Kata Sandi
+- **Berkas terenkripsi kata sandi pilihan user** — Argon2id + XChaCha20-Poly1305, kata sandi minimum 12 karakter (diketik dua kali), huruf besar/kecil dihitung. Isinya kode `iprk1.*`, jadi berkasnya bisa berdiri sendiri
+- Dibuat dari kartu backup (langkah 1, "Atau unduh sebagai berkas terenkripsi kata sandi") → unduh `improve-personal-recovery-encrypted.json`
+- Dibuka di layar pemulihan: pilih berkas `.json` → kolom kode diganti kolom kata sandi
+- Kata sandi salah **tidak** menghabiskan jatah 5 percobaan: berkasnya toh bisa ditebak offline oleh siapa pun yang memegangnya, jadi jatah di perangkat tidak melindungi apa pun. Jatah tetap berlaku untuk kode di dalamnya
+- Lupa kata sandi = berkasnya tidak bisa dibuka; ini dikatakan di UI sebelum unduh
+- Parameter Argon2id dari berkas dibatasi (ops ≤ 4, mem ≤ 256 MiB) supaya berkas buatan orang lain tidak bisa membekukan tab
 
 #### Server TIDAK Menyimpan Kode Pemulihan
 - Keputusan: server nggak menyimpan kode pemulihan/24 kata dalam bentuk apa pun (ADR 11). Satu-satunya envelope kunci yang boleh ada di server adalah `passkey` (`KEY_SLOTS = ['passkey']`)
@@ -924,7 +928,7 @@ Tiap salinan digembok dengan pembuka berbeda:
   - HP kirim salinan kunci utama via QR (encrypted)
   - Device baru terima & decrypt
   - Device baru jadi trusted (setup sidik jari/Face ID)
-  - Alternatif: passkey (sudah jalan) atau kode pemulihan (layar pemulihannya belum ada)
+  - Alternatif: passkey (sudah jalan), kode pemulihan, atau berkas terenkripsi kata sandi (layar pemulihannya sudah ada)
 
 ### Sync
 
@@ -1019,7 +1023,6 @@ Tiap salinan digembok dengan pembuka berbeda:
 
 ### Yang Belum Ada (jujur)
 
-- **Layar pulih (berkas terenkripsi kata sandi)** — layar pulih untuk kode `iprk1.*` (tempel/unggah `.txt`) dan passkey sudah ada; format berkas terenkripsi kata sandi belum ada di layarnya
 - **Simpan langsung ke Google Drive dari dalam app** — belum ada; yang ada cuma share sheet OS / unduh berkas
 - **Tambah perangkat via QR (UI)** — belum ada
 - **Hapus akun via UI** — belum ada (endpoint server sudah ada)

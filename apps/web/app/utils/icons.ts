@@ -639,6 +639,16 @@ export const ICONS = {
       'M15.625 8.387V8.91649M8.375 8.387V8.91649M8.75 8.75C8.75 8.33579 8.58211 8 8.375 8C8.16789 8 8 8.33579 8 8.75C8 9.16421 8.16789 9.5 8.375 9.5C8.58211 9.5 8.75 9.16421 8.75 8.75ZM16 8.75C16 8.33579 15.8321 8 15.625 8C15.4179 8 15.25 8.33579 15.25 8.75C15.25 9.16421 15.4179 9.5 15.625 9.5C15.8321 9.5 16 9.16421 16 8.75Z',
     ),
   ],
+  // Digambar sendiri dengan gaya yang sama (bukan dari Hugeicons): mata terbuka / tercoret.
+  eye: [
+    path('M2 12C3.6 8 7.4 5 12 5C16.6 5 20.4 8 22 12C20.4 16 16.6 19 12 19C7.4 19 3.6 16 2 12Z'),
+    circle(12, 12, 3),
+  ],
+  'eye-off': [
+    path('M2 12C3.6 8 7.4 5 12 5C16.6 5 20.4 8 22 12C20.4 16 16.6 19 12 19C7.4 19 3.6 16 2 12Z'),
+    circle(12, 12, 3),
+    path('M3 3L21 21'),
+  ],
 } as const satisfies Record<string, readonly SvgElement[]>
 
 export type IconName = keyof typeof ICONS

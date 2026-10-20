@@ -1,8 +1,10 @@
 import { BRAND } from '#shared/brand'
 import {
   BackupCodeFormatError,
+  BackupPassphraseError,
   RecoveryCodeRejectedError,
   RecoveryLockedError,
+  unlockWithEncryptedBackup,
   unlockWithPasskey,
   unlockWithRecoveryCode,
 } from '~/utils/account/unlock'
@@ -19,13 +21,19 @@ import { keyDatabaseName } from '~/utils/storage/session'
 
 /** Kunci pesan di `account.unlock.errors.*`: UI tidak pernah menampilkan pesan mentah dari kripto/server. */
 export type KeyRecoveryError =
-  'badFormat' | 'rejected' | 'locked' | 'noPasskey' | 'passkeyFailed' | 'network'
+  | 'badFormat'
+  | 'wrongPassphrase'
+  | 'rejected'
+  | 'locked'
+  | 'noPasskey'
+  | 'passkeyFailed'
+  | 'network'
 
 /**
  * Pemulihan akses di perangkat yang belum punya pembuka kunci (`localData.status === 'locked'`).
  *
- * Dua jalan, hasilnya sama: kunci utama dibuka lalu dibungkus pembuka perangkat, dan sesi lokal dibuka
- * ulang seperti biasa. Aturan kriptonya ada di `utils/account/unlock.ts`; di sini hanya merangkai
+ * Tiga jalan (kode, berkas terenkripsi kata sandi, passkey), hasilnya sama: kunci utama dibuka lalu
+ * dibungkus pembuka perangkat, dan sesi lokal dibuka ulang seperti biasa. Aturan kriptonya ada di `utils/account/unlock.ts`; di sini hanya merangkai
  * penyimpanan kunci akun yang login, status UI, dan pemetaan error ke kunci pesan.
  */
 export function useKeyRecovery() {
@@ -81,6 +89,10 @@ export function useKeyRecovery() {
     await run(() => unlockWithRecoveryCode({ code, ...stores() }))
   }
 
+  async function recoverWithEncryptedBackup(text: string, passphrase: string): Promise<void> {
+    await run(() => unlockWithEncryptedBackup({ text, passphrase, ...stores() }))
+  }
+
   async function recoverWithPasskey(): Promise<void> {
     await run(async () => {
       const keys = createKeysGateway((path, init) => $fetch(path, init))
@@ -106,6 +118,7 @@ export function useKeyRecovery() {
     lockedUntilMs: computed(() => lockedUntilMs.value),
     isPasskeySupported,
     recoverWithCode,
+    recoverWithEncryptedBackup,
     recoverWithPasskey,
   }
 }
@@ -127,6 +140,7 @@ function passkeyEnvelopeFrom(
 
 function errorFrom(cause: unknown): KeyRecoveryError {
   if (cause instanceof BackupCodeFormatError) return 'badFormat'
+  if (cause instanceof BackupPassphraseError) return 'wrongPassphrase'
   if (cause instanceof RecoveryCodeRejectedError) return 'rejected'
   if (cause instanceof RecoveryLockedError) return 'locked'
   if (cause instanceof NoPasskeyEnvelopeError) return 'noPasskey'
