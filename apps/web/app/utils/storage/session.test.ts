@@ -171,6 +171,44 @@ describe('sesi data lokal', () => {
     ).rejects.toBeInstanceOf(LocalKeyMissingError)
   })
 
+  it('TIDAK membuat kunci baru kalau akunnya sudah punya kunci di tempat lain (canCreateKey = false)', async () => {
+    const dbNames = names()
+
+    await expect(
+      openLocalDataSession({
+        userId: USER_ID,
+        clock: createManualClock(START_MS),
+        canCreateKey: async () => false,
+        ...dbNames,
+      }),
+    ).rejects.toBeInstanceOf(LocalKeyMissingError)
+
+    // Tidak ada pembuka yang tertulis: perangkat tetap "belum punya kunci", bukan setengah jadi.
+    expect(await createWebKeyStore({ databaseName: dbNames.keysDatabaseName }).has('device')).toBe(
+      false,
+    )
+  })
+
+  it('canCreateKey tidak ditanya kalau perangkat sudah punya pembuka', async () => {
+    const dbNames = names()
+    const clock = createManualClock(START_MS)
+    await openLocalDataSession({ userId: USER_ID, clock, ...dbNames })
+
+    let asked = false
+    const second = await openLocalDataSession({
+      userId: USER_ID,
+      clock,
+      canCreateKey: async () => {
+        asked = true
+        return false
+      },
+      ...dbNames,
+    })
+
+    expect(asked).toBe(false)
+    expect(second.isFreshKey).toBe(false)
+  })
+
   it('withMasterKey membuka kunci utama dari perangkat dan mengosongkannya lagi', async () => {
     const session = await openLocalDataSession({
       userId: USER_ID,

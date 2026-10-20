@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import E2eeExplainer from '~/components/features/account/E2eeExplainer.vue'
 import RecoveryBackupCard from '~/components/features/account/RecoveryBackupCard.vue'
 import { BRAND } from '#shared/brand'
 import { isWebAuthnAvailable } from '~/utils/crypto/webauthn'
@@ -27,10 +28,10 @@ import {
  * artinya - dan penandanya disimpan supaya dialognya tidak muncul lagi.
  */
 const account = useAccount()
+const { logout } = useLogout()
 const localData = useLocalData()
 const { session, ensureLoaded } = useAuthSession()
 
-const dialog = ref<HTMLElement | null>(null)
 const isActivating = ref(false)
 
 /**
@@ -62,8 +63,6 @@ onMounted(async () => {
   isSupported.value = isWebAuthnAvailable()
   await ensureLoaded()
   await account.load()
-
-  void nextTick(() => dialog.value?.focus())
 })
 
 async function activate(): Promise<void> {
@@ -94,178 +93,137 @@ function continueWithoutPasskey(): void {
   writePasskeySkip()
   account.load()
 }
-
-/**
- * Jaga fokus tetap di dalam dialog.
- *
- * Tanpa ini, Tab bisa membawa fokus ke elemen di belakang: user tidak bisa menutupnya, tapi bisa
- * "menyentuh" aplikasi yang belum boleh dipakai - dan itu bikin aturannya kelihatan seperti saran.
- */
-function trapFocus(event: KeyboardEvent): void {
-  const root = dialog.value
-  if (root === null) return
-
-  const focusable = [...root.querySelectorAll<HTMLElement>('button:not([disabled]), a[href]')]
-  const first = focusable[0]
-  const last = focusable.at(-1)
-  if (first === undefined || last === undefined) return
-
-  if (event.shiftKey && document.activeElement === first) {
-    event.preventDefault()
-    last.focus()
-    return
-  }
-
-  if (!event.shiftKey && document.activeElement === last) {
-    event.preventDefault()
-    first.focus()
-  }
-}
 </script>
 
 <template>
-  <ClientOnly>
-    <div v-if="isOpen" class="backdrop">
-      <section
-        ref="dialog"
-        class="dialog"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="passkey-onboarding-title"
-        tabindex="-1"
-        @keydown.esc.prevent
-        @keydown.tab="trapFocus"
+  <Modal :open="isOpen" labelled-by="passkey-onboarding-title">
+    <span class="badge" aria-hidden="true">
+      <svg
+        width="28"
+        height="28"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
       >
-        <h2 id="passkey-onboarding-title" class="title">
-          {{ $t('account.passkeyOnboarding.title') }}
-        </h2>
-        <p class="why">{{ $t('account.passkeyOnboarding.why') }}</p>
+        <rect x="4" y="10" width="16" height="11" rx="3" />
+        <path d="M8 10V7a4 4 0 0 1 8 0v3" />
+        <path d="M12 14.5v2" />
+      </svg>
+    </span>
 
-        <template v-if="backupStep">
-          <p class="cannot-skip">{{ $t('account.passkeyOnboarding.backupHint') }}</p>
-          <RecoveryBackupCard />
-          <div class="actions">
-            <button type="button" class="button button--primary" @click="closeOnboarding">
-              {{ $t('account.passkeyOnboarding.done') }}
-            </button>
-          </div>
-        </template>
+    <h2 id="passkey-onboarding-title" class="title">
+      {{
+        backupStep
+          ? $t('account.passkeyOnboarding.backupTitle')
+          : $t('account.passkeyOnboarding.title')
+      }}
+    </h2>
 
-        <template v-else-if="isSupported">
-          <p class="cannot-skip">{{ $t('account.passkeyOnboarding.cannotSkip') }}</p>
+    <template v-if="backupStep">
+      <p class="lead">{{ $t('account.passkeyOnboarding.backupHint') }}</p>
+      <RecoveryBackupCard is-embedded />
+      <Button block @click="closeOnboarding">
+        {{ $t('account.passkeyOnboarding.done') }}
+      </Button>
+    </template>
 
-          <div class="actions">
-            <button
-              type="button"
-              class="button button--primary"
-              :disabled="isActivating || account.busy.value"
-              @click="activate"
-            >
-              {{
-                isActivating
-                  ? $t('account.passkeyOnboarding.activating')
-                  : $t('account.passkeyOnboarding.activate')
-              }}
-            </button>
-          </div>
-        </template>
+    <template v-else>
+      <p class="lead">{{ $t('account.passkeyOnboarding.why', { app: BRAND.name }) }}</p>
+      <E2eeExplainer />
 
+      <div class="actions">
+        <Button
+          v-if="isSupported"
+          size="lg"
+          block
+          :disabled="isActivating || account.busy.value"
+          @click="activate"
+        >
+          {{
+            isActivating
+              ? $t('account.passkeyOnboarding.activating')
+              : $t('account.passkeyOnboarding.activate')
+          }}
+        </Button>
         <template v-else>
-          <p class="cannot-skip">{{ PASSKEY_UNAVAILABLE_HINT }}</p>
-          <div class="actions">
-            <button type="button" class="button" @click="continueWithoutPasskey">
-              {{ $t('account.passkeyOnboarding.continueWithout') }}
-            </button>
-          </div>
+          <p class="note note--warn">{{ PASSKEY_UNAVAILABLE_HINT }}</p>
+          <Button variant="outline" block @click="continueWithoutPasskey">
+            {{ $t('account.passkeyOnboarding.continueWithout') }}
+          </Button>
         </template>
+        <Button variant="ghost" block @click="backupStep = true">
+          {{ $t('account.passkeyOnboarding.backupFirst') }}
+        </Button>
+      </div>
 
-        <div v-if="!backupStep" class="actions">
-          <button type="button" class="button" @click="backupStep = true">
-            {{ $t('account.passkeyOnboarding.backupFirst') }}
-          </button>
-        </div>
+      <p v-if="isSupported" class="note note--center">
+        {{ $t('account.passkeyOnboarding.cannotSkip') }}
+      </p>
 
-        <p v-if="account.error.value" class="error" role="alert">
-          {{ $t('account.errorPrefix') }} {{ account.error.value }}
-        </p>
-      </section>
-    </div>
-  </ClientOnly>
+      <Button variant="ghost" size="sm" block @click="logout">
+        {{ $t('account.passkeyOnboarding.logout') }}
+      </Button>
+    </template>
+
+    <p v-if="account.error.value" class="error" role="alert">
+      {{ $t('account.errorPrefix') }} {{ account.error.value }}
+    </p>
+  </Modal>
 </template>
 
 <style scoped>
-.backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 200;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 1rem;
-  background: rgba(32, 24, 16, 0.55);
-  overflow-y: auto;
-}
-
-.dialog {
-  width: min(38rem, 100%);
-  max-height: 90vh;
-  overflow-y: auto;
-  padding: 1.25rem;
-  border-radius: 0.9rem;
-  background: #fffdf8;
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
+.badge {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  border-radius: var(--radius-pill);
+  background: var(--chip);
+  color: var(--accent);
 }
 
 .title {
-  margin: 0 0 0.5rem;
-  font-size: 1.15rem;
+  font-family: var(--font-display);
+  font-weight: var(--fw-display);
+  font-size: var(--fs-h1);
+  line-height: var(--lh-title);
 }
 
-.why {
-  margin: 0 0 0.6rem;
-  line-height: 1.5;
-}
-
-.cannot-skip {
-  margin: 0 0 0.6rem;
-  padding: 0.5rem 0.75rem;
-  border-radius: 0.5rem;
-  background: #fff0c8;
-  color: #8a5a00;
-  font-size: 0.85rem;
+.lead {
+  color: var(--ink);
+  font-weight: var(--fw-medium);
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
 }
 
 .actions {
   display: flex;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-  margin-top: 0.5rem;
+  flex-direction: column;
+  gap: var(--space-4);
+  margin-top: var(--space-4);
 }
 
-.button {
-  padding: 0.55rem 1.1rem;
-  border: 1px solid #d8cfc0;
-  border-radius: 0.5rem;
-  background: #fff;
-  cursor: pointer;
+.note {
+  color: var(--text-subtle);
+  font-size: var(--fs-caption);
 }
 
-.button--primary {
-  border-color: #0a55e6;
-  background: #0a55e6;
-  color: #fff;
+.note--center {
+  text-align: center;
 }
 
-.button--primary:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+.note--warn {
+  color: var(--danger);
 }
 
 .error {
-  margin: 0.6rem 0 0;
-  padding: 0.5rem 0.75rem;
-  border-radius: 0.5rem;
+  padding: var(--space-4) var(--space-6);
+  border-radius: var(--radius-inner);
   background: #ffe1da;
-  color: #b0283e;
+  color: var(--danger);
+  font-size: var(--fs-body-sm);
 }
 </style>

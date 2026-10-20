@@ -16,6 +16,11 @@ import { BRAND } from '#shared/brand'
  * Yang BELUM, dan tidak diklaim ada: integrasi Drive langsung ("Simpan ke Drive" dari dalam app). Itu
  * butuh scope OAuth `drive.file` + consent screen, dan client Google app ini masih placeholder.
  */
+const { isEmbedded = false } = defineProps<{
+  /** Di dalam dialog onboarding: tanpa bingkai kartu & judul, karena dialognya sudah punya. */
+  isEmbedded?: boolean
+}>()
+
 const account = useAccount()
 const { t } = useI18n()
 
@@ -84,47 +89,37 @@ async function confirmSaved(): Promise<void> {
 </script>
 
 <template>
-  <article class="card">
-    <h2 class="card-title">{{ t('account.backup.title') }}</h2>
-    <p class="hint">{{ t('account.backup.intro') }}</p>
+  <article class="card" :class="{ 'card--embedded': isEmbedded }">
+    <template v-if="!isEmbedded">
+      <h2 class="card-title">{{ t('account.backup.title') }}</h2>
+      <p class="hint">{{ t('account.backup.intro') }}</p>
+    </template>
 
-    <p class="row">
-      <span class="label">{{ t('account.backup.statusLabel') }}</span>
-      <span :class="['badge', isSaved ? 'ok' : 'warn']">
+    <p class="status">
+      <span>{{ t('account.backup.statusLabel') }}</span>
+      <span :class="['badge', isSaved ? 'badge--ok' : 'badge--warn']">
         {{ t(`account.backup.status.${isSaved ? 'set' : 'unset'}`) }}
       </span>
     </p>
 
     <div v-if="account.freshRecoveryCode.value" class="block">
-      <p class="notice">{{ t('account.backup.readyToSave') }}</p>
+      <p class="hint">{{ t('account.backup.readyToSave') }}</p>
 
-      <div class="actions">
-        <button
-          type="button"
-          class="button button--primary"
-          :disabled="account.busy.value"
-          @click="saveToCloud"
-        >
-          {{ t('account.backup.saveToCloud') }}
-        </button>
-        <button type="button" class="button" @click="copyCode">
-          {{ t('account.backup.copy') }}
-        </button>
-        <button type="button" class="button" @click="downloadCode">
-          {{ t('account.backup.download') }}
-        </button>
-        <button type="button" class="button" :disabled="account.busy.value" @click="confirmSaved">
-          {{ t('account.backup.saved') }}
-        </button>
+      <Button block :disabled="account.busy.value" @click="saveToCloud">
+        {{ t('account.backup.saveToCloud') }}
+      </Button>
+      <div class="pair">
+        <Button variant="outline" @click="copyCode">{{ t('account.backup.copy') }}</Button>
+        <Button variant="outline" @click="downloadCode">{{ t('account.backup.download') }}</Button>
       </div>
 
-      <p v-if="notice === 'share-unavailable'" class="notice">
+      <p v-if="notice === 'share-unavailable'" class="hint">
         {{ t('account.backup.shareUnavailable') }}
       </p>
-      <p v-else-if="notice === 'share-cancelled'" class="notice">
+      <p v-else-if="notice === 'share-cancelled'" class="hint">
         {{ t('account.backup.shareCancelled') }}
       </p>
-      <p v-else-if="notice === 'copied'" class="notice">{{ t('account.backup.copied') }}</p>
+      <p v-else-if="notice === 'copied'" class="hint">{{ t('account.backup.copied') }}</p>
 
       <textarea
         v-if="revealed"
@@ -133,117 +128,106 @@ async function confirmSaved(): Promise<void> {
         rows="3"
         :value="account.freshRecoveryCode.value"
       />
+
+      <Button variant="soft" block :disabled="account.busy.value" @click="confirmSaved">
+        {{ t('account.backup.saved') }}
+      </Button>
     </div>
 
-    <div v-else class="actions">
-      <button
-        type="button"
-        class="button button--primary"
-        :disabled="account.busy.value"
-        @click="account.createRecoveryBackup"
-      >
-        {{ isSaved ? t('account.backup.recreate') : t('account.backup.create') }}
-      </button>
-    </div>
+    <Button v-else block :disabled="account.busy.value" @click="account.createRecoveryBackup">
+      {{ isSaved ? t('account.backup.recreate') : t('account.backup.create') }}
+    </Button>
 
     <p class="warning">{{ t('account.backup.warning') }}</p>
-    <p class="hint">{{ t('account.backup.driveNote') }}</p>
+    <p v-if="!isEmbedded" class="hint">{{ t('account.backup.driveNote') }}</p>
   </article>
 </template>
 
 <style scoped>
 .card {
-  padding: 1rem;
-  border: 1px solid #e6ded1;
-  border-radius: 0.8rem;
-  background: #fffdf8;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  padding: var(--space-10);
+  background: var(--surface-card);
+  border: var(--border) solid var(--outline);
+  border-radius: var(--radius-card);
+}
+
+.card--embedded {
+  padding: 0;
+  background: none;
+  border: none;
 }
 
 .card-title {
-  margin: 0 0 0.6rem;
-  font-size: 1rem;
-}
-
-.row {
-  display: flex;
-  gap: 0.6rem;
-  align-items: center;
-  margin: 0.2rem 0;
-}
-
-.label {
-  min-width: 9rem;
-}
-
-.badge {
-  padding: 0.1rem 0.5rem;
-  border-radius: 999px;
-  font-size: 0.75rem;
-}
-
-.badge.ok {
-  background: #dff2e3;
-  color: #1d6b34;
-}
-
-.badge.warn {
-  background: #fff0c8;
-  color: #8a5a00;
+  font-family: var(--font-display);
+  font-weight: var(--fw-display);
+  font-size: var(--fs-h3);
 }
 
 .hint {
-  margin: 0.4rem 0;
-  font-size: 0.85rem;
-  opacity: 0.8;
+  color: var(--text-muted);
+  font-size: var(--fs-body-sm);
+  line-height: var(--lh-body);
+}
+
+.status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-6);
+  padding: var(--space-6) var(--space-8);
+  background: var(--surface-inset);
+  border-radius: var(--radius-inner);
+  font-weight: var(--fw-medium);
+  font-size: var(--fs-body-sm);
+}
+
+.badge {
+  padding: var(--space-1) var(--space-5);
+  border-radius: var(--radius-pill);
+  font-size: var(--fs-caption);
+}
+
+.badge--ok {
+  background: var(--success-soft);
+  color: var(--success);
+}
+
+.badge--warn {
+  background: var(--prio-medium-bg);
+  color: var(--prio-medium-fg);
 }
 
 .block {
-  margin-top: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
 }
 
-.notice {
-  margin: 0.4rem 0;
-  font-size: 0.85rem;
+.pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-6);
 }
 
 .warning {
-  margin: 0.6rem 0 0.2rem;
-  padding: 0.5rem 0.75rem;
-  border-radius: 0.5rem;
-  background: #fff0c8;
-  color: #8a5a00;
-  font-size: 0.8rem;
-}
-
-.actions {
-  display: flex;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-  margin-top: 0.4rem;
-}
-
-.button {
-  padding: 0.45rem 0.9rem;
-  border: 1px solid #d8cfc0;
-  border-radius: 0.5rem;
-  background: #fff;
-  cursor: pointer;
-}
-
-.button--primary {
-  border-color: #0a55e6;
-  background: #0a55e6;
-  color: #fff;
+  padding: var(--space-6) var(--space-8);
+  border-radius: var(--radius-inner);
+  background: var(--prio-medium-bg);
+  color: var(--prio-medium-fg);
+  font-size: var(--fs-caption);
+  line-height: var(--lh-body);
 }
 
 .code {
   width: 100%;
-  margin-top: 0.5rem;
-  padding: 0.5rem;
-  border: 1px solid #d8cfc0;
-  border-radius: 0.5rem;
-  font-family: var(--font-mono, monospace);
-  font-size: 0.72rem;
+  padding: var(--space-6);
+  border: var(--border-thin) solid var(--line);
+  border-radius: var(--radius-inner);
+  font-family: ui-monospace, monospace;
+  font-size: var(--fs-caption);
   word-break: break-all;
 }
 </style>

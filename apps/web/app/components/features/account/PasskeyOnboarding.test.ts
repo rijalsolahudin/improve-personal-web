@@ -63,7 +63,7 @@ describe('onboarding passkey', () => {
     await nextTick()
 
     expect(wrapper.find('[role="dialog"]').exists()).toBe(true)
-    expect(wrapper.text()).toContain('Face ID/passkey')
+    expect(wrapper.find('#passkey-onboarding-title').text()).toBe('Amankan datamu')
   })
 
   it('TIDAK punya cara untuk ditutup: tanpa tombol tutup, Esc & klik latar tidak menghilangkannya', async () => {

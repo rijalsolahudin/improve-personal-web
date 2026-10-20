@@ -30,6 +30,8 @@ function toggleDeco(): void {
     </main>
     <!-- Onboarding pembuka kunci: satu tap Face ID/passkey, tidak bisa ditutup sampai selesai. -->
     <AccountPasskeyOnboarding />
+    <!-- Perangkat tanpa pembuka kunci (perangkat baru / data situs terhapus): buka lewat passkey atau kode. -->
+    <AccountKeyRecoveryGate />
     <LazyDecoLayer v-if="isDecoMounted" />
     <div class="fab-dock" data-deco-ui>
       <ShellPomodoroPill />

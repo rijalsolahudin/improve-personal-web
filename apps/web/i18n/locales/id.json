@@ -1164,15 +1164,53 @@
       "driveNote": "Simpan langsung ke Google Drive dari dalam app belum ada - untuk sekarang lewat menu Simpan ke cloud / unduh berkas."
     },
     "passkeyOnboarding": {
-      "title": "Satu langkah lagi: aktifkan Face ID/passkey",
-      "why": "Datamu dienkripsi dengan kunci yang dibuat di perangkat ini, dan kunci itu tidak pernah dikirim ke server. Kalau perangkat ini hilang, satu-satunya jalan kembali adalah pembuka yang kamu pegang sendiri - dan itu passkey ini. Sekali sentuh Face ID atau sidik jari, selesai: tidak ada kata-kata yang perlu ditulis.",
-      "cannotSkip": "Jendela ini belum bisa ditutup. Bukan untuk mengganggu: tanpa pembuka ini, data di perangkatmu tidak bisa dipulihkan oleh siapa pun - termasuk kami.",
+      "title": "Amankan datamu",
+      "why": "Kami sangat menjaga privasimu. Isi datamu tersimpan terenkripsi di database kami, jadi tidak ada yang bisa membacanya - bahkan tim {app} sendiri.",
+      "cannotSkip": "Wajib sekali saja, supaya datamu tetap bisa dipulihkan.",
       "activate": "Aktifkan Face ID/passkey",
       "activating": "Menunggu konfirmasi perangkat…",
       "continueWithout": "Lanjut tanpa passkey",
-      "backupHint": "Terakhir: simpan kode pemulihanmu. Satu tap ke cloud-mu, dan kamu selesai.",
+      "backupHint": "Kode ini cadangan kedua selain passkey. Simpan di tempat yang kamu percaya, lalu tandai sudah disimpan.",
       "done": "Tutup",
-      "backupFirst": "Simpan kode pemulihan dulu"
+      "backupFirst": "Simpan kode pemulihan dulu",
+      "backupTitle": "Simpan kode pemulihan",
+      "e2ee": {
+        "encrypted": {
+          "title": "Terenkripsi end-to-end",
+          "body": "Datamu dikunci di perangkat ini sebelum dikirim. Yang sampai ke server hanya data teracak."
+        },
+        "ownKey": {
+          "title": "Kuncinya cuma milikmu",
+          "body": "Kunci tidak pernah keluar dari perangkat. Jadi tidak ada \"reset password\" yang bisa kami lakukan untukmu."
+        },
+        "passkey": {
+          "title": "Passkey jadi kunci cadangan",
+          "body": "Kalau perangkat hilang atau ganti HP, cukup Face ID/sidik jari untuk membuka datamu lagi. Tanpa itu, data tidak bisa dipulihkan siapa pun."
+        }
+      },
+      "logout": "Keluar dari akun"
+    },
+    "unlock": {
+      "title": "Buka datamu di perangkat ini",
+      "lead": "Akunmu sudah punya kunci enkripsi di perangkat lain, dan perangkat ini belum punya pembukanya. Pilih salah satu cara di bawah.",
+      "passkey": "Buka dengan Face ID/passkey",
+      "passkeyBusy": "Menunggu konfirmasi perangkat…",
+      "or": "atau pakai kode pemulihan",
+      "codeLabel": "Kode pemulihan",
+      "codePlaceholder": "Tempel kode pemulihanmu di sini",
+      "pickFile": "Pilih berkas kode (.txt)",
+      "submit": "Buka dengan kode pemulihan",
+      "busy": "Membuka kunci…",
+      "logout": "Keluar dari akun",
+      "errors": {
+        "badFormat": "Kode tidak dikenali. Tempel seluruh kodenya, dari awal sampai akhir.",
+        "rejected": "Kode tidak cocok dengan akun ini. Sisa percobaan: {remaining}.",
+        "locked": "Terlalu banyak percobaan. Coba lagi sekitar {minutes} menit lagi.",
+        "noPasskey": "Akun ini belum punya passkey yang tersimpan. Pakai kode pemulihan.",
+        "passkeyFailed": "Passkey tidak bisa dipakai: dibatalkan, atau bukan passkey untuk akun ini. Coba lagi, atau pakai kode pemulihan.",
+        "network": "Server tidak terjangkau. Periksa koneksi, lalu coba lagi.",
+        "fileTooLarge": "Berkas terlalu besar untuk berisi kode pemulihan."
+      }
     }
   }
 }

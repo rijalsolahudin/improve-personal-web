@@ -858,7 +858,7 @@ Tiap salinan digembok dengan pembuka berbeda:
 
 ##### Salinan 1: Digembok OTP (dari email login) — DIHAPUS
 - OTP/Google cuma buat **login (autentikasi)**, bukan buat **buka kunci**.
-- Perangkat baru buka kunci lewat: passkey PRF (sudah jalan), atau kode pemulihan / QR dari perangkat lama (layar pemulihannya belum ada — lihat "Yang Belum Ada" di akhir F15).
+- Perangkat baru buka kunci lewat: passkey PRF (sudah jalan), atau kode pemulihan / QR dari perangkat lama (layar pemulihannya sudah ada: dialog "Buka datamu di perangkat ini").
 - Alasan dihapus: OTP dibuat server, jadi server tahu pembukanya. Ruang OTP cuma 10⁶ → brute-force offline praktis instan walau pakai Argon2id. Lihat ADR 10 di `ARCHITECTURE.md` §14.
 
 ##### Salinan 2: Digembok Sidik Jari / Face ID
@@ -882,7 +882,7 @@ Tiap salinan digembok dengan pembuka berbeda:
 
 #### Lupa OTP / Email Nggak Bisa Akses
 - Buka pakai passkey, atau kode pemulihan
-- Layar pemulihan (memasukkan kode/berkas di perangkat baru) **belum ada** — lihat "Yang Belum Ada" di akhir F15
+- Layar pemulihan sudah ada: perangkat yang belum punya pembuka kunci melihat dialog "Buka datamu di perangkat ini" (passkey, atau tempel/unggah kode `iprk1.*`; 5 salah → dikunci 5 menit)
 - Dapat kunci utama
 - Tidak ada lagi "gembok OTP yang dibuat ulang" — Salinan 1 sudah dihapus, jadi login OTP/Google murni buat sesi API dan nggak menyentuh data terenkripsi
 
@@ -1019,7 +1019,7 @@ Tiap salinan digembok dengan pembuka berbeda:
 
 ### Yang Belum Ada (jujur)
 
-- **Layar pulih** — memasukkan kode pemulihan / berkas / berkas terenkripsi saat pembuka perangkat hilang: belum ada
+- **Layar pulih (berkas terenkripsi kata sandi)** — layar pulih untuk kode `iprk1.*` (tempel/unggah `.txt`) dan passkey sudah ada; format berkas terenkripsi kata sandi belum ada di layarnya
 - **Simpan langsung ke Google Drive dari dalam app** — belum ada; yang ada cuma share sheet OS / unduh berkas
 - **Tambah perangkat via QR (UI)** — belum ada
 - **Hapus akun via UI** — belum ada (endpoint server sudah ada)

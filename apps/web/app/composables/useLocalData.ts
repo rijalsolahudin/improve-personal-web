@@ -1,4 +1,9 @@
-import { openLocalDataSession, type LocalDataSession } from '~/utils/storage/session'
+import { createKeysGateway } from '~/utils/crypto/keys-gateway'
+import {
+  LocalKeyMissingError,
+  openLocalDataSession,
+  type LocalDataSession,
+} from '~/utils/storage/session'
 
 import { useAuthSession } from './useAuthSession'
 
@@ -19,7 +24,11 @@ import { useAuthSession } from './useAuthSession'
  *    dibuka tanpa akun yang jelas.
  */
 
-export type LocalDataStatus = 'idle' | 'loading' | 'ready' | 'error'
+/**
+ * `locked` = akun ini sudah punya kunci (di server atau data lokal), tapi perangkat ini belum punya
+ * pembukanya. Bukan error: jalan keluarnya adalah layar pemulihan (passkey / kode pemulihan).
+ */
+export type LocalDataStatus = 'idle' | 'loading' | 'ready' | 'locked' | 'error'
 
 export type LocalDataState = {
   readonly status: LocalDataStatus
@@ -38,6 +47,19 @@ function emptyState(status: LocalDataStatus): LocalDataState {
 
 /** Sesi yang sedang dipegang, beserta pemiliknya - supaya pergantian akun bisa dideteksi. */
 let cached: { readonly userId: string; readonly promise: Promise<LocalDataSession> } | null = null
+
+/**
+ * Apakah ini perangkat PERTAMA akun ini, jadi boleh membuat kunci utama baru?
+ *
+ * Ada envelope passkey di server = akun sudah punya kunci di perangkat lain. Membuat kunci baru di sini
+ * terlihat mulus, tapi saat user mengaktifkan passkey envelope di server TERTIMPA - dan kunci lama
+ * kehilangan pembuka cadangannya. Kalau server tidak terjangkau, jawabannya gagal (bukan "boleh"):
+ * menebak "boleh" adalah arah yang bisa menghilangkan data.
+ */
+async function isFirstDeviceOfAccount(): Promise<boolean> {
+  const keys = createKeysGateway((path, init) => $fetch(path, init))
+  return (await keys.listEnvelopes()).length === 0
+}
 
 export function useLocalData() {
   const auth = useAuthSession()
@@ -72,7 +94,10 @@ export function useLocalData() {
         cached = null
       }
 
-      cached ??= { userId, promise: openLocalDataSession({ userId }) }
+      cached ??= {
+        userId,
+        promise: openLocalDataSession({ userId, canCreateKey: isFirstDeviceOfAccount }),
+      }
       const session = await cached.promise
 
       state.value = {
@@ -87,6 +112,12 @@ export function useLocalData() {
     } catch (error) {
       // Dibiarkan bisa dicoba lagi pada muat berikutnya (mis. storage sementara tidak bisa dibuka).
       cached = null
+
+      if (error instanceof LocalKeyMissingError) {
+        state.value = { ...emptyState('locked'), userId: auth.session.value?.user.id ?? null }
+        return null
+      }
+
       state.value = {
         ...emptyState('error'),
         error: error instanceof Error ? error.message : 'data lokal tidak bisa dibuka',

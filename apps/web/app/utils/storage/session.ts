@@ -121,6 +121,15 @@ export type OpenSessionOptions = {
    * dan yang diuji di sana adalah perilaku penyimpanan, bukan kelengkapan browser.
    */
   readonly environment?: LocalEnvironmentProbe
+  /**
+   * Boleh membuat kunci utama BARU saat perangkat belum punya pembuka? Default: ya.
+   *
+   * Dijawab "tidak" oleh pemanggil yang tahu akunnya sudah punya kunci di tempat lain (mis. envelope
+   * passkey di server). Kunci baru di perangkat kedua terlihat tidak berbahaya, tapi begitu user
+   * mengaktifkan passkey, envelope di server tertimpa dan kunci lama kehilangan pembukanya. Hanya
+   * dipanggil kalau perangkat memang belum punya pembuka.
+   */
+  readonly canCreateKey?: () => Promise<boolean>
 }
 
 const USER_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -180,6 +189,9 @@ export async function openLocalDataSession(options: OpenSessionOptions): Promise
   const isFreshKey = !(await keyStore.has('device'))
 
   if (isFreshKey && (await hasStoredRecords(storage))) throw new LocalKeyMissingError()
+  if (isFreshKey && options.canCreateKey !== undefined && !(await options.canCreateKey())) {
+    throw new LocalKeyMissingError()
+  }
 
   const masterKey = isFreshKey ? createMasterKey(sodium) : await unlockMasterKeyWithDevice(keyStore)
 
