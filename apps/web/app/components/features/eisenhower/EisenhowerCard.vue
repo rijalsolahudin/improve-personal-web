@@ -35,15 +35,16 @@ const timeLeft = computed(() => (task.done ? t('time.done') : formatTimeLeft(tas
       :style="{ background: `var(--prio-${task.priority}-fg)` }"
       :title="$t(`priority.${task.priority}`)"
     />
-    <button
-      type="button"
+    <IconButton
+      tone="muted"
+      :size="26"
+      :radius="9"
       class="remove"
-      :title="$t('eisenhower.remove')"
-      :aria-label="$t('eisenhower.removeTask', { title: task.title })"
+      :title="$t('eisenhower.removeTask', { title: task.title })"
       @click="$emit('remove')"
     >
       ×
-    </button>
+    </IconButton>
   </li>
 </template>
 
@@ -107,17 +108,5 @@ const timeLeft = computed(() => (task.done ? t('time.done') : formatTimeLeft(tas
   height: 10px;
   flex-shrink: 0;
   border-radius: 50%;
-}
-
-.remove {
-  width: 26px;
-  height: 26px;
-  flex-shrink: 0;
-  border: none;
-  border-radius: var(--radius-check);
-  background: var(--chip);
-  color: var(--mute-2);
-  font-weight: var(--fw-strong);
-  font-size: 14px;
 }
 </style>

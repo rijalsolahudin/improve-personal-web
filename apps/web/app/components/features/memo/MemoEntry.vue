@@ -52,13 +52,9 @@ const style = computed(() => ({
       <span class="tags">
         <span v-for="feeling in memo.feelings" :key="feeling" class="tag">#{{ feeling }}</span>
       </span>
-      <button
-        type="button"
-        class="delete"
-        @click="isConfirming ? $emit('remove') : (isConfirming = true)"
-      >
+      <Button variant="link-danger" @click="isConfirming ? $emit('remove') : (isConfirming = true)">
         {{ $t(isConfirming ? 'memo.deleteConfirm' : 'memo.delete') }}
-      </button>
+      </Button>
     </footer>
   </article>
 </template>
@@ -150,15 +146,6 @@ const style = computed(() => ({
   color: var(--ink-2);
   font-family: var(--font-hand);
   font-size: 15px;
-}
-
-.delete {
-  padding: 0;
-  border: none;
-  background: none;
-  color: #c2381a;
-  font-weight: var(--fw-strong);
-  font-size: 12px;
 }
 
 @media (max-width: 599px) {

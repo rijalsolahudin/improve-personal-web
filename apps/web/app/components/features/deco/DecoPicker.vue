@@ -19,6 +19,7 @@ const RECENT_TAB = 'recent'
 const SEARCH_DEBOUNCE_MS = 200
 const VARIANTS = ['sticker', 'icon'] as const
 
+const { t } = useI18n()
 const { recent } = useDeco()
 const titleId = useId()
 const tab = ref(recent.value.length ? RECENT_TAB : (STICKER_PACKS[0]?.id ?? ''))
@@ -31,6 +32,10 @@ watch(query, (value) => {
   clearTimeout(timer)
   timer = setTimeout(() => (debouncedQuery.value = value), SEARCH_DEBOUNCE_MS)
 })
+
+const variantOptions = computed(() =>
+  VARIANTS.map((value) => ({ value, label: t(`deco.picker.${value}`) })),
+)
 
 const tabs = computed(() => [
   { id: RECENT_TAB, name: 'deco.picker.recent' },
@@ -71,25 +76,27 @@ onBeforeUnmount(() => clearTimeout(timer))
     <div class="top">
       <div class="title-row">
         <h2 :id="titleId" class="title">{{ title }}</h2>
-        <div class="variants" role="group" :aria-label="$t('deco.picker.variant')">
-          <button
-            v-for="option in VARIANTS"
-            :key="option"
-            type="button"
-            :class="{ on: variant === option }"
-            :aria-pressed="variant === option"
-            @click="variant = option"
-          >
-            {{ $t(`deco.picker.${option}`) }}
-          </button>
-        </div>
-        <button type="button" class="close" :aria-label="$t('common.close')" @click="emit('close')">
+        <Segmented
+          v-model="variant"
+          class="variants"
+          size="sm"
+          :options="variantOptions"
+          :label="$t('deco.picker.variant')"
+        />
+        <IconButton
+          tone="plain"
+          :size="40"
+          :radius="14"
+          class="close"
+          :title="$t('common.close')"
+          @click="emit('close')"
+        >
           ×
-        </button>
+        </IconButton>
       </div>
-      <input
+      <Input
         v-model="query"
-        class="search"
+        shape="pill"
         data-autofocus
         type="search"
         maxlength="40"
@@ -131,7 +138,7 @@ onBeforeUnmount(() => clearTimeout(timer))
       }}
     </p>
     <div v-if="clearLabel" class="footer">
-      <button type="button" class="clear" @click="emit('clear')">{{ clearLabel }}</button>
+      <Button variant="dashed" size="sm" @click="emit('clear')">{{ clearLabel }}</Button>
     </div>
   </Modal>
 </template>
@@ -159,14 +166,9 @@ onBeforeUnmount(() => clearTimeout(timer))
 }
 
 .variants {
-  display: flex;
-  gap: 2px;
-  padding: 3px;
-  border-radius: var(--radius-pill);
-  background: #f2e4cc;
+  --seg-active: var(--ink);
 }
 
-.variants button,
 .tabs button {
   border: none;
   border-radius: var(--radius-pill);
@@ -176,36 +178,8 @@ onBeforeUnmount(() => clearTimeout(timer))
   white-space: nowrap;
 }
 
-.variants button {
-  padding: 5px 12px;
-  font-size: 13px;
-}
-
-.variants .on {
-  background: var(--ink);
-  color: var(--paper);
-}
-
 .close {
-  width: 40px;
-  height: 40px;
   margin-left: auto;
-  border: none;
-  border-radius: calc(14px * var(--rk));
-  background: var(--chip);
-  font-weight: var(--fw-strong);
-  font-size: 18px;
-}
-
-.search {
-  width: 100%;
-  padding: 11px 16px;
-  border: var(--border) solid var(--outline);
-  border-radius: var(--radius-pill);
-  background: var(--paper);
-  font-weight: var(--fw-body);
-  font-size: 15px;
-  outline: none;
 }
 
 .tabs {
@@ -268,17 +242,6 @@ onBeforeUnmount(() => clearTimeout(timer))
 .footer {
   padding: 12px 24px 18px;
   border-top: var(--border-thin) dashed var(--line);
-}
-
-.clear {
-  height: 40px;
-  padding: 0 16px;
-  border: var(--border-thin) solid var(--dash);
-  border-radius: var(--radius-pill);
-  background: none;
-  color: var(--ink-2);
-  font-weight: var(--fw-strong);
-  font-size: 14px;
 }
 
 .empty {

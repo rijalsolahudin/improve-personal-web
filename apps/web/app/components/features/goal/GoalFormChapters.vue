@@ -41,8 +41,6 @@ function remove(index: number): void {
 function add(): void {
   emit('change', [...draft.chapters, nextChapterDraft(draft, crypto.randomUUID())])
 }
-
-const input = (event: Event): string => (event.target as HTMLInputElement).value
 </script>
 
 <template>
@@ -58,31 +56,34 @@ const input = (event: Event): string => (event.target as HTMLInputElement).value
       :class="{ invalid: showErrors && isChapterDraftOutOfRange(row, draft) }"
     >
       <span class="num" aria-hidden="true">{{ index + 1 }}</span>
-      <input
-        class="field title"
-        :value="row.title"
+      <Input
+        class="title"
+        size="sm"
+        :model-value="row.title"
         maxlength="120"
         :placeholder="$t('goals.form.chapterTitle')"
         :aria-label="$t('goals.form.chapterTitleN', { n: index + 1 })"
-        @input="patch(index, { title: input($event) })"
+        @update:model-value="(value) => patch(index, { title: String(value) })"
       />
-      <input
-        class="field date"
+      <Input
+        class="date"
+        size="sm"
         type="date"
-        :value="row.start"
+        :model-value="row.start"
         :min="draft.start"
         :max="draft.end"
         :aria-label="$t('goals.form.chapterStartN', { n: index + 1 })"
-        @input="patch(index, { start: input($event) })"
+        @update:model-value="(value) => patch(index, { start: String(value) })"
       />
-      <input
-        class="field date"
+      <Input
+        class="date"
+        size="sm"
         type="date"
-        :value="row.end"
+        :model-value="row.end"
         :min="draft.start"
         :max="draft.end"
         :aria-label="$t('goals.form.chapterEndN', { n: index + 1 })"
-        @input="patch(index, { end: input($event) })"
+        @update:model-value="(value) => patch(index, { end: String(value) })"
       />
       <span class="tools">
         <IconButton
@@ -167,7 +168,7 @@ const input = (event: Event): string => (event.target as HTMLInputElement).value
 }
 
 .row.invalid {
-  border-color: #e2445c;
+  border-color: var(--danger);
 }
 
 .num {
@@ -181,17 +182,6 @@ const input = (event: Event): string => (event.target as HTMLInputElement).value
   background: var(--chip);
   font-family: var(--font-display);
   font-weight: var(--fw-display);
-}
-
-.field {
-  min-width: 0;
-  padding: 9px 12px;
-  border: var(--border-thin) solid var(--outline);
-  border-radius: var(--radius-btn-sq);
-  background: var(--paper);
-  font-weight: var(--fw-body);
-  font-size: 15px;
-  outline: none;
 }
 
 .title {

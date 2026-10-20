@@ -70,15 +70,16 @@ const style = computed(() => ({
     >
       <span />
     </span>
-    <button
+    <Button
       v-if="canFocus && !item.isDone"
-      type="button"
+      variant="chip"
+      size="xs"
       class="focus reveal"
       :aria-label="$t('daily.focusLabel', { title })"
       @click.stop="emit('focus', title)"
     >
       {{ $t('daily.focus') }}
-    </button>
+    </Button>
     <button
       type="button"
       role="checkbox"
@@ -342,18 +343,14 @@ const style = computed(() => ({
   top: 8px;
   right: 34px;
   z-index: 4;
-  height: 18px;
-  display: flex;
-  align-items: center;
-  padding: 0 8px;
-  border: 0;
-  border-radius: var(--radius-pill);
-  background: var(--chip);
-  color: var(--deep);
-  font-weight: var(--fw-strong);
-  font-size: 10.5px;
-  white-space: nowrap;
   box-shadow: 0 1px 0 rgb(47 42 36 / 0.18);
+}
+
+/* Lebih kecil dari pill "▶ Fokus" standar: harus muat di blok jadwal yang pendek. */
+.event .focus {
+  min-height: 18px;
+  padding: 0 8px;
+  font-size: 10.5px;
 }
 
 .handle {

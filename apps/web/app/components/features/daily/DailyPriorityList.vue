@@ -38,16 +38,17 @@ const visible = computed(() =>
     </ol>
     <p v-else class="empty">{{ $t('daily.prio.empty') }}</p>
 
-    <button
+    <Button
       v-if="hiddenCount"
-      type="button"
+      variant="dashed"
+      size="xs"
       class="more"
       aria-controls="daily-prio-list"
       :aria-expanded="isExpanded"
       @click="isExpanded = !isExpanded"
     >
       {{ isExpanded ? $t('daily.prio.less') : $t('daily.prio.more', { n: hiddenCount }) }}
-    </button>
+    </Button>
   </section>
 </template>
 
@@ -115,16 +116,5 @@ const visible = computed(() =>
 
 .more {
   align-self: flex-start;
-  padding: 6px 14px;
-  border: var(--border-thin) dashed var(--dash-2);
-  border-radius: var(--radius-pill);
-  background: transparent;
-  color: var(--accent);
-  font-weight: var(--fw-strong);
-  font-size: 12.5px;
-}
-
-.more:hover {
-  background: var(--hover);
 }
 </style>

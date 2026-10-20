@@ -1,8 +1,13 @@
 <script setup lang="ts">
 const { active = false, variant = 'filter' } = defineProps<{
   active?: boolean
-  /** filter = filter list bergaris tinta; soft = pick polos (tinta saat aktif). */
-  variant?: 'filter' | 'soft'
+  /**
+   * filter = filter list bergaris tinta; soft = pick polos (tinta saat aktif);
+   * pick = pilihan bergaris tipis, aktif bergaris tinta + latar `--chip-tint` (default soft);
+   *   latar & garis saat tidak aktif bisa diganti lewat `--chip-bg` / `--chip-line`;
+   * choice = pilihan polos latar chip, aktif accent (angka/hari di baris pengulangan).
+   */
+  variant?: 'filter' | 'soft' | 'pick' | 'choice'
 }>()
 </script>
 
@@ -51,6 +56,37 @@ const { active = false, variant = 'filter' } = defineProps<{
   border: none;
   background: var(--alt);
   color: var(--ink);
+}
+
+.chip-pick {
+  gap: 6px;
+  min-height: 34px;
+  padding: 0 12px;
+  font-size: 13px;
+  border: var(--border-thin) solid var(--chip-line, var(--line));
+  background: var(--chip-bg, var(--paper));
+  color: var(--ink);
+}
+
+.chip-pick.active {
+  border-color: var(--outline);
+  background: var(--chip-tint, var(--soft));
+}
+
+.chip-choice {
+  justify-content: center;
+  min-width: 28px;
+  min-height: 36px;
+  padding: 0 14px;
+  font-size: 14px;
+  border: none;
+  background: var(--chip);
+  color: var(--mute-2);
+}
+
+.chip-choice.active {
+  background: var(--accent);
+  color: var(--paper);
 }
 
 .chip-soft.active {

@@ -40,6 +40,14 @@ const previewLeft = computed(() => {
     : countdownText(previewTarget.value, now.value)
 })
 
+const colorOptions = computed(() =>
+  COUNTDOWN_COLORS.map((color, index) => ({
+    value: color,
+    color,
+    label: t('countdown.form.colorN', { n: index + 1 }),
+  })),
+)
+
 watch(draft, () => (error.value = null), { deep: true })
 
 function submit(): void {
@@ -99,38 +107,33 @@ function toggleTime(): void {
         </span>
       </div>
 
-      <label class="field-wrap">
-        <span class="label">{{ $t('countdown.form.title') }}</span>
-        <input
+      <Field :label="$t('countdown.form.title')">
+        <Input
           v-model="draft.title"
-          class="field"
           data-autofocus
           :maxlength="COUNTDOWN_TITLE_MAX"
           :placeholder="$t('countdown.form.titlePlaceholder')"
           :aria-invalid="error === 'titleRequired'"
         />
-      </label>
+      </Field>
 
       <div class="pair">
-        <label class="field-wrap">
-          <span class="label">{{ $t('countdown.form.date') }}</span>
-          <input
+        <Field :label="$t('countdown.form.date')">
+          <Input
             v-model="draft.date"
-            class="field"
             type="date"
             :aria-invalid="error === 'dateRequired' || error === 'pastDate'"
           />
-        </label>
-        <div class="field-wrap">
-          <span class="label-row">
-            <span class="label">{{ $t('countdown.form.time') }}</span>
-            <button type="button" class="toggle-time" @click="toggleTime">
+        </Field>
+        <Field :label="$t('countdown.form.time')">
+          <template #action>
+            <Button variant="link" @click="toggleTime">
               {{ draft.time ? $t('countdown.form.allDay') : $t('countdown.form.useTime') }}
-            </button>
-          </span>
-          <input v-if="draft.time" v-model="draft.time" class="field" type="time" />
-          <div v-else class="field static">{{ $t('countdown.form.allDay') }}</div>
-        </div>
+            </Button>
+          </template>
+          <Input v-if="draft.time" v-model="draft.time" type="time" />
+          <div v-else class="static">{{ $t('countdown.form.allDay') }}</div>
+        </Field>
       </div>
 
       <div class="switch-row">
@@ -145,42 +148,26 @@ function toggleTime(): void {
         />
       </div>
 
-      <div>
-        <span class="label">{{ $t('countdown.form.decor') }}</span>
+      <Field :label="$t('countdown.form.decor')" is-group>
         <div class="emojis">
-          <button
+          <OptionTile
             v-for="emoji in COUNTDOWN_EMOJIS"
             :key="emoji"
-            type="button"
-            class="emoji"
-            :class="{ on: isEmojiOn(emoji) }"
-            :style="isEmojiOn(emoji) ? { background: tint[0] } : undefined"
-            :aria-pressed="isEmojiOn(emoji)"
+            :active="isEmojiOn(emoji)"
+            :tint="tint[0]"
             :aria-label="$t('countdown.form.emojiN', { emoji })"
             @click="pickEmoji(emoji)"
           >
             {{ emoji }}
-          </button>
+          </OptionTile>
         </div>
         <DecoStickerButton
           :sticker="draft.sticker"
           :label="$t(draft.sticker ? 'countdown.form.changeSticker' : 'countdown.form.useSticker')"
           @click="isPickingSticker = true"
         />
-        <div class="colors">
-          <button
-            v-for="(color, index) in COUNTDOWN_COLORS"
-            :key="color"
-            type="button"
-            class="swatch"
-            :class="{ on: draft.color === color }"
-            :style="{ background: color }"
-            :aria-pressed="draft.color === color"
-            :aria-label="$t('countdown.form.colorN', { n: index + 1 })"
-            @click="draft.color = color"
-          />
-        </div>
-      </div>
+        <SwatchPicker v-model="draft.color" class="colors" :options="colorOptions" />
+      </Field>
 
       <p v-if="error" class="error" role="alert">
         {{ $t(`countdown.form.error.${error}`) }}
@@ -218,12 +205,6 @@ function toggleTime(): void {
   display: flex;
   flex-direction: column;
   gap: 16px;
-}
-
-.label-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
 }
 
 .preview {
@@ -269,54 +250,11 @@ function toggleTime(): void {
   color: var(--cd-deep);
 }
 
-.field-wrap {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-
-.label {
-  margin-bottom: 6px;
-  font-weight: var(--fw-strong);
-  font-size: 13px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--mute-2);
-}
-
-.label-row .label {
-  margin-bottom: 0;
-}
-
-.toggle-time {
-  margin-bottom: 6px;
-  padding: 0;
-  border: none;
-  background: none;
-  color: var(--accent);
-  font-weight: var(--fw-strong);
-  font-size: 12px;
-}
-
-.field {
-  width: 100%;
-  padding: 11px 14px;
-  border: var(--border) solid var(--outline);
-  border-radius: var(--radius-btn-sq);
-  background: var(--paper);
-  font-weight: var(--fw-body);
-  font-size: 15px;
-  outline: none;
-}
-
-.field[aria-invalid='true'] {
-  border-color: #e2445c;
-}
-
-.field.static {
+.static {
   height: 46px;
   display: flex;
   align-items: center;
+  padding: 0 14px;
   border: none;
   border-radius: var(--radius-btn-sq);
   background: var(--alt);
@@ -362,37 +300,8 @@ function toggleTime(): void {
   gap: 6px;
 }
 
-.emoji {
-  width: 42px;
-  height: 42px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: var(--border) solid var(--line);
-  border-radius: calc(14px * var(--rk));
-  background: var(--paper);
-  font-size: 20px;
-}
-
-.emoji.on {
-  border-color: var(--outline);
-}
-
 .colors {
-  display: flex;
-  gap: 8px;
   margin-top: 10px;
-}
-
-.swatch {
-  width: 32px;
-  height: 32px;
-  border: var(--border-thick) solid transparent;
-  border-radius: calc(11px * var(--rk));
-}
-
-.swatch.on {
-  border-color: var(--outline);
 }
 
 .error {

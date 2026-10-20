@@ -35,24 +35,27 @@ const size = computed(() => (isDense ? 'sm' : 'md'))
       @toggle="emit('toggle')"
     />
     <span class="title">{{ task.title }}</span>
-    <button
+    <Button
       v-if="!task.done"
-      type="button"
+      variant="chip"
+      size="xs"
       class="focus reveal"
       :aria-label="$t('daily.focusLabel', { title: task.title })"
       @click.stop="emit('focus', task.title)"
     >
       {{ $t('daily.focus') }}
-    </button>
-    <button
+    </Button>
+    <IconButton
       v-if="canEdit"
-      type="button"
+      tone="muted"
+      :size="26"
+      :radius="13"
       class="edit reveal"
-      :aria-label="$t('daily.editLabel', { title: task.title })"
+      :title="$t('daily.editLabel', { title: task.title })"
       @click.stop="emit('edit')"
     >
       <Icon name="pencil" :size="14" />
-    </button>
+    </IconButton>
     <PriorityBadge :level="task.priority" :size="size" />
     <span v-if="meta" class="meta" :class="{ overdue: isOverdue }">{{ meta }}</span>
   </div>
@@ -106,40 +109,9 @@ const size = computed(() => (isDense ? 'sm' : 'md'))
   color: var(--danger);
 }
 
-.focus {
-  height: 26px;
-  flex-shrink: 0;
-  padding: 0 10px;
-  border: 0;
-  border-radius: var(--radius-pill);
-  background: var(--chip);
-  color: var(--deep);
-  font-weight: var(--fw-strong);
-  font-size: 11.5px;
-  white-space: nowrap;
-}
-
-.edit {
-  width: 26px;
-  height: 26px;
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  border: 0;
-  border-radius: var(--radius-pill);
-  background: var(--chip);
-  color: var(--deep);
-}
-
 .focus:hover,
-.edit:hover {
-  background: var(--hover);
-}
-
 .dense .focus {
-  height: 20px;
+  min-height: 20px;
   padding: 0 8px;
   font-size: 10.5px;
 }

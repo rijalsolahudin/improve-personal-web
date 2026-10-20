@@ -19,15 +19,16 @@ const lists = computed(() =>
       <ol class="rows">
         <li v-for="(value, index) in list.rows" :key="index" class="row">
           <span class="n" aria-hidden="true">{{ index + 1 }}</span>
-          <input
-            :value="value"
+          <Input
+            :model-value="value"
+            variant="bare"
             class="input"
             :maxlength="JOURNAL_LIST_ITEM_MAX"
             placeholder="…"
             :aria-label="
               $t('journal.listItem', { list: $t(`journal.list.${list.key}`), n: index + 1 })
             "
-            @input="journal.setListItem(list.key, index, ($event.target as HTMLInputElement).value)"
+            @update:model-value="(text) => journal.setListItem(list.key, index, String(text))"
           />
         </li>
       </ol>

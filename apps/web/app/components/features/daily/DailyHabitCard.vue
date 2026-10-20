@@ -71,15 +71,16 @@ const rows = computed(() =>
             </span>
           </span>
         </button>
-        <button
+        <Button
           v-if="!row.isDone"
-          type="button"
+          variant="chip"
+          size="xs"
           class="focus reveal"
           :aria-label="$t('daily.focusLabel', { title: row.habit.name })"
           @click="emit('focus', row.habit.name)"
         >
           {{ $t('daily.focus') }}
-        </button>
+        </Button>
         <span class="streak" :title="$t('daily.habit.streak', { n: row.streak })"
           >🔥 {{ row.streak }}</span
         >
@@ -182,19 +183,6 @@ const rows = computed(() =>
 .pip.on {
   color: var(--pip-color);
   transform: none;
-}
-
-.focus {
-  height: 26px;
-  flex-shrink: 0;
-  padding: 0 10px;
-  border: 0;
-  border-radius: var(--radius-pill);
-  background: var(--chip);
-  color: var(--deep);
-  font-weight: var(--fw-strong);
-  font-size: 11.5px;
-  white-space: nowrap;
 }
 
 .streak,

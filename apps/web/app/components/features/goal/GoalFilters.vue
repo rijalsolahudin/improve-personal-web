@@ -20,12 +20,11 @@ const categories = ['semua', ...GOAL_CATEGORIES] as const
   <div class="filters">
     <Segmented v-model="status" :options="statusOptions" :label="$t('goals.filterStatus')" framed />
     <div class="cats" role="group" :aria-label="$t('goals.filterCategory')">
-      <button
+      <Chip
         v-for="value in categories"
         :key="value"
-        type="button"
-        class="cat"
-        :aria-pressed="category === value"
+        variant="pick"
+        :active="category === value"
         @click="category = value"
       >
         <span
@@ -34,7 +33,7 @@ const categories = ['semua', ...GOAL_CATEGORIES] as const
           aria-hidden="true"
         />
         {{ value === 'semua' ? $t('goals.allCategories') : $t(`goals.category.${value}`) }}
-      </button>
+      </Chip>
     </div>
   </div>
 </template>
@@ -52,26 +51,13 @@ const categories = ['semua', ...GOAL_CATEGORIES] as const
 }
 
 .cats {
+  --chip-bg: transparent;
+  --chip-line: transparent;
+  --chip-tint: var(--paper);
+
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-}
-
-.cat {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 14px;
-  border: var(--border-thin) solid transparent;
-  border-radius: var(--radius-pill);
-  background: transparent;
-  font-weight: var(--fw-strong);
-  font-size: 14px;
-}
-
-.cat[aria-pressed='true'] {
-  border-color: var(--outline);
-  background: var(--paper);
 }
 
 .dot {

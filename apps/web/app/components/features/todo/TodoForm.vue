@@ -76,68 +76,60 @@ function onDelete(): void {
     @close="emit('close')"
   >
     <form class="form" novalidate @submit.prevent="submit">
-      <label class="field-wrap">
-        <span class="label">{{ $t('todo.form.title') }}</span>
-        <input
+      <Field :label="$t('todo.form.title')">
+        <Input
           v-model="draft.title"
-          class="field"
           data-autofocus
           :maxlength="TASK_TITLE_MAX"
           :placeholder="$t('todo.form.titlePlaceholder')"
           :aria-invalid="error === 'titleRequired' || error === 'titleTooLong'"
         />
-      </label>
+      </Field>
 
-      <div class="field-wrap">
-        <div class="label-row">
-          <span class="label">{{ $t('todo.form.deadline') }}</span>
-          <button type="button" class="link" @click="draft.hasDeadline = !draft.hasDeadline">
+      <Field :label="$t('todo.form.deadline')" is-group>
+        <template #action>
+          <Button variant="link" @click="draft.hasDeadline = !draft.hasDeadline">
             {{ $t(draft.hasDeadline ? 'todo.form.noDeadline' : 'todo.form.useDeadline') }}
-          </button>
-        </div>
+          </Button>
+        </template>
         <div v-if="draft.hasDeadline" class="pair">
-          <input
+          <Input
             v-model="draft.date"
-            class="field"
             type="date"
             :aria-label="$t('todo.form.date')"
             :aria-invalid="error === 'deadline'"
           />
-          <input
+          <Input
             v-model="draft.time"
-            class="field"
             type="time"
             :aria-label="$t('todo.form.time')"
             :aria-invalid="error === 'deadline'"
           />
         </div>
-      </div>
+      </Field>
 
-      <div class="field-wrap">
-        <span class="label" aria-hidden="true">{{ $t('priority.label') }}</span>
+      <Field :label="$t('priority.label')" is-group>
         <TodoPriorityPicker
           v-model="draft.priority"
           variant="blocks"
           :label="$t('priority.label')"
         />
-      </div>
+      </Field>
 
-      <fieldset class="field-wrap group">
-        <legend class="label">{{ $t('todo.form.schedule') }}</legend>
+      <Field :label="$t('todo.form.schedule')" is-group>
         <div class="schedules">
-          <button
+          <Chip
             v-for="option in scheduleOptions"
             :key="option.id ?? 'none'"
-            type="button"
-            class="schedule"
-            :aria-pressed="draft.scheduleId === option.id"
+            variant="pick"
+            :active="draft.scheduleId === option.id"
             @click="draft.scheduleId = option.id"
           >
             <span class="dot" :style="{ background: option.color }" aria-hidden="true" />
             {{ option.title ?? $t('todo.form.noSchedule') }}
-          </button>
+          </Chip>
         </div>
-      </fieldset>
+      </Field>
 
       <p v-if="error" class="error" role="alert">{{ $t(`todo.form.error.${error}`) }}</p>
 
@@ -162,59 +154,6 @@ function onDelete(): void {
   gap: 16px;
 }
 
-.label-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.field-wrap {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-
-.group {
-  margin: 0;
-  padding: 0;
-  border: none;
-}
-
-.label {
-  margin-bottom: 6px;
-  padding: 0;
-  font-weight: var(--fw-strong);
-  font-size: 13px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--mute-2);
-}
-
-.link {
-  margin-bottom: 6px;
-  padding: 0;
-  border: none;
-  background: none;
-  color: var(--accent);
-  font-weight: var(--fw-strong);
-  font-size: 13px;
-}
-
-.field {
-  width: 100%;
-  padding: 11px 14px;
-  border: var(--border) solid var(--outline);
-  border-radius: var(--radius-btn-sq);
-  background: var(--paper);
-  font-weight: var(--fw-body);
-  font-size: 15px;
-  outline: none;
-}
-
-.field[aria-invalid='true'] {
-  border-color: #e2445c;
-}
-
 .pair {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
@@ -225,23 +164,6 @@ function onDelete(): void {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-}
-
-.schedule {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 7px 12px;
-  border: var(--border-thin) solid var(--line);
-  border-radius: var(--radius-pill);
-  background: var(--paper);
-  font-weight: var(--fw-strong);
-  font-size: 13px;
-}
-
-.schedule[aria-pressed='true'] {
-  border-color: var(--outline);
-  background: var(--soft);
 }
 
 .dot {

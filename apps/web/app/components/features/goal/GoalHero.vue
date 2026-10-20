@@ -59,13 +59,15 @@ const daysLeftLabel = computed(() => {
       <NuxtLink :to="getFeature('countdown').path" class="btn solid">
         {{ $t('goals.makeCountdown') }}
       </NuxtLink>
-      <button type="button" class="btn" @click="$emit('edit')">{{ $t('goals.edit') }}</button>
+      <Button variant="paper" size="sm" @click="$emit('edit')">{{ $t('goals.edit') }}</Button>
     </div>
   </section>
 </template>
 
 <style scoped>
 .hero {
+  --btn-ink: var(--goal-text);
+
   padding: 26px 28px;
   border-radius: var(--radius-panel);
   background-color: var(--goal-tint);
@@ -181,21 +183,6 @@ const daysLeftLabel = computed(() => {
   flex-wrap: wrap;
   gap: 10px;
   margin-top: 18px;
-}
-
-.btn {
-  padding: 10px 18px;
-  border: none;
-  border-radius: var(--radius-pill);
-  background: var(--paper);
-  color: var(--goal-text);
-  font-weight: var(--fw-strong);
-  font-size: 14px;
-}
-
-.btn.solid {
-  background: var(--goal-text);
-  color: var(--paper);
 }
 
 @media (max-width: 599px) {

@@ -116,9 +116,11 @@ async function submit(): Promise<void> {
       </template>
       <template v-else>
         <label class="code-label" for="recovery-code">{{ $t('account.unlock.codeLabel') }}</label>
-        <textarea
+        <Input
           id="recovery-code"
           v-model="code"
+          variant="bare"
+          multiline
           class="code"
           rows="3"
           autocomplete="off"

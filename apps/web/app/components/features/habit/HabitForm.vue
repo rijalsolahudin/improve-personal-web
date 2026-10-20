@@ -17,6 +17,7 @@ const emit = defineEmits<{ close: []; saved: [] }>()
 
 const DEFAULT_CUSTOM_DAYS = [1, 3, 5]
 
+const { t } = useI18n()
 const { findHabit, save, remove } = useHabits()
 const { goals } = useGoals()
 const { rememberSticker } = useDeco()
@@ -32,6 +33,13 @@ watch(draft, () => (error.value = null), { deep: true })
 
 const activeGoals = computed(() => goals.value.filter((goal) => goal.status === 'aktif'))
 const soft = computed(() => (HABIT_COLORS[draft.value.color] ?? HABIT_COLORS[0])[1])
+const colorOptions = computed(() =>
+  HABIT_COLORS.map(([solid], index) => ({
+    value: index,
+    color: solid,
+    label: t('habit.form.colorN', { n: index + 1 }),
+  })),
+)
 
 function toggleDay(day: number): void {
   const days = draft.value.days ?? []
@@ -71,54 +79,39 @@ function onDelete(): void {
     @close="emit('close')"
   >
     <form class="form" novalidate :style="{ '--h-soft': soft }" @submit.prevent="submit">
-      <label class="field-wrap">
-        <span class="label">{{ $t('habit.form.name') }}</span>
-        <input
+      <Field :label="$t('habit.form.name')">
+        <Input
           v-model="draft.name"
-          class="field"
           data-autofocus
           :maxlength="HABIT_NAME_MAX"
           :placeholder="$t('habit.form.namePlaceholder')"
           :aria-invalid="error === 'nameRequired' || error === 'nameTooLong'"
         />
-      </label>
+      </Field>
 
-      <fieldset class="group">
-        <legend class="label">{{ $t('habit.form.iconColor') }}</legend>
+      <Field :label="$t('habit.form.iconColor')" is-group>
         <div class="icons">
-          <button
+          <OptionTile
             v-for="icon in HABIT_ICONS"
             :key="icon"
-            type="button"
-            class="icon-option"
-            :aria-pressed="!draft.sticker && draft.icon === icon"
+            :size="40"
+            tint="var(--h-soft)"
+            :active="!draft.sticker && draft.icon === icon"
             :aria-label="$t('habit.form.iconN', { icon: $t(`habit.icons.${icon}`) })"
             @click="((draft.icon = icon), (draft.sticker = null))"
           >
             <Icon :name="icon" :size="20" />
-          </button>
+          </OptionTile>
         </div>
         <DecoStickerButton
           :sticker="draft.sticker"
           :label="$t(draft.sticker ? 'habit.form.changeSticker' : 'habit.form.useSticker')"
           @click="isPickingSticker = true"
         />
-        <div class="colors">
-          <button
-            v-for="([solid], index) in HABIT_COLORS"
-            :key="solid"
-            type="button"
-            class="swatch"
-            :style="{ background: solid }"
-            :aria-pressed="draft.color === index"
-            :aria-label="$t('habit.form.colorN', { n: index + 1 })"
-            @click="draft.color = index"
-          />
-        </div>
-      </fieldset>
+        <SwatchPicker v-model="draft.color" class="colors" :options="colorOptions" />
+      </Field>
 
-      <fieldset class="group">
-        <legend class="label">{{ $t('habit.form.frequency') }}</legend>
+      <Field :label="$t('habit.form.frequency')" is-group>
         <div class="pills">
           <Chip :active="draft.days === null" @click="draft.days = null">
             {{ $t('habit.everyDay') }}
@@ -140,10 +133,9 @@ function onDelete(): void {
             {{ weekdayOfIndex(day) }}
           </Chip>
         </div>
-      </fieldset>
+      </Field>
 
-      <div class="field-wrap">
-        <span class="label">{{ $t('habit.form.target') }}</span>
+      <Field :label="$t('habit.form.target')" is-group>
         <div class="stepper">
           <IconButton
             tone="plain"
@@ -167,10 +159,9 @@ function onDelete(): void {
             +
           </IconButton>
         </div>
-      </div>
+      </Field>
 
-      <fieldset class="group">
-        <legend class="label">{{ $t('habit.form.goal') }}</legend>
+      <Field :label="$t('habit.form.goal')" is-group>
         <div class="pills wrap">
           <Chip :active="draft.goalId === null" @click="draft.goalId = null">
             {{ $t('habit.form.noGoal') }}
@@ -184,7 +175,7 @@ function onDelete(): void {
             {{ goal.title }}
           </Chip>
         </div>
-      </fieldset>
+      </Field>
 
       <p v-if="error" class="error" role="alert">{{ $t(`habit.form.error.${error}`) }}</p>
 
@@ -218,79 +209,14 @@ function onDelete(): void {
   gap: 16px;
 }
 
-.field-wrap,
-.group {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  margin: 0;
-  padding: 0;
-  border: none;
-}
-
-.label {
-  margin-bottom: 6px;
-  padding: 0;
-  font-weight: var(--fw-strong);
-  font-size: 13px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--mute-2);
-}
-
-.field {
-  width: 100%;
-  padding: 11px 14px;
-  border: var(--border) solid var(--outline);
-  border-radius: var(--radius-btn-sq);
-  background: var(--paper);
-  font-weight: var(--fw-body);
-  font-size: 15px;
-  outline: none;
-}
-
-.field[aria-invalid='true'] {
-  border-color: #e2445c;
-}
-
-.icons,
-.colors {
+.icons {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
 }
 
-.icon-option {
-  width: 40px;
-  height: 40px;
-  border: var(--border) solid var(--line);
-  border-radius: calc(13px * var(--rk));
-  background: var(--paper);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--ink);
-}
-
-.icon-option[aria-pressed='true'] {
-  border-color: var(--outline);
-  background: var(--h-soft);
-}
-
 .colors {
-  gap: 8px;
   margin-top: 10px;
-}
-
-.swatch {
-  width: 32px;
-  height: 32px;
-  border: var(--border-thick) solid transparent;
-  border-radius: calc(11px * var(--rk));
-}
-
-.swatch[aria-pressed='true'] {
-  border-color: var(--outline);
 }
 
 .pills {

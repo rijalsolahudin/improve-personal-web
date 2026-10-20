@@ -20,14 +20,16 @@ const isAffirm = computed(() => kind === 'affirm')
     <p v-if="!isAffirm" class="hint">{{ $t('journal.reflect.hint') }}</p>
     <div :class="isAffirm ? 'quote' : undefined">
       <span v-if="isAffirm" class="mark" aria-hidden="true">“</span>
-      <textarea
-        :value="journal.day.value[kind]"
+      <Input
+        :model-value="journal.day.value[kind]"
+        variant="bare"
+        multiline
         :class="isAffirm ? 'affirm' : 'lined-text reflect'"
         :rows="isAffirm ? 2 : 4"
         :maxlength="JOURNAL_NOTE_MAX"
         :placeholder="$t(`journal.${kind}.placeholder`)"
         :aria-label="$t(`journal.${kind}.title`)"
-        @input="journal.setNote(kind, ($event.target as HTMLTextAreaElement).value)"
+        @update:model-value="(text) => journal.setNote(kind, String(text))"
       />
     </div>
   </JournalCard>

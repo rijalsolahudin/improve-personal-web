@@ -19,7 +19,7 @@ const modes = computed(() =>
   POMODORO_TARGET_MODES.map((key) => {
     const label = t(`pomodoro.targetMode.${key}`)
     const n = key === 'free' ? 0 : options.value[key].length
-    return { key, label: n ? t('pomodoro.targetModeCount', { label, n }) : label }
+    return { value: key, label: n ? t('pomodoro.targetModeCount', { label, n }) : label }
   }),
 )
 const list = computed(() =>
@@ -36,8 +36,8 @@ function pickMode(next: PomodoroTargetMode): void {
   query.value = ''
 }
 
-function onFreeInput(event: Event): void {
-  freeText.value = (event.target as HTMLInputElement).value
+function onFreeInput(value: string | number): void {
+  freeText.value = String(value)
   pomodoro.setTarget(freeText.value, 'teks')
 }
 </script>
@@ -45,17 +45,15 @@ function onFreeInput(event: Event): void {
 <template>
   <div class="target">
     <span class="eyebrow label">{{ $t('pomodoro.targetTitle') }}</span>
-    <div class="modes" role="group" :aria-label="$t('pomodoro.targetTitle')">
-      <button
-        v-for="item in modes"
-        :key="item.key"
-        type="button"
-        :aria-pressed="mode === item.key"
-        @click="pickMode(item.key)"
-      >
-        {{ item.label }}
-      </button>
-    </div>
+    <Segmented
+      class="modes"
+      size="sm"
+      is-equal
+      :model-value="mode"
+      :options="modes"
+      :label="$t('pomodoro.targetTitle')"
+      @update:model-value="pickMode"
+    />
 
     <div class="current">
       <span class="kind">{{
@@ -66,15 +64,17 @@ function onFreeInput(event: Event): void {
 
     <div v-if="pomodoro.isTargetLocked.value" class="locked" role="status">
       <span class="locked-text">{{ $t('pomodoro.targetLocked') }}</span>
-      <button type="button" class="locked-cancel" @click="pomodoro.cancelFocus">
+      <Button variant="link" class="locked-cancel" @click="pomodoro.cancelFocus">
         {{ $t('pomodoro.cancelFocus') }}
-      </button>
+      </Button>
     </div>
 
     <template v-if="mode !== 'free'">
-      <input
+      <Input
         v-model="query"
         class="search"
+        variant="subtle"
+        size="sm"
         type="search"
         :disabled="pomodoro.isTargetLocked.value"
         :placeholder="$t(`pomodoro.targetSearch.${mode}`)"
@@ -98,15 +98,15 @@ function onFreeInput(event: Event): void {
       </ul>
       <p v-if="!list.length" class="empty">{{ emptyText }}</p>
     </template>
-    <input
+    <Input
       v-else
       class="free"
-      :value="freeText"
+      :model-value="freeText"
       :maxlength="POMODORO_TARGET_MAX"
       :disabled="pomodoro.isTargetLocked.value"
       :placeholder="$t('pomodoro.freePlaceholder')"
       :aria-label="$t('pomodoro.targetMode.free')"
-      @input="onFreeInput"
+      @update:model-value="onFreeInput"
     />
   </div>
 </template>
@@ -127,31 +127,10 @@ function onFreeInput(event: Event): void {
 }
 
 .modes {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 2px;
+  --seg-bg: var(--paper);
+  --seg-active: var(--ph-deep);
+
   margin-top: 8px;
-  padding: 3px;
-  border-radius: var(--radius-pill);
-  background: var(--paper);
-}
-
-.modes button {
-  overflow: hidden;
-  padding: 6px;
-  border: none;
-  border-radius: var(--radius-pill);
-  background: transparent;
-  color: var(--mute-2);
-  font-weight: var(--fw-strong);
-  font-size: 13px;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-
-.modes button[aria-pressed='true'] {
-  background: var(--ph-deep);
-  color: var(--paper);
 }
 
 .current {
@@ -199,40 +178,12 @@ function onFreeInput(event: Event): void {
   flex: 1;
 }
 
-.locked-cancel {
-  flex-shrink: 0;
-  padding: 0;
-  border: none;
-  background: none;
-  color: var(--ph-deep);
-  font-weight: var(--fw-strong);
-  font-size: 13px;
-  text-decoration: underline;
-}
-
-.option:disabled,
-.search:disabled,
-.free:disabled {
+.option:disabled {
   opacity: 0.55;
   cursor: not-allowed;
 }
 
-.search {
-  width: 100%;
-  margin-top: 10px;
-  padding: 9px 12px;
-  border: var(--border-thin) solid var(--line);
-  border-radius: calc(14px * var(--rk));
-  background: var(--paper);
-  font-weight: var(--fw-body);
-  font-size: 14px;
-  outline: none;
-}
-
-.search:focus-visible {
-  border-color: var(--outline);
-}
-
+.search,
 .options {
   max-height: 236px;
   display: flex;

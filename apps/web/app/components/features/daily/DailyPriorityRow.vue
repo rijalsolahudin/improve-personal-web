@@ -33,23 +33,26 @@ const timeLeft = computed(() =>
         <span class="left" :class="{ overdue: isOverdue(task, now) }">{{ timeLeft }}</span>
       </span>
     </div>
-    <button
+    <Button
       v-if="!task.done"
-      type="button"
+      variant="chip"
+      size="xs"
       class="focus reveal"
       :aria-label="$t('daily.focusLabel', { title: task.title })"
       @click="emit('focus', task.title)"
     >
       {{ $t('daily.focus') }}
-    </button>
-    <button
-      type="button"
+    </Button>
+    <IconButton
+      tone="muted"
+      :size="32"
+      :radius="16"
       class="edit reveal"
-      :aria-label="$t('daily.editLabel', { title: task.title })"
+      :title="$t('daily.editLabel', { title: task.title })"
       @click="emit('edit')"
     >
       <Icon name="pencil" :size="16" />
-    </button>
+    </IconButton>
     <Checkbox
       :checked="task.done"
       :label="$t('common.toggleDone', { title: task.title })"
@@ -132,33 +135,9 @@ const timeLeft = computed(() =>
   text-decoration: line-through;
 }
 
-.focus,
-.edit {
-  height: 32px;
-  flex-shrink: 0;
-  border: 0;
-  border-radius: var(--radius-pill);
-  background: var(--chip);
-  color: var(--deep);
-}
-
-.focus {
+.row .focus {
+  min-height: 32px;
   padding: 0 12px;
-  font-weight: var(--fw-strong);
   font-size: 12.5px;
-  white-space: nowrap;
-}
-
-.edit {
-  width: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-}
-
-.focus:hover,
-.edit:hover {
-  background: var(--hover);
 }
 </style>

@@ -12,7 +12,11 @@ const summary = computed(
   () => `${t(`theme.${theme.value}`)} · ${t(`uiStyle.${style.value}.label`)}`,
 )
 const themeOptions = computed(() =>
-  themes.map((name) => ({ name, swatch: themeTokens[name].primary, isOn: name === theme.value })),
+  themes.map((name) => ({
+    value: name,
+    label: t(`theme.${name}`),
+    swatch: themeTokens[name].primary,
+  })),
 )
 const styleOptions = computed(() =>
   styles.map((name) => ({ name, font: uiStyles[name].fonts.display, isOn: name === style.value })),
@@ -36,20 +40,14 @@ const styleOptions = computed(() =>
     <div v-if="isPickerOpen" id="appearance-panel" class="panel">
       <fieldset class="group">
         <legend class="eyebrow legend">{{ $t('appearance.color') }}</legend>
-        <div class="themes">
-          <button
-            v-for="option in themeOptions"
-            :key="option.name"
-            type="button"
-            class="theme"
-            :class="{ on: option.isOn }"
-            :aria-pressed="option.isOn"
-            @click="setTheme(option.name)"
-          >
-            <span class="swatch" :style="{ background: option.swatch }" aria-hidden="true" />
-            {{ $t(`theme.${option.name}`) }}
-          </button>
-        </div>
+        <Segmented
+          class="themes"
+          is-equal
+          :model-value="theme"
+          :options="themeOptions"
+          :label="$t('appearance.color')"
+          @update:model-value="setTheme"
+        />
       </fieldset>
       <fieldset class="group">
         <legend class="eyebrow legend">{{ $t('appearance.style') }}</legend>
@@ -141,35 +139,7 @@ const styleOptions = computed(() =>
 }
 
 .themes {
-  display: flex;
-  gap: 6px;
-}
-
-.theme {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 9px 10px;
-  border: 0;
-  border-radius: var(--radius-pill);
-  background: transparent;
-  color: var(--mute-2);
-  font-weight: var(--fw-strong);
-  font-size: 13px;
-}
-
-.theme.on {
-  background: var(--accent);
-  color: var(--paper);
-}
-
-.swatch {
-  width: 14px;
-  height: 14px;
-  flex-shrink: 0;
-  border-radius: 50%;
+  --seg-bg: transparent;
 }
 
 .styles {

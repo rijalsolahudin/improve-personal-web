@@ -42,30 +42,30 @@ function onReset(): void {
           </p>
         </div>
         <div class="actions">
-          <button v-if="count" type="button" class="btn danger" @click="onReset">
+          <Button v-if="count" variant="danger" size="sm" @click="onReset">
             {{ $t(isConfirmingReset ? 'deco.resetConfirm' : 'deco.reset') }}
-          </button>
-          <button type="button" class="btn primary" @click="emit('add')">
+          </Button>
+          <Button variant="primary" size="sm" @click="emit('add')">
             ＋ {{ $t('deco.add') }}
-          </button>
+          </Button>
         </div>
       </div>
       <div v-if="copySources.length" class="offer">
         <p class="offer-text">
           {{ $t('deco.offer', { bucket: $t(`deco.bucketShort.${bucket}`) }) }}
         </p>
-        <button
+        <Button
           v-for="source in copySources"
           :key="source"
-          type="button"
-          class="btn small dark"
+          variant="ink"
+          size="sm"
           @click="emit('copy', source)"
         >
           {{ $t('deco.copyFrom', { bucket: $t(`deco.bucketShort.${source}`) }) }}
-        </button>
-        <button type="button" class="btn small plain" @click="emit('skip-copy')">
+        </Button>
+        <Button variant="paper" size="sm" @click="emit('skip-copy')">
           {{ $t('deco.startEmpty') }}
-        </button>
+        </Button>
       </div>
       <p class="hint">{{ $t('deco.hint') }}</p>
       <p v-if="hiddenCount" class="warn">{{ $t('deco.hiddenItems', { n: hiddenCount }) }}</p>
@@ -141,43 +141,6 @@ function onReset(): void {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-}
-
-.btn {
-  height: 40px;
-  display: flex;
-  align-items: center;
-  padding: 0 16px;
-  border: none;
-  border-radius: var(--radius-pill);
-  background: none;
-  font-weight: var(--fw-strong);
-  font-size: 14px;
-  white-space: nowrap;
-}
-
-.btn.small {
-  height: 34px;
-}
-
-.primary {
-  background: var(--accent);
-  color: var(--paper);
-}
-
-.danger {
-  border: var(--border-thin) solid #f3a99a;
-  color: #c2381a;
-}
-
-.dark {
-  background: var(--ink);
-  color: var(--paper);
-}
-
-.plain {
-  background: var(--paper);
-  color: var(--ink-2);
 }
 
 .offer {

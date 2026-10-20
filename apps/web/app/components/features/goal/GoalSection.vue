@@ -73,15 +73,15 @@ const bodyId = useId()
           <p class="review-sub">{{ $t('goals.review.sub') }}</p>
         </div>
         <div class="review-actions">
-          <button type="button" class="solid" @click="emit('review', 'extend')">
+          <Button variant="primary" size="sm" @click="emit('review', 'extend')">
             {{ $t('goals.review.extend') }}
-          </button>
-          <button type="button" @click="emit('review', 'shift')">
+          </Button>
+          <Button variant="paper" size="sm" @click="emit('review', 'shift')">
             {{ $t('goals.review.shift') }}
-          </button>
-          <button type="button" @click="emit('review', 'close')">
+          </Button>
+          <Button variant="paper" size="sm" @click="emit('review', 'close')">
             {{ $t('goals.review.close') }}
-          </button>
+          </Button>
         </div>
       </div>
       <ul class="items">
@@ -109,7 +109,7 @@ const bodyId = useId()
         <li v-if="!items.length" class="item empty">{{ $t('goals.noItems') }}</li>
       </ul>
       <div v-if="markLabel" class="mark">
-        <button type="button" @click="emit('mark')">{{ markLabel }}</button>
+        <Button variant="outline" size="sm" @click="emit('mark')">{{ markLabel }}</Button>
       </div>
     </div>
   </section>
@@ -260,24 +260,12 @@ const bodyId = useId()
 }
 
 .review-actions {
+  --btn-accent: var(--danger);
+  --btn-ink: var(--danger);
+
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-}
-
-.review-actions button {
-  padding: 9px 14px;
-  border: none;
-  border-radius: var(--radius-pill);
-  background: var(--paper);
-  color: #c2381a;
-  font-weight: var(--fw-strong);
-  font-size: 13px;
-}
-
-.review-actions .solid {
-  background: #c2381a;
-  color: var(--paper);
 }
 
 .items {
@@ -343,18 +331,11 @@ const bodyId = useId()
 }
 
 .mark {
+  --btn-line: var(--goal-tint);
+  --btn-ink: var(--goal-text);
+
   display: flex;
   justify-content: flex-end;
   margin-top: 8px;
-}
-
-.mark button {
-  padding: 8px 16px;
-  border: var(--border-thin) solid var(--goal-tint);
-  border-radius: var(--radius-pill);
-  background: transparent;
-  color: var(--goal-text);
-  font-weight: var(--fw-strong);
-  font-size: 13px;
 }
 </style>

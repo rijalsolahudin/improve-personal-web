@@ -87,13 +87,13 @@ function openEdit(id: string): void {
     </section>
 
     <div v-if="archived.length" class="archive">
-      <button type="button" class="archive-toggle" @click="showArchive = !showArchive">
+      <Button variant="link" class="archive-toggle" @click="showArchive = !showArchive">
         {{
           $t(showArchive ? 'countdown.hideArchive' : 'countdown.showArchive', {
             n: archived.length,
           })
         }}
-      </button>
+      </Button>
       <div v-if="showArchive" class="grid">
         <CountdownListCard
           v-for="view in archived"
@@ -165,15 +165,6 @@ function openEdit(id: string): void {
   text-align: center;
   font-weight: var(--fw-body);
   color: var(--mute);
-}
-
-.archive-toggle {
-  padding: 0;
-  border: none;
-  background: none;
-  color: var(--accent);
-  font-weight: var(--fw-strong);
-  font-size: 14px;
 }
 
 .archive .grid {

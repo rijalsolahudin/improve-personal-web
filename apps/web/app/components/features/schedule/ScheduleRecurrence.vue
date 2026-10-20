@@ -65,43 +65,40 @@ watch(
 
     <div v-if="draft.rec === 'daily'" class="line">
       <span>{{ $t('calendar.form.every') }}</span>
-      <button
+      <Chip
         v-for="n in DAILY_N_OPTIONS"
         :key="n"
-        type="button"
-        class="chip"
-        :aria-pressed="draft.dailyN === n"
+        variant="choice"
+        :active="draft.dailyN === n"
         @click="set({ dailyN: n })"
       >
         {{ n }}
-      </button>
+      </Chip>
       <span>{{ $t('calendar.form.days') }}</span>
     </div>
 
     <template v-else-if="draft.rec === 'weekly'">
       <div class="line" role="group" :aria-label="$t('calendar.form.weekdays')">
-        <button
+        <Chip
           v-for="day in WEEKDAY_ORDER"
           :key="day"
-          type="button"
-          class="chip"
-          :aria-pressed="draft.weekDays.includes(day)"
+          variant="choice"
+          :active="draft.weekDays.includes(day)"
           @click="toggleDay(day)"
         >
           {{ weekdayOfIndex(day) }}
-        </button>
+        </Chip>
       </div>
       <div class="line">
-        <button
+        <Chip
           v-for="interval in INTERVALS"
           :key="interval"
-          type="button"
-          class="chip"
-          :aria-pressed="draft.weekInterval === interval"
+          variant="choice"
+          :active="draft.weekInterval === interval"
           @click="set({ weekInterval: interval })"
         >
           {{ $t(interval === 1 ? 'calendar.form.everyWeek' : 'calendar.form.everyTwoWeeks') }}
-        </button>
+        </Chip>
       </div>
     </template>
 
@@ -121,28 +118,26 @@ watch(
       <template v-else>
         <div class="line">
           <span>{{ $t('calendar.form.monthWeekLabel') }}</span>
-          <button
+          <Chip
             v-for="week in WEEKS"
             :key="week"
-            type="button"
-            class="chip"
-            :aria-pressed="draft.monthWeek === week"
+            variant="choice"
+            :active="draft.monthWeek === week"
             @click="set({ monthWeek: week })"
           >
             {{ week }}
-          </button>
+          </Chip>
         </div>
         <div class="line" role="group" :aria-label="$t('calendar.form.monthWeekdayLabel')">
-          <button
+          <Chip
             v-for="day in WEEKDAY_ORDER"
             :key="day"
-            type="button"
-            class="chip"
-            :aria-pressed="draft.monthWeekday === day"
+            variant="choice"
+            :active="draft.monthWeekday === day"
             @click="set({ monthWeekday: day })"
           >
             {{ weekdayOfIndex(day) }}
-          </button>
+          </Chip>
         </div>
       </template>
     </template>
@@ -156,18 +151,19 @@ watch(
         :label="$t('calendar.form.endsLabel')"
         @update:model-value="(value) => set({ ends: value })"
       />
-      <input
+      <Input
         v-if="draft.ends === 'until'"
         v-model="draft.untilDate"
-        class="field"
+        size="sm"
         type="date"
         :aria-label="$t('calendar.form.untilDate')"
         :aria-invalid="error === 'untilDate'"
       />
       <label v-else-if="draft.ends === 'count'" class="count">
-        <input
+        <Input
           v-model.number="draft.count"
-          class="field short"
+          class="short"
+          size="sm"
           type="number"
           min="1"
           max="999"
@@ -205,22 +201,6 @@ watch(
   margin-top: 10px;
 }
 
-.chip {
-  min-width: 28px;
-  padding: 8px 14px;
-  border: none;
-  border-radius: var(--radius-pill);
-  background: #f2e4cc;
-  color: var(--mute-2);
-  font-weight: var(--fw-strong);
-  font-size: 14px;
-}
-
-.chip[aria-pressed='true'] {
-  background: var(--accent);
-  color: var(--paper);
-}
-
 .line {
   display: flex;
   flex-wrap: wrap;
@@ -252,21 +232,7 @@ watch(
   margin: 0;
 }
 
-.field {
-  padding: 9px 12px;
-  border: var(--border) solid var(--outline);
-  border-radius: var(--radius-btn-sq);
-  background: var(--paper);
-  font-weight: var(--fw-body);
-  font-size: 14px;
-  outline: none;
-}
-
-.field[aria-invalid='true'] {
-  border-color: #e2445c;
-}
-
-.field.short {
+.short {
   width: 100px;
 }
 

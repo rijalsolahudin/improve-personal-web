@@ -44,12 +44,13 @@ const canAdd = computed(() => journal.day.value.intentions.length < INTENTION_MA
         <span class="lead-text">{{ $t('journal.leadIn') }}</span>
         <label class="word">
           <span class="word-label">{{ $t('journal.word') }}</span>
-          <input
-            :value="journal.day.value.word"
+          <Input
+            :model-value="journal.day.value.word"
+            variant="bare"
             class="word-input"
             :maxlength="JOURNAL_WORD_MAX"
             :placeholder="$t('journal.wordPlaceholder')"
-            @input="journal.setWord(($event.target as HTMLInputElement).value)"
+            @update:model-value="(value) => journal.setWord(String(value))"
           />
         </label>
       </div>

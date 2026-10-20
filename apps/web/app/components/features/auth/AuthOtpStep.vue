@@ -58,9 +58,9 @@ const resendCountdown = computed(() => `0:${String(flow.resendSecondsLeft.value)
 
 <template>
   <div class="step">
-    <button type="button" class="back" @click="flow.backToEmail">
+    <Button variant="soft" size="sm" class="back" @click="flow.backToEmail">
       <span aria-hidden="true">←</span> {{ $t('login.otp.back') }}
-    </button>
+    </Button>
 
     <AuthHeading :eyebrow="$t('login.otp.eyebrow')" :title="$t('login.otp.title')">
       {{ $t('login.otp.sentTo') }} <strong class="email">{{ flow.email.value }}</strong>
@@ -97,14 +97,9 @@ const resendCountdown = computed(() => `0:${String(flow.resendSecondsLeft.value)
 
     <p class="resend">
       <span>{{ $t('login.otp.noCode') }}</span>
-      <button
-        v-if="flow.resendSecondsLeft.value === 0"
-        type="button"
-        class="resend-btn"
-        @click="flow.resend"
-      >
+      <Button v-if="flow.resendSecondsLeft.value === 0" variant="link" @click="flow.resend">
         {{ $t('login.otp.resend') }}
-      </button>
+      </Button>
       <span v-else class="resend-wait">
         {{ $t('login.otp.resendIn', { time: resendCountdown }) }}
       </span>
@@ -124,19 +119,6 @@ const resendCountdown = computed(() => `0:${String(flow.resendSecondsLeft.value)
 
 .back {
   align-self: flex-start;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 14px 8px 10px;
-  border: none;
-  border-radius: var(--radius-pill);
-  background: #f6ebda;
-  font-weight: var(--fw-strong);
-  font-size: var(--fs-body-sm);
-}
-
-.back:hover {
-  background: #f0dfc3;
 }
 
 .email {
@@ -195,18 +177,6 @@ const resendCountdown = computed(() => `0:${String(flow.resendSecondsLeft.value)
   font-weight: var(--fw-body);
   font-size: var(--fs-body-sm);
   color: #6b5e4b;
-}
-
-.resend-btn {
-  padding: 0;
-  border: none;
-  background: none;
-  font-weight: var(--fw-strong);
-  color: var(--accent);
-}
-
-.resend-btn:hover {
-  color: var(--ink);
 }
 
 .resend-wait {

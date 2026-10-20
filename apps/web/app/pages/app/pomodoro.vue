@@ -25,9 +25,9 @@ const summary = computed(() => {
     <div v-if="pomodoro.notice.value" class="notice" role="status">
       <span class="bell" aria-hidden="true">🔔</span>
       <span class="notice-text">{{ $t(`pomodoro.notice.${pomodoro.notice.value}`) }}</span>
-      <button type="button" class="dismiss" @click="pomodoro.dismissNotice">
+      <Button variant="link" class="dismiss" @click="pomodoro.dismissNotice">
         {{ $t('common.close') }}
-      </button>
+      </Button>
     </div>
     <div class="layout">
       <PomodoroTimer />
@@ -83,12 +83,8 @@ const summary = computed(() => {
   flex: 1;
 }
 
-.dismiss {
-  padding: 0;
-  border: none;
-  background: none;
-  color: #f3cb86;
-  font-weight: var(--fw-strong);
+.notice {
+  --btn-ink: #f3cb86;
 }
 
 .layout {

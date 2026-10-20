@@ -61,18 +61,13 @@ async function activatePasskey(): Promise<void> {
       <h2 class="card-title">{{ t('account.passkey.title') }}</h2>
       <p class="hint">{{ t('account.passkey.intro') }}</p>
       <div class="actions">
-        <button
-          type="button"
-          class="button"
-          :disabled="account.busy.value"
-          @click="activatePasskey"
-        >
+        <Button variant="outline" size="sm" :disabled="account.busy.value" @click="activatePasskey">
           {{
             account.passkey.value === 'set'
               ? t('account.passkey.replace')
               : t('account.passkey.activate')
           }}
-        </button>
+        </Button>
       </div>
     </article>
 
@@ -91,15 +86,15 @@ async function activatePasskey(): Promise<void> {
             {{ device.platform }} · {{ t('account.devices.lastSeen') }} {{ device.lastSeenAt }}
             <template v-if="device.lastIpCity"> · {{ device.lastIpCity }}</template>
           </span>
-          <button
+          <Button
             v-if="!device.isCurrent"
-            type="button"
-            class="button button--danger"
+            variant="danger"
+            size="sm"
             :disabled="account.busy.value"
             @click="account.revokeDevice(device.id)"
           >
             {{ t('account.devices.revoke') }}
-          </button>
+          </Button>
         </li>
       </ul>
     </article>
@@ -168,19 +163,6 @@ async function activatePasskey(): Promise<void> {
   gap: 0.5rem;
   flex-wrap: wrap;
   margin-top: 0.6rem;
-}
-
-.button {
-  padding: 0.45rem 0.9rem;
-  border: 1px solid #d8cfc0;
-  border-radius: 0.5rem;
-  background: #fff;
-  cursor: pointer;
-}
-
-.button--danger {
-  border-color: #e2445c;
-  color: #b0283e;
 }
 
 .devices {

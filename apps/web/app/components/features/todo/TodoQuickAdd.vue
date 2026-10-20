@@ -20,14 +20,21 @@ function submit(): void {
     data-anchor-kind="content"
     @submit.prevent="submit"
   >
-    <input
+    <Input
       v-model="title"
-      class="field title"
+      class="title"
+      shape="pill"
       :maxlength="TASK_TITLE_MAX"
       :placeholder="$t('todo.quickPlaceholder')"
       :aria-label="$t('todo.quickLabel')"
     />
-    <input v-model="date" class="field date" type="date" :aria-label="$t('todo.quickDate')" />
+    <Input
+      v-model="date"
+      class="date"
+      shape="pill"
+      type="date"
+      :aria-label="$t('todo.quickDate')"
+    />
     <TodoPriorityPicker v-model="priority" :label="$t('priority.label')" />
     <Button type="submit" variant="primary">{{ $t('todo.add') }}</Button>
   </form>
@@ -45,23 +52,11 @@ function submit(): void {
   background-size: 20px 20px;
 }
 
-.field {
-  min-width: 0;
-  padding: 11px 14px;
-  border: var(--border) solid var(--outline);
-  border-radius: var(--radius-pill);
-  background: var(--paper);
-  font-weight: var(--fw-body);
-  font-size: 15px;
-  outline: none;
-}
-
 .title {
   flex: 1 1 220px;
 }
 
 .date {
   flex: 0 0 auto;
-  padding: 10px 14px;
 }
 </style>

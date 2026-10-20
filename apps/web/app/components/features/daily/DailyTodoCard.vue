@@ -68,8 +68,9 @@ function submit(): void {
     <p v-if="!items.length" class="empty">{{ $t('daily.todo.empty') }}</p>
     <form class="add" @submit.prevent="submit">
       <span class="plus" aria-hidden="true">+</span>
-      <input
+      <Input
         v-model="draft"
+        variant="bare"
         class="add-input"
         :maxlength="TASK_TITLE_MAX"
         :placeholder="$t('daily.todo.add')"

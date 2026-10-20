@@ -42,6 +42,14 @@ const scope = ref<EditScope>(isRecurring ? 'this' : 'all')
 const error = ref<ScheduleDraftError | null>(null)
 const isConfirmingDelete = ref(false)
 
+const colorOptions = computed(() =>
+  SCHEDULE_COLORS.map(([solid], index) => ({
+    value: index,
+    color: solid,
+    label: t('calendar.form.colorN', { n: index + 1 }),
+  })),
+)
+
 watch(draft, () => (error.value = null), { deep: true })
 watch(scope, () => (isConfirmingDelete.value = false))
 
@@ -83,53 +91,27 @@ const deleteLabel = computed(() => {
     @close="emit('close')"
   >
     <form class="form" novalidate @submit.prevent="submit">
-      <label class="field-wrap">
-        <span class="label">{{ $t('calendar.form.title') }}</span>
-        <input
+      <Field :label="$t('calendar.form.title')">
+        <Input
           v-model="draft.title"
-          class="field"
           data-autofocus
           :maxlength="SCHEDULE_TITLE_MAX"
           :placeholder="$t('calendar.form.titlePlaceholder')"
           :aria-invalid="error === 'titleRequired'"
         />
-      </label>
+      </Field>
 
-      <fieldset class="group">
-        <legend class="label">{{ $t('calendar.form.color') }}</legend>
-        <div class="colors">
-          <button
-            v-for="([solid], index) in SCHEDULE_COLORS"
-            :key="solid"
-            type="button"
-            class="swatch"
-            :style="{ background: solid }"
-            :aria-pressed="draft.color === index"
-            :aria-label="$t('calendar.form.colorN', { n: index + 1 })"
-            @click="draft.color = index"
-          />
-        </div>
-      </fieldset>
+      <Field :label="$t('calendar.form.color')" is-group>
+        <SwatchPicker v-model="draft.color" :options="colorOptions" :size="34" />
+      </Field>
 
       <div class="pair">
-        <label class="field-wrap">
-          <span class="label">{{ $t('calendar.form.date') }}</span>
-          <input
-            v-model="draft.date"
-            class="field"
-            type="date"
-            :aria-invalid="error === 'dateTime'"
-          />
-        </label>
-        <label class="field-wrap">
-          <span class="label">{{ $t('calendar.form.start') }}</span>
-          <input
-            v-model="draft.time"
-            class="field"
-            type="time"
-            :aria-invalid="error === 'dateTime'"
-          />
-        </label>
+        <Field :label="$t('calendar.form.date')">
+          <Input v-model="draft.date" type="date" :aria-invalid="error === 'dateTime'" />
+        </Field>
+        <Field :label="$t('calendar.form.start')">
+          <Input v-model="draft.time" type="time" :aria-invalid="error === 'dateTime'" />
+        </Field>
       </div>
 
       <div>
@@ -139,18 +121,18 @@ const deleteLabel = computed(() => {
           :options="timeModeOptions"
           :label="$t('calendar.form.timeMode')"
         />
-        <input
+        <Input
           v-if="draft.timeMode === 'end'"
           v-model="draft.end"
-          class="field short"
+          class="short"
           type="time"
           :aria-label="$t('calendar.form.end')"
           :aria-invalid="error === 'duration'"
         />
         <label v-else class="dur">
-          <input
+          <Input
             v-model.number="draft.dur"
-            class="field short"
+            class="short"
             type="number"
             min="5"
             max="1440"
@@ -197,60 +179,8 @@ const deleteLabel = computed(() => {
   gap: 16px;
 }
 
-.field-wrap,
-.group {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  margin: 0;
-  padding: 0;
-  border: none;
-}
-
-.label {
-  margin-bottom: 6px;
-  padding: 0;
-  font-weight: var(--fw-strong);
-  font-size: 13px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--mute-2);
-}
-
-.field {
-  width: 100%;
-  padding: 11px 14px;
-  border: var(--border) solid var(--outline);
-  border-radius: var(--radius-btn-sq);
-  background: var(--paper);
-  font-weight: var(--fw-body);
-  font-size: 15px;
-  outline: none;
-}
-
-.field[aria-invalid='true'] {
-  border-color: #e2445c;
-}
-
-.field.short {
+.short {
   width: 180px;
-}
-
-.colors {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.swatch {
-  width: 34px;
-  height: 34px;
-  border: var(--border-thick) solid transparent;
-  border-radius: var(--radius-inner);
-}
-
-.swatch[aria-pressed='true'] {
-  border-color: var(--outline);
 }
 
 .pair {
@@ -276,7 +206,7 @@ const deleteLabel = computed(() => {
   color: var(--mute-2);
 }
 
-.dur .field.short {
+.dur .short {
   width: 120px;
 }
 

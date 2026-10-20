@@ -38,9 +38,10 @@ const entries = computed(() => memosOn(matching.value, selected.value))
         <h1 class="title">{{ $t('feature.memo.label') }}</h1>
         <p class="summary">{{ $t('memo.summary', { n: memos.length }) }}</p>
       </div>
-      <input
+      <Input
         v-model="query"
         class="search"
+        shape="pill"
         type="search"
         :maxlength="SEARCH_MAX"
         :placeholder="$t('memo.search')"
@@ -136,13 +137,6 @@ const entries = computed(() => memosOn(matching.value, selected.value))
 .search {
   width: 280px;
   max-width: 100%;
-  padding: 11px 16px;
-  border: var(--border) solid var(--outline);
-  border-radius: var(--radius-pill);
-  background: var(--paper);
-  font-weight: var(--fw-body);
-  font-size: 15px;
-  outline: none;
 }
 
 .pages {

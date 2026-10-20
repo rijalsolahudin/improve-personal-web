@@ -96,8 +96,9 @@ function save(): void {
     </div>
     <MemoPaperPicker v-model="paper" class="pad papers" />
     <div class="divider" />
-    <input
+    <Input
       v-model="draft.title"
+      variant="bare"
       class="title-input"
       :style="paperStyle"
       :maxlength="MEMO_TITLE_MAX"

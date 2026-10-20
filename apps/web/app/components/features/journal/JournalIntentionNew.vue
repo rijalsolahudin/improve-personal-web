@@ -16,14 +16,17 @@ function add(): void {
   <li class="new">
     <form class="new-form" @submit.prevent="add">
       <label class="new-label" for="intention-draft">{{ $t('journal.newIntention') }}</label>
-      <input
+      <Input
         id="intention-draft"
         v-model="draft"
+        variant="bare"
         class="new-input"
         :maxlength="INTENTION_TEXT_MAX"
         :placeholder="$t('journal.newPlaceholder')"
       />
-      <button type="submit" class="new-add">+ {{ $t('journal.add') }}</button>
+      <Button variant="ink" size="xs" type="submit" class="new-add"
+        >+ {{ $t('journal.add') }}</Button
+      >
     </form>
   </li>
 </template>
@@ -67,12 +70,5 @@ function add(): void {
 
 .new-add {
   align-self: flex-start;
-  padding: 7px 13px;
-  border: none;
-  border-radius: var(--radius-pill);
-  background: var(--ink);
-  color: var(--paper);
-  font-weight: var(--fw-strong);
-  font-size: 13px;
 }
 </style>

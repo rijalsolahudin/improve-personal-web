@@ -8,6 +8,13 @@ const PHASES: readonly PomodoroPhase[] = ['focus', 'short', 'long']
 const { t } = useI18n()
 const pomodoro = usePomodoro()
 
+const phaseOptions = computed(() =>
+  PHASES.map((phase) => ({
+    value: phase,
+    label: t(`pomodoro.phaseLong.${phase}`),
+    disabled: pomodoro.isRunning.value && pomodoro.phase.value !== phase,
+  })),
+)
 const time = computed(() => formatMinutesSeconds(pomodoro.remainingMs.value))
 const percent = computed(() => Math.round(pomodoro.progress.value * 100))
 const phaseLabel = computed(
@@ -37,18 +44,13 @@ const dots = computed(() =>
     data-anchor-kind="content"
     :aria-label="$t('pomodoro.name')"
   >
-    <div class="phases" role="group" :aria-label="$t('pomodoro.phaseLabel')">
-      <button
-        v-for="phase in PHASES"
-        :key="phase"
-        type="button"
-        :aria-pressed="pomodoro.phase.value === phase"
-        :disabled="pomodoro.isRunning.value && pomodoro.phase.value !== phase"
-        @click="pomodoro.selectPhase(phase)"
-      >
-        {{ $t(`pomodoro.phaseLong.${phase}`) }}
-      </button>
-    </div>
+    <Segmented
+      class="phases"
+      :model-value="pomodoro.phase.value"
+      :options="phaseOptions"
+      :label="$t('pomodoro.phaseLabel')"
+      @update:model-value="pomodoro.selectPhase"
+    />
 
     <div class="ring" :style="{ '--pct': `${percent}%` }">
       <div class="face">
@@ -72,7 +74,9 @@ const dots = computed(() =>
       <Button variant="outline" class="ctrl" @click="pomodoro.reset">
         {{ $t('pomodoro.reset') }}
       </Button>
-      <button type="button" class="ctrl main" @click="pomodoro.toggle">{{ toggleLabel }}</button>
+      <Button variant="primary" class="ctrl main" @click="pomodoro.toggle">{{
+        toggleLabel
+      }}</Button>
       <Button variant="outline" class="ctrl" @click="pomodoro.skip">
         {{ $t('pomodoro.skip') }}
       </Button>
@@ -115,34 +119,11 @@ const dots = computed(() =>
 }
 
 .phases {
-  display: flex;
+  --seg-bg: var(--paper);
+  --seg-active: var(--ph-deep);
+
   flex-wrap: wrap;
   justify-content: center;
-  gap: 2px;
-  padding: 4px;
-  border-radius: var(--radius-pill);
-  background: var(--paper);
-}
-
-.phases button {
-  padding: 8px 16px;
-  border: none;
-  border-radius: var(--radius-pill);
-  background: transparent;
-  color: var(--mute-2);
-  font-weight: var(--fw-strong);
-  font-size: 14px;
-  white-space: nowrap;
-}
-
-.phases button[aria-pressed='true'] {
-  background: var(--ph-deep);
-  color: var(--paper);
-}
-
-.phases button:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
 }
 
 .ring {
@@ -204,27 +185,23 @@ const dots = computed(() =>
 }
 
 .controls {
+  --btn-accent: var(--ph-deep);
+
   width: 100%;
   max-width: 420px;
   display: flex;
   gap: 10px;
 }
 
-.ctrl {
+/* Lebih tinggi dari Button md: kontrol utama timer. */
+.controls .ctrl {
   flex: 1;
-  height: 52px;
-  border: var(--border) solid var(--outline);
-  border-radius: var(--radius-pill);
-  background: var(--paper);
-  font-weight: var(--fw-strong);
+  min-height: 52px;
   font-size: 16px;
 }
 
-.ctrl.main {
+.controls .main {
   flex: 2;
-  border: none;
-  background: var(--ph-deep);
-  color: var(--paper);
 }
 
 @media (max-width: 599px) {

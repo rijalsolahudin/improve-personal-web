@@ -48,6 +48,10 @@ const GOAL_COLORS: Record<GoalCategory, string> = {
   diri: '#9B4FC9',
   relasi: '#10A8D8',
 }
+
+const rangeOptions = computed(() =>
+  ranges.map((value) => ({ value, label: t(`overview.range.${value}`) })),
+)
 </script>
 
 <template>
@@ -64,18 +68,14 @@ const GOAL_COLORS: Record<GoalCategory, string> = {
             ›
           </IconButton>
         </div>
-        <div class="ranges" role="group" :aria-label="$t('overview.rangeLabel')">
-          <button
-            v-for="item in ranges"
-            :key="item"
-            type="button"
-            class="range"
-            :aria-pressed="range === item"
-            @click="setRange(item)"
-          >
-            {{ $t(`overview.range.${item}`) }}
-          </button>
-        </div>
+        <Segmented
+          class="ranges"
+          framed
+          :model-value="range"
+          :options="rangeOptions"
+          :label="$t('overview.rangeLabel')"
+          @update:model-value="setRange"
+        />
       </div>
     </header>
 
@@ -148,16 +148,15 @@ const GOAL_COLORS: Record<GoalCategory, string> = {
         <div class="card-head wrap">
           <h2 class="card-title">{{ $t('overview.heatmap.title') }}</h2>
           <div class="habits-tabs">
-            <button
+            <Chip
               v-for="(habit, index) in heatmapHabits"
               :key="habit.id"
-              type="button"
-              class="habit-tab"
-              :aria-pressed="habitIndex === index"
+              variant="pick"
+              :active="habitIndex === index"
               @click="setHabit(index)"
             >
               <span class="dot" :style="{ background: habit.color }" />{{ habit.name }}
-            </button>
+            </Chip>
           </div>
         </div>
         <template v-if="heatmap">
@@ -362,34 +361,11 @@ const GOAL_COLORS: Record<GoalCategory, string> = {
 }
 
 .ranges {
-  display: flex;
   align-items: center;
-  gap: 2px;
   height: 44px;
   max-width: 100%;
   overflow-x: auto;
-  padding: 3px;
-  border: var(--border) solid var(--outline);
-  border-radius: var(--radius-pill);
-  background: var(--paper);
   scrollbar-width: none;
-}
-
-.range {
-  flex-shrink: 0;
-  padding: 7px 14px;
-  border: none;
-  border-radius: var(--radius-pill);
-  background: transparent;
-  color: var(--mute-2);
-  font-weight: var(--fw-strong);
-  font-size: 14px;
-  white-space: nowrap;
-}
-
-.range[aria-pressed='true'] {
-  background: var(--accent);
-  color: var(--paper);
 }
 
 .stats {
@@ -579,26 +555,11 @@ const GOAL_COLORS: Record<GoalCategory, string> = {
 }
 
 .habits-tabs {
+  --chip-tint: var(--alt);
+
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-}
-
-.habit-tab {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  border: var(--border-thin) solid var(--line);
-  border-radius: var(--radius-pill);
-  background: var(--paper);
-  font-weight: var(--fw-strong);
-  font-size: 13px;
-}
-
-.habit-tab[aria-pressed='true'] {
-  border-color: var(--outline);
-  background: var(--alt);
 }
 
 .heatmap {

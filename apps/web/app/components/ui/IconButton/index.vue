@@ -8,7 +8,8 @@ const {
 } = defineProps<{
   /** 44 = header mobile, 52 = kontrol timer, 56 = bell desktop. */
   size?: number
-  tone?: 'paper' | 'soft' | 'chip' | 'bell' | 'plain' | 'bare' | 'danger'
+  /** muted = tanpa garis, latar chip, ikon warna deep (aksi kecil di baris: edit, hapus). */
+  tone?: 'paper' | 'soft' | 'chip' | 'bell' | 'plain' | 'bare' | 'danger' | 'muted'
   title?: string
   /** Override radius sudut (px). */
   radius?: number
@@ -84,6 +85,16 @@ const style = computed(() => ({
 .tone-bare {
   border: none;
   background: var(--paper);
+}
+
+.tone-muted {
+  border: none;
+  background: var(--chip);
+  color: var(--deep);
+}
+
+.tone-muted:hover {
+  background: var(--hover);
 }
 
 .tone-danger {

@@ -51,9 +51,10 @@ const emailModel = computed({ get: () => flow.email.value, set: flow.setEmail })
     <form class="form" novalidate @submit.prevent="flow.submitEmail">
       <div class="field">
         <label class="label" for="login-email">{{ $t('login.choose.emailLabel') }}</label>
-        <input
+        <Input
           id="login-email"
           v-model="emailModel"
+          variant="bare"
           class="input"
           :class="{ invalid: flow.emailError.value }"
           type="email"

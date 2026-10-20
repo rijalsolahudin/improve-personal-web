@@ -30,14 +30,16 @@ const mood = computed({
         {{ feeling }}
       </button>
     </div>
-    <textarea
-      :value="journal.day.value.feelingNote"
+    <Input
+      :model-value="journal.day.value.feelingNote"
+      variant="bare"
+      multiline
       class="lined-text note"
       rows="3"
       :maxlength="JOURNAL_NOTE_MAX"
       :placeholder="$t('journal.feelingPlaceholder')"
       :aria-label="$t('journal.feelingNote')"
-      @input="journal.setNote('feelingNote', ($event.target as HTMLTextAreaElement).value)"
+      @update:model-value="(text) => journal.setNote('feelingNote', String(text))"
     />
   </JournalCard>
 </template>

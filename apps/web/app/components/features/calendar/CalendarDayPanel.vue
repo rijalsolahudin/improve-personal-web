@@ -86,9 +86,9 @@ function timeLabel(occurrence: Occurrence): string {
     <section class="card">
       <div class="card-head">
         <h3 class="card-title">{{ $t('calendar.schedules') }}</h3>
-        <button type="button" class="link" @click="emit('create')">
+        <Button variant="link" class="link" @click="emit('create')">
           + {{ $t('calendar.add') }}
-        </button>
+        </Button>
       </div>
       <ul class="rows">
         <li v-for="occurrence in events" :key="occurrence.key" class="row hover-reveal">
@@ -110,14 +110,15 @@ function timeLabel(occurrence: Occurrence): string {
               {{ timeLabel(occurrence) }} · {{ recurrenceLabel(occurrence.schedule.rec) }}
             </span>
           </button>
-          <button
-            type="button"
+          <Button
+            variant="chip"
+            size="xs"
             class="focus reveal"
             :aria-label="$t('daily.focusLabel', { title: occurrence.schedule.title })"
             @click="emit('focus', occurrence.schedule.title)"
           >
             {{ $t('daily.focus') }}
-          </button>
+          </Button>
           <button
             type="button"
             class="attend"
@@ -157,13 +158,13 @@ function timeLabel(occurrence: Occurrence): string {
               </li>
             </ul>
             <p v-else class="linked-empty">{{ $t('calendar.noLinkedTasks') }}</p>
-            <button
-              type="button"
+            <Button
+              variant="link"
               class="link"
               @click="emit('addTask', occurrence.schedule.id, day)"
             >
               + {{ $t('calendar.addTask') }}
-            </button>
+            </Button>
           </div>
         </li>
         <li v-if="!events.length" class="row empty">{{ $t('calendar.noSchedules') }}</li>
@@ -188,15 +189,16 @@ function timeLabel(occurrence: Occurrence): string {
             @toggle="toggleTask(task.id)"
           />
           <span class="task-title">{{ task.title }}</span>
-          <button
+          <Button
             v-if="!task.done"
-            type="button"
+            variant="chip"
+            size="xs"
             class="focus reveal"
             :aria-label="$t('daily.focusLabel', { title: task.title })"
             @click="emit('focus', task.title)"
           >
             {{ $t('daily.focus') }}
-          </button>
+          </Button>
           <span class="row-meta">{{
             task.deadline !== null ? formatHourMinute(task.deadline) : ''
           }}</span>
@@ -213,14 +215,15 @@ function timeLabel(occurrence: Occurrence): string {
               @toggle="toggleTask(task.id)"
             />
             <span class="task-title">{{ task.title }}</span>
-            <button
-              type="button"
+            <Button
+              variant="chip"
+              size="xs"
               class="focus reveal"
               :aria-label="$t('daily.focusLabel', { title: task.title })"
               @click="emit('focus', task.title)"
             >
               {{ $t('daily.focus') }}
-            </button>
+            </Button>
           </li>
         </ul>
       </template>
@@ -320,15 +323,6 @@ function timeLabel(occurrence: Occurrence): string {
   font-family: var(--font-display);
   font-weight: var(--fw-display);
   font-size: 18px;
-}
-
-.link {
-  padding: 0;
-  border: none;
-  background: none;
-  color: var(--accent);
-  font-weight: var(--fw-strong);
-  font-size: 13px;
 }
 
 .rows {
@@ -514,18 +508,6 @@ function timeLabel(occurrence: Occurrence): string {
   .panel {
     max-width: none;
   }
-}
-.focus {
-  height: 26px;
-  flex-shrink: 0;
-  padding: 0 10px;
-  border: 0;
-  border-radius: var(--radius-pill);
-  background: var(--chip);
-  color: var(--deep);
-  font-weight: var(--fw-strong);
-  font-size: 11.5px;
-  white-space: nowrap;
 }
 
 .undated-title {
