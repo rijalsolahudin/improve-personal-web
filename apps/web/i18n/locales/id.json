@@ -1144,51 +1144,52 @@
     },
     "backup": {
       "title": "Backup kode pemulihan",
-      "intro": "Kode pemulihan adalah satu teks yang memuat kunci pemulihmu. Kamu tidak perlu menulis atau menghafal apa pun - simpan saja kode itu di tempat yang kamu percaya.",
+      "intro": "Cadangan kalau passkey hilang. Simpan kodenya di password manager atau cloud pribadimu - tidak ada yang perlu ditulis atau dihafal.",
       "statusLabel": "Kode pemulihan",
       "status": {
         "set": "sudah disimpan",
         "unset": "belum disimpan"
       },
-      "readyToSave": "Kode kamu siap disimpan. Pilih satu cara:",
       "create": "Buat kode pemulihan",
       "recreate": "Buat kode baru",
-      "saveToCloud": "Simpan ke cloud",
-      "copy": "Salin kode",
-      "download": "Unduh berkas",
-      "saved": "Sudah saya simpan",
-      "copied": "Kode sudah disalin.",
-      "shareUnavailable": "Browser ini belum punya menu simpan-ke-cloud. Pakai Salin atau Unduh, lalu simpan ke cloud-mu sendiri.",
-      "shareCancelled": "Penyimpanan dibatalkan. Kodenya ditampilkan di bawah kalau mau kamu salin/unduh manual.",
-      "warning": "Siapa pun yang memegang kode ini bisa membuka datamu. Simpan di tempat yang memang menyimpan rahasia (password manager, cloud pribadimu).",
-      "driveNote": "Simpan langsung ke Google Drive dari dalam app belum ada - untuk sekarang lewat menu Simpan ke cloud / unduh berkas."
+      "copy": "Salin",
+      "download": "Unduh .txt",
+      "copied": "Tersalin ✓",
+      "warning": "Siapa pun yang memegang kode ini bisa membuka datamu. Jangan kirim ke chat atau orang lain.",
+      "stepSave": "Simpan kode ini",
+      "stepConfirm": "Pastikan sudah tersimpan",
+      "share": "Bagikan",
+      "confirmLabel": "Saya sudah menyimpan kode ini di tempat yang aman",
+      "finish": "Selesai",
+      "preparing": "Menyiapkan kode pemulihan…"
     },
     "passkeyOnboarding": {
-      "title": "Amankan datamu",
-      "why": "Kami sangat menjaga privasimu. Isi datamu tersimpan terenkripsi di database kami, jadi tidak ada yang bisa membacanya - bahkan tim {app} sendiri.",
-      "cannotSkip": "Wajib sekali saja, supaya datamu tetap bisa dipulihkan.",
-      "activate": "Aktifkan Face ID/passkey",
+      "title": "Privasimu Sepenuhnya Dijaga",
+      "why": "Kami berkomitmen menghormati privasimu. Semua datamu dikunci secara otomatis sehingga hanya kamu yang bisa mengakses dan membacanya, bahkan tim kami sendiri tidak bisa.",
+      "cannotSkip": "Langkah singkat ini memastikan datamu selalu aman dan dapat dipulihkan kapan saja.",
+      "activate": "Aktifkan Passkey / Biometrik",
       "activating": "Menunggu konfirmasi perangkat…",
       "continueWithout": "Lanjut tanpa passkey",
-      "backupHint": "Kode ini cadangan kedua selain passkey. Simpan di tempat yang kamu percaya, lalu tandai sudah disimpan.",
-      "done": "Tutup",
-      "backupFirst": "Simpan kode pemulihan dulu",
+      "backupHint": "Cadangan kalau passkey hilang. Simpan kodenya, lalu konfirmasi.",
+      "backupFirst": "Simpan Kode Pemulihan Cadangan",
       "backupTitle": "Simpan kode pemulihan",
       "e2ee": {
         "encrypted": {
-          "title": "Terenkripsi end-to-end",
-          "body": "Datamu dikunci di perangkat ini sebelum dikirim. Yang sampai ke server hanya data teracak."
+          "title": "Enkripsi End-to-End",
+          "body": "Datamu diacak langsung di perangkatmu sebelum disimpan, menjamin privasi tetap aman dan privat."
         },
         "ownKey": {
-          "title": "Kuncinya cuma milikmu",
-          "body": "Kunci tidak pernah keluar dari perangkat. Jadi tidak ada \"reset password\" yang bisa kami lakukan untukmu."
+          "title": "Akses Eksklusif Milikmu",
+          "body": "Kunci enkripsi tersimpan aman di perangkatmu, memastikan hanya kamu pemilik tunggal akses datamu."
         },
         "passkey": {
-          "title": "Passkey jadi kunci cadangan",
-          "body": "Kalau perangkat hilang atau ganti HP, cukup Face ID/sidik jari untuk membuka datamu lagi. Tanpa itu, data tidak bisa dipulihkan siapa pun."
+          "title": "Pemulihan Mudah dengan Passkey",
+          "body": "Ganti HP atau perangkat hilang? Cukup gunakan Face ID / sidik jari untuk memulihkan seluruh datamu dengan aman dan instan."
         }
       },
-      "logout": "Keluar dari akun"
+      "logout": "Keluar dari akun",
+      "skip": "Lewati dulu",
+      "back": "Kembali"
     },
     "unlock": {
       "title": "Buka datamu di perangkat ini",

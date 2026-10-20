@@ -79,13 +79,14 @@ async function activate(): Promise<void> {
   }
 }
 
-/** Tutup onboarding setelah langkah backup selesai/dilewati. */
+/**
+ * Keluar dari langkah backup (sudah disimpan, dilewati, atau kembali).
+ *
+ * Kalau passkey belum ada, gate-nya memaksa dialog tetap terbuka - jadi ini kembali ke langkah 1,
+ * bukan menutup lalu berkedip terbuka lagi.
+ */
 function closeOnboarding(): void {
   backupStep.value = false
-
-  // Kalau passkey belum ada, dialog ini memang akan dipaksa muncul lagi - jadi "tutup" berarti kembali ke
-  // langkah 1, bukan menutup lalu berkedip terbuka lagi.
-  if (account.passkey.value !== 'set') return
 }
 
 /** Hanya ditawarkan saat perangkatnya tidak mendukung - lihat catatan di atas. */
@@ -124,14 +125,18 @@ function continueWithoutPasskey(): void {
 
     <template v-if="backupStep">
       <p class="lead">{{ $t('account.passkeyOnboarding.backupHint') }}</p>
-      <RecoveryBackupCard is-embedded />
-      <Button block @click="closeOnboarding">
-        {{ $t('account.passkeyOnboarding.done') }}
+      <RecoveryBackupCard is-embedded @saved="closeOnboarding" />
+      <Button class="exit" variant="ghost" block @click="closeOnboarding">
+        {{
+          account.passkey.value === 'set'
+            ? $t('account.passkeyOnboarding.skip')
+            : $t('account.passkeyOnboarding.back')
+        }}
       </Button>
     </template>
 
     <template v-else>
-      <p class="lead">{{ $t('account.passkeyOnboarding.why', { app: BRAND.name }) }}</p>
+      <p class="lead">{{ $t('account.passkeyOnboarding.why') }}</p>
       <E2eeExplainer />
 
       <div class="actions">
@@ -225,5 +230,10 @@ function continueWithoutPasskey(): void {
   background: #ffe1da;
   color: var(--danger);
   font-size: var(--fs-body-sm);
+}
+
+/* Jalan keluar dipisah jelas dari tombol "Selesai" di atasnya, supaya tidak terbaca satu kelompok. */
+.exit {
+  margin-top: var(--space-4);
 }
 </style>

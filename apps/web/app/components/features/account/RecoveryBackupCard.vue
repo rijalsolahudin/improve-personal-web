@@ -9,63 +9,69 @@ import { BRAND } from '#shared/brand'
  * ribet" tanpa mengubah model keamanan - kode tetap satu-satunya jalan pulih, dan server tetap tidak
  * memegangnya.
  *
- * "Simpan ke cloud" memakai **share sheet OS** (`navigator.share`): satu tap, user pilih Drive/email/
- * Catatan sendiri. Tidak ada OAuth, tidak ada endpoint baru, dan isi kode tidak pernah lewat server kita.
- * Kalau share sheet tidak tersedia (umumnya desktop), jalur Salin/Unduh yang dipakai - bukan jalan buntu.
+ * Alurnya dua langkah: (1) simpan kode yang TERLIHAT lewat Salin / Unduh / Bagikan, (2) centang konfirmasi
+ * lalu Selesai. Konfirmasi dipisah dari cara menyimpan karena menyalin belum berarti tersimpan.
+ * "Bagikan" memakai share sheet OS (`navigator.share`) - tanpa OAuth, isi kode tidak lewat server kita -
+ * dan disembunyikan kalau browser tidak punya (umumnya desktop), bukan jadi tombol yang gagal.
  *
  * Yang BELUM, dan tidak diklaim ada: integrasi Drive langsung ("Simpan ke Drive" dari dalam app). Itu
  * butuh scope OAuth `drive.file` + consent screen, dan client Google app ini masih placeholder.
  */
 const { isEmbedded = false } = defineProps<{
-  /** Di dalam dialog onboarding: tanpa bingkai kartu & judul, karena dialognya sudah punya. */
+  /** Di dalam dialog onboarding: tanpa bingkai, judul, dan baris status - dialognya sudah punya. */
   isEmbedded?: boolean
 }>()
+
+const emit = defineEmits<{ saved: [] }>()
 
 const account = useAccount()
 const { t } = useI18n()
 
-/** Kode ditampilkan apa adanya hanya kalau user memilih jalur manual (salin/unduh). */
-const revealed = ref(false)
-const notice = ref<'share-cancelled' | 'share-unavailable' | 'copied' | null>(null)
+const isCopied = ref(false)
+const isConfirmed = ref(false)
 
-const isSaved = computed(() => account.recovery.value === 'set')
+/** Menu bagikan OS (Drive/email/Catatan). Tidak ada di kebanyakan desktop: tombolnya disembunyikan. */
+const canShare = ref(false)
 
-function revealForManual(reason: 'share-cancelled' | 'share-unavailable'): void {
-  revealed.value = true
-  notice.value = reason
+const code = computed(() => account.freshRecoveryCode.value)
+
+/**
+ * Status mengikuti kode yang SEDANG ditampilkan: kode baru yang belum dikonfirmasi berstatus belum
+ * disimpan, walau perangkat masih memegang catatan kode lama.
+ */
+const isSaved = computed(() => account.recovery.value === 'set' && code.value === null)
+
+onMounted(() => {
+  canShare.value = typeof navigator.share === 'function'
+
+  // Di onboarding user datang untuk menyimpan kode: kodenya langsung disiapkan, tanpa klik "buat" dulu.
+  if (isEmbedded && code.value === null) void createCode()
+})
+
+async function createCode(): Promise<void> {
+  isCopied.value = false
+  isConfirmed.value = false
+  await account.createRecoveryBackup()
 }
 
-/** Satu tap: share sheet OS (Drive/email/Catatan pilihan user). */
-async function saveToCloud(): Promise<void> {
-  const code = account.freshRecoveryCode.value
-  if (code === null) return
-
-  notice.value = null
-
-  if (typeof navigator.share !== 'function') {
-    revealForManual('share-unavailable')
-    return
-  }
+async function shareCode(): Promise<void> {
+  if (code.value === null) return
 
   try {
-    await navigator.share({ title: `${BRAND.name} — kode pemulihan`, text: code })
+    await navigator.share({ title: `${BRAND.name} — kode pemulihan`, text: code.value })
   } catch {
-    // Dibatalkan user, atau share ditolak. Ditampilkan jalur manual, bukan gagal diam-diam.
-    revealForManual('share-cancelled')
+    // Dibatalkan user: kodenya tetap terlihat dan bisa disalin/diunduh, jadi tidak perlu pesan apa pun.
   }
 }
 
 async function copyCode(): Promise<void> {
-  const code = account.freshRecoveryCode.value
-  if (code === null) return
+  if (code.value === null) return
 
-  revealed.value = true
   try {
-    await navigator.clipboard.writeText(code)
-    notice.value = 'copied'
+    await navigator.clipboard.writeText(code.value)
+    isCopied.value = true
   } catch {
-    // Clipboard butuh konteks aman/izin; kodenya sudah terlihat, user bisa menyalin manual.
-    notice.value = null
+    // Clipboard butuh izin/konteks aman; kodenya terlihat, jadi masih bisa disalin manual.
   }
 }
 
@@ -83,8 +89,7 @@ function downloadCode(): void {
 
 async function confirmSaved(): Promise<void> {
   await account.markRecoveryBackupSaved()
-  revealed.value = false
-  notice.value = null
+  if (account.recovery.value === 'set') emit('saved')
 }
 </script>
 
@@ -93,53 +98,70 @@ async function confirmSaved(): Promise<void> {
     <template v-if="!isEmbedded">
       <h2 class="card-title">{{ t('account.backup.title') }}</h2>
       <p class="hint">{{ t('account.backup.intro') }}</p>
+      <p class="status">
+        <span>{{ t('account.backup.statusLabel') }}</span>
+        <span :class="['badge', isSaved ? 'badge--ok' : 'badge--warn']">
+          {{ t(`account.backup.status.${isSaved ? 'set' : 'unset'}`) }}
+        </span>
+      </p>
     </template>
 
-    <p class="status">
-      <span>{{ t('account.backup.statusLabel') }}</span>
-      <span :class="['badge', isSaved ? 'badge--ok' : 'badge--warn']">
-        {{ t(`account.backup.status.${isSaved ? 'set' : 'unset'}`) }}
-      </span>
-    </p>
+    <template v-if="code">
+      <section class="step">
+        <h3 class="step-title">
+          <span class="step-number" aria-hidden="true">1</span>
+          {{ t('account.backup.stepSave') }}
+        </h3>
+        <div class="code-box">
+          <p class="code" :aria-label="t('account.backup.statusLabel')">{{ code }}</p>
+        </div>
+        <div class="save-actions">
+          <Button variant="outline" @click="copyCode">
+            {{ isCopied ? t('account.backup.copied') : t('account.backup.copy') }}
+          </Button>
+          <Button variant="outline" @click="downloadCode">{{
+            t('account.backup.download')
+          }}</Button>
+          <Button v-if="canShare" variant="outline" @click="shareCode">
+            {{ t('account.backup.share') }}
+          </Button>
+        </div>
+        <p class="warning">{{ t('account.backup.warning') }}</p>
+      </section>
 
-    <div v-if="account.freshRecoveryCode.value" class="block">
-      <p class="hint">{{ t('account.backup.readyToSave') }}</p>
+      <section class="step">
+        <h3 class="step-title">
+          <span class="step-number" aria-hidden="true">2</span>
+          {{ t('account.backup.stepConfirm') }}
+        </h3>
+        <div
+          class="confirm"
+          :class="{ 'confirm--checked': isConfirmed }"
+          @click="isConfirmed = !isConfirmed"
+        >
+          <Checkbox
+            :checked="isConfirmed"
+            :label="t('account.backup.confirmLabel')"
+            @toggle="isConfirmed = !isConfirmed"
+          />
+          <span class="confirm-text">{{ t('account.backup.confirmLabel') }}</span>
+        </div>
+        <Button
+          class="finish"
+          block
+          :disabled="!isConfirmed || account.busy.value"
+          @click="confirmSaved"
+        >
+          {{ t('account.backup.finish') }}
+        </Button>
+      </section>
+    </template>
 
-      <Button block :disabled="account.busy.value" @click="saveToCloud">
-        {{ t('account.backup.saveToCloud') }}
-      </Button>
-      <div class="pair">
-        <Button variant="outline" @click="copyCode">{{ t('account.backup.copy') }}</Button>
-        <Button variant="outline" @click="downloadCode">{{ t('account.backup.download') }}</Button>
-      </div>
+    <p v-else-if="isEmbedded" class="hint">{{ t('account.backup.preparing') }}</p>
 
-      <p v-if="notice === 'share-unavailable'" class="hint">
-        {{ t('account.backup.shareUnavailable') }}
-      </p>
-      <p v-else-if="notice === 'share-cancelled'" class="hint">
-        {{ t('account.backup.shareCancelled') }}
-      </p>
-      <p v-else-if="notice === 'copied'" class="hint">{{ t('account.backup.copied') }}</p>
-
-      <textarea
-        v-if="revealed"
-        class="code"
-        readonly
-        rows="3"
-        :value="account.freshRecoveryCode.value"
-      />
-
-      <Button variant="soft" block :disabled="account.busy.value" @click="confirmSaved">
-        {{ t('account.backup.saved') }}
-      </Button>
-    </div>
-
-    <Button v-else block :disabled="account.busy.value" @click="account.createRecoveryBackup">
+    <Button v-else block :disabled="account.busy.value" @click="createCode">
       {{ isSaved ? t('account.backup.recreate') : t('account.backup.create') }}
     </Button>
-
-    <p class="warning">{{ t('account.backup.warning') }}</p>
-    <p v-if="!isEmbedded" class="hint">{{ t('account.backup.driveNote') }}</p>
   </article>
 </template>
 
@@ -147,7 +169,7 @@ async function confirmSaved(): Promise<void> {
 .card {
   display: flex;
   flex-direction: column;
-  gap: var(--space-6);
+  gap: var(--space-11);
   padding: var(--space-10);
   background: var(--surface-card);
   border: var(--border) solid var(--outline);
@@ -200,20 +222,58 @@ async function confirmSaved(): Promise<void> {
   color: var(--prio-medium-fg);
 }
 
-.block {
+.step {
   display: flex;
   flex-direction: column;
-  gap: var(--space-6);
+  gap: var(--space-7);
 }
 
-.pair {
+.step-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  font-weight: var(--fw-strong);
+  font-size: var(--fs-body);
+}
+
+.step-number {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  color: var(--text-on-accent);
+  font-size: var(--fs-caption);
+}
+
+/* Padding di bingkai luar, scroll di dalam: padding bawah elemen yang di-scroll sendiri hilang saat mentok. */
+.code-box {
+  padding: var(--space-6) var(--space-4) var(--space-6) var(--space-8);
+  background: var(--surface-inset);
+  border: var(--border-thin) dashed var(--dash-2);
+  border-radius: var(--radius-inner);
+}
+
+.code {
+  max-height: 6em;
+  overflow-y: auto;
+  padding-right: var(--space-4);
+  font-family: ui-monospace, monospace;
+  font-size: var(--fs-caption);
+  line-height: 1.5;
+  word-break: break-all;
+  user-select: all;
+}
+
+.save-actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
   gap: var(--space-6);
 }
 
 .warning {
-  padding: var(--space-6) var(--space-8);
+  padding: var(--space-5) var(--space-8);
   border-radius: var(--radius-inner);
   background: var(--prio-medium-bg);
   color: var(--prio-medium-fg);
@@ -221,13 +281,27 @@ async function confirmSaved(): Promise<void> {
   line-height: var(--lh-body);
 }
 
-.code {
-  width: 100%;
-  padding: var(--space-6);
-  border: var(--border-thin) solid var(--line);
+.confirm {
+  display: flex;
+  align-items: center;
+  gap: var(--space-7);
+  padding: var(--space-7) var(--space-8);
+  background: var(--surface-inset);
+  border: var(--border-thin) solid transparent;
   border-radius: var(--radius-inner);
-  font-family: ui-monospace, monospace;
-  font-size: var(--fs-caption);
-  word-break: break-all;
+  cursor: pointer;
+}
+
+.confirm--checked {
+  border-color: var(--accent);
+}
+
+.confirm-text {
+  font-size: var(--fs-body-sm);
+  line-height: var(--lh-body);
+}
+
+.finish {
+  margin-top: var(--space-2);
 }
 </style>
