@@ -5,6 +5,7 @@ import { defineComponent, h } from 'vue'
 import { newScheduleDraft, toMinutes } from '~/utils/schedule'
 import { toIsoDate } from '~/utils/time'
 
+import { resetSchedulesHydrationForTest } from './useSchedules'
 import { useTimeGrid, type GridEvent } from './useTimeGrid'
 
 async function mountGrid(day: string) {
@@ -26,7 +27,14 @@ function pointer(type: string, clientY: number): PointerEvent {
 
 describe('useTimeGrid', () => {
   beforeEach(() => {
-    clearNuxtState(['schedules', 'schedule-attendance', 'tasks'])
+    clearNuxtState([
+      'schedules',
+      'schedule-attendance',
+      'schedulesStatus',
+      'schedulesError',
+      'tasks',
+    ])
+    resetSchedulesHydrationForTest()
   })
 
   it('jadwal hari ini jadi item event; tarik tepi bawah menyimpan durasi baru', async () => {

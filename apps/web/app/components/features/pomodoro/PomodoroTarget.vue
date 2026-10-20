@@ -64,11 +64,19 @@ function onFreeInput(event: Event): void {
       <span class="current-title">{{ pomodoro.target.value ?? $t('pomodoro.targetNone') }}</span>
     </div>
 
+    <div v-if="pomodoro.isTargetLocked.value" class="locked" role="status">
+      <span class="locked-text">{{ $t('pomodoro.targetLocked') }}</span>
+      <button type="button" class="locked-cancel" @click="pomodoro.cancelFocus">
+        {{ $t('pomodoro.cancelFocus') }}
+      </button>
+    </div>
+
     <template v-if="mode !== 'free'">
       <input
         v-model="query"
         class="search"
         type="search"
+        :disabled="pomodoro.isTargetLocked.value"
         :placeholder="$t(`pomodoro.targetSearch.${mode}`)"
         :aria-label="$t(`pomodoro.targetSearch.${mode}`)"
       />
@@ -78,6 +86,7 @@ function onFreeInput(event: Event): void {
             type="button"
             class="option"
             :aria-pressed="pomodoro.target.value === option.label"
+            :disabled="pomodoro.isTargetLocked.value"
             @click="pomodoro.setTarget(option.label, mode)"
           >
             <span class="dot" :style="{ background: option.color }" aria-hidden="true" />
@@ -94,6 +103,7 @@ function onFreeInput(event: Event): void {
       class="free"
       :value="freeText"
       :maxlength="POMODORO_TARGET_MAX"
+      :disabled="pomodoro.isTargetLocked.value"
       :placeholder="$t('pomodoro.freePlaceholder')"
       :aria-label="$t('pomodoro.targetMode.free')"
       @input="onFreeInput"
@@ -173,6 +183,38 @@ function onFreeInput(event: Event): void {
   font-size: 14px;
   white-space: nowrap;
   text-overflow: ellipsis;
+}
+
+.locked {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  font-weight: var(--fw-body);
+  font-size: 13px;
+  color: var(--mute);
+}
+
+.locked-text {
+  flex: 1;
+}
+
+.locked-cancel {
+  flex-shrink: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--ph-deep);
+  font-weight: var(--fw-strong);
+  font-size: 13px;
+  text-decoration: underline;
+}
+
+.option:disabled,
+.search:disabled,
+.free:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 .search {

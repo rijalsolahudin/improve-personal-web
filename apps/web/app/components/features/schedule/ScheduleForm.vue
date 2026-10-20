@@ -41,7 +41,6 @@ const draft = ref<ScheduleDraft>(initialDraft())
 const scope = ref<EditScope>(isRecurring ? 'this' : 'all')
 const error = ref<ScheduleDraftError | null>(null)
 const isConfirmingDelete = ref(false)
-const panel = useTemplateRef<HTMLElement>('panel')
 
 watch(draft, () => (error.value = null), { deep: true })
 watch(scope, () => (isConfirmingDelete.value = false))
@@ -72,48 +71,24 @@ const deleteLabel = computed(() => {
     ? `calendar.form.deleteConfirmScope.${scope.value}`
     : 'calendar.form.deleteConfirm'
 })
-
-function onKeydown(event: KeyboardEvent): void {
-  if (event.key === 'Escape') emit('close')
-}
-onMounted(() => {
-  panel.value?.querySelector<HTMLInputElement>('input')?.focus()
-  window.addEventListener('keydown', onKeydown)
-})
-onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 </script>
 
 <template>
-  <div class="scrim" @click.self="emit('close')">
-    <form
-      ref="panel"
-      class="panel"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="schedule-form-title"
-      novalidate
-      @submit.prevent="submit"
-    >
-      <div class="top">
-        <h2 id="schedule-form-title" class="heading">
-          {{ $t(original ? 'calendar.form.editTitle' : 'calendar.form.newTitle') }}
-        </h2>
-        <IconButton
-          tone="plain"
-          :size="40"
-          :radius="14"
-          :title="$t('common.close')"
-          @click="emit('close')"
-        >
-          ×
-        </IconButton>
-      </div>
-
+  <Modal
+    open
+    align="top"
+    width="560px"
+    :title="$t(original ? 'calendar.form.editTitle' : 'calendar.form.newTitle')"
+    is-dismissible
+    @close="emit('close')"
+  >
+    <form class="form" novalidate @submit.prevent="submit">
       <label class="field-wrap">
         <span class="label">{{ $t('calendar.form.title') }}</span>
         <input
           v-model="draft.title"
           class="field"
+          data-autofocus
           :maxlength="SCHEDULE_TITLE_MAX"
           :placeholder="$t('calendar.form.titlePlaceholder')"
           :aria-invalid="error === 'titleRequired'"
@@ -186,7 +161,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
         </label>
       </div>
 
-      <ScheduleRecurrence v-model="draft" />
+      <ScheduleRecurrence v-model="draft" :error="error" />
 
       <div v-if="isRecurring" class="scope">
         <p class="scope-label">{{ $t('calendar.form.scopeTitle') }}</p>
@@ -212,46 +187,14 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
         </Button>
       </div>
     </form>
-  </div>
+  </Modal>
 </template>
 
 <style scoped>
-.scrim {
-  position: fixed;
-  inset: 0;
-  z-index: 100;
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  overflow-y: auto;
-  padding: 40px 20px;
-  background: rgb(47 42 36 / 0.4);
-}
-
-.panel {
-  width: 100%;
-  max-width: 560px;
+.form {
   display: flex;
   flex-direction: column;
   gap: 16px;
-  padding: 26px 28px;
-  border: var(--border-thick) solid var(--outline);
-  border-radius: var(--radius-panel);
-  background: var(--paper);
-  box-shadow: calc(10px * var(--sx)) calc(10px * var(--sy)) calc(10px * var(--sbl))
-    var(--shadow-color, rgb(47 42 36 / 0.15));
-}
-
-.top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.heading {
-  font-family: var(--font-display);
-  font-weight: var(--fw-display);
-  font-size: 26px;
 }
 
 .field-wrap,
@@ -371,15 +314,5 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 
 .spacer {
   flex: 1;
-}
-
-@media (max-width: 599px) {
-  .scrim {
-    padding: 16px 10px;
-  }
-
-  .panel {
-    padding: 20px 18px;
-  }
 }
 </style>

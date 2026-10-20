@@ -23,6 +23,10 @@ export const countdownSchema = z
     targetAt: epochMsSchema,
     color: z.string().max(64).nullable(),
     stickerId: z.string().min(1).max(120).nullable(),
+    /** Ulang tiap tahun (ulang tahun/anniversary); `targetAt` menyimpan tanggal aslinya. */
+    isYearly: z.boolean().default(false),
+    /** Target tanpa jam: baru dianggap lewat di akhir hari. */
+    isAllDay: z.boolean().default(false),
     isArchived: z.boolean(),
     archivedAt: epochMsSchema.nullable(),
     createdAt: epochMsSchema,

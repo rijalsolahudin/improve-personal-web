@@ -292,6 +292,10 @@
     "markAttend": "Tandai selesai",
     "noSchedules": "Kosong. Klik slot di kalender buat bikin jadwal.",
     "noTasks": "Nggak ada deadline di tanggal ini.",
+    "linkedTasks": "Task tertaut",
+    "noLinkedTasks": "Belum ada task tertaut.",
+    "addTask": "Tambah task",
+    "editTask": "Edit task {title}",
     "noMemoToday": "Belum ada memo hari ini.",
     "noMemo": "Belum ada memo di tanggal ini.",
     "rec": {
@@ -331,6 +335,21 @@
       "everyWeek": "Tiap minggu",
       "everyTwoWeeks": "Tiap 2 minggu",
       "monthlyNote": "Tiap bulan di tanggal {day}. Bulan tanpa tanggal itu dilewati.",
+      "monthMode": {
+        "date": "Tanggal",
+        "nth": "Minggu ke-N"
+      },
+      "monthWeekLabel": "Minggu ke",
+      "monthWeekdayLabel": "Hari",
+      "endsLabel": "Berakhir",
+      "ends": {
+        "never": "Tidak berakhir",
+        "until": "Sampai tanggal",
+        "count": "Setelah N kali"
+      },
+      "untilDate": "Sampai tanggal",
+      "count": "Jumlah kejadian",
+      "countUnit": "kali",
       "scopeTitle": "Ini jadwal rutin. Terapkan ke…",
       "scope": {
         "this": "Kejadian ini",
@@ -352,7 +371,10 @@
         "titleTooLong": "Judul maksimal 120 karakter.",
         "dateTime": "Tanggal atau jam mulai belum valid.",
         "duration": "Jam selesai harus setelah jam mulai (maks. 24 jam).",
-        "noDays": "Pilih minimal satu hari."
+        "noDays": "Pilih minimal satu hari.",
+        "monthPattern": "Pola bulanan belum valid.",
+        "untilDate": "Tanggal berakhir tidak boleh sebelum tanggal mulai.",
+        "count": "Jumlah kejadian harus 1 sampai 999."
       }
     },
     "noDeadline": "Tanpa deadline",
@@ -840,6 +862,8 @@
       "none": "Target"
     },
     "targetNone": "Belum dipilih",
+    "targetLocked": "Target dikunci selama sesi fokus berjalan.",
+    "cancelFocus": "Batalkan sesi",
     "targetSearch": {
       "task": "Cari task…",
       "jadwal": "Cari jadwal hari ini…",

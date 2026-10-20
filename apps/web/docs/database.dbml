@@ -517,6 +517,8 @@ Table countdown {
   target_at    bigint [not null, note: 'epoch ms UTC']
   color        text   [null]
   sticker_id   text   [null, note: 'soft ref ke sticker bundled; ikon/emoji. ID tak dikenal -> placeholder, bukan error']
+  is_yearly    bool   [not null, default: false, note: 'ulang tiap tahun; target_at menyimpan tanggal asli']
+  is_all_day   bool   [not null, default: false, note: 'target tanpa jam; lewat di akhir hari']
   is_archived  bool   [not null, default: false, note: 'opsi arsipkan setelah lewat']
   archived_at  bigint [null, note: 'dipakai sorting: yang diarsipkan tidak ikut hitungan terdekat']
   created_at   bigint [not null]

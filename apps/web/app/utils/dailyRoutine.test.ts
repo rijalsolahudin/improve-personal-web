@@ -16,6 +16,7 @@ function task(id: string, patch: Partial<Task> = {}): Task {
     done: false,
     scheduleId: null,
     quadrant: null,
+    position: 0,
     ...patch,
   }
 }

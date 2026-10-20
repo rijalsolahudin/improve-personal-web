@@ -8,6 +8,7 @@ import {
   draftFromTask,
   emptyTaskDraft,
   matchesFilter,
+  moveTask,
   quickTask,
   sortTasks,
   tasksInQuadrant,
@@ -26,6 +27,7 @@ const task = (id: string, overrides: Partial<Task> = {}): Task => ({
   done: false,
   scheduleId: null,
   quadrant: null,
+  position: 0,
   ...overrides,
 })
 
@@ -140,5 +142,39 @@ describe('eisenhower', () => {
     expect(cleared).toHaveLength(list.length)
     expect(cleared.find((item) => item.id === 'done-do')?.quadrant).toBeNull()
     expect(cleared.find((item) => item.id === 'do')?.quadrant).toBe('do')
+  })
+
+  describe('move & posisi', () => {
+    const matrix = [
+      task('a', { quadrant: 'do', position: 0 }),
+      task('b', { quadrant: 'do', position: 1 }),
+      task('c', { quadrant: 'plan', position: 0 }),
+      task('free'),
+    ]
+    const ids = (tasks: Task[], quadrant: Parameters<typeof tasksInQuadrant>[1]) =>
+      tasksInQuadrant(tasks, quadrant).map((item) => item.id)
+
+    it('reorder dalam kuadran menormalkan posisi', () => {
+      const moved = moveTask(matrix, 'b', 'do', 0)
+      expect(ids(moved, 'do')).toEqual(['b', 'a'])
+      expect(tasksInQuadrant(moved, 'do').map((item) => item.position)).toEqual([0, 1])
+    })
+
+    it('pindah kuadran merapikan posisi kuadran asal & tujuan', () => {
+      const moved = moveTask(matrix, 'a', 'plan', 1)
+      expect(ids(moved, 'do')).toEqual(['b'])
+      expect(tasksInQuadrant(moved, 'do')[0]?.position).toBe(0)
+      expect(ids(moved, 'plan')).toEqual(['c', 'a'])
+      expect(tasksInQuadrant(moved, 'plan').map((item) => item.position)).toEqual([0, 1])
+    })
+
+    it('keluar ke pool melepas kuadran dan merapikan sisanya', () => {
+      const moved = moveTask(matrix, 'a', null)
+      expect(moved.find((item) => item.id === 'a')).toMatchObject({
+        quadrant: null,
+        position: 0,
+      })
+      expect(tasksInQuadrant(moved, 'do')[0]?.position).toBe(0)
+    })
   })
 })

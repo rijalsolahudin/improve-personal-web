@@ -1,5 +1,8 @@
+import { createSystemClock } from '@improve-personal/core'
+
 import {
   DEFAULT_POMODORO_CONFIG,
+  POMODORO_TARGET_MODES,
   adjustSetting,
   applyConfig,
   completePhase,
@@ -17,18 +20,37 @@ import {
   type PomodoroConfig,
   type PomodoroPhase,
   type PomodoroSetting,
+  type PomodoroState,
   type PomodoroTargetKind,
   type PomodoroTargetMode,
 } from '~/utils/pomodoro'
-import { MS_PER_MINUTE } from '~/utils/time'
+import { loadFocusSessions, persistFocusSession } from '~/utils/pomodoro/persistence'
+import type { LocalDataSession } from '~/utils/storage/session'
+import { createUuidV7Generator } from '~/utils/storage/uuid'
 
-/** Preferensi (bukan data sensitif) → localStorage, divalidasi saat dibaca. */
+import { useLocalData } from './useLocalData'
+
+/** Preferensi & state timer aktif (bukan data sensitif) → localStorage, divalidasi saat dibaca. */
 export const POMODORO_CONFIG_KEY = 'ip-pomo-config'
+export const POMODORO_STATE_KEY = 'ip-pomo-state'
 export const POMODORO_SOUND_KEY = 'ip-pomo-sound'
 export const POMODORO_TARGET_MAX = 120
 const DEFAULT_TARGET = 'Fokus'
+const PHASES: readonly PomodoroPhase[] = ['focus', 'short', 'long']
 
 export type PomodoroNotice = 'focusDone' | 'focusSkipped' | 'breakDone' | null
+
+export type UsePomodoroOptions = {
+  /** Sumber sesi; disuntik di test supaya bisa memakai adaptor memori core. */
+  readonly session?: () => Promise<LocalDataSession | null>
+}
+
+let historyInFlight: Promise<void> | null = null
+
+/** Dipakai test supaya hydrate riwayat antar kasus tidak saling mewarisi. */
+export function resetPomodoroHistoryForTest(): void {
+  historyInFlight = null
+}
 
 function readStorage(key: string): string | null {
   if (!import.meta.client) return null
@@ -55,112 +77,234 @@ function readConfig(): PomodoroConfig {
   }
 }
 
-/** Riwayat contoh fase 1 (design: dua sesi pagi ini + riwayat hari sebelumnya). Diganti repository lokal (packages/core). */
-const HISTORY_DAYS = 90
-const HISTORY_TARGETS = [
-  'Belajar AWS',
-  'Nulis laporan',
-  'Baca buku',
-  'Latihan soal',
-  'Rapikan catatan',
-]
-const HISTORY_DURATIONS = [25, 25, 25, 50]
+type PomodoroTarget = {
+  readonly target: string | null
+  readonly targetKind: PomodoroTargetKind | null
+  readonly targetMode: PomodoroTargetMode
+}
 
-function seedHistory(now: number): FocusSession[] {
-  const at = (dayOffset: number, hour: number, minute: number): number =>
-    new Date(new Date(now).setDate(new Date(now).getDate() - dayOffset)).setHours(
-      hour,
-      minute,
-      0,
-      0,
-    )
-  const sessions: FocusSession[] = [
-    {
-      id: 'p2',
-      startedAt: at(0, 10, 0),
-      endedAt: at(0, 10, 25),
-      target: 'Kirim draft laporan',
-      status: 'selesai',
-    },
-    {
-      id: 'p1',
-      startedAt: at(0, 9, 30),
-      endedAt: at(0, 9, 55),
-      target: 'Selesai modul 4 — VPC',
-      status: 'selesai',
-    },
-  ]
-  // Riwayat deterministik (pseudo-random ber-seed) untuk hari-hari sebelumnya.
-  let seed = 20_261_011
-  const random = (): number => {
-    seed = (seed * 9301 + 49_297) % 233_280
-    return seed / 233_280
-  }
-  for (let offset = 1; offset <= HISTORY_DAYS; offset += 1) {
-    const count = Math.floor(random() * 5)
-    for (let index = 0; index < count; index += 1) {
-      const startedAt = at(
-        offset,
-        7 + Math.floor(random() * 14),
-        [0, 15, 30, 45][Math.floor(random() * 4)] ?? 0,
-      )
-      const duration = HISTORY_DURATIONS[Math.floor(random() * HISTORY_DURATIONS.length)] ?? 25
-      sessions.push({
-        id: `p${offset}-${index}`,
-        startedAt,
-        endedAt: startedAt + duration * MS_PER_MINUTE,
-        target: HISTORY_TARGETS[Math.floor(random() * HISTORY_TARGETS.length)] ?? 'Fokus',
-        status: 'selesai',
-      })
+type StoredTimer = PomodoroTarget & { readonly state: PomodoroState }
+
+const isFiniteNumber = (value: unknown): value is number =>
+  typeof value === 'number' && Number.isFinite(value)
+
+/**
+ * Baca state timer aktif dari localStorage.
+ *
+ * Ini yang membuat sesi yang sedang berjalan tetap ada setelah refresh: `endsAt` disimpan, bukan
+ * sisa waktu, jadi timer tetap akurat walau halaman ditutup beberapa lama. Data tak dikenal
+ * diabaikan (mulai dari state baru), bukan dipercaya mentah.
+ */
+function readTimer(): StoredTimer | null {
+  const raw = readStorage(POMODORO_STATE_KEY)
+  if (raw === null) return null
+
+  try {
+    const data = JSON.parse(raw) as Record<string, unknown>
+    const state = data.state as Record<string, unknown> | undefined
+    if (typeof state !== 'object' || state === null) return null
+    if (!PHASES.includes(state.phase as PomodoroPhase)) return null
+    if (typeof state.running !== 'boolean') return null
+    if (state.endsAt !== null && !isFiniteNumber(state.endsAt)) return null
+    if (state.running && state.endsAt === null) return null
+    if (!isFiniteNumber(state.remainingMs) || state.remainingMs < 0) return null
+    if (!isFiniteNumber(state.completedFocus) || state.completedFocus < 0) return null
+    if (state.startedAt !== null && !isFiniteNumber(state.startedAt)) return null
+
+    const targetMode = POMODORO_TARGET_MODES.includes(data.targetMode as PomodoroTargetMode)
+      ? (data.targetMode as PomodoroTargetMode)
+      : 'task'
+    const targetKind =
+      data.targetKind === 'task' ||
+      data.targetKind === 'jadwal' ||
+      data.targetKind === 'habit' ||
+      data.targetKind === 'teks'
+        ? (data.targetKind as PomodoroTargetKind)
+        : null
+    const target =
+      typeof data.target === 'string' && data.target.trim()
+        ? data.target.slice(0, POMODORO_TARGET_MAX)
+        : null
+
+    return {
+      state: {
+        phase: state.phase as PomodoroPhase,
+        running: state.running,
+        endsAt: state.endsAt as number | null,
+        remainingMs: state.remainingMs,
+        completedFocus: Math.trunc(state.completedFocus),
+        startedAt: state.startedAt as number | null,
+      },
+      target,
+      targetKind: target === null ? null : targetKind,
+      targetMode,
     }
+  } catch {
+    return null
   }
-  return sessions.filter((session) => session.endedAt <= now)
 }
 
 /**
  * State Pomodoro bersama (widget Home ↔ halaman F4). Penyelesaian fase otomatis ada di
  * `plugins/pomodoro.client.ts` (satu pengamat untuk seluruh app).
+ *
+ * Riwayat sesi disimpan ke record `pomodoro_session` (IndexedDB terenkripsi), bukan lagi data
+ * contoh. Timer sendiri tetap dihitung dari timestamp (`endsAt`) supaya akurat saat tab background.
  */
-export function usePomodoro() {
+export function usePomodoro(options: UsePomodoroOptions = {}) {
+  const localData = useLocalData()
+  const getSession = options.session ?? localData.ensure
+
   const now = useNow()
   const config = useState<PomodoroConfig>('pomodoro-config', readConfig)
-  const state = useState('pomodoro', () => createPomodoro(config.value))
-  const target = useState<string | null>('pomodoro-target', () => null)
-  const targetMode = useState<PomodoroTargetMode>('pomodoro-target-mode', () => 'task')
-  const targetKind = useState<PomodoroTargetKind | null>('pomodoro-target-kind', () => null)
-  const history = useState<FocusSession[]>('pomodoro-history', () => seedHistory(Date.now()))
+
+  // State timer terakhir (termasuk sesi yang sedang berjalan) supaya refresh tidak menghapusnya.
+  const stored = readTimer()
+  const state = useState('pomodoro', () => stored?.state ?? createPomodoro(config.value))
+  const target = useState<string | null>('pomodoro-target', () => stored?.target ?? null)
+  const targetMode = useState<PomodoroTargetMode>(
+    'pomodoro-target-mode',
+    () => stored?.targetMode ?? 'task',
+  )
+  const targetKind = useState<PomodoroTargetKind | null>(
+    'pomodoro-target-kind',
+    () => stored?.targetKind ?? null,
+  )
+  const history = useState<FocusSession[]>('pomodoro-history', () => [])
+  const historyStatus = useState<'idle' | 'loading' | 'ready' | 'error'>(
+    'pomodoro-history-status',
+    () => 'idle',
+  )
+  const historyError = useState<string | null>('pomodoro-history-error', () => null)
   const isSoundOn = useState<boolean>(
     'pomodoro-sound',
     () => readStorage(POMODORO_SOUND_KEY) !== '0',
   )
   const notice = useState<PomodoroNotice>('pomodoro-notice', () => null)
 
+  const newSessionId = createUuidV7Generator({ clock: createSystemClock() })
+
+  /**
+   * Majukan jam global ke waktu aksi. `now` hanya di-tick tiap detik, jadi tanpa ini sisa waktu
+   * (`endsAt - now`) sesaat setelah Mulai tampil lebih besar hingga satu detik.
+   */
+  function syncNow(): number {
+    const at = Date.now()
+    now.value = at
+    return at
+  }
+
+  const isTargetLocked = computed(
+    () => state.value.phase === 'focus' && state.value.startedAt !== null,
+  )
+
   const remainingMs = computed(() => pomodoroRemaining(state.value, now.value))
 
-  /** Akhiri fase berjalan; sesi fokus dicatat ke riwayat (selesai atau dilewati). */
-  function finish(completed: boolean): void {
-    const current = state.value
-    const endedAt = Date.now()
-    if (current.phase === 'focus' && current.startedAt !== null) {
-      const session: FocusSession = {
-        id: crypto.randomUUID(),
-        startedAt: current.startedAt,
-        endedAt,
-        target: target.value ?? DEFAULT_TARGET,
-        status: completed ? 'selesai' : 'dilewati',
+  /** Simpan state aktif; `endsAt` yang membuat timer tetap benar setelah refresh. */
+  function saveTimer(): void {
+    writeStorage(
+      POMODORO_STATE_KEY,
+      JSON.stringify({
+        state: state.value,
+        target: target.value,
+        targetKind: targetKind.value,
+        targetMode: targetMode.value,
+      }),
+    )
+  }
+
+  /**
+   * Muat riwayat sekali per muat halaman. Hasil yang sudah ada di memori ikut dipertahankan supaya
+   * sesi yang baru selesai sebelum hydrate tidak hilang.
+   */
+  function hydrate(): Promise<void> {
+    if (historyStatus.value === 'ready') return Promise.resolve()
+
+    historyInFlight ??= (async () => {
+      historyStatus.value = 'loading'
+      try {
+        const session = await getSession()
+        if (session === null) {
+          historyStatus.value = 'idle'
+          return
+        }
+
+        const loaded = await loadFocusSessions(session, Date.now())
+        const byId = new Map<string, FocusSession>()
+        for (const item of [...loaded, ...history.value]) byId.set(item.id, item)
+        history.value = [...byId.values()].sort((a, b) => b.startedAt - a.startedAt)
+        historyStatus.value = 'ready'
+        historyError.value = null
+      } catch (cause) {
+        historyStatus.value = 'error'
+        historyError.value =
+          cause instanceof Error ? cause.message : 'riwayat pomodoro tidak bisa dimuat'
+        historyInFlight = null
       }
-      history.value = [session, ...history.value]
-    }
+    })()
+
+    return historyInFlight
+  }
+
+  function persistHistory(session: FocusSession): void {
+    void (async () => {
+      try {
+        const local = await getSession()
+        if (local === null) return
+
+        await persistFocusSession(local, session)
+        historyError.value = null
+      } catch (cause) {
+        historyStatus.value = 'error'
+        historyError.value =
+          cause instanceof Error ? cause.message : 'riwayat pomodoro tidak bisa disimpan'
+      }
+    })()
+  }
+
+  /**
+   * Akhiri fase berjalan; sesi fokus dicatat ke riwayat (selesai atau dilewati).
+   * `endedAt` bisa diisi `endsAt` saat fase ternyata sudah berakhir selagi app ditutup,
+   * supaya durasi riwayat tidak membengkak sebesar lama app tidak dibuka.
+   */
+  function finish(completed: boolean, endedAt = Date.now()): void {
+    const current = state.value
+    recordFocus(current, completed, endedAt)
     notice.value =
       current.phase !== 'focus' ? 'breakDone' : completed ? 'focusDone' : 'focusSkipped'
     state.value = completePhase(current, config.value, completed)
+    saveTimer()
+  }
+
+  /** Sesi fokus yang sudah dimulai dicatat ke riwayat atas nama target saat ini. */
+  function recordFocus(current: PomodoroState, completed: boolean, endedAt: number): void {
+    if (current.phase !== 'focus' || current.startedAt === null) return
+    const session: FocusSession = {
+      id: newSessionId(),
+      startedAt: current.startedAt,
+      endedAt,
+      target: target.value ?? DEFAULT_TARGET,
+      status: completed ? 'selesai' : 'dilewati',
+    }
+    history.value = [session, ...history.value]
+    persistHistory(session)
   }
 
   function updateConfig(next: PomodoroConfig): void {
     config.value = next
     state.value = applyConfig(state.value, next)
     writeStorage(POMODORO_CONFIG_KEY, JSON.stringify(next))
+    saveTimer()
   }
+
+  // Fase yang sudah habis selagi app ditutup diselesaikan sekali di sini. Kalau tidak, plugin
+  // hanya bereaksi pada PERUBAHAN sisa waktu dan timer yang sudah 00:00 bisa diam selamanya.
+  if (state.value.running && state.value.endsAt !== null && state.value.endsAt <= Date.now()) {
+    finish(true, state.value.endsAt)
+  }
+
+  // Di server ini tidak melakukan apa pun (sesi `null`), dan status tetap `idle`.
+  void hydrate()
 
   return {
     config: readonly(config),
@@ -177,39 +321,66 @@ export function usePomodoro() {
     targetMode: readonly(targetMode),
     targetKind: readonly(targetKind),
     history: readonly(history),
+    historyStatus: readonly(historyStatus),
+    historyError: readonly(historyError),
+    hydrate,
     focusMinutesToday: computed(() => focusMinutesOn(history.value, now.value)),
+    /**
+     * Satu sesi fokus = satu target (metode Pomodoro). Setelah dimulai, target dikunci sampai
+     * sesi selesai atau dibatalkan, supaya riwayat tidak mencatat semua menit ke target terakhir.
+     */
+    isTargetLocked,
     isSoundOn: readonly(isSoundOn),
     notice: readonly(notice),
     toggle(): void {
+      const at = syncNow()
       state.value = state.value.running
-        ? pausePomodoro(state.value, Date.now())
-        : startPomodoro(state.value, Date.now())
+        ? pausePomodoro(state.value, at)
+        : startPomodoro(state.value, at)
       notice.value = null
+      saveTimer()
     },
     start(): void {
-      state.value = startPomodoro(state.value, Date.now())
+      state.value = startPomodoro(state.value, syncNow())
       notice.value = null
+      saveTimer()
     },
     reset(): void {
       state.value = resetPomodoro(state.value, config.value)
+      saveTimer()
     },
     skip(): void {
       finish(false)
     },
+    /**
+     * Batalkan sesi fokus yang sedang berjalan/dijeda: dicatat "dilewati" atas nama target lama,
+     * lalu timer kembali ke awal fokus (tanpa pindah ke istirahat) supaya target bisa diganti.
+     */
+    cancelFocus(): void {
+      if (!isTargetLocked.value) return
+      recordFocus(state.value, false, Date.now())
+      notice.value = 'focusSkipped'
+      state.value = resetPomodoro(state.value, config.value)
+      saveTimer()
+    },
     finish,
     selectPhase(phase: PomodoroPhase): void {
       state.value = selectPhase(state.value, phase, config.value)
+      saveTimer()
     },
     adjust(key: PomodoroSetting, direction: -1 | 1): void {
       updateConfig(adjustSetting(config.value, key, direction))
     },
     /** `kind` kosong = asal tidak diketahui (mis. tombol "▶ Fokus" dari halaman lain). */
     setTarget(label: string, kind: PomodoroTargetKind | null = null): void {
+      if (isTargetLocked.value) return
       target.value = label.trim().slice(0, POMODORO_TARGET_MAX) || null
       targetKind.value = target.value ? kind : null
+      saveTimer()
     },
     setTargetMode(mode: PomodoroTargetMode): void {
       targetMode.value = mode
+      saveTimer()
     },
     toggleSound(): void {
       isSoundOn.value = !isSoundOn.value

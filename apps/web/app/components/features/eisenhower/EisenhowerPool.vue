@@ -30,6 +30,7 @@ const formatTimeLeft = useTimeLeft()
         :key="task.id"
         class="item"
         :class="{ dragging: task.id === draggingId }"
+        :data-drop-item="task.id"
         @pointerdown="emit('drag', $event, task.id)"
       >
         <span

@@ -1,6 +1,7 @@
 /** Jarak minimal (px) sebelum tekan-geser dianggap drag, bukan klik. */
 const DRAG_THRESHOLD = 4
 const ZONE_SELECTOR = '[data-drop-zone]'
+const ITEM_SELECTOR = '[data-drop-item]'
 const HANDLE_SELECTOR = '[data-drag-handle]'
 
 interface ActiveDrag {
@@ -18,24 +19,42 @@ interface ActiveDrag {
  * Drag & drop pointer (mouse + touch) ke zona `data-drop-zone="<id>"`.
  * Mouse: seluruh kartu bisa diseret. Touch/pen: hanya dari `data-drag-handle`, supaya
  * halaman tetap bisa di-scroll dengan jari. Salinan kartu ikut pointer selama drag.
+ *
+ * `onDrop` menerima indeks sisip di dalam zona, dihitung dari `[data-drop-item]` (posisi
+ * tengah kartu). Item yang sedang diseret tidak ikut dihitung, jadi `index` bisa langsung
+ * dipakai untuk reorder.
  */
-export function useZoneDrag(onDrop: (itemId: string, zone: string) => void) {
+export function useZoneDrag(onDrop: (itemId: string, zone: string, index: number) => void) {
   const draggingId = ref<string | null>(null)
   const overZone = ref<string | null>(null)
   let active: ActiveDrag | null = null
 
-  function zoneAt(x: number, y: number): string | null {
+  function zoneElementAt(x: number, y: number): HTMLElement | null {
     for (const el of document.elementsFromPoint(x, y)) {
-      const zone = el.closest<HTMLElement>(ZONE_SELECTOR)?.dataset.dropZone
+      const zone = el.closest<HTMLElement>(ZONE_SELECTOR)
       if (zone) return zone
     }
     return null
+  }
+
+  /** Indeks sisip berdasarkan posisi tengah kartu di dalam zona. */
+  function dropIndexAt(zone: HTMLElement, y: number, itemId: string): number {
+    const items = [...zone.querySelectorAll<HTMLElement>(ITEM_SELECTOR)].filter(
+      (item) => item.dataset.dropItem !== itemId,
+    )
+    const before = items.findIndex((item) => {
+      const rect = item.getBoundingClientRect()
+      return y < rect.top + rect.height / 2
+    })
+    return before < 0 ? items.length : before
   }
 
   function makeGhost(source: HTMLElement): HTMLElement {
     const rect = source.getBoundingClientRect()
     const ghost = source.cloneNode(true) as HTMLElement
     ghost.querySelectorAll('[id]').forEach((el) => el.removeAttribute('id'))
+    // Ghost ikut di dalam zona; jangan sampai dihitung sebagai kartu tujuan drop.
+    ghost.removeAttribute('data-drop-item')
     ghost.setAttribute('aria-hidden', 'true')
     ghost.inert = true
     Object.assign(ghost.style, {
@@ -65,7 +84,7 @@ export function useZoneDrag(onDrop: (itemId: string, zone: string) => void) {
     }
     active.ghost.style.left = `${x - active.offsetX}px`
     active.ghost.style.top = `${y - active.offsetY}px`
-    overZone.value = zoneAt(x, y)
+    overZone.value = zoneElementAt(x, y)?.dataset.dropZone ?? null
   }
 
   function finish(event: PointerEvent | null): void {
@@ -75,10 +94,12 @@ export function useZoneDrag(onDrop: (itemId: string, zone: string) => void) {
     ghost?.remove()
     active = null
     document.body.style.cursor = ''
-    const zone = ghost && event ? zoneAt(event.clientX, event.clientY) : null
+    const zoneElement = ghost && event ? zoneElementAt(event.clientX, event.clientY) : null
+    const zone = zoneElement?.dataset.dropZone ?? null
+    const index = zoneElement && event ? dropIndexAt(zoneElement, event.clientY, itemId) : 0
     draggingId.value = null
     overZone.value = null
-    if (zone) onDrop(itemId, zone)
+    if (zone) onDrop(itemId, zone, index)
   }
 
   function start(event: PointerEvent, itemId: string): void {

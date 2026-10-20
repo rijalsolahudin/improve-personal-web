@@ -67,6 +67,7 @@ function task(session: LocalDataSession, overrides: Partial<Task> = {}): Task {
     done: false,
     scheduleId: null,
     quadrant: null,
+    position: 0,
     ...overrides,
   }
 }
@@ -190,6 +191,19 @@ describe('persistensi task', () => {
     // Dikeluarkan dari kuadran: penempatannya hilang, bukan tertinggal.
     await persistTask(session, { ...saved, quadrant: null })
     expect(await loadTasks(session)).toEqual([{ ...saved, quadrant: null }])
+  })
+
+  it('posisi di dalam kuadran ikut tersimpan', async () => {
+    const session = await openSession(names())
+    const first = task(session, { title: 'A', quadrant: 'do', position: 0 })
+    const second = task(session, { title: 'B', quadrant: 'do', position: 1 })
+
+    await persistTask(session, first)
+    await persistTask(session, second)
+
+    const loaded = await loadTasks(session)
+    expect(loaded.find((item) => item.id === first.id)?.position).toBe(0)
+    expect(loaded.find((item) => item.id === second.id)?.position).toBe(1)
   })
 
   it('hapus task ikut menghapus penempatannya', async () => {

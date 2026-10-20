@@ -27,7 +27,6 @@ const draft = ref<HabitDraft>(existing ? draftFromHabit(existing) : emptyHabitDr
 const error = ref<HabitDraftError | null>(null)
 const isConfirmingDelete = ref(false)
 const isPickingSticker = ref(false)
-const panel = useTemplateRef<HTMLElement>('panel')
 
 watch(draft, () => (error.value = null), { deep: true })
 
@@ -60,49 +59,24 @@ function onDelete(): void {
   remove(existing.id)
   emit('close')
 }
-
-function onKeydown(event: KeyboardEvent): void {
-  if (event.key === 'Escape' && !isPickingSticker.value) emit('close')
-}
-onMounted(() => {
-  panel.value?.querySelector<HTMLInputElement>('input')?.focus()
-  window.addEventListener('keydown', onKeydown)
-})
-onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 </script>
 
 <template>
-  <div class="scrim" @click.self="emit('close')">
-    <form
-      ref="panel"
-      class="panel"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="habit-form-title"
-      novalidate
-      :style="{ '--h-soft': soft }"
-      @submit.prevent="submit"
-    >
-      <div class="top">
-        <h2 id="habit-form-title" class="heading">
-          {{ $t(existing ? 'habit.form.editTitle' : 'habit.form.newTitle') }}
-        </h2>
-        <IconButton
-          tone="plain"
-          :size="40"
-          :radius="14"
-          :title="$t('common.close')"
-          @click="emit('close')"
-        >
-          ×
-        </IconButton>
-      </div>
-
+  <Modal
+    open
+    align="top"
+    width="560px"
+    :title="$t(existing ? 'habit.form.editTitle' : 'habit.form.newTitle')"
+    is-dismissible
+    @close="emit('close')"
+  >
+    <form class="form" novalidate :style="{ '--h-soft': soft }" @submit.prevent="submit">
       <label class="field-wrap">
         <span class="label">{{ $t('habit.form.name') }}</span>
         <input
           v-model="draft.name"
           class="field"
+          data-autofocus
           :maxlength="HABIT_NAME_MAX"
           :placeholder="$t('habit.form.namePlaceholder')"
           :aria-invalid="error === 'nameRequired' || error === 'nameTooLong'"
@@ -234,46 +208,14 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
       @clear="((draft.sticker = null), (isPickingSticker = false))"
       @close="isPickingSticker = false"
     />
-  </div>
+  </Modal>
 </template>
 
 <style scoped>
-.scrim {
-  position: fixed;
-  inset: 0;
-  z-index: 100;
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  overflow-y: auto;
-  padding: 40px 20px;
-  background: rgb(47 42 36 / 0.4);
-}
-
-.panel {
-  width: 100%;
-  max-width: 560px;
+.form {
   display: flex;
   flex-direction: column;
   gap: 16px;
-  padding: 26px 28px;
-  border: var(--border-thick) solid var(--outline);
-  border-radius: var(--radius-panel);
-  background: var(--paper);
-  box-shadow: calc(10px * var(--sx)) calc(10px * var(--sy)) calc(10px * var(--sbl))
-    var(--shadow-color, rgb(47 42 36 / 0.15));
-}
-
-.top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.heading {
-  font-family: var(--font-display);
-  font-weight: var(--fw-display);
-  font-size: 26px;
 }
 
 .field-wrap,
@@ -393,15 +335,5 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 
 .spacer {
   flex: 1;
-}
-
-@media (max-width: 599px) {
-  .scrim {
-    padding: 16px 10px;
-  }
-
-  .panel {
-    padding: 20px 18px;
-  }
 }
 </style>

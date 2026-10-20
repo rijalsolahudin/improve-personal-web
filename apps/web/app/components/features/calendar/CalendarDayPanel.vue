@@ -9,7 +9,13 @@ import {
 import { formatHourMinute, fromIsoDate } from '~/utils/time'
 
 const { day, today } = defineProps<{ day: string; today: string }>()
-const emit = defineEmits<{ create: []; edit: [occurrence: Occurrence]; focus: [title: string] }>()
+const emit = defineEmits<{
+  create: []
+  edit: [occurrence: Occurrence]
+  focus: [title: string]
+  addTask: [scheduleId: string, day: string]
+  editTask: [taskId: string]
+}>()
 
 const MOODS = ['😢', '😕', '😐', '🙂', '😄'] as const
 
@@ -24,8 +30,10 @@ const tasks = computed(() => tasksOn(day))
 const { tasks: allTasks } = useTasks()
 /** Design: to-do terbuka tanpa deadline ikut tampil supaya bisa dijadwalkan/difokuskan. */
 const undated = computed(() =>
-  allTasks.value.filter((task) => !task.done && task.deadline === null),
+  allTasks.value.filter((task) => !task.done && task.deadline === null && task.scheduleId === null),
 )
+const linkedTasks = (scheduleId: string) =>
+  allTasks.value.filter((task) => task.scheduleId === scheduleId)
 const markers = computed(() => markersOn(day))
 const memo = computed(() => memoOn(day))
 const isToday = computed(() => day === today)
@@ -123,6 +131,40 @@ function timeLabel(occurrence: Occurrence): string {
                 : $t('calendar.markAttend')
             }}
           </button>
+
+          <div class="linked">
+            <p class="linked-title">{{ $t('calendar.linkedTasks') }}</p>
+            <ul v-if="linkedTasks(occurrence.schedule.id).length" class="linked-list">
+              <li
+                v-for="task in linkedTasks(occurrence.schedule.id)"
+                :key="task.id"
+                class="linked-row"
+              >
+                <Checkbox
+                  :checked="task.done"
+                  size="sm"
+                  :label="$t('common.toggleDone', { title: task.title })"
+                  @toggle="toggleTask(task.id)"
+                />
+                <button
+                  type="button"
+                  class="linked-name"
+                  :aria-label="$t('calendar.editTask', { title: task.title })"
+                  @click="emit('editTask', task.id)"
+                >
+                  {{ task.title }}
+                </button>
+              </li>
+            </ul>
+            <p v-else class="linked-empty">{{ $t('calendar.noLinkedTasks') }}</p>
+            <button
+              type="button"
+              class="link"
+              @click="emit('addTask', occurrence.schedule.id, day)"
+            >
+              + {{ $t('calendar.addTask') }}
+            </button>
+          </div>
         </li>
         <li v-if="!events.length" class="row empty">{{ $t('calendar.noSchedules') }}</li>
       </ul>
@@ -379,6 +421,58 @@ function timeLabel(occurrence: Occurrence): string {
 .attend.on {
   background: #e0f2da;
   color: #2e6a26;
+}
+
+.linked {
+  flex: 1 1 100%;
+  margin: 2px 0 4px 44px;
+  padding-left: 10px;
+  border-left: var(--border-thin) solid var(--line-2);
+}
+
+.linked-title {
+  font-weight: var(--fw-strong);
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--mute-3);
+}
+
+.linked-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 5px 0;
+  padding: 0;
+  list-style: none;
+}
+
+.linked-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.linked-name {
+  min-width: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  text-align: left;
+  font-weight: var(--fw-strong);
+  font-size: 13px;
+  color: var(--ink-2);
+}
+
+.linked-name:hover {
+  color: var(--accent);
+}
+
+.linked-empty {
+  margin: 5px 0;
+  font-weight: var(--fw-body);
+  font-size: 12.5px;
+  color: var(--mute);
 }
 
 .task-title {

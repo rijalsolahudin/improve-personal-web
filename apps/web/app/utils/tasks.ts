@@ -36,6 +36,8 @@ export interface Task {
   scheduleId: string | null
   /** Kuadran Eisenhower (F3), `null` = belum dipilah. */
   quadrant: Quadrant | null
+  /** Urutan tampil di dalam kuadran (0 = paling atas); tidak dipakai di luar matrix. */
+  position: number
 }
 
 // ---- Filter & urutan -----------------------------------------------------------------
@@ -153,6 +155,7 @@ export function applyTaskDraft(draft: TaskDraft, base: Task | null, id: string):
     priority: draft.priority,
     deadline: draft.hasDeadline ? deadlineFrom(draft.date, draft.time) : null,
     scheduleId: draft.scheduleId,
+    position: base?.position ?? 0,
   }
 }
 
@@ -173,16 +176,62 @@ export function quickTask(
     done: false,
     scheduleId: null,
     quadrant: null,
+    position: 0,
   }
 }
 
 // ---- Eisenhower ----------------------------------------------------------------------
 
+/** Urutan tampil di kuadran: yang belum selesai dulu, lalu sesuai posisi drag. */
+const byDisplay = (a: Task, b: Task): number =>
+  Number(a.done) - Number(b.done) || a.position - b.position
+
 /** Isi kuadran; yang sudah selesai di bawah (design). */
 export function tasksInQuadrant(tasks: readonly Task[], quadrant: Quadrant): Task[] {
-  return tasks
-    .filter((task) => task.quadrant === quadrant)
-    .sort((a, b) => Number(a.done) - Number(b.done))
+  return tasks.filter((task) => task.quadrant === quadrant).sort(byDisplay)
+}
+
+/**
+ * Pindahkan/reorder task ke kuadran `quadrant` pada indeks tampil `index`.
+ * `index` dihitung tanpa task yang sedang dipindah; posisi seluruh kuadran yang tersentuh
+ * dinormalisasi 0..n-1 supaya hasilnya stabil setelah reload.
+ */
+export function moveTask(
+  tasks: readonly Task[],
+  id: string,
+  quadrant: Quadrant | null,
+  index = Number.POSITIVE_INFINITY,
+): Task[] {
+  const moved = tasks.find((task) => task.id === id)
+  if (!moved) return [...tasks]
+
+  const positions = new Map<string, number>()
+
+  if (quadrant !== null) {
+    const ordered = tasks
+      .filter((task) => task.quadrant === quadrant && task.id !== id)
+      .sort(byDisplay)
+      .map((task) => task.id)
+    const at = Math.min(Math.max(Math.trunc(index), 0), ordered.length)
+    ordered.splice(at, 0, id)
+    ordered.forEach((taskId, order) => positions.set(taskId, order))
+  }
+
+  const source = moved.quadrant
+  if (source !== null && source !== quadrant) {
+    tasks
+      .filter((task) => task.quadrant === source && task.id !== id)
+      .sort(byDisplay)
+      .forEach((task, order) => positions.set(task.id, order))
+  }
+
+  return tasks.map((task) => {
+    if (task.id === id) {
+      return { ...task, quadrant, position: positions.get(id) ?? 0 }
+    }
+    const position = positions.get(task.id)
+    return position === undefined ? task : { ...task, position }
+  })
 }
 
 /** "Belum masuk matrix": task aktif tanpa kuadran. */

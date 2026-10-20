@@ -86,8 +86,8 @@ export function toPlacementPayload(input: {
     id: input.placementId,
     todoId: task.id,
     quadrant: QUADRANT_TO_CORE[task.quadrant],
-    // Urutan di dalam kuadran belum diatur UI (F3 position); nilai lama dipertahankan apa adanya.
-    position: input.previous?.position ?? 0,
+    // Posisi datang dari urutan tampil hasil drag & drop (F3); fallback ke nilai lama.
+    position: task.position,
     createdAt: input.previous?.createdAt ?? input.nowMs,
   }
 }
@@ -102,6 +102,7 @@ export function toTask(todo: Todo, placement: EisenhowerPlacement | null): Task 
     done: todo.isDone,
     scheduleId: todo.scheduleId,
     quadrant: placement === null ? null : QUADRANT_FROM_CORE[placement.quadrant],
+    position: placement?.position ?? 0,
   }
 }
 

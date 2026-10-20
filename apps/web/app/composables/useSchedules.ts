@@ -1,4 +1,5 @@
-import { resizeEntry } from '~/utils/calendarGrid'
+import { createSystemClock } from '@improve-personal/core'
+
 import {
   createSchedule,
   deleteSchedules,
@@ -11,34 +12,111 @@ import {
   type ScheduleDraft,
   type ScheduleDraftError,
 } from '~/utils/schedule'
-import { toIsoDate } from '~/utils/time'
+import {
+  loadScheduleData,
+  persistAttendance,
+  persistSchedule,
+  removeAttendanceFrom,
+  removeSchedule,
+} from '~/utils/schedules/persistence'
+import { resizeEntry } from '~/utils/calendarGrid'
+import type { LocalDataSession } from '~/utils/storage/session'
+import { createUuidV7Generator } from '~/utils/storage/uuid'
+import { deviceTimeZone } from '~/utils/time'
 
-import { createSchedulesMock } from './schedules/mock'
+import { useLocalData } from './useLocalData'
 
 /**
- * Data jadwal (PRD F1) untuk Kalender, Jadwal, dan Home. Fase 1: in-memory dari mock,
- * sama seperti Home/Goals, sampai packages/core siap.
+ * Data jadwal (PRD F1) untuk Kalender, Jadwal, Home, dan Daily.
+ *
+ * Sama seperti `useTasks`: perubahan masuk ke state lokal lebih dulu supaya UI langsung responsif,
+ * penyimpanan (IndexedDB terenkripsi) menyusul di belakang layar. Kegagalan penyimpanan muncul di
+ * `error`, bukan ditelan.
+ *
+ * Mesin recurrence-nya milik `@improve-personal/core` - modul ini hanya mengubah model presentasi
+ * (tanggal lokal + `HH:MM`) ke payload core dan kembali.
  */
-export function useSchedules() {
-  const schedules = useState<Schedule[]>('schedules', () =>
-    createSchedulesMock(toIsoDate(new Date())),
-  )
+export type UseSchedulesOptions = {
+  /** Sumber sesi; disuntik di test supaya bisa memakai adaptor memori core. */
+  readonly session?: () => Promise<LocalDataSession | null>
+}
+
+let hydrateInFlight: Promise<void> | null = null
+
+/** Dipakai test supaya hydrate antar kasus tidak saling mewarisi. */
+export function resetSchedulesHydrationForTest(): void {
+  hydrateInFlight = null
+}
+
+export function useSchedules(options: UseSchedulesOptions = {}) {
+  const localData = useLocalData()
+  const getSession = options.session ?? localData.ensure
+  const tz = deviceTimeZone()
+
+  const schedules = useState<Schedule[]>('schedules', () => [])
   /** Kehadiran per kejadian, kunci `<id>@<tanggal>`. */
   const attendance = useState<Record<string, boolean>>('schedule-attendance', () => ({}))
+  const status = useState<'idle' | 'loading' | 'ready' | 'error'>('schedulesStatus', () => 'idle')
+  const error = useState<string | null>('schedulesError', () => null)
+
+  const newScheduleId = createUuidV7Generator({ clock: createSystemClock() })
+
+  function hydrate(): Promise<void> {
+    if (status.value === 'ready') return Promise.resolve()
+
+    hydrateInFlight ??= (async () => {
+      status.value = 'loading'
+      try {
+        const session = await getSession()
+        if (session === null) {
+          status.value = 'idle'
+          return
+        }
+
+        const data = await loadScheduleData(session, tz)
+        schedules.value = data.schedules
+        attendance.value = data.attendance
+        status.value = 'ready'
+        error.value = null
+      } catch (cause) {
+        status.value = 'error'
+        error.value = cause instanceof Error ? cause.message : 'jadwal tidak bisa dimuat'
+        hydrateInFlight = null
+      }
+    })()
+
+    return hydrateInFlight
+  }
+
+  function background(work: (session: LocalDataSession) => Promise<void>, failure: string): void {
+    void (async () => {
+      try {
+        const session = await getSession()
+        if (session === null) return
+
+        await work(session)
+        error.value = null
+      } catch (cause) {
+        status.value = 'error'
+        error.value = cause instanceof Error ? cause.message : failure
+      }
+    })()
+  }
 
   function findSchedule(id: string): Schedule | undefined {
     return schedules.value.find((schedule) => schedule.id === id)
   }
 
-  /** Simpan jadwal baru atau edit kejadian `occurrence`; error validasi dikembalikan. */
   function save(
     draft: ScheduleDraft,
     edit: { id: string; occurrence: string; scope: EditScope } | null,
   ): { ok: true } | { error: ScheduleDraftError } {
-    const error = validateScheduleDraft(draft)
-    if (error) return { error }
+    const draftError = validateScheduleDraft(draft)
+    if (draftError) return { error: draftError }
+
     const original = edit ? findSchedule(edit.id) : undefined
-    schedules.value =
+    const before = new Map(schedules.value.map((schedule) => [schedule.id, schedule]))
+    const next =
       edit && original
         ? editSchedules(
             schedules.value,
@@ -46,15 +124,45 @@ export function useSchedules() {
             edit.occurrence,
             draft,
             edit.scope,
-            crypto.randomUUID(),
+            newScheduleId(),
+            tz,
           )
-        : [...schedules.value, createSchedule(draft, crypto.randomUUID())]
+        : [...schedules.value, createSchedule(draft, newScheduleId())]
+
+    schedules.value = next
+
+    const nextIds = new Set(next.map((schedule) => schedule.id))
+    const changed = next.filter((schedule) => {
+      const previous = before.get(schedule.id)
+      return previous === undefined || !sameSchedule(previous, schedule)
+    })
+    const removed = [...before.keys()].filter((id) => !nextIds.has(id))
+
+    background(async (session) => {
+      for (const schedule of changed) await persistSchedule(session, schedule, tz)
+      for (const id of removed) await removeSchedule(session, id)
+    }, 'jadwal tidak bisa disimpan')
+
     return { ok: true }
   }
 
   function remove(id: string, occurrence: string, scope: EditScope): void {
     const original = findSchedule(id)
-    if (original) schedules.value = deleteSchedules(schedules.value, original, occurrence, scope)
+    if (!original) return
+
+    const next = deleteSchedules(schedules.value, original, occurrence, scope)
+    schedules.value = next
+
+    const survivor = next.find((schedule) => schedule.id === id)
+    const fromDay = scope === 'all' || original.rec.type === 'once' ? null : occurrence
+    const exact = scope === 'this'
+    attendance.value = withoutAttendance(attendance.value, id, fromDay, exact)
+
+    background(async (session) => {
+      if (survivor) await persistSchedule(session, survivor, tz)
+      else await removeSchedule(session, id)
+      await removeAttendanceFrom(session, id, fromDay, tz, exact)
+    }, 'jadwal tidak bisa dihapus')
   }
 
   /**
@@ -64,26 +172,72 @@ export function useSchedules() {
   function retime(id: string, start: number, dur: number): void {
     const original = findSchedule(id)
     if (!original || original.allDay) return
+
     const clamped = resizeEntry('bottom', start, dur, 0)
     if (clamped.start === toMinutes(original.time) && clamped.dur === original.dur) return
-    schedules.value = schedules.value.map((schedule) =>
-      schedule.id === id
-        ? { ...schedule, time: formatMinutes(clamped.start), dur: clamped.dur }
-        : schedule,
-    )
+
+    const updated = { ...original, time: formatMinutes(clamped.start), dur: clamped.dur }
+    schedules.value = schedules.value.map((schedule) => (schedule.id === id ? updated : schedule))
+    background((session) => persistSchedule(session, updated, tz), 'jadwal tidak bisa disimpan')
   }
 
   function toggleAttendance(key: string): void {
-    attendance.value = { ...attendance.value, [key]: !attendance.value[key] }
+    const next = !attendance.value[key]
+    attendance.value = { ...attendance.value, [key]: next }
+
+    const separator = key.indexOf('@')
+    if (separator < 0) return
+
+    const schedule = findSchedule(key.slice(0, separator))
+    const day = key.slice(separator + 1)
+    if (!schedule) return
+
+    background(
+      (session) => persistAttendance(session, schedule, day, next, tz),
+      'kehadiran tidak bisa disimpan',
+    )
   }
+
+  // Di server ini tidak melakukan apa pun (sesi `null`), dan `status` tetap `idle`.
+  void hydrate()
 
   return {
     schedules: computed(() => schedules.value),
     attendance: computed(() => attendance.value),
+    status: computed(() => status.value),
+    error: computed(() => error.value),
+    hydrate,
     findSchedule,
     save,
     remove,
     retime,
     toggleAttendance,
   }
+}
+
+function sameSchedule(a: Schedule, b: Schedule): boolean {
+  return JSON.stringify(a) === JSON.stringify(b)
+}
+
+function withinScope(
+  key: string,
+  scheduleId: string,
+  fromDay: string | null,
+  exact: boolean,
+): boolean {
+  const separator = key.indexOf('@')
+  if (separator < 0 || key.slice(0, separator) !== scheduleId) return false
+  if (fromDay === null) return true
+  return exact ? key.slice(separator + 1) === fromDay : key.slice(separator + 1) >= fromDay
+}
+
+function withoutAttendance(
+  attendance: Record<string, boolean>,
+  scheduleId: string,
+  fromDay: string | null,
+  exact: boolean,
+): Record<string, boolean> {
+  return Object.fromEntries(
+    Object.entries(attendance).filter(([key]) => !withinScope(key, scheduleId, fromDay, exact)),
+  )
 }

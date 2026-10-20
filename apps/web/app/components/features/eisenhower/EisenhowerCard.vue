@@ -19,7 +19,7 @@ const timeLeft = computed(() => (task.done ? t('time.done') : formatTimeLeft(tas
 </script>
 
 <template>
-  <li class="card" :class="{ done: task.done, dragging: isDragging }">
+  <li class="card" :class="{ done: task.done, dragging: isDragging }" :data-drop-item="task.id">
     <span class="grip" data-drag-handle aria-hidden="true">⋮⋮</span>
     <Checkbox
       :checked="task.done"

@@ -14,7 +14,7 @@ import {
 } from './habits'
 import type { Memo, MoodByDate } from './memo'
 import { sessionMinutes, type FocusSession } from './pomodoro'
-import { occursOn, SCHEDULE_COLORS, type Schedule } from './schedule'
+import { SCHEDULE_COLORS, occursOn, type Schedule } from './schedule'
 import { isOverdue, QUADRANTS, type Quadrant, type Task } from './tasks'
 import { MS_PER_DAY, MS_PER_HOUR, addDays, fromIsoDate, toIsoDate } from './time'
 

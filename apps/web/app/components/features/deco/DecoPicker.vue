@@ -20,7 +20,7 @@ const SEARCH_DEBOUNCE_MS = 200
 const VARIANTS = ['sticker', 'icon'] as const
 
 const { recent } = useDeco()
-const panel = useTemplateRef<HTMLElement>('panel')
+const titleId = useId()
 const tab = ref(recent.value.length ? RECENT_TAB : (STICKER_PACKS[0]?.id ?? ''))
 const query = ref('')
 const debouncedQuery = ref('')
@@ -55,122 +55,88 @@ function pickTab(id: string): void {
   debouncedQuery.value = ''
 }
 
-function onKeydown(event: KeyboardEvent): void {
-  if (event.key === 'Escape') emit('close')
-}
-
-onMounted(() => {
-  panel.value?.querySelector<HTMLInputElement>('input')?.focus()
-  window.addEventListener('keydown', onKeydown)
-})
-onBeforeUnmount(() => {
-  clearTimeout(timer)
-  window.removeEventListener('keydown', onKeydown)
-})
+onBeforeUnmount(() => clearTimeout(timer))
 </script>
 
 <template>
-  <div class="scrim" data-deco-ui @click.self="emit('close')">
-    <div ref="panel" class="panel" role="dialog" aria-modal="true" :aria-label="title">
-      <div class="top">
-        <div class="title-row">
-          <h2 class="title">{{ title }}</h2>
-          <div class="variants" role="group" :aria-label="$t('deco.picker.variant')">
-            <button
-              v-for="option in VARIANTS"
-              :key="option"
-              type="button"
-              :class="{ on: variant === option }"
-              :aria-pressed="variant === option"
-              @click="variant = option"
-            >
-              {{ $t(`deco.picker.${option}`) }}
-            </button>
-          </div>
+  <Modal
+    open
+    is-flush
+    is-dismissible
+    width="660px"
+    :labelled-by="titleId"
+    data-deco-ui
+    @close="emit('close')"
+  >
+    <div class="top">
+      <div class="title-row">
+        <h2 :id="titleId" class="title">{{ title }}</h2>
+        <div class="variants" role="group" :aria-label="$t('deco.picker.variant')">
           <button
+            v-for="option in VARIANTS"
+            :key="option"
             type="button"
-            class="close"
-            :aria-label="$t('common.close')"
-            @click="emit('close')"
+            :class="{ on: variant === option }"
+            :aria-pressed="variant === option"
+            @click="variant = option"
           >
-            ×
+            {{ $t(`deco.picker.${option}`) }}
           </button>
         </div>
-        <input
-          v-model="query"
-          class="search"
-          type="search"
-          maxlength="40"
-          :placeholder="$t('deco.picker.search')"
-          :aria-label="$t('deco.picker.search')"
-        />
-        <div class="tabs" role="tablist">
-          <button
-            v-for="item in tabs"
-            :key="item.id"
-            type="button"
-            role="tab"
-            :aria-selected="!debouncedQuery.trim() && tab === item.id"
-            :class="{ on: !debouncedQuery.trim() && tab === item.id }"
-            @click="pickTab(item.id)"
-          >
-            {{ item.id === RECENT_TAB ? $t(item.name) : item.name }}
-          </button>
-        </div>
-      </div>
-      <div class="grid">
-        <button
-          v-for="sticker in list"
-          :key="sticker.id"
-          type="button"
-          class="cell"
-          :class="{ on: currentBase === sticker.id }"
-          @click="emit('choose', sidOf(sticker))"
-        >
-          <DecoStickerArt :sid="sidOf(sticker)" :size="52" />
-          <span class="name">{{ sticker.name }}</span>
+        <button type="button" class="close" :aria-label="$t('common.close')" @click="emit('close')">
+          ×
         </button>
       </div>
-      <p v-if="!list.length" class="empty">
-        {{
-          debouncedQuery.trim()
-            ? $t('deco.picker.notFound', { q: debouncedQuery.trim() })
-            : $t('deco.picker.noRecent')
-        }}
-      </p>
-      <div v-if="clearLabel" class="footer">
-        <button type="button" class="clear" @click="emit('clear')">{{ clearLabel }}</button>
+      <input
+        v-model="query"
+        class="search"
+        data-autofocus
+        type="search"
+        maxlength="40"
+        :placeholder="$t('deco.picker.search')"
+        :aria-label="$t('deco.picker.search')"
+      />
+      <div class="tabs" role="tablist">
+        <button
+          v-for="item in tabs"
+          :key="item.id"
+          type="button"
+          role="tab"
+          :aria-selected="!debouncedQuery.trim() && tab === item.id"
+          :class="{ on: !debouncedQuery.trim() && tab === item.id }"
+          @click="pickTab(item.id)"
+        >
+          {{ item.id === RECENT_TAB ? $t(item.name) : item.name }}
+        </button>
       </div>
     </div>
-  </div>
+    <div class="grid">
+      <button
+        v-for="sticker in list"
+        :key="sticker.id"
+        type="button"
+        class="cell"
+        :class="{ on: currentBase === sticker.id }"
+        @click="emit('choose', sidOf(sticker))"
+      >
+        <DecoStickerArt :sid="sidOf(sticker)" :size="52" />
+        <span class="name">{{ sticker.name }}</span>
+      </button>
+    </div>
+    <p v-if="!list.length" class="empty">
+      {{
+        debouncedQuery.trim()
+          ? $t('deco.picker.notFound', { q: debouncedQuery.trim() })
+          : $t('deco.picker.noRecent')
+      }}
+    </p>
+    <div v-if="clearLabel" class="footer">
+      <button type="button" class="clear" @click="emit('clear')">{{ clearLabel }}</button>
+    </div>
+  </Modal>
 </template>
 
 <style scoped>
-.scrim {
-  position: fixed;
-  inset: 0;
-  z-index: 110;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 24px;
-  background: rgb(47 42 36 / 0.4);
-}
-
-.panel {
-  width: 100%;
-  max-width: 660px;
-  max-height: calc(100vh - 48px);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  border: var(--border-thick) solid var(--outline);
-  border-radius: var(--radius-panel);
-  background: var(--paper);
-  box-shadow: calc(10px * var(--sx)) calc(10px * var(--sy)) calc(10px * var(--sbl))
-    var(--shadow-color, rgb(47 42 36 / 0.15));
-}
-
 .top {
   display: flex;
   flex-direction: column;

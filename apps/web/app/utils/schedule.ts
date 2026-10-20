@@ -1,7 +1,26 @@
 // Jadwal (PRD F1) + logika kalender (F6), mengikuti Home Desktop.dc.html `calVals`.
-// Fungsi murni; tanggal ISO lokal `YYYY-MM-DD`, jam `HH:MM`.
+// Bentuk `Schedule` di sini adalah model PRESENTASI (tanggal lokal + jam `HH:MM`); mesin
+// perulangannya milik `@improve-personal/core` supaya web & mobile memakai aturan yang sama.
 
-import { addDays, daysBetween, fromIsoDate, isIsoDate, toIsoDate } from './time'
+import {
+  endOfLocalDay,
+  expandOccurrenceTimes,
+  fromLocalDateTime,
+  startOfLocalDay,
+  weekdayFromJsIndex,
+  type ExpansibleSchedule,
+  type ScheduleRecurrence,
+} from '@improve-personal/core'
+
+import {
+  MS_PER_MINUTE,
+  addDays,
+  deviceTimeZone,
+  fromIsoDate,
+  isIsoDate,
+  mondayOf,
+  toIsoDate,
+} from './time'
 
 /** Palet jadwal design: [solid, tint, teks]. Index disimpan di `Schedule.color`. */
 export const SCHEDULE_COLORS = [
@@ -19,9 +38,20 @@ export type Recurrence =
   | { type: 'daily'; n: number }
   /** `days`: 0 = Minggu … 6 = Sabtu; `interval`: tiap 1 atau 2 minggu. */
   | { type: 'weekly'; days: number[]; interval: number }
-  | { type: 'monthly' }
+  /**
+   * Tanpa `nth` = tiap bulan di tanggal mulai (opsi A). Dengan `nth` = hari `weekday` minggu
+   * ke-`week` (opsi B, mis. Selasa ke-2).
+   */
+  | { type: 'monthly'; nth?: { week: number; weekday: number } }
 
 export type RecurrenceType = Recurrence['type']
+
+export type EndRule =
+  | { type: 'never' }
+  /** Kejadian terakhir yang masih berlaku (inklusif); juga hasil "ini & berikutnya". */
+  | { type: 'until'; date: string }
+  /** Total kejadian seri (seperti `COUNT` RFC 5545). */
+  | { type: 'count'; count: number }
 
 export interface Schedule {
   id: string
@@ -34,12 +64,17 @@ export interface Schedule {
   dur: number
   allDay: boolean
   rec: Recurrence
-  /** Kejadian terakhir yang masih berlaku (hasil "ini & berikutnya"). */
-  until: string | null
+  /** Aturan berakhir; "ini & berikutnya" memotong seri lama lewat `until`. */
+  ends: EndRule
   /** Tanggal yang dilewati (hasil edit/hapus "kejadian ini"). */
   exceptions: string[]
   /** Goal tertaut (PRD F13 "Untuk goal"), opsional. */
   goalId: string | null
+  /**
+   * Zona waktu tempat jam jadwal dihitung. `undefined` = zona waktu perangkat saat ini (jadwal baru).
+   * Disimpan supaya jam tidak bergeser kalau perangkat pindah zona waktu.
+   */
+  tz?: string
 }
 
 export const SCHEDULE_TITLE_MAX = 120
@@ -63,32 +98,110 @@ export function formatMinutes(total: number): string {
 const TIME = /^([01]\d|2[0-3]):[0-5]\d$/
 export const isTime = (value: string): boolean => TIME.test(value)
 
-/** Senin di minggu yang sama. */
-export function mondayOf(iso: string): string {
-  return addDays(iso, -((fromIsoDate(iso).getDay() + 6) % 7))
+const minutesOfDay = (time: string): { hour: number; minute: number } => {
+  const [hour = 0, minute = 0] = time.split(':').map(Number)
+  return { hour, minute }
+}
+
+const clampInt = (value: number, min: number, max: number): number =>
+  Math.min(max, Math.max(min, Math.trunc(value)))
+
+// ---- Adapter ke engine core ---------------------------------------------------------
+
+/** Instan mulai jadwal di zona waktu perangkat. */
+export function scheduleStartAt(schedule: Schedule, tz: string): number {
+  return fromLocalDateTime({ localDate: schedule.start, ...minutesOfDay(schedule.time), tz })
+}
+
+/** Bagian yang dibutuhkan engine core. */
+export function toCoreSchedule(schedule: Schedule, tz: string): ExpansibleSchedule {
+  return {
+    id: schedule.id,
+    startAt: scheduleStartAt(schedule, tz),
+    durationMs: schedule.allDay ? 0 : schedule.dur * MS_PER_MINUTE,
+    isAllDay: schedule.allDay,
+    tz,
+  }
+}
+
+/**
+ * Model presentasi -> `ScheduleRecurrence` core. `null` = sekali (core memperlakukan `null` sebagai
+ * jadwal tanpa pengulangan).
+ */
+export function toCoreRecurrence(schedule: Schedule, tz: string): ScheduleRecurrence | null {
+  const { rec } = schedule
+  if (rec.type === 'once') return null
+
+  const base = { id: schedule.id, scheduleId: schedule.id }
+  const end =
+    schedule.ends.type === 'until'
+      ? {
+          endMode: 'until_date' as const,
+          endDate: endOfLocalDay(schedule.ends.date, tz),
+          occurrenceCount: null,
+        }
+      : schedule.ends.type === 'count'
+        ? {
+            endMode: 'after_count' as const,
+            endDate: null,
+            occurrenceCount: schedule.ends.count,
+          }
+        : { endMode: 'never' as const, endDate: null, occurrenceCount: null }
+
+  switch (rec.type) {
+    case 'daily':
+      return {
+        ...base,
+        type: 'daily',
+        intervalN: clampInt(rec.n, 1, 6),
+        byWeekdays: null,
+        monthMode: null,
+        monthDay: null,
+        weekOfMonth: null,
+        monthWeekday: null,
+        ...end,
+      }
+    case 'weekly':
+      return {
+        ...base,
+        type: 'weekly',
+        intervalN: clampInt(rec.interval, 1, 2),
+        byWeekdays: [...new Set(rec.days)].sort((a, b) => a - b).map(weekdayFromJsIndex),
+        monthMode: null,
+        monthDay: null,
+        weekOfMonth: null,
+        monthWeekday: null,
+        ...end,
+      }
+    case 'monthly':
+      if (rec.nth) {
+        return {
+          ...base,
+          type: 'monthly',
+          intervalN: 1,
+          byWeekdays: null,
+          monthMode: 'by_nth_weekday',
+          monthDay: null,
+          weekOfMonth: clampInt(rec.nth.week, 1, 5),
+          monthWeekday: weekdayFromJsIndex(rec.nth.weekday),
+          ...end,
+        }
+      }
+      return {
+        ...base,
+        type: 'monthly',
+        intervalN: 1,
+        byWeekdays: null,
+        monthMode: 'by_day_of_month',
+        monthDay: fromIsoDate(schedule.start).getDate(),
+        weekOfMonth: null,
+        monthWeekday: null,
+        ...end,
+      }
+  }
 }
 
 // ---- Kejadian ------------------------------------------------------------------------
-
-export function occursOn(schedule: Schedule, day: string): boolean {
-  if (day < schedule.start) return false
-  if (schedule.until && day > schedule.until) return false
-  if (schedule.exceptions.includes(day)) return false
-  const { rec } = schedule
-  const diff = daysBetween(schedule.start, day)
-  switch (rec.type) {
-    case 'once':
-      return diff === 0
-    case 'daily':
-      return diff % Math.max(1, rec.n) === 0
-    case 'weekly': {
-      const weeks = daysBetween(mondayOf(schedule.start), mondayOf(day)) / 7
-      return rec.days.includes(fromIsoDate(day).getDay()) && weeks % Math.max(1, rec.interval) === 0
-    }
-    case 'monthly':
-      return fromIsoDate(day).getDate() === fromIsoDate(schedule.start).getDate()
-  }
-}
 
 export interface Occurrence {
   schedule: Schedule
@@ -97,16 +210,55 @@ export interface Occurrence {
   key: string
   start: number
   end: number
+  /** Instan mulai sebenarnya (epoch ms) - aman terhadap DST. */
+  at: number
 }
 
-export function occurrencesOn(schedules: readonly Schedule[], day: string): Occurrence[] {
-  return schedules
-    .filter((schedule) => occursOn(schedule, day))
-    .map((schedule) => {
-      const start = toMinutes(schedule.time)
-      return { schedule, day, key: `${schedule.id}@${day}`, start, end: start + schedule.dur }
-    })
-    .sort((a, b) => a.start - b.start)
+/**
+ * Kejadian di `[from, to]` (inklusif), urut tanggal lalu jam. Ekspansi hanya untuk rentang ini.
+ */
+export function occurrencesBetween(
+  schedules: readonly Schedule[],
+  from: string,
+  to: string,
+  tz = deviceTimeZone(),
+): Occurrence[] {
+  const result: Occurrence[] = []
+
+  for (const schedule of schedules) {
+    const zone = schedule.tz ?? tz
+    const times = expandOccurrenceTimes(
+      toCoreSchedule(schedule, zone),
+      toCoreRecurrence(schedule, zone),
+      { fromMs: startOfLocalDay(from, zone), toMs: endOfLocalDay(to, zone) },
+    )
+    const start = toMinutes(schedule.time)
+
+    for (const time of times) {
+      const day = time.localDate
+      if (day < from || day > to || schedule.exceptions.includes(day)) continue
+      result.push({
+        schedule,
+        day,
+        key: `${schedule.id}@${day}`,
+        start,
+        end: start + schedule.dur,
+        at: time.startAt,
+      })
+    }
+  }
+
+  return result.sort((a, b) => a.day.localeCompare(b.day) || a.start - b.start)
+}
+
+export const occurrencesOn = (
+  schedules: readonly Schedule[],
+  day: string,
+  tz = deviceTimeZone(),
+): Occurrence[] => occurrencesBetween(schedules, day, day, tz)
+
+export function occursOn(schedule: Schedule, day: string, tz = deviceTimeZone()): boolean {
+  return occurrencesOn([schedule], day, tz).length > 0
 }
 
 /** Kejadian bertabrakan dibagi ke lajur; `lanes` = jumlah lajur di kelompok tabrakannya. */
@@ -128,20 +280,20 @@ export function layoutLanes<T extends { start: number; end: number }>(
   }))
 }
 
-/** Epoch ms awal kejadian (jam lokal). */
-export function occurrenceStartMs(occurrence: Occurrence): number {
-  const date = fromIsoDate(occurrence.day)
-  date.setMinutes(occurrence.start)
-  return date.getTime()
-}
+/** Epoch ms awal kejadian (sudah dihitung engine di zona waktu jadwal). */
+export const occurrenceStartMs = (occurrence: Occurrence): number => occurrence.at
 
 const UPCOMING_HORIZON_DAYS = 7
 
 /** Kejadian berjam (bukan sepanjang hari) berikutnya setelah `now`, maks 7 hari ke depan. */
-export function nextOccurrence(schedules: readonly Schedule[], now: number): Occurrence | null {
+export function nextOccurrence(
+  schedules: readonly Schedule[],
+  now: number,
+  tz = deviceTimeZone(),
+): Occurrence | null {
   const today = toIsoDate(new Date(now))
   for (let offset = 0; offset <= UPCOMING_HORIZON_DAYS; offset += 1) {
-    const found = occurrencesOn(schedules, addDays(today, offset)).find(
+    const found = occurrencesOn(schedules, addDays(today, offset), tz).find(
       (occurrence) => !occurrence.schedule.allDay && occurrenceStartMs(occurrence) > now,
     )
     if (found) return found
@@ -195,10 +347,26 @@ export interface ScheduleDraft {
   dailyN: number
   weekDays: number[]
   weekInterval: number
+  /** Bulanan: `date` = tanggal mulai, `nth` = hari `monthWeekday` minggu ke-`monthWeek`. */
+  monthMode: 'date' | 'nth'
+  monthWeek: number
+  monthWeekday: number
+  ends: EndRule['type']
+  untilDate: string
+  count: number
 }
 
 export type ScheduleDraftError =
-  'titleRequired' | 'titleTooLong' | 'dateTime' | 'duration' | 'noDays'
+  | 'titleRequired'
+  | 'titleTooLong'
+  | 'dateTime'
+  | 'duration'
+  | 'noDays'
+  | 'monthPattern'
+  | 'untilDate'
+  | 'count'
+
+const DEFAULT_COUNT = 10
 
 export function draftDuration(draft: ScheduleDraft): number {
   return draft.timeMode === 'end' ? toMinutes(draft.end) - toMinutes(draft.time) : draft.dur
@@ -213,7 +381,30 @@ export function validateScheduleDraft(draft: ScheduleDraft): ScheduleDraftError 
   const dur = draftDuration(draft)
   if (!Number.isInteger(dur) || dur <= 0 || dur > 24 * 60) return 'duration'
   if (draft.rec === 'weekly' && !draft.weekDays.length) return 'noDays'
+  if (draft.rec === 'monthly' && draft.monthMode === 'nth' && !isValidNth(draft)) {
+    return 'monthPattern'
+  }
+  if (draft.rec === 'once') return null
+  if (draft.ends === 'until' && (!isIsoDate(draft.untilDate) || draft.untilDate < draft.date)) {
+    return 'untilDate'
+  }
+  if (draft.ends === 'count' && !(Number.isInteger(draft.count) && isCountInRange(draft.count))) {
+    return 'count'
+  }
   return null
+}
+
+const isCountInRange = (count: number): boolean => count >= 1 && count <= 999
+
+function isValidNth({ monthWeek, monthWeekday }: ScheduleDraft): boolean {
+  return (
+    Number.isInteger(monthWeek) &&
+    monthWeek >= 1 &&
+    monthWeek <= 5 &&
+    Number.isInteger(monthWeekday) &&
+    monthWeekday >= 0 &&
+    monthWeekday <= 6
+  )
 }
 
 export function recurrenceFromDraft(draft: ScheduleDraft): Recurrence {
@@ -225,9 +416,26 @@ export function recurrenceFromDraft(draft: ScheduleDraft): Recurrence {
     case 'weekly':
       return { type: 'weekly', days: [...draft.weekDays], interval: draft.weekInterval }
     case 'monthly':
-      return { type: 'monthly' }
+      return draft.monthMode === 'nth'
+        ? { type: 'monthly', nth: { week: draft.monthWeek, weekday: draft.monthWeekday } }
+        : { type: 'monthly' }
   }
 }
+
+export function endsFromDraft(draft: ScheduleDraft): EndRule {
+  if (draft.rec === 'once') return { type: 'never' }
+  switch (draft.ends) {
+    case 'never':
+      return { type: 'never' }
+    case 'until':
+      return { type: 'until', date: draft.untilDate }
+    case 'count':
+      return { type: 'count', count: draft.count }
+  }
+}
+
+/** Minggu ke berapa (1–5) `iso` di bulannya, mis. tanggal 8–14 = minggu ke-2. */
+const weekOfMonth = (iso: string): number => Math.ceil(fromIsoDate(iso).getDate() / 7)
 
 export function newScheduleDraft(date: string, time = '09:00'): ScheduleDraft {
   return {
@@ -242,6 +450,12 @@ export function newScheduleDraft(date: string, time = '09:00'): ScheduleDraft {
     dailyN: 1,
     weekDays: [fromIsoDate(date).getDay()],
     weekInterval: 1,
+    monthMode: 'date',
+    monthWeek: weekOfMonth(date),
+    monthWeekday: fromIsoDate(date).getDay(),
+    ends: 'never',
+    untilDate: date,
+    count: DEFAULT_COUNT,
   }
 }
 
@@ -260,6 +474,12 @@ export function draftFromSchedule(schedule: Schedule, day: string): ScheduleDraf
     dailyN: rec.type === 'daily' ? rec.n : 1,
     weekDays: rec.type === 'weekly' ? [...rec.days] : [fromIsoDate(day).getDay()],
     weekInterval: rec.type === 'weekly' ? rec.interval : 1,
+    monthMode: rec.type === 'monthly' && rec.nth ? 'nth' : 'date',
+    monthWeek: rec.type === 'monthly' && rec.nth ? rec.nth.week : weekOfMonth(day),
+    monthWeekday: rec.type === 'monthly' && rec.nth ? rec.nth.weekday : fromIsoDate(day).getDay(),
+    ends: schedule.ends.type,
+    untilDate: schedule.ends.type === 'until' ? schedule.ends.date : day,
+    count: schedule.ends.type === 'count' ? schedule.ends.count : DEFAULT_COUNT,
   }
 }
 
@@ -273,7 +493,7 @@ function fromDraft(draft: ScheduleDraft, id: string, start: string, allDay: bool
     dur: draftDuration(draft),
     allDay,
     rec: recurrenceFromDraft(draft),
-    until: null,
+    ends: endsFromDraft(draft),
     exceptions: [],
     goalId: null,
   }
@@ -284,10 +504,33 @@ export function createSchedule(draft: ScheduleDraft, id: string): Schedule {
 }
 
 /**
+ * Jumlah kejadian aturan sebelum `day` (pengecualian ikut dihitung), dihitung engine core.
+ * Dipakai untuk memotong sisa jatah saat "ini & berikutnya" pada seri ber-`count`.
+ */
+function slotsBefore(schedule: Schedule, day: string, tz: string): number {
+  const zone = schedule.tz ?? tz
+  const core = toCoreSchedule(schedule, zone)
+  const toMs = startOfLocalDay(day, zone) - 1
+  if (toMs < core.startAt) return 0
+  return expandOccurrenceTimes(core, toCoreRecurrence(schedule, zone), {
+    fromMs: core.startAt,
+    toMs,
+  }).length
+}
+
+/** Seri dipotong sampai sehari sebelum `occurrence`; `null` kalau itu kejadian pertama. */
+function truncated(original: Schedule, occurrence: string): Schedule | null {
+  return occurrence <= original.start
+    ? null
+    : { ...original, ends: { type: 'until', date: addDays(occurrence, -1) } }
+}
+
+/**
  * Edit kejadian `occurrence` dari `original` (design `sForm.save`):
  * - `all`: ubah seri; tanggal mulai seri cuma ikut berubah kalau tanggalnya diganti.
  * - `this`: kejadian ini dikecualikan, lalu dibuat jadwal sekali di tanggal baru.
  * - `following`: seri lama berhenti sehari sebelumnya, seri baru mulai di tanggal baru.
+ *   Mengedit kejadian pertama sama dengan `all`.
  */
 export function editSchedules(
   schedules: readonly Schedule[],
@@ -296,17 +539,19 @@ export function editSchedules(
   draft: ScheduleDraft,
   scope: EditScope,
   newId: string,
+  tz = deviceTimeZone(),
 ): Schedule[] {
   // "Sepanjang hari" dipertahankan selama pola berulangnya tidak diganti.
   const allDay = original.allDay && draft.rec === original.rec.type
   const rest = schedules.filter((schedule) => schedule.id !== original.id)
-  if (scope === 'all' || original.rec.type === 'once') {
+  const head = scope === 'following' ? truncated(original, occurrence) : null
+  if (scope === 'all' || original.rec.type === 'once' || (scope === 'following' && !head)) {
     const start = draft.date === occurrence ? original.start : draft.date
     const updated = {
       ...fromDraft(draft, original.id, start, allDay),
-      until: original.until,
       exceptions: original.exceptions,
       goalId: original.goalId,
+      tz: original.tz,
     }
     return schedules.map((schedule) => (schedule.id === original.id ? updated : schedule))
   }
@@ -317,15 +562,29 @@ export function editSchedules(
       {
         ...fromDraft(draft, newId, draft.date, allDay),
         rec: { type: 'once' },
+        ends: { type: 'never' },
         goalId: original.goalId,
+        tz: original.tz,
       },
     ]
   }
-  return [
-    ...rest,
-    { ...original, until: addDays(occurrence, -1) },
-    { ...fromDraft(draft, newId, draft.date, allDay), goalId: original.goalId },
-  ]
+  const next = {
+    ...fromDraft(draft, newId, draft.date, allDay),
+    goalId: original.goalId,
+    tz: original.tz,
+  }
+  // Jumlah yang tak diubah user = sisa kejadian, bukan total seri lama.
+  if (
+    original.ends.type === 'count' &&
+    next.ends.type === 'count' &&
+    next.ends.count === original.ends.count
+  ) {
+    next.ends = {
+      type: 'count',
+      count: Math.max(1, next.ends.count - slotsBefore(original, occurrence, tz)),
+    }
+  }
+  return [...rest, ...(head ? [head] : []), next]
 }
 
 export function deleteSchedules(
@@ -334,12 +593,11 @@ export function deleteSchedules(
   occurrence: string,
   scope: EditScope,
 ): Schedule[] {
-  if (scope === 'all' || original.rec.type === 'once') {
+  const head = scope === 'following' ? truncated(original, occurrence) : null
+  if (scope === 'all' || original.rec.type === 'once' || (scope === 'following' && !head)) {
     return schedules.filter((schedule) => schedule.id !== original.id)
   }
   const changed =
-    scope === 'this'
-      ? { ...original, exceptions: [...original.exceptions, occurrence] }
-      : { ...original, until: addDays(occurrence, -1) }
-  return schedules.map((schedule) => (schedule.id === original.id ? changed : schedule))
+    scope === 'this' ? { ...original, exceptions: [...original.exceptions, occurrence] } : head
+  return schedules.map((schedule) => (schedule.id === original.id && changed ? changed : schedule))
 }

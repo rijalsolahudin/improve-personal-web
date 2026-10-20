@@ -30,7 +30,6 @@ const draft = ref<CountdownDraft>(
 const error = ref<CountdownDraftError | null>(null)
 const isConfirmingDelete = ref(false)
 const isPickingSticker = ref(false)
-const panel = useTemplateRef<HTMLElement>('panel')
 
 const tint = computed(() => countdownTint(draft.value.color))
 const previewTarget = computed(() => countdownTarget(draft.value, now.value))
@@ -76,43 +75,18 @@ function onSticker(sid: string): void {
 function toggleTime(): void {
   draft.value.time = draft.value.time ? '' : '09:00'
 }
-
-function onKeydown(event: KeyboardEvent): void {
-  if (event.key === 'Escape' && !isPickingSticker.value) emit('close')
-}
-onMounted(() => {
-  panel.value?.querySelector<HTMLInputElement>('input')?.focus()
-  window.addEventListener('keydown', onKeydown)
-})
-onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 </script>
 
 <template>
-  <div class="scrim" @click.self="emit('close')">
-    <form
-      ref="panel"
-      class="panel"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="countdown-form-title"
-      novalidate
-      @submit.prevent="submit"
-    >
-      <div class="top">
-        <h2 id="countdown-form-title" class="heading">
-          {{ $t(original ? 'countdown.form.editTitle' : 'countdown.form.newTitle') }}
-        </h2>
-        <IconButton
-          tone="plain"
-          :size="40"
-          :radius="14"
-          :title="$t('common.close')"
-          @click="emit('close')"
-        >
-          ×
-        </IconButton>
-      </div>
-
+  <Modal
+    open
+    align="top"
+    width="540px"
+    :title="$t(original ? 'countdown.form.editTitle' : 'countdown.form.newTitle')"
+    is-dismissible
+    @close="emit('close')"
+  >
+    <form class="form" novalidate @submit.prevent="submit">
       <div class="preview" :style="{ '--cd-soft': tint[0], '--cd-deep': tint[1] }">
         <span class="tile" aria-hidden="true">
           <CountdownArt :countdown="draft" :size="38" />
@@ -130,6 +104,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
         <input
           v-model="draft.title"
           class="field"
+          data-autofocus
           :maxlength="COUNTDOWN_TITLE_MAX"
           :placeholder="$t('countdown.form.titlePlaceholder')"
           :aria-invalid="error === 'titleRequired'"
@@ -235,47 +210,20 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
       @clear="((draft.sticker = null), (isPickingSticker = false))"
       @close="isPickingSticker = false"
     />
-  </div>
+  </Modal>
 </template>
 
 <style scoped>
-.scrim {
-  position: fixed;
-  inset: 0;
-  z-index: 100;
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  overflow-y: auto;
-  padding: 40px 20px;
-  background: rgb(47 42 36 / 0.4);
-}
-
-.panel {
-  width: 100%;
-  max-width: 540px;
+.form {
   display: flex;
   flex-direction: column;
   gap: 16px;
-  padding: 26px 28px;
-  border: var(--border-thick) solid var(--outline);
-  border-radius: var(--radius-panel);
-  background: var(--paper);
-  box-shadow: calc(10px * var(--sx)) calc(10px * var(--sy)) calc(10px * var(--sbl))
-    var(--shadow-color, rgb(47 42 36 / 0.15));
 }
 
-.top,
 .label-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-}
-
-.heading {
-  font-family: var(--font-display);
-  font-weight: var(--fw-display);
-  font-size: 26px;
 }
 
 .preview {
@@ -466,15 +414,5 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 
 .spacer {
   flex: 1;
-}
-
-@media (max-width: 599px) {
-  .scrim {
-    padding: 16px 10px;
-  }
-
-  .panel {
-    padding: 20px 18px;
-  }
 }
 </style>

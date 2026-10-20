@@ -95,6 +95,20 @@ export function addMonths(iso: string, months: number): string {
   return toIsoDate(date)
 }
 
+/** Zona waktu perangkat (IANA), fallback `UTC` kalau `Intl` tidak tersedia. */
+export function deviceTimeZone(): string {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
+  } catch {
+    return 'UTC'
+  }
+}
+
+/** Senin di minggu yang sama (minggu mulai Senin). */
+export function mondayOf(iso: string): string {
+  return addDays(iso, -((fromIsoDate(iso).getDay() + 6) % 7))
+}
+
 /** Selisih hari kalender `to - from` (DST-safe lewat pembulatan). */
 export function daysBetween(from: string, to: string): number {
   return Math.round((fromIsoDate(to).getTime() - fromIsoDate(from).getTime()) / 86_400_000)

@@ -87,6 +87,42 @@ describe('describeTimeLeft', () => {
       ],
     })
   })
+
+  it.each([
+    ['59 menit', 59 * MS_PER_MINUTE, [{ unit: 'menit', value: 59 }]],
+    ['1 jam', MS_PER_HOUR, [{ unit: 'jam', value: 1 }]],
+    [
+      '23 jam 59 menit',
+      23 * MS_PER_HOUR + 59 * MS_PER_MINUTE,
+      [
+        { unit: 'jam', value: 23 },
+        { unit: 'menit', value: 59 },
+      ],
+    ],
+    ['1 hari', MS_PER_DAY, [{ unit: 'hari', value: 1 }]],
+    [
+      '29 hari 23 jam',
+      29 * MS_PER_DAY + 23 * MS_PER_HOUR,
+      [
+        { unit: 'hari', value: 29 },
+        { unit: 'jam', value: 23 },
+      ],
+    ],
+    ['1 bulan', 30 * MS_PER_DAY, [{ unit: 'bulan', value: 1 }]],
+  ] as const)('batas %s', (_label, offset, parts) => {
+    expect(describeTimeLeft(NOW + offset, NOW)).toEqual({ kind: 'left', parts })
+  })
+
+  it('batas lewat 1 menit & 59 menit', () => {
+    expect(describeTimeLeft(NOW - MS_PER_MINUTE, NOW)).toEqual({
+      kind: 'late',
+      parts: [{ unit: 'menit', value: 1 }],
+    })
+    expect(describeTimeLeft(NOW - 59 * MS_PER_MINUTE, NOW)).toEqual({
+      kind: 'late',
+      parts: [{ unit: 'menit', value: 59 }],
+    })
+  })
 })
 
 describe('daysUntil', () => {

@@ -20,6 +20,10 @@ const view = useState<CalendarView>('calendar-view', () =>
 const anchor = useState<string>('calendar-anchor', () => toIsoDate(new Date()))
 const selected = useState<string>('calendar-selected', () => toIsoDate(new Date()))
 const form = ref<ScheduleFormTarget | null>(null)
+/** `null` = tertutup. `taskId` kosong = task baru; `scheduleId`/`date` mengisi form dari jadwal. */
+const taskForm = ref<{ taskId: string | null; scheduleId: string | null; date?: string } | null>(
+  null,
+)
 const { focusOn } = useFocusTarget()
 
 // Ganti tampilan → mulai dari tanggal yang sedang dipilih (design).
@@ -48,6 +52,14 @@ function onSaved(date: string): void {
 function openOccurrence(occurrence: Occurrence): void {
   selected.value = occurrence.day
   form.value = { mode: 'edit', id: occurrence.schedule.id, occurrence: occurrence.day }
+}
+
+function addTask(scheduleId: string, day: string): void {
+  taskForm.value = { taskId: null, scheduleId, date: day }
+}
+
+function editTask(taskId: string): void {
+  taskForm.value = { taskId, scheduleId: null }
 }
 </script>
 
@@ -92,10 +104,19 @@ function openOccurrence(occurrence: Occurrence): void {
           @create="form = { mode: 'new', date: selected }"
           @edit="openOccurrence"
           @focus="focusOn"
+          @add-task="addTask"
+          @edit-task="editTask"
         />
       </div>
     </div>
     <ScheduleForm v-if="form" :target="form" @close="form = null" @saved="onSaved" />
+    <TodoForm
+      v-if="taskForm"
+      :task-id="taskForm.taskId"
+      :schedule-id="taskForm.scheduleId"
+      :date="taskForm.date"
+      @close="taskForm = null"
+    />
   </div>
 </template>
 

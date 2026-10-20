@@ -23,6 +23,8 @@ function countdown(patch: Partial<Countdown> & Pick<Countdown, 'id' | 'targetAt'
     name: patch.id,
     color: null,
     stickerId: null,
+    isYearly: false,
+    isAllDay: false,
     isArchived: false,
     archivedAt: null,
     createdAt: NOW,

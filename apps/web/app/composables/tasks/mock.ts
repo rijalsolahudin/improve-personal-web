@@ -20,6 +20,7 @@ export function createTasksMock(now: number): Task[] {
     done: extra.done ?? false,
     scheduleId: extra.scheduleId ?? null,
     quadrant: extra.quadrant ?? null,
+    position: 0,
   })
 
   return [

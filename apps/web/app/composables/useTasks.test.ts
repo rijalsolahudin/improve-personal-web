@@ -73,6 +73,7 @@ function taskOf(session: LocalDataSession, id: string, title: string): Task {
     done: false,
     scheduleId: null,
     quadrant: null,
+    position: 0,
   }
 }
 
@@ -117,6 +118,36 @@ describe('useTasks', () => {
 
     save({ ...draft, title: 'Rapat tim', priority: 'urgent' }, result.id)
     expect(findTask(result.id)).toMatchObject({ title: 'Rapat tim', priority: 'urgent' })
+  })
+
+  it('move menyimpan kuadran + posisi hasil reorder', async () => {
+    const session = memorySession()
+    const { tasks, add, move, hydrate } = useTasks({ session: async () => session })
+    await hydrate()
+
+    const a = add('A', 'medium', null)!
+    const b = add('B', 'medium', null)!
+    const c = add('C', 'medium', null)!
+
+    move(a, 'do')
+    move(b, 'do')
+    move(c, 'do', 0)
+
+    expect(
+      tasks.value
+        .filter((task) => task.quadrant === 'do')
+        .sort((left, right) => left.position - right.position)
+        .map((task) => task.title),
+    ).toEqual(['C', 'A', 'B'])
+
+    await vi.waitFor(async () => {
+      const stored = await loadTasks(session)
+      const ordered = stored
+        .filter((task) => task.quadrant === 'do')
+        .sort((left, right) => left.position - right.position)
+      expect(ordered.map((task) => task.title)).toEqual(['C', 'A', 'B'])
+      expect(ordered.map((task) => task.position)).toEqual([0, 1, 2])
+    })
   })
 
   it('menulis ke penyimpanan, bukan cuma ke state (inilah yang bikin reload tidak kehilangan data)', async () => {

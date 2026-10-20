@@ -3,7 +3,9 @@ import { createSystemClock } from '@improve-personal/core'
 import {
   applyTaskDraft,
   clearDoneFromMatrix,
+  moveTask,
   quickTask,
+  tasksInQuadrant,
   validateTaskDraft,
   type Priority,
   type Quadrant,
@@ -52,12 +54,22 @@ export type UseTasksOptions = {
 let hydrateInFlight: Promise<void> | null = null
 
 /**
- * Dipakai test supaya hydrate antar kasus tidak saling mewarisi.
+ * Antrean tulis GLOBAL (satu untuk seluruh app).
+ *
+ * Tanpa ini, dua perubahan cepat pada task yang sama bisa selesai tidak berurutan dan versi lama
+ * menimpa versi baru (mis. drag Eisenhower dua kali). Penulisan dijalankan berurutan sesuai niat
+ * user, bukan sesuai siapa yang selesai lebih dulu.
+ */
+let writeQueue: Promise<void> = Promise.resolve()
+
+/**
+ * Dipakai test supaya hydrate/antrean antar kasus tidak saling mewarisi.
  *
  * Di aplikasi nyata ini tidak pernah dipanggil: satu halaman = satu hydrate.
  */
 export function resetTasksHydrationForTest(): void {
   hydrateInFlight = null
+  writeQueue = Promise.resolve()
 }
 
 export function useTasks(options: UseTasksOptions = {}) {
@@ -117,7 +129,7 @@ export function useTasks(options: UseTasksOptions = {}) {
    * yang tidak tertangani.
    */
   function background(work: (session: LocalDataSession) => Promise<void>, failure: string): void {
-    void (async () => {
+    writeQueue = writeQueue.then(async () => {
       try {
         const session = await getSession()
         if (session === null) return
@@ -128,7 +140,8 @@ export function useTasks(options: UseTasksOptions = {}) {
         status.value = 'error'
         error.value = cause instanceof Error ? cause.message : failure
       }
-    })()
+    })
+    void writeQueue
   }
 
   function findTask(id: string | null | undefined): Task | undefined {
@@ -190,8 +203,32 @@ export function useTasks(options: UseTasksOptions = {}) {
     background((session) => removeTask(session, id), 'task tidak bisa dihapus')
   }
 
+  /**
+   * Pindah/reorder task di matrix. `index` = posisi tampil tujuan (tanpa task ini);
+   * kosong = taruh paling bawah kuadran. Posisi kuadran yang tersentuh ikut dinormalisasi,
+   * lalu hanya task yang benar-benar berubah yang ditulis ke penyimpanan.
+   */
+  function move(id: string, quadrant: Quadrant | null, index?: number): void {
+    const target = quadrant === null ? 0 : (index ?? tasksInQuadrant(tasks.value, quadrant).length)
+    const before = new Map(tasks.value.map((task) => [task.id, task]))
+    const next = moveTask(tasks.value, id, quadrant, target)
+
+    tasks.value = next
+
+    for (const task of next) {
+      const previous = before.get(task.id)
+      if (
+        previous === undefined ||
+        previous.quadrant !== task.quadrant ||
+        previous.position !== task.position
+      ) {
+        persist(task)
+      }
+    }
+  }
+
   function setQuadrant(id: string, quadrant: Quadrant | null): void {
-    update(id, { quadrant })
+    move(id, quadrant)
   }
 
   /** Bersihkan task selesai dari matrix; hanya yang benar-benar berubah yang disimpan. */
@@ -221,6 +258,7 @@ export function useTasks(options: UseTasksOptions = {}) {
     add,
     save,
     remove,
+    move,
     setQuadrant,
     clearDoneQuadrants,
   }

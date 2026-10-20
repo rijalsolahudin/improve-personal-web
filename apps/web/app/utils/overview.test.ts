@@ -126,7 +126,7 @@ describe('scheduledMinutes', () => {
     dur: 60,
     allDay: false,
     rec: { type: 'weekly', days: [1], interval: 1 },
-    until: null,
+    ends: { type: 'never' },
     exceptions: [],
     goalId: null,
   }
@@ -170,6 +170,7 @@ describe('task & goal', () => {
       done: true,
       scheduleId: null,
       quadrant: 'do',
+      position: 0,
     },
     {
       id: 't2',
@@ -179,6 +180,7 @@ describe('task & goal', () => {
       done: false,
       scheduleId: null,
       quadrant: 'plan',
+      position: 0,
     },
   ]
 

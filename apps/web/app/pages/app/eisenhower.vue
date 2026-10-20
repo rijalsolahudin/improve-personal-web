@@ -7,14 +7,14 @@ const { t } = useI18n()
 useHead({ title: () => t('feature.eisenhower.label') })
 
 const now = useNow()
-const { tasks, toggle, setQuadrant, clearDoneQuadrants } = useTasks()
+const { tasks, toggle, move, setQuadrant, clearDoneQuadrants } = useTasks()
 
 const isQuadrant = (zone: string): zone is Quadrant =>
   (QUADRANTS as readonly string[]).includes(zone)
 
-// Zona "pool" = keluarkan dari matrix; zona kuadran = pindah ke kuadran itu.
-const { draggingId, overZone, start } = useZoneDrag((taskId, zone) => {
-  setQuadrant(taskId, isQuadrant(zone) ? zone : null)
+// Zona "pool" = keluarkan dari matrix; zona kuadran = pindah/reorder di kuadran itu.
+const { draggingId, overZone, start } = useZoneDrag((taskId, zone, index) => {
+  move(taskId, isQuadrant(zone) ? zone : null, index)
 })
 
 const quadrants = computed(() =>
