@@ -12,6 +12,8 @@ Setiap perubahan **wajib** memenuhi ketiga pilar ini - bukan cuma "fiturnya jala
 
 Kalau satu pilar sengaja dikorbankan, tulis trade-off-nya secara eksplisit. Detail tiap pilar per app ada di `apps/<app>/.claude/rules/` dan dimuat lewat `CLAUDE.md` app masing-masing.
 
+> Ringkasan tiga pilar juga ditulis inline di `AGENTS.md` (yang dibaca Qoder) - kalau berubah, ubah keduanya.
+
 ## Aturan bersama
 - Aturan yang berlaku buat web + mobile taruh di sini, bukan di CLAUDE.md per app. Aturan bersama ada di `.claude/rules/` root dan di-import di sini:
   - @.claude/rules/keamanan-bersama.md

@@ -11,10 +11,33 @@ This block is written and re-added by `turbo` before repository-scoped commands 
 
 ## Aturan project
 
-Sumber kebenaran tetap `CLAUDE.md` (dipakai Claude Code). File ini men-import-nya, jadi Command Code baca aturan yang sama tanpa salinan.
+Monorepo: `apps/web` (Nuxt) + `apps/mobile` (React Native).
 
-@CLAUDE.md
+### Tiga pilar wajib
 
-Aturan per app dimuat otomatis saat menyentuh file di dalamnya (lihat `apps/web/AGENTS.md` dan `apps/mobile/AGENTS.md`).
+Setiap perubahan wajib memenuhi ketiganya - bukan cuma "fiturnya jalan":
 
-Arsitektur dan sumber kebenaran produk sengaja tidak di-import (biar tidak kena token tiap turn) - baca `ARCHITECTURE.md` dan `docs/PRD.md` saat memang relevan. Arsitektur per app ada di `apps/<app>/ARCHITECTURE.md`.
+1. **Keamanan** - input divalidasi, authz dicek di server, secret tidak bocor, data sensitif dilindungi.
+2. **Performa** - tidak ada regresi di jalur panas, bundle/render/query efisien, terukur.
+3. **Kerapian** - kode konsisten, terbaca, terstruktur, ter-test, tanpa dead code.
+
+Kalau satu pilar sengaja dikorbankan, tulis trade-off-nya eksplisit (detail: `CLAUDE.md` root).
+
+### Wajib dibaca sebelum mengerjakan task
+
+Baca berurutan, jangan dilewati:
+
+1. `CLAUDE.md` (root) - aturan project lengkap + aturan bersama
+2. `.claude/rules/keamanan-bersama.md`
+3. `.claude/rules/kerapian-bersama.md`
+4. Menyentuh app? Lanjut ke `apps/<app>/CLAUDE.md` dan `apps/<app>/.claude/rules/*.md`
+
+### Lacak task di Ergonio
+
+Setiap task kerja (ubah kode/config, bug fix, riset yang menghasilkan keputusan) dilacak di Ergonio project `personal-productivity` lewat MCP `ergonio`: buat task dulu, update status & progress sampai selesai. Skip untuk pertanyaan singkat atau perintah sekali jalan. Alur lengkap: `.claude/skills/ergonio/SKILL.md`.
+
+### Referensi (baca saat relevan, jangan di-import)
+
+- Arsitektur repo: `ARCHITECTURE.md`
+- Produk: `docs/PRD.md`
+- Arsitektur per app: `apps/<app>/ARCHITECTURE.md`

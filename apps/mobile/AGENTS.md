@@ -1,5 +1,13 @@
-# apps/mobile — memory Command Code
+# apps/mobile — aturan agent
 
-Aturan mobile sama dengan yang dipakai Claude Code. Tidak ada salinan: file ini cuma meng-import sumber aslinya.
+Aturan mobile sama dengan yang dipakai Claude Code. Tidak ada salinan: file ini cuma pointer ke sumber aslinya.
 
-@CLAUDE.md
+Sebelum mengerjakan task yang menyentuh `apps/mobile`, baca berurutan:
+
+1. `../../CLAUDE.md` (root) - tiga pilar wajib + aturan bersama
+2. `CLAUDE.md` (app ini) - rujukan arsitektur & produk
+3. `.claude/rules/security.md`
+4. `.claude/rules/performance.md`
+5. `.claude/rules/code-quality.md`
+
+Arsitektur app: `ARCHITECTURE.md`. Produk: `docs/PRD.md`. Baca saat relevan, jangan di-import.
