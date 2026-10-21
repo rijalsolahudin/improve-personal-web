@@ -378,7 +378,6 @@
     "grid": {
       "minutes": "{n} mnt",
       "hours": "{n} jam",
-      "todos": "{n} to-do",
       "more": "+{n} to-do",
       "resize": "Tarik untuk ubah jam"
     }

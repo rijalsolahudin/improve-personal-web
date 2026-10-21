@@ -35,9 +35,9 @@ const durationLabel = computed(() => {
 })
 const timeLine = computed(() => {
   if (isCompact) {
-    const linked = item.linked.length + item.moreCount
-    return linked
-      ? `${formatMinutes(item.start)} · ${t('calendar.grid.todos', { n: linked })}`
+    // Daftar to-do-nya tampil di bawah judul; di sini cukup sisa yang tidak muat.
+    return item.moreCount
+      ? `${formatMinutes(item.start)} · ${t('calendar.grid.more', { n: item.moreCount })}`
       : formatMinutes(item.start)
   }
   return `${formatMinutes(item.start)}–${formatMinutes(end.value)} · ${durationLabel.value}`
@@ -171,6 +171,20 @@ const style = computed(() => ({
 
 .compact .body {
   padding-right: 16px;
+}
+
+/* Kolom pekan lebih sempit: kurangi margin/padding daftar to-do supaya judulnya masih terbaca.
+   Kiri-kanan disamakan - tombol centang ada di kepala kartu, bukan di baris to-do. */
+.compact :deep(.todos) {
+  margin: 0 8px 4px;
+  padding: 2px 6px;
+}
+
+/* Di kolom pekan, tombol Fokus dan badge prioritas menghabiskan hampir seluruh lebar baris -
+   sisakan checkbox + judul. Keduanya tetap ada di panel hari dan kartu tampilan Hari. */
+.compact :deep(.todos .focus),
+.compact :deep(.todos .badge) {
+  display: none;
 }
 
 .line,

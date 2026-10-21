@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import {
   BASE_SLOT_PX,
+  COMPACT_HEAD_PX,
   SLOT_COUNT,
   entryNeed,
   gridScale,
@@ -47,11 +48,12 @@ describe('slotHeights & gridScale', () => {
 })
 
 describe('entryNeed & isVisible', () => {
-  it('jadwal dengan to-do tertaut butuh ruang per baris; mode ringkas tetap', () => {
+  it('jadwal dengan to-do tertaut butuh ruang per baris, termasuk mode ringkas', () => {
     expect(entryNeed('event', 30, 0, false)).toBe(22)
     expect(entryNeed('event', 60, 0, false)).toBe(40)
     expect(entryNeed('event', 60, 2, false)).toBe(46 + 2 * 28 + 20)
-    expect(entryNeed('event', 60, 2, true)).toBe(52)
+    expect(entryNeed('event', 60, 2, true)).toBe(COMPACT_HEAD_PX + 2 * 28 + 20)
+    expect(entryNeed('event', 60, 0, true)).toBe(52)
     expect(entryNeed('task', 30, 0, false)).toBe(26)
   })
 

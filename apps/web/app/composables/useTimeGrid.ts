@@ -1,4 +1,5 @@
 import {
+  COMPACT_HEAD_PX,
   EVENT_HEAD_PX,
   GRID_END_HOUR,
   GRID_START_HOUR,
@@ -164,9 +165,10 @@ export function useTimeGrid(options: {
       const [solid, tint] = SCHEDULE_COLORS[entry.occurrence.schedule.color] ?? SCHEDULE_COLORS[0]
       let size: GridEventSize = height < SMALL_PX ? 'tiny' : height < BIG_PX ? 'small' : 'big'
       if (compact) size = height < COMPACT_BIG_PX ? 'tiny' : 'big'
-      const room = compact
-        ? 0
-        : Math.max(0, Math.floor((height - EVENT_HEAD_PX - LINKED_FRAME_PX) / LINKED_ROW_PX))
+      // To-do tertaut juga tampil di kartu ringkas (tampilan pekan); sisa yang tidak muat
+      // dilaporkan lewat "moreCount".
+      const head = compact ? COMPACT_HEAD_PX : EVENT_HEAD_PX
+      const room = Math.max(0, Math.floor((height - head - LINKED_FRAME_PX) / LINKED_ROW_PX))
       return {
         ...box,
         height,

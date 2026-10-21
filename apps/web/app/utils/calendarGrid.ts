@@ -12,6 +12,11 @@ export const BASE_SLOT_PX = 13
 
 /** Kepala kartu jadwal (glyph + judul + jam) sebelum daftar to-do tertaut. */
 export const EVENT_HEAD_PX = 46
+/**
+ * Kepala kartu di tampilan pekan (ringkas, tanpa glyph): judul + jam. Dipakai untuk menghitung
+ * berapa baris to-do tertaut yang muat - kartu ringkas juga menampilkan daftarnya, bukan cuma jumlah.
+ */
+export const COMPACT_HEAD_PX = 38
 /** Satu baris to-do tertaut; harus sejalan dengan tinggi `.dense` di TodoLine. */
 export const LINKED_ROW_PX = 28
 /** Padding daftar to-do + ruang di bawahnya sampai tepi kartu (CalendarEventTodos/GridEvent). */
@@ -38,7 +43,10 @@ export function entryNeed(
   isCompact: boolean,
 ): number {
   if (kind === 'task') return isCompact ? 40 : 26
-  if (isCompact) return 52
+  if (isCompact) {
+    // Kartu ringkas tetap butuh ruang ekstra untuk to-do tertautnya (sama seperti kartu hari).
+    return linkedCount ? COMPACT_HEAD_PX + linkedCount * LINKED_ROW_PX + LINKED_FRAME_PX : 52
+  }
   if (linkedCount) return EVENT_HEAD_PX + linkedCount * LINKED_ROW_PX + LINKED_FRAME_PX
   return dur >= 45 ? 40 : 22
 }
