@@ -23,7 +23,7 @@ apps/web/
 ```
 
 - DILARANG folder generik baru (`helpers/`, `misc/`, `common/`) di luar struktur di atas.
-- Tipe/model data yang juga dipakai mobile WAJIB diambil dari paket kontrak bersama (lihat bagian Kontrak), bukan didefinisikan ulang.
+- Tipe/model data yang juga dipakai mobile WAJIB diambil dari `packages/contracts` (lihat `.claude/rules/kerapian-bersama.md` di root), bukan didefinisikan ulang.
 
 ## Penamaan
 
@@ -64,28 +64,14 @@ apps/web/
 - ESLint via `@nuxt/eslint` (flat config) + Prettier (atau `@stylistic`, pilih satu, jangan dua-duanya untuk format).
 - `eslint --max-warnings 0` dan `prettier --check` WAJIB hijau di CI.
 - DILARANG `eslint-disable` tanpa komentar alasan di baris yang sama; DILARANG disable per-file.
-- DILARANG `console.log` di kode yang di-merge (pakai logger; `console.warn/error` hanya untuk error nyata).
 - Import diurutkan otomatis; tidak ada import yang tidak dipakai.
 
 ## Testing (Vitest)
 
 - Unit: Vitest + `@nuxt/test-utils` (env `nuxt`) + `@vue/test-utils`. File `*.test.ts` sejajar dengan sumber atau di `tests/`.
-- WAJIB test untuk: composable dengan logika, `utils/`, `server/services/`, dan bug fix (test regresi).
-- Coverage minimal 80% lines untuk `composables/`, `utils/`, `server/services/`; komponen murni-presentasi boleh tanpa test.
-- Test menguji perilaku (output/emit/DOM yang terlihat), bukan detail implementasi.
-- Mock jaringan di batas (`registerEndpoint` / MSW), bukan mock composable internal.
-- DILARANG `it.only`, `describe.skip`, atau test yang di-comment.
-
-## Dead code & kebersihan
-
-- DILARANG kode yang di-comment, fungsi/komponen/export yang tidak dipakai, flag mati, `TODO` tanpa nomor issue.
-- Hapus dependency yang tidak dipakai (cek `knip` atau sejenis bila tersedia).
-- Magic number/string: ekstrak jadi konstanta bernama.
-- Komentar menjelaskan "kenapa", bukan "apa".
-
-## Kontrak bersama dengan mobile
-
-- DTO request/response dan aturan validasi dipakai dari satu sumber (paket shared di monorepo); perubahan kontrak WAJIB update web + mobile di PR yang sama atau versi API baru.
+- WAJIB test untuk: composable dengan logika, `utils/`, `server/services/` (prinsip umum di `.claude/rules/kerapian-bersama.md`).
+- Coverage 80% lines berlaku untuk `composables/`, `utils/`, `server/services/`; komponen murni-presentasi boleh tanpa test.
+- Mock jaringan di batas pakai `registerEndpoint` / MSW.
 
 ## Checklist review
 

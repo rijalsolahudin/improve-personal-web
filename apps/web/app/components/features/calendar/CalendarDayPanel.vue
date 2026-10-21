@@ -91,7 +91,7 @@ function timeLabel(occurrence: Occurrence): string {
         </Button>
       </div>
       <ul class="rows">
-        <li v-for="occurrence in events" :key="occurrence.key" class="row hover-reveal">
+        <li v-for="occurrence in events" :key="occurrence.key" class="row event hover-reveal">
           <span
             class="tile"
             :style="{
@@ -110,31 +110,13 @@ function timeLabel(occurrence: Occurrence): string {
               {{ timeLabel(occurrence) }} · {{ recurrenceLabel(occurrence.schedule.rec) }}
             </span>
           </button>
-          <Button
-            variant="chip"
-            size="xs"
-            class="focus reveal"
-            :aria-label="$t('daily.focusLabel', { title: occurrence.schedule.title })"
-            @click="emit('focus', occurrence.schedule.title)"
-          >
-            {{ $t('daily.focus') }}
-          </Button>
-          <button
-            type="button"
-            class="attend"
-            :class="{ on: attendance[occurrence.key] }"
-            :aria-pressed="Boolean(attendance[occurrence.key])"
-            @click="toggleAttendance(occurrence.key)"
-          >
-            {{
-              attendance[occurrence.key]
-                ? `✓ ${$t('calendar.attended')}`
-                : $t('calendar.markAttend')
-            }}
-          </button>
+          <Checkbox
+            :checked="Boolean(attendance[occurrence.key])"
+            :label="$t('common.toggleDone', { title: occurrence.schedule.title })"
+            @toggle="toggleAttendance(occurrence.key)"
+          />
 
           <div class="linked">
-            <p class="linked-title">{{ $t('calendar.linkedTasks') }}</p>
             <ul v-if="linkedTasks(occurrence.schedule.id).length" class="linked-list">
               <li
                 v-for="task in linkedTasks(occurrence.schedule.id)"
@@ -157,14 +139,24 @@ function timeLabel(occurrence: Occurrence): string {
                 </button>
               </li>
             </ul>
-            <p v-else class="linked-empty">{{ $t('calendar.noLinkedTasks') }}</p>
-            <Button
-              variant="link"
-              class="link"
-              @click="emit('addTask', occurrence.schedule.id, day)"
-            >
-              + {{ $t('calendar.addTask') }}
-            </Button>
+            <div class="linked-foot">
+              <Button
+                variant="link"
+                class="link"
+                @click="emit('addTask', occurrence.schedule.id, day)"
+              >
+                + {{ $t('calendar.addTask') }}
+              </Button>
+              <Button
+                variant="chip"
+                size="xs"
+                class="focus reveal"
+                :aria-label="$t('daily.focusLabel', { title: occurrence.schedule.title })"
+                @click="emit('focus', occurrence.schedule.title)"
+              >
+                {{ $t('daily.focus') }}
+              </Button>
+            </div>
           </div>
         </li>
         <li v-if="!events.length" class="row empty">{{ $t('calendar.noSchedules') }}</li>
@@ -340,6 +332,27 @@ function timeLabel(occurrence: Occurrence): string {
   border-top: var(--border-thin) dashed var(--line-2);
 }
 
+/* Panel ini sempit (~260px): task tertaut ditaruh di bawah judul, sejajar kolom teks,
+   bukan di-wrap flex yang membuat posisinya bergantung lebar teks. */
+.row.event {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) auto;
+  column-gap: 10px;
+  row-gap: 8px;
+  align-items: start;
+}
+
+.linked {
+  grid-column: 2 / -1;
+}
+
+.linked-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
 .row.empty {
   font-weight: var(--fw-body);
   font-size: 14px;
@@ -368,8 +381,6 @@ function timeLabel(occurrence: Occurrence): string {
 }
 
 .row-main {
-  /* Panel sempit: tombol Fokus/Tandai turun ke baris berikutnya, teks tidak dipecah per kata. */
-  flex: 1 1 140px;
   min-width: 0;
   display: flex;
   flex-direction: column;
@@ -401,42 +412,11 @@ function timeLabel(occurrence: Occurrence): string {
   color: var(--mute);
 }
 
-.attend {
-  padding: 6px 10px;
-  border: none;
-  border-radius: var(--radius-pill);
-  background: #f2e4cc;
-  color: #7a6b58;
-  font-weight: var(--fw-strong);
-  font-size: 12px;
-  white-space: nowrap;
-}
-
-.attend.on {
-  background: #e0f2da;
-  color: #2e6a26;
-}
-
-.linked {
-  flex: 1 1 100%;
-  margin: 2px 0 4px 44px;
-  padding-left: 10px;
-  border-left: var(--border-thin) solid var(--line-2);
-}
-
-.linked-title {
-  font-weight: var(--fw-strong);
-  font-size: 11px;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: var(--mute-3);
-}
-
 .linked-list {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  margin: 5px 0;
+  margin: 0 0 4px;
   padding: 0;
   list-style: none;
 }
@@ -460,13 +440,6 @@ function timeLabel(occurrence: Occurrence): string {
 
 .linked-name:hover {
   color: var(--accent);
-}
-
-.linked-empty {
-  margin: 5px 0;
-  font-weight: var(--fw-body);
-  font-size: 12.5px;
-  color: var(--mute);
 }
 
 .task-title {

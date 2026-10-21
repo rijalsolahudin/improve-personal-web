@@ -13,6 +13,8 @@ Setiap perubahan **wajib** memenuhi ketiga pilar ini - bukan cuma "fiturnya jala
 Kalau satu pilar sengaja dikorbankan, tulis trade-off-nya secara eksplisit. Detail tiap pilar per app ada di `apps/<app>/.claude/rules/` dan dimuat lewat `CLAUDE.md` app masing-masing.
 
 ## Aturan bersama
-- Aturan yang berlaku buat web + mobile taruh di sini, bukan di CLAUDE.md per app.
+- Aturan yang berlaku buat web + mobile taruh di sini, bukan di CLAUDE.md per app. Aturan bersama ada di `.claude/rules/` root dan di-import di sini:
+  - @.claude/rules/keamanan-bersama.md
+  - @.claude/rules/kerapian-bersama.md
 - Settings, agents, MCP: di root `.claude/`. Jalanin Claude dari root.
 - Setiap task kerja: lacak di Ergonio (project `personal-productivity`) pakai skill `ergonio` - buat task dulu, update status/progress sampai selesai.

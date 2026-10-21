@@ -27,6 +27,9 @@ export default defineNuxtConfig({
   // Panel dev cuma untuk development; `$production` mematikannya (security.md §12).
   devtools: { enabled: true },
 
+  // Port dev server. Redirect URI Google SSO lokal (`NUXT_GOOGLE_REDIRECT_URI_WEB` di .env) ikut port ini.
+  devServer: { port: 3700 },
+
   css: ['@improve-personal/tokens/css', '~/assets/css/main.css'],
 
   // Primitif UI tinggal di `components/ui/<Nama>/index.vue` dan dipakai tanpa prefix
@@ -189,6 +192,12 @@ export default defineNuxtConfig({
     // removeLoggers bawaan nuxt-security memakai opsi esbuild yang diabaikan Vite 8 (oxc);
     // pembuangan console.* dilakukan di minifier Rolldown (lihat `vite` di bawah).
     removeLoggers: false,
+  },
+
+  // Drive NTFS (fuseblk) tidak memberi event file ke watcher native, jadi HMR dan perubahan
+  // i18n tidak terdeteksi. Polling hanya untuk dev; biayanya sedikit CPU saat develop.
+  vite: {
+    server: { watch: { usePolling: true, interval: 300 } },
   },
 
   // security.md §11 & §12: console.* dibuang dari bundle production, devtools WAJIB mati -

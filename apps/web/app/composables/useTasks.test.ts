@@ -120,6 +120,21 @@ describe('useTasks', () => {
     expect(findTask(result.id)).toMatchObject({ title: 'Rapat tim', priority: 'urgent' })
   })
 
+  it('task tertaut ke jadwal baru benar-benar tersimpan ke penyimpanan lokal', async () => {
+    const session = memorySession()
+    const { save, hydrate } = useTasks({ session: async () => session })
+    await hydrate()
+
+    const scheduleId = createUuidV7Generator({ clock: createManualClock(START_MS) })()
+    const result = save({ ...emptyTaskDraft('2026-10-10'), title: 'Belajar', scheduleId }, null)
+    if (!('id' in result)) throw new Error('gagal simpan')
+
+    await vi.waitFor(async () => {
+      const stored = await loadTasks(session)
+      expect(stored).toEqual([expect.objectContaining({ id: result.id, scheduleId })])
+    })
+  })
+
   it('move menyimpan kuadran + posisi hasil reorder', async () => {
     const session = memorySession()
     const { tasks, add, move, hydrate } = useTasks({ session: async () => session })

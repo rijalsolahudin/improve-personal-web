@@ -110,12 +110,13 @@ export function useSchedules(options: UseSchedulesOptions = {}) {
   function save(
     draft: ScheduleDraft,
     edit: { id: string; occurrence: string; scope: EditScope } | null,
-  ): { ok: true } | { error: ScheduleDraftError } {
+  ): { id: string } | { error: ScheduleDraftError } {
     const draftError = validateScheduleDraft(draft)
     if (draftError) return { error: draftError }
 
     const original = edit ? findSchedule(edit.id) : undefined
     const before = new Map(schedules.value.map((schedule) => [schedule.id, schedule]))
+    const createdId = newScheduleId()
     const next =
       edit && original
         ? editSchedules(
@@ -124,10 +125,10 @@ export function useSchedules(options: UseSchedulesOptions = {}) {
             edit.occurrence,
             draft,
             edit.scope,
-            newScheduleId(),
+            createdId,
             tz,
           )
-        : [...schedules.value, createSchedule(draft, newScheduleId())]
+        : [...schedules.value, createSchedule(draft, createdId)]
 
     schedules.value = next
 
@@ -143,7 +144,8 @@ export function useSchedules(options: UseSchedulesOptions = {}) {
       for (const id of removed) await removeSchedule(session, id)
     }, 'jadwal tidak bisa disimpan')
 
-    return { ok: true }
+    // Task tertaut menempel ke seri asal; jadwal baru memakai id yang baru dibuat.
+    return { id: original?.id ?? createdId }
   }
 
   function remove(id: string, occurrence: string, scope: EditScope): void {

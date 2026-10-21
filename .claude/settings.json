@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(rtk vitest *)",
+      "Bash(node -e \"const r=require\\('./.vitest/json/output.json'\\);console.log\\('pass',r.numPassedTests,'fail',r.numFailedTests\\);for\\(const f of r.testResults\\)for\\(const t of f.assertionResults\\)if\\(t.status!=='passed'\\)console.log\\(t.fullName,\\(t.failureMessages||[]\\).join\\(' '\\).slice\\(0,400\\)\\)\")",
+      "Bash(rtk npx *)",
+      "Bash(rtk ps *)"
+    ]
+  }
+}

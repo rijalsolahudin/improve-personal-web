@@ -8,6 +8,7 @@ import {
   type ScheduleDraft,
   type ScheduleDraftError,
 } from '~/utils/schedule'
+import { emptyTaskDraft } from '~/utils/tasks'
 
 /** Modal jadwal baru / edit satu kejadian (design: "Jadwal baru" / "Edit jadwal"). */
 export type ScheduleFormTarget =
@@ -17,17 +18,14 @@ const { target } = defineProps<{ target: ScheduleFormTarget }>()
 const emit = defineEmits<{ close: []; saved: [date: string] }>()
 
 const SCOPES: readonly EditScope[] = ['this', 'following', 'all']
-const TIME_MODES = ['end', 'dur'] as const
 
 const { t } = useI18n()
-const timeModeOptions = computed(() =>
-  TIME_MODES.map((value) => ({ value, label: t(`calendar.form.mode.${value}`) })),
-)
 const scopeOptions = computed(() =>
   SCOPES.map((value) => ({ value, label: t(`calendar.form.scope.${value}`) })),
 )
 
 const { findSchedule, save, remove } = useSchedules()
+const { save: saveTask } = useTasks()
 const original = target.mode === 'edit' ? findSchedule(target.id) : undefined
 const isRecurring = original !== undefined && original.rec.type !== 'once'
 
@@ -41,6 +39,8 @@ const draft = ref<ScheduleDraft>(initialDraft())
 const scope = ref<EditScope>(isRecurring ? 'this' : 'all')
 const error = ref<ScheduleDraftError | null>(null)
 const isConfirmingDelete = ref(false)
+const pendingTasks = ref<string[]>([])
+const linkedTitle = ref('')
 
 const colorOptions = computed(() =>
   SCHEDULE_COLORS.map(([solid], index) => ({
@@ -53,14 +53,28 @@ const colorOptions = computed(() =>
 watch(draft, () => (error.value = null), { deep: true })
 watch(scope, () => (isConfirmingDelete.value = false))
 
+function toggleTimeMode(): void {
+  draft.value.timeMode = draft.value.timeMode === 'end' ? 'dur' : 'end'
+}
+
 function submit(): void {
   const edit =
     original && target.mode === 'edit'
       ? { id: original.id, occurrence: target.occurrence, scope: scope.value }
       : null
   const result = save(draft.value, edit)
-  if ('error' in result) error.value = result.error
-  else emit('saved', draft.value.date)
+  if ('error' in result) {
+    error.value = result.error
+    return
+  }
+  // Sama seperti "+ Tambah task" di panel hari: deadline mengikuti tanggal jadwal.
+  // Judul yang sudah diketik tapi belum di-Enter tetap dianggap niat user, bukan dibuang.
+  const typed = linkedTitle.value.trim()
+  const titles = typed ? [...pendingTasks.value, typed] : pendingTasks.value
+  for (const title of titles) {
+    saveTask({ ...emptyTaskDraft(draft.value.date), title, scheduleId: result.id }, null)
+  }
+  emit('saved', draft.value.date)
 }
 
 function onDelete(): void {
@@ -105,45 +119,45 @@ const deleteLabel = computed(() => {
         <SwatchPicker v-model="draft.color" :options="colorOptions" :size="34" />
       </Field>
 
+      <Field :label="$t('calendar.form.date')">
+        <Input v-model="draft.date" type="date" :aria-invalid="error === 'dateTime'" />
+      </Field>
+
       <div class="pair">
-        <Field :label="$t('calendar.form.date')">
-          <Input v-model="draft.date" type="date" :aria-invalid="error === 'dateTime'" />
-        </Field>
         <Field :label="$t('calendar.form.start')">
           <Input v-model="draft.time" type="time" :aria-invalid="error === 'dateTime'" />
         </Field>
-      </div>
-
-      <div>
-        <Segmented
-          v-model="draft.timeMode"
-          class="seg-time"
-          :options="timeModeOptions"
-          :label="$t('calendar.form.timeMode')"
-        />
-        <Input
-          v-if="draft.timeMode === 'end'"
-          v-model="draft.end"
-          class="short"
-          type="time"
-          :aria-label="$t('calendar.form.end')"
-          :aria-invalid="error === 'duration'"
-        />
-        <label v-else class="dur">
+        <Field :label="$t(draft.timeMode === 'end' ? 'calendar.form.end' : 'calendar.form.dur')">
+          <template #action>
+            <Button variant="link" class="mode" @click="toggleTimeMode">
+              {{ $t(draft.timeMode === 'end' ? 'calendar.form.useDur' : 'calendar.form.useEnd') }}
+            </Button>
+          </template>
           <Input
+            v-if="draft.timeMode === 'end'"
+            v-model="draft.end"
+            type="time"
+            :aria-invalid="error === 'duration'"
+          />
+          <Input
+            v-else
             v-model.number="draft.dur"
-            class="short"
             type="number"
             min="5"
             max="1440"
             step="5"
             :aria-invalid="error === 'duration'"
           />
-          <span>{{ $t('calendar.form.minutes') }}</span>
-        </label>
+        </Field>
       </div>
 
       <ScheduleRecurrence v-model="draft" :error="error" />
+
+      <ScheduleLinkedTasks
+        v-model:pending="pendingTasks"
+        v-model:title="linkedTitle"
+        :schedule-id="original?.id ?? null"
+      />
 
       <div v-if="isRecurring" class="scope">
         <p class="scope-label">{{ $t('calendar.form.scopeTitle') }}</p>
@@ -179,35 +193,19 @@ const deleteLabel = computed(() => {
   gap: 16px;
 }
 
-.short {
-  width: 180px;
-}
-
 .pair {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   gap: 12px;
 }
 
-.seg-time {
-  width: fit-content;
-  margin-bottom: 8px;
+/* Tautan ganti mode menempel di kanan label; ukurannya disamakan dengan label supaya baris sejajar. */
+.mode {
+  font-size: 12px;
 }
 
 .seg-scope {
   width: fit-content;
-}
-
-.dur {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-weight: var(--fw-strong);
-  color: var(--mute-2);
-}
-
-.dur .short {
-  width: 120px;
 }
 
 .scope {

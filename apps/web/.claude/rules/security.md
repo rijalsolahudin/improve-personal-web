@@ -74,17 +74,11 @@ Prinsip dasar: **client tidak pernah dipercaya**. UI boleh menyembunyikan, tapi 
 - DILARANG: `$fetch(urlDariUser)` di server. Kalau perlu, allowlist host + tolak IP private/link-local/metadata (`169.254.169.254`).
 - WAJIB: verifikasi signature webhook masuk (HMAC, timing-safe compare).
 
-## 11. Logging & data pribadi
+## 11. Build production (spesifik web)
 
-- DILARANG: log token, cookie, password, header `Authorization`, atau body lengkap berisi PII.
 - WAJIB: `console.*` dibuang di build production (`removeLoggers`).
-- WAJIB: minimisasi PII sesuai UU PDP - kumpulkan hanya yang dipakai, dokumentasikan field sensitif.
-
-## 12. Dependency & supply chain
-
-- WAJIB: lockfile di-commit; CI jalankan `npm audit --audit-level=high` (atau setara pnpm) - High/Critical = blocking.
-- WAJIB: modul Nuxt pihak ketiga dicek maintainer & download sebelum ditambah; tidak ada script `postinstall` asing tanpa review.
 - WAJIB: devtools (`devtools.enabled`) mati di production; sourcemap client tidak dipublikasi.
+- Aturan log/PII dan dependency/supply chain bersama: lihat `.claude/rules/keamanan-bersama.md` (root).
 
 ## Checklist review (PR yang menyentuh web)
 

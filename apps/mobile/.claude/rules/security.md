@@ -48,9 +48,9 @@ Prinsip dasar: **bundle JS dan device dianggap milik penyerang**. Semua yang dik
 
 ## 7. Logging & data (MASVS-PRIVACY)
 
-- DILARANG: `console.log` token, header `Authorization`, PII, atau response API lengkap. Build release membuang `console.*` (`babel-plugin-transform-remove-console` atau setara).
-- WAJIB: crash/analytics (Sentry, dsb.) scrub token & PII (`beforeSend`); DILARANG kirim data sensitif sebagai breadcrumb/tag.
-- WAJIB: minimisasi PII sesuai UU PDP; clipboard tidak dipakai untuk data sensitif (atau dibersihkan).
+- Aturan log, PII, dan scrub crash/analytics (`beforeSend` Sentry, dsb.) bersama: lihat `.claude/rules/keamanan-bersama.md` (root).
+- Build release membuang `console.*` (`babel-plugin-transform-remove-console` atau setara).
+- WAJIB: clipboard tidak dipakai untuk data sensitif (atau dibersihkan).
 - WAJIB: input password/OTP pakai `secureTextEntry` / `textContentType` yang benar dan `autoCorrect={false}`.
 
 ## 8. Build release (MASVS-RESILIENCE)
@@ -72,11 +72,11 @@ Prinsip dasar: **bundle JS dan device dianggap milik penyerang**. Semua yang dik
 - DILARANG: menambah permission di `AndroidManifest.xml`/`Info.plist`/`app.json` tanpa fitur yang memakainya; audit permission yang ditarik library.
 - WAJIB: handle izin ditolak tanpa crash dan tanpa memaksa.
 
-## 11. Dependency & supply chain
+## 11. Dependency & supply chain (spesifik mobile)
 
-- WAJIB: lockfile di-commit; CI `npm audit --audit-level=high` = blocking untuk High/Critical; Pod/Gradle dependency di-pin versinya.
-- WAJIB: library native baru dicek maintainer, aktivitas, dan permission yang ditambahkannya.
-- DILARANG: `patch-package` yang mematikan pengecekan keamanan tanpa catatan alasan.
+- Aturan dasar (lockfile, audit, cek library): lihat `.claude/rules/keamanan-bersama.md` (root).
+- WAJIB: Pod/Gradle dependency di-pin versinya.
+- WAJIB: library native baru dicek permission yang ditambahkannya (lihat §10).
 
 ## Checklist review (PR yang menyentuh mobile)
 

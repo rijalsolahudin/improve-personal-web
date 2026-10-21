@@ -60,29 +60,21 @@ apps/mobile/src/
 - ESLint (config `@react-native` atau `eslint-config-expo`) + `typescript-eslint`, `react-hooks` (rules-of-hooks & exhaustive-deps = error), Prettier.
 - `eslint --max-warnings 0` dan `prettier --check` WAJIB hijau di CI.
 - DILARANG `eslint-disable` tanpa alasan di baris yang sama; DILARANG men-disable `exhaustive-deps` untuk menutupi bug.
-- DILARANG `console.log` di kode yang di-merge (pakai logger).
 
 ## Testing (Jest + React Native Testing Library)
 
 - Unit/komponen: Jest + `@testing-library/react-native`. Query berdasarkan apa yang dilihat user (`getByRole`, `getByText`, `getByLabelText`); `testID` hanya bila tidak ada alternatif.
-- WAJIB test untuk: hook berlogika, `utils/`, `services/`, alur screen utama (render + interaksi + state loading/error/kosong), dan bug fix (test regresi).
-- Coverage minimal 80% lines untuk `hooks/`, `utils/`, `services/`.
-- Mock jaringan di batas (MSW / mock http client), bukan mock hook internal. Native module di-mock terpusat di `jest.setup`.
-- DILARANG snapshot test sebagai satu-satunya assertion; DILARANG `it.only`, `.skip`, atau test di-comment.
+- WAJIB test untuk: hook berlogika, `utils/`, `services/`, dan alur screen utama (render + interaksi + state loading/error/kosong). Prinsip umum di `.claude/rules/kerapian-bersama.md`.
+- Coverage 80% lines berlaku untuk `hooks/`, `utils/`, `services/`.
+- Native module di-mock terpusat di `jest.setup`.
+- DILARANG snapshot test sebagai satu-satunya assertion.
 - E2E (Maestro/Detox) untuk alur kritis (login, transaksi utama) bila sudah tersedia di CI.
 
 ## Konsistensi dengan web
 
-- DTO request/response, enum, dan skema validasi diambil dari paket kontrak bersama monorepo; DILARANG mendefinisikan ulang tipe API di mobile.
-- Perubahan kontrak WAJIB update web + mobile di PR yang sama, atau lewat versi API baru; mobile harus toleran terhadap field tambahan (app lama masih beredar).
-- Nama domain, field, dan pesan error konsisten dengan web (satu glosarium). Format tanggal/angka via `Intl` dengan locale yang sama.
+- Kontrak API (`packages/contracts`) dan glosarium lintas app: lihat `.claude/rules/kerapian-bersama.md` (root).
+- Format tanggal/angka via `Intl` dengan locale yang sama dengan web.
 - Token desain (warna, spacing, tipografi) dari sumber token bersama, bukan disalin manual.
-
-## Dead code & kebersihan
-
-- DILARANG kode di-comment, export/screen/asset tidak dipakai, feature flag mati, `TODO` tanpa nomor issue.
-- Hapus dependency & native module yang tidak dipakai (cek `knip`/`depcheck` bila tersedia).
-- Magic number/string jadi konstanta bernama; komentar menjelaskan "kenapa".
 
 ## Checklist review
 

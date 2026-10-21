@@ -12,8 +12,8 @@ Project: `personal-productivity` (Ergonio MCP, tools `mcp__ergonio__*`).
 | key | label | kapan |
 |---|---|---|
 | `backlog` | Backlog | ide/ditunda, belum dikerjain |
-| `todo` | To Do | sudah jelas, belum mulai |
-| `prog` | In Progress | sedang dikerjain |
+| `todo` | To Do | akan dikerjakan **berikutnya**, setelah task pendahulunya sudah masuk In Review (atau done) |
+| `prog` | In Progress | sedang dikerjain, sudah mulai |
 | `review` | In Review | kode selesai, nunggu verifikasi/review user |
 | `done` | Done | terverifikasi selesai |
 
@@ -40,7 +40,8 @@ Label & custom field: belum ada. Jangan isi `labels`/`customFields` (pass `null`
    - Milestone tercapai → `progressPct` (25/50/75)
    - Kode selesai, test/verifikasi jalan → `status: "review"`, `progressPct: 90`
    - User konfirmasi / verifikasi lolos → `status: "done"`, `progressPct: 100`
-   - Blocked/ditunda → `status: "todo"` atau `"backlog"`, tulis alasan di `description`
+   - Task berikutnya siap dikerjakan (pendahulu sudah `review`/`done`) → `status: "todo"`
+   - Belum bisa dimulai (pendahulu belum `review`), ide, atau ditunda → `status: "backlog"`, tulis alasan/pendahulu di `description`
    - Field yang tidak diubah wajib `null`.
 4. **Ringkasan akhir** - saat `review`/`done`, update `description`: tambah `<p><strong>Hasil:</strong> ...</p>` berisi file yang diubah + catatan trade-off (tiga pilar: keamanan, performa, kerapian).
 

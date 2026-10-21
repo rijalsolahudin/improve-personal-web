@@ -93,10 +93,10 @@ describe('useSchedules', () => {
 
     expect(save(newScheduleDraft('2026-10-10', '09:00'), null)).toEqual({ error: 'titleRequired' })
 
-    expect(save({ ...newScheduleDraft('2026-10-10', '09:00'), title: 'Rapat' }, null)).toEqual({
-      ok: true,
-    })
+    const result = save({ ...newScheduleDraft('2026-10-10', '09:00'), title: 'Rapat' }, null)
     expect(schedules.value).toHaveLength(1)
+    // Id dipakai form untuk menautkan task ke jadwal yang baru dibuat.
+    expect(result).toEqual({ id: schedules.value[0]?.id })
 
     await vi.waitFor(async () => {
       const data = await loadScheduleData(session, TZ)
@@ -126,7 +126,10 @@ describe('useSchedules', () => {
 
     const occurrence = '2026-10-12'
     const draft = { ...newScheduleDraft(occurrence, '10:00'), title: 'Kelas (pindah)' }
-    expect(save(draft, { id: original.id, occurrence, scope: 'this' })).toEqual({ ok: true })
+    // Task tertaut tetap menempel ke seri asal, bukan ke jadwal pecahan.
+    expect(save(draft, { id: original.id, occurrence, scope: 'this' })).toEqual({
+      id: original.id,
+    })
 
     await vi.waitFor(async () => {
       const data = await loadScheduleData(session, TZ)
