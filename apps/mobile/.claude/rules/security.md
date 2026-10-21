@@ -48,7 +48,7 @@ Prinsip dasar: **bundle JS dan device dianggap milik penyerang**. Semua yang dik
 
 ## 7. Logging & data (MASVS-PRIVACY)
 
-- Aturan log, PII, dan scrub crash/analytics (`beforeSend` Sentry, dsb.) bersama: lihat `.claude/rules/keamanan-bersama.md` (root).
+- Aturan log, PII, dan scrub crash/analytics (`beforeSend` Sentry, dsb.) bersama: lihat `.claude/rules/shared-security.md` (root).
 - Build release membuang `console.*` (`babel-plugin-transform-remove-console` atau setara).
 - WAJIB: clipboard tidak dipakai untuk data sensitif (atau dibersihkan).
 - WAJIB: input password/OTP pakai `secureTextEntry` / `textContentType` yang benar dan `autoCorrect={false}`.
@@ -74,7 +74,7 @@ Prinsip dasar: **bundle JS dan device dianggap milik penyerang**. Semua yang dik
 
 ## 11. Dependency & supply chain (spesifik mobile)
 
-- Aturan dasar (lockfile, audit, cek library): lihat `.claude/rules/keamanan-bersama.md` (root).
+- Aturan dasar (lockfile, audit, cek library): lihat `.claude/rules/shared-security.md` (root).
 - WAJIB: Pod/Gradle dependency di-pin versinya.
 - WAJIB: library native baru dicek permission yang ditambahkannya (lihat §10).
 

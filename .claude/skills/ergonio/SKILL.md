@@ -9,15 +9,19 @@ Project: `personal-productivity` (Ergonio MCP, tools `mcp__ergonio__*`).
 
 ## Status keys
 
-| key | label | kapan |
-|---|---|---|
-| `backlog` | Backlog | ide/ditunda, belum dikerjain |
-| `todo` | To Do | akan dikerjakan **berikutnya**, setelah task pendahulunya sudah masuk In Review (atau done) |
-| `prog` | In Progress | sedang dikerjain, sudah mulai |
-| `review` | In Review | kode selesai, nunggu verifikasi/review user |
-| `done` | Done | terverifikasi selesai |
+Alur lengkap (siapa boleh pindah ke mana + aturan paralel): `.claude/rules/ergonio-status-flow.md`.
 
-Label & custom field: belum ada. Jangan isi `labels`/`customFields` (pass `null`) kecuali `listFields` menunjukkan sudah ada.
+| key | label | pemilik | kapan |
+|---|---|---|---|
+| `backlog` | Backlog | developer | ide/ditunda, belum siap dikerjain |
+| `todo` | To Do | developer | antrean berikutnya |
+| `prog` | In Progress | developer | sedang dikerjain |
+| `status-1792622088574` | Ready to Review | developer | kode + verifikasi beres, antre QA |
+| `review` | In Review | QA | QA sedang ngecek |
+| `status-1792622168795` | Failed | QA | QA nemu bug, balik ke developer |
+| `done` | Done | QA | QA lulus |
+
+Label yang ada: `Web`, `Mobile` (dari `listFields`). Custom field: tidak ada - pass `null`.
 
 ## Kapan dipakai
 
@@ -36,14 +40,15 @@ Label & custom field: belum ada. Jangan isi `labels`/`customFields` (pass `null`
    - Task besar (>3 langkah jelas) → `createSubtasks` (maks 10 judul).
    - Simpan task id/number dari hasil, sebut ke user.
 3. **Update selama kerja** - `updateTask` di titik penting, bukan tiap edit kecil:
+   - Ambil dari backlog, jadikan antrean berikutnya → `status: "todo"`
    - Mulai kerja → `status: "prog"`
    - Milestone tercapai → `progressPct` (25/50/75)
-   - Kode selesai, test/verifikasi jalan → `status: "review"`, `progressPct: 90`
-   - User konfirmasi / verifikasi lolos → `status: "done"`, `progressPct: 100`
-   - Task berikutnya siap dikerjakan (pendahulu sudah `review`/`done`) → `status: "todo"`
-   - Belum bisa dimulai (pendahulu belum `review`), ide, atau ditunda → `status: "backlog"`, tulis alasan/pendahulu di `description`
+   - Kode selesai, test/verifikasi jalan → `status: "status-1792622088574"` (Ready to Review), `progressPct: 90`
+   - DILARANG set `review` atau `done` - itu wilayah QA (`fajar`)
+   - Belum bisa dimulai (pendahulu belum siap), ide, atau ditunda → `status: "backlog"`, tulis alasan/pendahulu di `description`
    - Field yang tidak diubah wajib `null`.
-4. **Ringkasan akhir** - saat `review`/`done`, update `description`: tambah `<p><strong>Hasil:</strong> ...</p>` berisi file yang diubah + catatan trade-off (tiga pilar: keamanan, performa, kerapian).
+4. **Ringkasan akhir** - sebelum pindah ke `status-1792622088574`, update `description`: tambah `<p><strong>Hasil:</strong> ...</p>` berisi file yang diubah + catatan trade-off (tiga pilar: keamanan, performa, kerapian).
+5. **QA** - `fajar` ambil task dari `status-1792622088574` → `review`, lalu `done` kalau lulus atau `status-1792622168795` (Failed) + catatan bug kalau gagal. DILARANG memperbaiki kode produk.
 
 ## Catatan
 

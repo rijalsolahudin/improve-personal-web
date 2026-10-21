@@ -1,4 +1,4 @@
-# Pilar Keamanan - Bersama (web + mobile)
+# Shared security - web + mobile
 
 Berlaku untuk semua app di monorepo. Detail teknis per app ada di `apps/<app>/.claude/rules/security.md`.
 

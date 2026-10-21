@@ -64,7 +64,7 @@ apps/mobile/src/
 ## Testing (Jest + React Native Testing Library)
 
 - Unit/komponen: Jest + `@testing-library/react-native`. Query berdasarkan apa yang dilihat user (`getByRole`, `getByText`, `getByLabelText`); `testID` hanya bila tidak ada alternatif.
-- WAJIB test untuk: hook berlogika, `utils/`, `services/`, dan alur screen utama (render + interaksi + state loading/error/kosong). Prinsip umum di `.claude/rules/kerapian-bersama.md`.
+- WAJIB test untuk: hook berlogika, `utils/`, `services/`, dan alur screen utama (render + interaksi + state loading/error/kosong). Prinsip umum di `.claude/rules/shared-code-quality.md`.
 - Coverage 80% lines berlaku untuk `hooks/`, `utils/`, `services/`.
 - Native module di-mock terpusat di `jest.setup`.
 - DILARANG snapshot test sebagai satu-satunya assertion.
@@ -72,7 +72,7 @@ apps/mobile/src/
 
 ## Konsistensi dengan web
 
-- Kontrak API (`packages/contracts`) dan glosarium lintas app: lihat `.claude/rules/kerapian-bersama.md` (root).
+- Kontrak API (`packages/contracts`) dan glosarium lintas app: lihat `.claude/rules/shared-code-quality.md` (root).
 - Format tanggal/angka via `Intl` dengan locale yang sama dengan web.
 - Token desain (warna, spacing, tipografi) dari sumber token bersama, bukan disalin manual.
 

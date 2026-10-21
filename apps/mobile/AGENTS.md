@@ -1,6 +1,7 @@
 # apps/mobile — aturan agent
 
 Aturan mobile sama dengan yang dipakai Claude Code. Tidak ada salinan: file ini cuma pointer ke sumber aslinya.
+File ini + rules di bawah dimuat on-demand - hanya saat task menyentuh `apps/mobile`.
 
 Sebelum mengerjakan task yang menyentuh `apps/mobile`, baca berurutan:
 

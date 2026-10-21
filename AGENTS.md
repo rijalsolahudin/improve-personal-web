@@ -25,16 +25,36 @@ Kalau satu pilar sengaja dikorbankan, tulis trade-off-nya eksplisit (detail: `CL
 
 ### Wajib dibaca sebelum mengerjakan task
 
-Baca berurutan, jangan dilewati:
+Aturan dimuat bertahap: root selalu, rules app hanya saat task menyentuh app itu.
 
-1. `CLAUDE.md` (root) - aturan project lengkap + aturan bersama
-2. `.claude/rules/keamanan-bersama.md`
-3. `.claude/rules/kerapian-bersama.md`
-4. Menyentuh app? Lanjut ke `apps/<app>/CLAUDE.md` dan `apps/<app>/.claude/rules/*.md`
+**Selalu, semua task:**
+
+1. `CLAUDE.md` (root) - tiga pilar + aturan bersama
+2. `.claude/rules/shared-security.md`
+3. `.claude/rules/shared-code-quality.md`
+4. `.claude/rules/ergonio-status-flow.md`
+
+**Hanya app yang disentuh - jangan muat app lain:**
+
+| Task mengubah file di | Tambahan wajib dibaca |
+|---|---|
+| `apps/web/**` | `apps/web/AGENTS.md` -> `apps/web/CLAUDE.md` -> `apps/web/.claude/rules/{security,performance,code-quality}.md` |
+| `apps/mobile/**` | `apps/mobile/AGENTS.md` -> `apps/mobile/CLAUDE.md` -> `apps/mobile/.claude/rules/{security,performance,code-quality}.md` |
+| `packages/**` | rules root saja (kontrak lintas app ada di `.claude/rules/shared-code-quality.md`) |
+
+Menyentuh `apps/web` tidak memuat aturan mobile, dan sebaliknya. Aturan app lain baru dimuat kalau task ini memang mengubah file di app itu juga.
+
+DILARANG mengedit file di `apps/<app>/**` sebelum daftar di tabel itu dibaca. Di ringkasan akhir, tulis `Rules dibaca: ...` supaya bisa diaudit.
 
 ### Lacak task di Ergonio
 
-Setiap task kerja (ubah kode/config, bug fix, riset yang menghasilkan keputusan) dilacak di Ergonio project `personal-productivity` lewat MCP `ergonio`: buat task dulu, update status & progress sampai selesai. Skip untuk pertanyaan singkat atau perintah sekali jalan. Alur lengkap: `.claude/skills/ergonio/SKILL.md`.
+Setiap task kerja (ubah kode/config, bug fix, riset yang menghasilkan keputusan) dilacak di Ergonio project `personal-productivity` lewat MCP `ergonio`. Skip untuk pertanyaan singkat atau perintah sekali jalan.
+
+Alur status: developer ambil dari `backlog` -> `todo` -> `prog` -> `status-1792622088574` (Ready to Review). QA (`fajar`) ambil dari Ready to Review -> `review`, lalu `done` kalau lulus atau `status-1792622168795` (Failed) kalau ada bug. Developer tidak boleh set `review`/`done`; QA tidak boleh memperbaiki kode produk.
+
+Kerjakan task yang tidak saling bergantung secara paralel (lihat `### PARALEL` di `docs/PRD.md`), satu task satu agent, dan jangan dua agent mengedit file yang sama bersamaan.
+
+Detail: `.claude/rules/ergonio-status-flow.md`, alur tool: `.claude/skills/ergonio/SKILL.md`. Dua task atau lebih sekaligus: skill `orchestration` (pembagian ke subagent, batas file, siapa memindahkan status).
 
 ### Referensi (baca saat relevan, jangan di-import)
 

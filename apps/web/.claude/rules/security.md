@@ -78,7 +78,7 @@ Prinsip dasar: **client tidak pernah dipercaya**. UI boleh menyembunyikan, tapi 
 
 - WAJIB: `console.*` dibuang di build production (`removeLoggers`).
 - WAJIB: devtools (`devtools.enabled`) mati di production; sourcemap client tidak dipublikasi.
-- Aturan log/PII dan dependency/supply chain bersama: lihat `.claude/rules/keamanan-bersama.md` (root).
+- Aturan log/PII dan dependency/supply chain bersama: lihat `.claude/rules/shared-security.md` (root).
 
 ## Checklist review (PR yang menyentuh web)
 

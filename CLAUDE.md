@@ -16,7 +16,8 @@ Kalau satu pilar sengaja dikorbankan, tulis trade-off-nya secara eksplisit. Deta
 
 ## Aturan bersama
 - Aturan yang berlaku buat web + mobile taruh di sini, bukan di CLAUDE.md per app. Aturan bersama ada di `.claude/rules/` root dan di-import di sini:
-  - @.claude/rules/keamanan-bersama.md
-  - @.claude/rules/kerapian-bersama.md
+  - @.claude/rules/shared-security.md
+  - @.claude/rules/shared-code-quality.md
+  - @.claude/rules/ergonio-status-flow.md
 - Settings, agents, MCP: di root `.claude/`. Jalanin Claude dari root.
-- Setiap task kerja: lacak di Ergonio (project `personal-productivity`) pakai skill `ergonio` - buat task dulu, update status/progress sampai selesai.
+- Setiap task kerja: lacak di Ergonio (project `personal-productivity`) pakai skill `ergonio` - buat task dulu, update status/progress sampai selesai. Developer berhenti di `status-1792622088574` (Ready to Review); QA yang memindahkan ke `review`, lalu `done` atau `status-1792622168795` (Failed).

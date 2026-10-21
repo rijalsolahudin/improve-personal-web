@@ -1,4 +1,4 @@
-# Pilar Kerapian - Bersama (web + mobile)
+# Shared code quality - web + mobile
 
 Berlaku untuk semua app di monorepo. Struktur folder, tooling, dan penamaan spesifik ada di `apps/<app>/.claude/rules/code-quality.md`.
 

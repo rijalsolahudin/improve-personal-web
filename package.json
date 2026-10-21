@@ -14,6 +14,8 @@
     "test": "turbo run test",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "sync:qoder": "node scripts/sync-qoder-config.mjs",
+    "check:agent-docs": "node scripts/check-agent-docs.mjs",
     "prepare": "husky"
   },
   "prettier": "@improve-personal/config/prettier",

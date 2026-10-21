@@ -23,7 +23,7 @@ apps/web/
 ```
 
 - DILARANG folder generik baru (`helpers/`, `misc/`, `common/`) di luar struktur di atas.
-- Tipe/model data yang juga dipakai mobile WAJIB diambil dari `packages/contracts` (lihat `.claude/rules/kerapian-bersama.md` di root), bukan didefinisikan ulang.
+- Tipe/model data yang juga dipakai mobile WAJIB diambil dari `packages/contracts` (lihat `.claude/rules/shared-code-quality.md` di root), bukan didefinisikan ulang.
 
 ## Penamaan
 
@@ -69,7 +69,7 @@ apps/web/
 ## Testing (Vitest)
 
 - Unit: Vitest + `@nuxt/test-utils` (env `nuxt`) + `@vue/test-utils`. File `*.test.ts` sejajar dengan sumber atau di `tests/`.
-- WAJIB test untuk: composable dengan logika, `utils/`, `server/services/` (prinsip umum di `.claude/rules/kerapian-bersama.md`).
+- WAJIB test untuk: composable dengan logika, `utils/`, `server/services/` (prinsip umum di `.claude/rules/shared-code-quality.md`).
 - Coverage 80% lines berlaku untuk `composables/`, `utils/`, `server/services/`; komponen murni-presentasi boleh tanpa test.
 - Mock jaringan di batas pakai `registerEndpoint` / MSW.
 
