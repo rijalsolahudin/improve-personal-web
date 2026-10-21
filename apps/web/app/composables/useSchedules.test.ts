@@ -121,15 +121,17 @@ describe('useSchedules', () => {
     const original = storedSchedule(session)
     await persistSchedule(session, original, TZ)
 
-    const { save, hydrate } = useSchedules({ session: async () => session })
+    const { save, hydrate, schedules } = useSchedules({ session: async () => session })
     await hydrate()
 
     const occurrence = '2026-10-12'
     const draft = { ...newScheduleDraft(occurrence, '10:00'), title: 'Kelas (pindah)' }
-    // Task tertaut tetap menempel ke seri asal, bukan ke jadwal pecahan.
-    expect(save(draft, { id: original.id, occurrence, scope: 'this' })).toEqual({
-      id: original.id,
-    })
+    const result = save(draft, { id: original.id, occurrence, scope: 'this' })
+
+    // Task tertaut harus ikut ke jadwal pecahan: seri lama tidak lagi muncul di tanggal itu.
+    const split = schedules.value.find((schedule) => schedule.id !== original.id)
+    expect(result).toEqual({ id: split?.id })
+    expect(split).toMatchObject({ start: occurrence, rec: { type: 'once' } })
 
     await vi.waitFor(async () => {
       const data = await loadScheduleData(session, TZ)

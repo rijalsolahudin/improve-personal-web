@@ -144,8 +144,12 @@ export function useSchedules(options: UseSchedulesOptions = {}) {
       for (const id of removed) await removeSchedule(session, id)
     }, 'jadwal tidak bisa disimpan')
 
-    // Task tertaut menempel ke seri asal; jadwal baru memakai id yang baru dibuat.
-    return { id: original?.id ?? createdId }
+    // Pemanggil (form) memakai id ini untuk menautkan task ke jadwal. "Kejadian ini"/"ini &
+    // berikutnya" memindahkan kejadian yang diedit ke jadwal BARU (`createdId`), jadi task yang
+    // ditautkan harus ikut ke sana - kalau menempel ke seri lama, checklist-nya tidak pernah tampil
+    // di tanggal itu karena seri lama sudah dikecualikan.
+    const ownerId = next.some((schedule) => schedule.id === createdId) ? createdId : original?.id
+    return { id: ownerId ?? createdId }
   }
 
   function remove(id: string, occurrence: string, scope: EditScope): void {
