@@ -6,6 +6,7 @@
 - Expects the named specialist subagents to be delegated to by role instead of the agent doing everything inline — asks why they weren't used ("kok kamu gk pake subagent tad ya si bayu dll?"); e.g. hands FE work to `dimas` then verifies itself. Confidence: 0.8
 - Wants spec/plan documents updated first, then implementation follows — on a design decision he says "update dulu architecturenya" (update the architecture doc before code follows). Confidence: 0.8
 - Prefers additive, non-destructive file changes: new or consolidated artifacts are added as an alternative and existing files/folders are left intact ("yg pisah2 ini gk usah dihapus alternative aja"). Confidence: 0.75
+- Before letting adjacent/out-of-scope work be picked up, asks whether it already has its own board task ("goal sih udah ada tasknya blm ya?") and expects the assistant to look the task up plus check the PRD/board before acting — work then stays inside the current task's scope and the leftover item is deferred to its own task (with a warning at the end) rather than bundled in. Confidence: 0.5
 - Treats an existing feature silently disappearing (e.g. after a refactor/working-tree change) as an urgent regression: expects it root-caused and restored right away, not just noted ("kok fitur hias hilang ya, perbaiki dong"). Confidence: 0.65
 
 ## Decisions & research
@@ -26,5 +27,6 @@
 - Works with Claude Code and Command Code on the same project and expects both toolchains to share one rules/skills setup instead of maintaining two parallel copies. Confidence: 0.75
 - Avoids duplicating tool config: prefers pointing a tool at the existing `.claude` config (reference / import / link) over copying files across (".claude buat commandcode juga... gk usah salin"). Confidence: 0.8
 - When no reference/link mechanism is supported by a tool (e.g. Command Code agent definitions), prefers converting the config into that tool's native format over junctions/symlinks — it's worth some duplication to keep it actually working and portable in git. Confidence: 0.6
+- Dislikes hand-maintained duplicate agent config that silently drifts out of date; wants each client dir (`.qoder`, `.commandcode`) generated from the single source (`.claude`) by one repo sync script wired into the pre-commit hook, so "keep both in sync" is automatic rather than a manual step he has to remember ("tolong commandcode disesuaikan juga ya kalau bisa sekalian ada script sync"). Confidence: 0.55
 - Keeps always-loaded agent memory lean: small rule files are `@`-imported, but large docs (ARCHITECTURE.md, PRD) are cited by path for on-demand reading instead of being imported, to avoid burning tokens every turn. Confidence: 0.6
 - Registers MCP servers that carry credentials in a project-local (non-committed) scope so tokens never land in git. Confidence: 0.6
