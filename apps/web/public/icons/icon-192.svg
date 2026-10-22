@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Improve Personal">
+  <!-- Seni sama dengan icon-512.svg; berkas ini dipisah karena manifest menyebut path per ukuran
+       dan sebagian browser/audit memeriksa keberadaan berkas ikon 192px. -->
+  <rect x="16" y="16" width="480" height="480" rx="112" fill="#F3CB86" stroke="#2F2A24" stroke-width="24"/>
+  <rect x="112" y="120" width="288" height="272" rx="40" fill="#FFFBF4" stroke="#2F2A24" stroke-width="20"/>
+  <rect x="152" y="164" width="40" height="40" rx="10" fill="#F3CB86" stroke="#2F2A24" stroke-width="8"/>
+  <path d="M160 185l10 10 16-19" fill="none" stroke="#2F2A24" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="216" y="175" width="144" height="18" rx="9" fill="#2F2A24"/>
+  <rect x="152" y="236" width="40" height="40" rx="10" fill="#F3CB86" stroke="#2F2A24" stroke-width="8"/>
+  <path d="M160 257l10 10 16-19" fill="none" stroke="#2F2A24" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="216" y="247" width="112" height="18" rx="9" fill="#2F2A24"/>
+  <rect x="152" y="308" width="40" height="40" rx="10" fill="#FFFBF4" stroke="#2F2A24" stroke-width="8"/>
+  <rect x="216" y="319" width="144" height="18" rx="9" fill="#2F2A24"/>
+</svg>

@@ -1,6 +1,7 @@
-import { STYLE_FONT_FAMILIES } from '@improve-personal/tokens'
+import { STYLE_FONT_FAMILIES, themes } from '@improve-personal/tokens'
 
 import { REQUEST_SIZE_LIMIT_BYTES } from './server/utils/request-size'
+import { BRAND } from './shared/brand'
 
 // Rendering (apps/web/ARCHITECTURE.md §2, ADR #6): data user cuma ada di perangkat, jadi halaman app
 // dirender di client (`ssr: false` per route). Hanya landing publik yang di-prerender.
@@ -19,10 +20,71 @@ import { REQUEST_SIZE_LIMIT_BYTES } from './server/utils/request-size'
 // dan `requestSizeLimiter` di bawah (pemeriksaan header yang murah). Kalau angkanya ditulis dua kali,
 // keduanya bisa berbeda pendapat dan yang paling longgar yang berlaku.
 
+/**
+ * Warna latar shell PWA (splash + address bar). Manifest cuma bisa membawa SATU warna statis,
+ * sedangkan tema app berganti di client lewat `data-theme` (F16). Tema default (Kuning) dipakai
+ * supaya splash tidak berkedip putih sebelum tema pilihan user sempat dipasang.
+ */
+const PWA_SHELL_COLOR = themes.kuning.bg
+
+/**
+ * Batas umur cache kerangka app. HTML shell menunjuk berkas `/_nuxt/<hash>.js` yang dihapus dari
+ * precache saat deploy berikutnya, jadi umurnya sengaja pendek: shell basi yang disajikan ke user
+ * berjaringan lambat bisa menunjuk chunk yang sudah tidak ada (layar putih) sampai user reload.
+ */
+const APP_SHELL_MAX_AGE_SECONDS = 24 * 60 * 60
+/** Lewat dari ini, koneksi dianggap terlalu lambat: tampilkan shell dari cache, bukan layar kosong. */
+const APP_SHELL_NETWORK_TIMEOUT_SECONDS = 4
+/** `/app`, `/app/to-do`, `/app/memo`, ... - cukup untuk rute yang benar-benar dibuka user. */
+const APP_SHELL_MAX_ENTRIES = 8
+/** Nama berkas font mengandung hash isi, jadi entri lama tidak pernah dipakai ulang. */
+const FONT_CACHE_MAX_ENTRIES = 24
+/** Font immutable: aman disimpan lama supaya gaya yang pernah dipakai tetap ada saat offline. */
+const FONT_CACHE_MAX_AGE_SECONDS = 365 * 24 * 60 * 60
+/**
+ * Halaman fallback untuk navigasi yang gagal (offline). Sengaja HTML statis tanpa JavaScript,
+ * BUKAN `app/pages/offline.vue`: kalau yang disajikan HTML hasil render Nuxt, hidrasi mengambil alih
+ * route sesuai URL di address bar dan halaman offline langsung tertimpa route yang gagal dimuat.
+ *
+ * Berkasnya ada di `public/offline/index.html`, BUKAN `public/offline.html`. `createManifestTransform`
+ * milik `@vite-pwa/nuxt` membuang segmen TERAKHIR dari setiap entri precache berakhiran `.html`
+ * (`offline.html` -> `offline`, `offline/index.html` -> `offline`, `index.html` -> `/`). Kunci
+ * cache-nya sama, tetapi Workbox mem-fetch kunci itu relatif ke `/sw.js` menjadi `/offline` - dan
+ * server statis Nitro hanya melayani `/offline` dari `offline` atau `offline/index.html`, tidak
+ * pernah dari `offline.html`. Versi `public/offline.html` karena itu dibalas 404, Workbox membatalkan
+ * SELURUH instalasi (`bad-precaching-response`), SW berhenti di `redundant`, dan tidak ada satu pun
+ * aset yang ter-cache - tanpa error yang terlihat, karena `autoUpdate` tetap me-resolve promise
+ * registrasi dan `devOptions.enabled: false` membuat dev tidak pernah menjalankan SW. Jaga ini dengan
+ * `pnpm verify:precache` (ikut jalan di `build`).
+ */
+const OFFLINE_PAGE_URL = '/offline'
+
+/**
+ * Opsi untuk halaman non-API: coba jaringan dulu (halaman asli saat online), simpan hasilnya
+ * seperlunya, dan kalau jaringan mati sajikan halaman offline statis - bukan layar error browser.
+ */
+function pageCacheOptions(cacheName: string, maxEntries: number) {
+  return {
+    networkTimeoutSeconds: APP_SHELL_NETWORK_TIMEOUT_SECONDS,
+    expiration: { maxEntries, maxAgeSeconds: APP_SHELL_MAX_AGE_SECONDS },
+    // Jangan simpan halaman error/redirect sebagai halaman.
+    cacheableResponse: { statuses: [200] },
+    precacheFallback: { fallbackURL: OFFLINE_PAGE_URL },
+    cacheName,
+  }
+}
+
 export default defineNuxtConfig({
   compatibilityDate: '2026-10-01',
 
-  modules: ['@pinia/nuxt', '@nuxt/eslint', '@nuxt/fonts', '@nuxtjs/i18n', 'nuxt-security'],
+  modules: [
+    '@pinia/nuxt',
+    '@nuxt/eslint',
+    '@nuxt/fonts',
+    '@nuxtjs/i18n',
+    'nuxt-security',
+    '@vite-pwa/nuxt',
+  ],
 
   // Panel dev cuma untuk development; `$production` mematikannya (security.md §12).
   devtools: { enabled: true },
@@ -43,8 +105,15 @@ export default defineNuxtConfig({
   app: {
     head: {
       htmlAttrs: { lang: 'id' },
-      meta: [{ name: 'theme-color', content: '#F6EBDA' }],
-      link: [{ rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' }],
+      meta: [{ name: 'theme-color', content: PWA_SHELL_COLOR }],
+      link: [
+        { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' },
+        // Wajib ditulis di sini: `@vite-pwa/nuxt` hanya menyuntik tautan manifest lewat
+        // komponen `<VitePwaManifest />` di `app.vue`, dan komponen itu tidak terpasang di repo
+        // ini. Tanpa `<link rel="manifest">`, browser tidak pernah menemukan manifest-nya -
+        // PWA tidak bisa di-install walau berkasnya ada.
+        { rel: 'manifest', href: '/manifest.webmanifest' },
+      ],
     },
   },
 
@@ -84,6 +153,8 @@ export default defineNuxtConfig({
   routeRules: {
     '/': { prerender: true },
     '/login': { ssr: false },
+    // `/app/**` sengaja TANPA cache (bukan `swr`/`isr`): isinya data per akun. `ssr: false` bikin
+    // HTML-nya cuma kerangka SPA (lihat catatan `pwa.workbox.runtimeCaching` di bawah).
     '/app/**': { ssr: false },
     // `/v1/**` tidak pernah di-prerender dan tidak boleh masuk cache mana pun: responsnya berisi data
     // per akun (cache/`swr`/`isr` untuk data per-user dilarang - performance.md §2, security.md §2).
@@ -91,6 +162,140 @@ export default defineNuxtConfig({
       prerender: false,
       cache: false,
       headers: { 'cache-control': 'no-store' },
+    },
+  },
+
+  // PWA (ARCHITECTURE.md §3, AC T23): manifest + service worker Workbox (`generateSW`).
+  // Aturan kerasnya: service worker cuma menyimpan ASET STATIS dan kerangka app. Tidak ada respons
+  // berisi data user yang boleh masuk Cache Storage - cache browser bertahan setelah logout dan bisa
+  // dibaca user lain di perangkat yang sama (security.md §2 & §7, AC #37(3)).
+  pwa: {
+    // SW baru langsung mengambil alih, supaya user tidak terjebak di shell lama sampai semua tab
+    // ditutup. Efek sampingnya: tab yang sudah terbuka memakai aset build baru setelah reload.
+    registerType: 'autoUpdate',
+    // Registrasi lewat plugin Nuxt (bukan `<script>` inline yang disuntik): CSP di security.md §6
+    // memakai nonce + 'strict-dynamic', dan skrip inline tanpa nonce akan diblokir.
+    injectRegister: false,
+    // Service worker tidak dijalankan di dev: cache dev bikin perubahan lokal tidak terlihat dan
+    // menyulitkan debugging hydration. Uji offline dilakukan dari hasil `nuxt build`.
+    devOptions: { enabled: false },
+    manifest: {
+      // Nama HANYA dari `shared/brand.ts` - jangan tulis literal brand di sini (komentar di berkas
+      // itu: ganti nama brand cukup di satu tempat).
+      name: BRAND.name,
+      // `brand.ts` belum punya nama pendek terpisah; memakai nama penuh lebih jujur daripada
+      // mengarang brand kedua ("Improve") di manifest.
+      short_name: BRAND.name,
+      lang: 'id',
+      // Langsung masuk halaman app: data user ada di IndexedDB, jadi tidak perlu lewat landing.
+      start_url: '/app',
+      scope: '/',
+      display: 'standalone',
+      background_color: PWA_SHELL_COLOR,
+      theme_color: PWA_SHELL_COLOR,
+      // Ikon SVG (bukan PNG biner yang tidak bisa di-review): browser desktop/Android merasterisasi
+      // sendiri dan Chromium menerimanya tanpa error installability. Catatan jujur: iOS "Add to Home
+      // Screen" TIDAK memakai ikon manifest (butuh `apple-touch-icon` PNG yang belum ada - risiko
+      // diterima), dan `sizes` pada SVG cuma target raster, bukan ukuran intrinsik berkasnya. Entri
+      // `maskable` punya safe zone 20% supaya tidak terpotong bentuk ikon launcher.
+      icons: [
+        { src: '/icons/icon-192.svg', sizes: '192x192', type: 'image/svg+xml' },
+        { src: '/icons/icon-512.svg', sizes: '512x512', type: 'image/svg+xml' },
+        {
+          src: '/icons/icon-maskable-512.svg',
+          sizes: '512x512',
+          type: 'image/svg+xml',
+          purpose: 'maskable',
+        },
+      ],
+    },
+    workbox: {
+      // Precache: app shell statis + aset ber-hash `/_nuxt/**` + ikon. Semua berkas ini publik dan
+      // tidak diturunkan dari sesi user - aman disimpan di perangkat bersama.
+      //
+      // Font (`/_fonts/**`) sengaja TIDAK ikut precache: font tiap gaya di-lazy-load (F16), jadi
+      // mem-preload semuanya memaksa setiap user mengunduh font 7 gaya saat instalasi SW dan
+      // melanggar budget font (performance.md: maksimal 2 berkas / 100 KB). Font disimpan saat
+      // benar-benar dipakai lewat `runtimeCaching` di bawah - "tersedia offline setelah dipakai".
+      //
+      // `_i18n/**/messages.json` ikut precache: teks UI diambil `@nuxtjs/i18n` lewat request
+      // terpisah saat runtime (bukan bagian chunk JS), jadi tanpa ini seluruh UI tampil sebagai
+      // kunci mentah ("login.meta.title") begitu offline. Isinya statis dan bukan data user. Ikut
+      // ter-precache juga halaman offline (`offline/index.html`) lewat `**/*.html`.
+      globPatterns: ['**/*.{js,css,html,svg}', '_i18n/**/messages.json'],
+      // WAJIB diisi string kosong, bukan dihilangkan dan bukan `null`. Kalau key ini tidak ada,
+      // `@vite-pwa/nuxt` mengisinya sendiri dengan `app.baseURL` ('/') - lihat
+      // `if (!("navigateFallback" in options.workbox))` di `dist/shared/nuxt.*.mjs`. Workbox lalu
+      // memasang NavigationRoute yang melayani SEMUA navigasi dengan HTML hasil prerender '/',
+      // termasuk saat ONLINE: buka `/login` -> yang tampil landing page, reload deep link
+      // `/app/to-do` -> halaman yang salah. `null` tidak bisa dipakai karena Nuxt membuang nilai
+      // `null` dari config sebelum module membacanya (dibuktikan dengan `loadNuxtConfig`); `''`
+      // bertahan dan falsy, jadi workbox-build tidak menghasilkan NavigationRoute sama sekali
+      // (template-nya memakai `<% if (navigateFallback) %>`).
+      // Fallback offline karena itu dipasang PER ROUTE di `runtimeCaching` lewat `precacheFallback`.
+      // Konsekuensi yang disadari: route halaman baru hanya dapat fallback offline kalau rule-nya
+      // ditambahkan di sini; route tak dikenal saat offline menampilkan error browser (bukan HTML
+      // palsu), dan itu lebih jujur daripada menyajikan halaman yang salah.
+      navigateFallback: '',
+      cleanupOutdatedCaches: true,
+      // SEMUA rule di bawah `method: 'GET'`. Workbox hanya mencocokkan GET secara default, jadi
+      // POST/PUT/PATCH/DELETE tidak pernah masuk Cache Storage - tidak ada aksi user yang di-cache.
+      runtimeCaching: [
+        {
+          // KENAPA `NetworkOnly`: `/v1/**` adalah API yang mengembalikan data per akun. Respons itu
+          // TIDAK BOLEH ditulis ke Cache Storage sama sekali (AC #37(3), ARCHITECTURE.md §3) -
+          // walaupun server sudah mengirim `cache-control: no-store`, service worker tetap bisa
+          // menyimpannya kalau ada rule cache di sini. `NetworkOnly` = selalu lewat jaringan.
+          urlPattern: /^https?:\/\/[^/]+\/(?:v1|api)(?:\/|$)/,
+          handler: 'NetworkOnly',
+          method: 'GET',
+        },
+        {
+          // Jaring pengaman untuk URL lain yang mengandung `/api/` (proxy, path bersarang,
+          // `**/api/**`). Salah tangkap cuma bikin request lewat jaringan - tidak ada kerugian.
+          urlPattern: /\/api\//,
+          handler: 'NetworkOnly',
+          method: 'GET',
+        },
+        {
+          // Kerangka `/app/**`. Route ini `ssr: false` (lihat `routeRules`), jadi HTML yang dikirim
+          // server adalah template SPA yang SAMA untuk semua akun: tidak ada `__NUXT__` berisi data
+          // user di dalamnya, hanya config publik. Isi data user tetap di IndexedDB.
+          // Kalau `/app/**` suatu hari diubah jadi SSR, rule ini WAJIB dihapus - HTML SSR berisi
+          // data per akun dan DILARANG masuk cache (security.md §2, performance.md §2).
+          urlPattern: /^https?:\/\/[^/]+\/app(?:\/|$)/,
+          handler: 'NetworkFirst',
+          method: 'GET',
+          options: pageCacheOptions('app-shell', APP_SHELL_MAX_ENTRIES),
+        },
+        {
+          // `/login` `ssr: false`, tapi HTML-nya sengaja TIDAK disimpan: form login tidak berguna
+          // tanpa jaringan (OTP/Google butuh server), jadi menyimpannya hanya menampilkan halaman
+          // yang pasti gagal. `NetworkOnly` + `precacheFallback` = online selalu HTML asli,
+          // offline langsung halaman offline statis. Tanpa rule ini service worker tidak menangani
+          // navigasi sama sekali dan user melihat layar error browser, bukan pesan yang jelas.
+          urlPattern: /^https?:\/\/[^/]+\/login(?:\/|$)/,
+          handler: 'NetworkOnly',
+          method: 'GET',
+          options: { precacheFallback: { fallbackURL: OFFLINE_PAGE_URL } },
+        },
+        {
+          // Font self-hosted (`@nuxt/fonts`) ber-hash: setelah satu kali dipakai, berkasnya tetap
+          // ada saat offline. CacheFirst aman karena nama berkas = hash isi, jadi tidak ada versi
+          // basi - berkas baru selalu bernama baru.
+          urlPattern: /\/_fonts\/.*\.woff2$/,
+          handler: 'CacheFirst',
+          method: 'GET',
+          options: {
+            cacheName: 'fonts',
+            expiration: {
+              maxEntries: FONT_CACHE_MAX_ENTRIES,
+              maxAgeSeconds: FONT_CACHE_MAX_AGE_SECONDS,
+            },
+            cacheableResponse: { statuses: [200] },
+          },
+        },
+      ],
     },
   },
 
@@ -159,6 +364,10 @@ export default defineNuxtConfig({
         'script-src': ["'self'", "'wasm-unsafe-eval'", "'nonce-{{nonce}}'", "'strict-dynamic'"],
         'script-src-attr': ["'none'"],
         'upgrade-insecure-requests': true,
+        // Service worker di-origin sendiri; tanpa `worker-src`, browser jatuh ke `script-src` yang
+        // membawa nonce per request - nonce itu tidak ada di request `/sw.js`, jadi registrasi bisa
+        // ditolak. `'self'` saja sudah cukup karena skrip SW tidak pernah di-inline.
+        'worker-src': ["'self'"],
       },
       referrerPolicy: 'strict-origin-when-cross-origin',
       permissionsPolicy: {
