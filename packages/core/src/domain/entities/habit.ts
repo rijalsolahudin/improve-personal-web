@@ -83,6 +83,23 @@ export const habitSchema = z
     name: z.string().trim().min(1).max(200),
     /** Sticker bundled atau emoji; ID tak dikenal -> placeholder, bukan error. */
     iconSticker: z.string().min(1).max(120).nullable(),
+    /**
+     * Hex warna palet dari UI (mis. `#9B4FC9`); `null` = pakai warna default UI.
+     *
+     * `.default(null)` WAJIB ada untuk backward-compatibility: record `habit` lama (dibuat sebelum
+     * field `color` ditambahkan) tidak punya key ini, dan record lama itu harus tetap lolos parse saat
+     * hydrate maupun `validateEntityPayload` saat import. Jadi absen = `null` (pakai warna default UI),
+     * BUKAN error - kalau `color` diwajibkan, user lama kehilangan datanya hanya karena upgrade.
+     *
+     * Ini tidak sama dengan "default diam-diam": penulis baru (web/mobile) tetap eksplisit mengirim
+     * hex atau `null`, dan hasil parse SELALU punya key `color` - jadi kode pembaca tidak perlu
+     * membedakan "tidak ada key" vs `null`.
+     *
+     * Disimpan sebagai hex, bukan index palet: urutan/nama palet di UI boleh berubah tanpa mengubah
+     * arti warna habit yang sudah tersimpan. Batas panjangnya sama dengan `color` di countdown &
+     * schedule (dibatasi, tapi tak divalidasi bentuknya - yang menentukan palet adalah UI).
+     */
+    color: z.string().max(64).nullable().default(null),
     frequencyType: habitFrequencyTypeSchema,
     /** Multi-nilai; wajib ada kalau `frequency_type = weekly_days`. */
     frequencyDays: z.array(weekdaySchema).min(1).max(7).nullable(),

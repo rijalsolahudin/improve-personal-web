@@ -101,6 +101,7 @@ describe('habit', () => {
     days: null,
     target: 1,
     goalId: null,
+    isArchived: false,
   }
 
   it('habitRate rata-rata dari rentang', () => {

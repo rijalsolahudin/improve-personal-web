@@ -62,12 +62,14 @@ const rows = computed(() =>
         const isFuture = info.day > today.value
         const count = countOn(checkIns.value, habit.id, info.day)
         const met = scheduled && !isFuture && isMet(habit, checkIns.value, info.day)
-        const partial = info.isToday && habit.target > 1 && !met && count > 0
+        // Target > 1 menampilkan jumlah klik sejauh ini, termasuk untuk hari lampau: kliknya
+        // bertambah satu per satu di hari mana pun (lihat `nextCount`), jadi angkanya jujur.
+        const partial = !isFuture && habit.target > 1 && !met && count > 0
         let state = t('habit.cell.missed')
         if (!scheduled) state = t('habit.cell.off')
         else if (isFuture) state = t('habit.cell.future')
         else if (met) state = t('habit.cell.met')
-        else if (info.isToday && habit.target > 1) state = `${count}/${habit.target}`
+        else if (habit.target > 1) state = `${count}/${habit.target}`
         return {
           ...info,
           scheduled,

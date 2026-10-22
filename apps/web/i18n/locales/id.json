@@ -686,6 +686,7 @@
     "new": "Habit baru",
     "summary": "{done}/{total} habit tercapai hari ini",
     "empty": "Belum ada habit. Bikin satu dulu yuk.",
+    "loadError": "Gagal memuat habit. Coba muat ulang halaman.",
     "prevMonth": "Bulan sebelumnya",
     "nextMonth": "Bulan berikutnya",
     "legend": {
@@ -729,6 +730,7 @@
       "noGoal": "Tidak ada",
       "delete": "Hapus habit",
       "deleteConfirm": "Yakin hapus? Riwayat ikut hilang",
+      "archive": "Arsipkan habit",
       "cancel": "Batal",
       "saveNew": "Buat habit",
       "saveEdit": "Simpan perubahan",
@@ -736,8 +738,17 @@
         "nameRequired": "Nama habit wajib diisi.",
         "nameTooLong": "Nama habit maksimal 80 karakter.",
         "noDays": "Pilih minimal satu hari.",
-        "target": "Target per hari 1–20 kali."
+        "target": "Target per hari 1–20 kali.",
+        "persist": "Gagal menyimpan. Coba lagi.",
+        "delete": "Gagal menghapus. Coba lagi.",
+        "archive": "Gagal mengarsipkan. Coba lagi."
       }
+    },
+    "archive": {
+      "title": "Arsip ({n})",
+      "hint": "Habit terarsip tidak muncul di grid, Daily, Overview, atau target Pomodoro.",
+      "restore": "Kembalikan",
+      "failed": "Gagal mengembalikan habit. Coba lagi."
     },
     "icons": {
       "star": "Bintang",

@@ -73,8 +73,15 @@ export type HabitIcon = (typeof HABIT_ICONS)[number]
 
 export const HABIT_NAME_MAX = 80
 export const HABIT_TARGET_MAX = 20
-/** Batas runut ke belakang untuk streak (PRD: cukup sampai streak putus). */
-const STREAK_LOOKBACK_DAYS = 400
+
+/**
+ * Batas runut ke belakang untuk streak, sekaligus jendela riwayat check-in yang dibaca UI.
+ *
+ * 400 hari dipilih karena tidak ada layar yang melihat lebih jauh dari itu: streak berhenti di
+ * batas ini dan grid hanya menampilkan bulan yang dipilih. Check-in di luar jendela ini boleh tidak
+ * dibaca - bukan data yang hilang, hanya riwayat yang memang tidak pernah dipakai UI.
+ */
+export const HABIT_LOOKBACK_DAYS = 400
 
 export interface Habit {
   id: string
@@ -89,6 +96,8 @@ export interface Habit {
   /** Check-in per hari yang dibutuhkan. */
   target: number
   goalId: string | null
+  /** Habit terarsip tetap tersimpan & bisa dibuka, tapi tidak dihitung di daftar aktif. */
+  isArchived: boolean
 }
 
 /** Jumlah check-in per habit per tanggal: `{ [habitId]: { [iso]: count } }`. */
@@ -113,7 +122,7 @@ export function isMet(habit: Habit, checkIns: CheckIns, day: string): boolean {
  */
 export function currentStreak(habit: Habit, checkIns: CheckIns, today: string): number {
   let streak = 0
-  for (let offset = 0; offset < STREAK_LOOKBACK_DAYS; offset += 1) {
+  for (let offset = 0; offset < HABIT_LOOKBACK_DAYS; offset += 1) {
     const day = addDays(today, -offset)
     if (!isScheduled(habit, day)) continue
     if (isMet(habit, checkIns, day)) streak += 1
@@ -135,12 +144,16 @@ export function completionRate(habit: Habit, checkIns: CheckIns, from: string, t
 }
 
 /**
- * Klik kotak (design): hari ini & target > 1 → +1 berputar ke 0 setelah tercapai;
- * selain itu bolak-balik tercapai/belum.
+ * Klik kotak tanggal: tiap klik menambah satu check-in, dan klik saat target sudah tercapai
+ * mengembalikan hari itu ke 0.
+ *
+ * Satu aturan untuk semua hari - hari ini maupun hari lampau - karena hint UI (`habit.hint`)
+ * menjanjikan "target >1x/hari: klik berulang" untuk kotak mana pun yang diketuk. Backfill beberapa
+ * hari ke belakang jadi mungkin dicicil, bukan hanya "penuh sekali klik". Hari depan tidak sampai ke
+ * sini (kisi menonaktifkannya).
  */
-export function nextCount(habit: Habit, count: number, isToday: boolean): number {
-  if (isToday && habit.target > 1) return count >= habit.target ? 0 : count + 1
-  return count >= habit.target ? 0 : habit.target
+export function nextCount(habit: Habit, count: number): number {
+  return count >= habit.target ? 0 : count + 1
 }
 
 export function setCount(
@@ -185,13 +198,20 @@ export function emptyHabitDraft(): HabitDraft {
   return { name: '', icon: 'star', sticker: null, color: 0, days: null, target: 1, goalId: null }
 }
 
+/** Arsip bukan bagian form: nilai lamanya dipertahankan pemanggil (`applyHabitDraft`). */
 export function draftFromHabit(habit: Habit): HabitDraft {
-  const { id: _id, ...draft } = habit
+  const { id: _id, isArchived: _isArchived, ...draft } = habit
   return { ...draft, days: draft.days ? [...draft.days] : null }
 }
 
-export function applyHabitDraft(draft: HabitDraft, id: string): Habit {
-  return { ...draft, id, name: draft.name.trim(), days: draft.days ? [...draft.days] : null }
+export function applyHabitDraft(draft: HabitDraft, id: string, isArchived = false): Habit {
+  return {
+    ...draft,
+    id,
+    name: draft.name.trim(),
+    days: draft.days ? [...draft.days] : null,
+    isArchived,
+  }
 }
 
 /** Semua tanggal (ISO) di bulan yang memuat `anchor`. */

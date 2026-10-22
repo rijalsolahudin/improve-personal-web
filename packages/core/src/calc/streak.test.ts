@@ -24,6 +24,7 @@ function habit(patch: Partial<Habit> = {}): Habit {
     id: 'habit-1',
     name: 'Olahraga',
     iconSticker: null,
+    color: null,
     frequencyType: 'daily',
     frequencyDays: null,
     targetPerDay: 1,

@@ -7,8 +7,16 @@ definePageMeta({ layout: 'dashboard' })
 const { t } = useI18n()
 useHead({ title: () => t('feature.habit.label') })
 
-const { habits, today, isMetToday } = useHabits()
+const { habits, archivedHabits, today, isMetToday, status } = useHabits()
 const { monthYear } = useDateFormat()
+
+/**
+ * Muat riwayat gagal (storage tidak bisa dibuka) BUKAN "belum ada habit".
+ *
+ * Tanpa pembeda ini halaman menampilkan ajakan "bikin habit dulu" di atas daftar yang sebenarnya
+ * gagal dimuat - user akan membuat habit baru dan mengira datanya hilang.
+ */
+const hasLoadError = computed(() => status.value === 'error')
 
 /** Bulan yang dilihat: tanggal 1 bulan itu. Tidak bisa maju melewati bulan ini. */
 const month = ref(firstOfMonth(today.value))
@@ -40,6 +48,8 @@ const summary = computed(() => {
       <Button variant="primary" @click="editing = null">+ {{ $t('habit.new') }}</Button>
     </header>
 
+    <p v-if="hasLoadError" class="error" role="alert">{{ $t('habit.loadError') }}</p>
+
     <section class="board" data-anchor="habit-board" data-anchor-kind="content">
       <div class="bar">
         <div class="month-nav">
@@ -66,9 +76,14 @@ const summary = computed(() => {
         </div>
       </div>
       <HabitGrid :month="month" @edit="(id) => (editing = id)" />
-      <p v-if="!habits.length" class="empty">{{ $t('habit.empty') }}</p>
+      <p v-if="!hasLoadError && !habits.length && !archivedHabits.length" class="empty">
+        {{ $t('habit.empty') }}
+      </p>
       <p class="hint">{{ $t('habit.hint') }}</p>
     </section>
+
+    <!-- Arsip ada di luar grid: habit terarsip tidak ikut tabel maupun hitungan hari ini. -->
+    <HabitArchive />
 
     <HabitForm
       v-if="editing !== undefined"
@@ -193,6 +208,15 @@ const summary = computed(() => {
   font-weight: var(--fw-body);
   font-size: 12px;
   color: var(--mute);
+}
+
+.error {
+  padding: 10px 16px;
+  border-radius: calc(14px * var(--rk));
+  background: #ffe1da;
+  color: #9a2a14;
+  font-weight: var(--fw-strong);
+  font-size: 14px;
 }
 
 @media (max-width: 599px) {

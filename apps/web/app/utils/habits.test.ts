@@ -25,6 +25,7 @@ const habit = (overrides: Partial<Habit> = {}): Habit => ({
   days: null,
   target: 1,
   goalId: null,
+  isArchived: false,
   ...overrides,
 })
 const done = (...days: string[]): CheckIns => ({ h: Object.fromEntries(days.map((d) => [d, 1])) })
@@ -54,13 +55,19 @@ describe('streak (PRD F7)', () => {
 })
 
 describe('check-in', () => {
-  it('target 1: bolak-balik; target > 1 hari ini: +1 lalu kembali 0', () => {
-    expect(nextCount(habit(), 0, true)).toBe(1)
-    expect(nextCount(habit(), 1, true)).toBe(0)
+  it('target 1: tiap klik bolak-balik 0 → 1 → 0', () => {
+    expect(nextCount(habit(), 0)).toBe(1)
+    expect(nextCount(habit(), 1)).toBe(0)
+  })
+
+  // Regresi: hari lampau dulu melompat penuh ke `target` dalam sekali klik, padahal hint UI
+  // menjanjikan "target >1x/hari: klik berulang" untuk kotak tanggal mana pun.
+  it('target > 1: tiap klik +1, tanpa memandang hari (hari ini & hari lampau sama)', () => {
     const multi = habit({ target: 3 })
-    expect(nextCount(multi, 1, true)).toBe(2)
-    expect(nextCount(multi, 3, true)).toBe(0)
-    expect(nextCount(multi, 0, false)).toBe(3)
+    expect(nextCount(multi, 0)).toBe(1)
+    expect(nextCount(multi, 1)).toBe(2)
+    expect(nextCount(multi, 2)).toBe(3)
+    expect(nextCount(multi, 3)).toBe(0)
   })
 
   it('setCount 0 menghapus entri', () => {
@@ -87,6 +94,14 @@ describe('form habit', () => {
     const original = habit({ days: [1, 3] })
     const saved = applyHabitDraft({ ...draftFromHabit(original), name: '  Lari pagi ' }, 'h')
     expect(saved).toEqual({ ...original, name: 'Lari pagi' })
+  })
+
+  it('draft tidak membawa status arsip, tapi apply mempertahankannya', () => {
+    const archived = habit({ isArchived: true })
+    const draft = draftFromHabit(archived)
+    expect('isArchived' in draft).toBe(false)
+    expect(applyHabitDraft(draft, archived.id, archived.isArchived).isArchived).toBe(true)
+    expect(applyHabitDraft(draft, archived.id).isArchived).toBe(false)
   })
 
   it('tanggal sebulan', () => {

@@ -539,6 +539,7 @@ Table habit {
   id             uuid                   [pk]
   name           text                   [not null]
   icon_sticker   text                   [null, note: 'sticker bundled atau emoji']
+  color          text                   [null, note: 'hex palet UI, mis. #9B4FC9; null = default']
   frequency_type habit_frequency_type   [not null, default: 'daily']
   frequency_days weekday                [null, note: 'multi-nilai, dipakai kalau weekly_days']
   target_per_day int                    [not null, default: 1]
@@ -554,6 +555,8 @@ Table habit {
   PRD F7. Streak TIDAK disimpan — dihitung mundur sampai streak putus.
   Hari yang bukan jadwal habit tidak memutus streak (mis. habit Senin-Jumat,
   weekend tidak break streak).
+  color menyimpan hex dari palet UI (bukan index palet), jadi urutan palet boleh
+  berubah tanpa mengubah arti warna habit yang sudah tersimpan.
   '''
 }
 

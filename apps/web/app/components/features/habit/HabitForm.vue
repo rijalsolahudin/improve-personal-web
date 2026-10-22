@@ -17,15 +17,26 @@ const emit = defineEmits<{ close: []; saved: [] }>()
 
 const DEFAULT_CUSTOM_DAYS = [1, 3, 5]
 
+/**
+ * Pesan error di form: kegagalan validasi draft, atau kegagalan menulis ke penyimpanan.
+ *
+ * Ketiga kegagalan tulis dipisah karena jalan keluarnya berbeda bagi user (`persist` = coba lagi,
+ * `delete` = habit masih ada, `archive` = belum terarsip). Semuanya menahan form tetap terbuka.
+ */
+type FormError = HabitDraftError | 'persist' | 'delete' | 'archive'
+type PendingAction = 'save' | 'delete' | 'archive'
+
 const { t } = useI18n()
-const { findHabit, save, remove } = useHabits()
+const { findHabit, save, remove, setArchived } = useHabits()
 const { goals } = useGoals()
 const { rememberSticker } = useDeco()
 const { weekdayOfIndex } = useDateFormat()
 
 const existing = findHabit(habitId)
 const draft = ref<HabitDraft>(existing ? draftFromHabit(existing) : emptyHabitDraft())
-const error = ref<HabitDraftError | null>(null)
+const error = ref<FormError | null>(null)
+/** Aksi tulis yang sedang menunggu penyimpanan; tombol dimatikan selama ini (cegah klik ganda). */
+const pending = ref<PendingAction | null>(null)
 const isConfirmingDelete = ref(false)
 const isPickingSticker = ref(false)
 
@@ -52,20 +63,68 @@ function onSticker(sid: string): void {
   isPickingSticker.value = false
 }
 
-function submit(): void {
-  const result = save(draft.value, existing?.id ?? null)
-  if ('error' in result) error.value = result.error
-  else emit('saved')
+/**
+ * Simpan draft.
+ *
+ * `save()` MENUNGGU tulisan ke penyimpanan selesai, jadi hasilnya bisa gagal (storage penuh, sesi
+ * terkunci). Saat gagal form tetap terbuka dan errornya terlihat - QA F6: dulu form tertutup seolah
+ * berhasil, habit sempat muncul di layar, lalu hilang setelah reload.
+ */
+async function submit(): Promise<void> {
+  if (pending.value !== null) return
+
+  error.value = null
+  pending.value = 'save'
+  try {
+    const result = await save(draft.value, existing?.id ?? null)
+    if (result.ok) emit('saved')
+    else error.value = result.error
+  } finally {
+    pending.value = null
+  }
 }
 
-function onDelete(): void {
-  if (!existing) return
+/** Dua langkah: klik pertama minta konfirmasi (riwayat ikut hilang), klik kedua benar-benar hapus. */
+async function onDelete(): Promise<void> {
+  const habit = existing
+  if (!habit || pending.value !== null) return
+
   if (!isConfirmingDelete.value) {
     isConfirmingDelete.value = true
     return
   }
-  remove(existing.id)
-  emit('close')
+
+  error.value = null
+  pending.value = 'delete'
+  try {
+    const result = await remove(habit.id)
+    if (!result.ok) {
+      error.value = 'delete'
+      return
+    }
+    emit('close')
+  } finally {
+    pending.value = null
+  }
+}
+
+/** Arsipkan habit yang sudah ada. Bisa dibalik ("Kembalikan" di daftar arsip), jadi tanpa konfirmasi. */
+async function onArchive(): Promise<void> {
+  const habit = existing
+  if (!habit || pending.value !== null) return
+
+  error.value = null
+  pending.value = 'archive'
+  try {
+    const result = await setArchived(habit.id, true)
+    if (!result.ok) {
+      error.value = 'archive'
+      return
+    }
+    emit('close')
+  } finally {
+    pending.value = null
+  }
 }
 </script>
 
@@ -180,12 +239,20 @@ function onDelete(): void {
       <p v-if="error" class="error" role="alert">{{ $t(`habit.form.error.${error}`) }}</p>
 
       <div class="actions">
-        <Button v-if="existing" variant="danger" @click="onDelete">
+        <Button v-if="existing" variant="danger" :disabled="pending !== null" @click="onDelete">
           {{ $t(isConfirmingDelete ? 'habit.form.deleteConfirm' : 'habit.form.delete') }}
+        </Button>
+        <Button
+          v-if="existing && !existing.isArchived"
+          variant="soft"
+          :disabled="pending !== null"
+          @click="onArchive"
+        >
+          {{ $t('habit.form.archive') }}
         </Button>
         <span class="spacer" />
         <Button variant="soft" @click="emit('close')">{{ $t('habit.form.cancel') }}</Button>
-        <Button type="submit" variant="primary">
+        <Button type="submit" variant="primary" :disabled="pending !== null">
           {{ $t(existing ? 'habit.form.saveEdit' : 'habit.form.saveNew') }}
         </Button>
       </div>
