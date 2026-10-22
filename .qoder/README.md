@@ -9,12 +9,12 @@ Direktori ini **jangan diedit langsung**. Isinya salinan dari `.claude/`:
 
 Qoder hanya memindai `.qoder/skills` dan `.qoder/agents` — bukan `.claude`. Karena
 workspace ini berada di mount `fuse` yang tidak mendukung symlink, isinya disalin
-(lihat `scripts/sync-qoder-config.mjs`).
+(lihat `scripts/sync-agent-config.mjs`).
 
 Setelah mengubah agent atau skill di `.claude/`, jalankan:
 
 ```sh
-pnpm run sync:qoder
+pnpm run sync:agents
 ```
 
 Script ini juga jalan otomatis di pre-commit.

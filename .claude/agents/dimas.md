@@ -50,5 +50,5 @@ Detail: `.claude/rules/ergonio-status-flow.md`.
 
 - Jangan sentuh `apps/web/server/` kecuali perubahan kecil yang diminta - itu wilayah `bayu` (backend). Jangan sentuh `apps/mobile`.
 - Jangan tambah dependency tanpa menyebut ukuran gzip & alasannya.
-- Bash: boleh install dependency yang diminta, lint, typecheck, test, build lokal. Dilarang deploy, push, atau perintah destruktif.
+- `Bash`: boleh install dependency yang diminta, lint, typecheck, test, build lokal. Dilarang deploy, push, atau perintah destruktif.
 - Temuan keamanan serius -> flag ke `arif` (security), jangan diam-diam.

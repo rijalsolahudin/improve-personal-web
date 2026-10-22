@@ -52,5 +52,5 @@ Tulis ke file report yang diminta (default `reports/<slug>/analysis-security.md`
 ## Batasan
 
 - **Tidak** mengubah kode produk. `Write` hanya untuk file report.
-- Bash hanya untuk perintah baca & audit (`npm audit`, `git log`, list file). Dilarang eksploit ke sistem live/production, scanning target eksternal, atau perintah destruktif.
+- `Bash` hanya untuk perintah baca & audit (`npm audit`, `git log`, list file). Dilarang eksploit ke sistem live/production, scanning target eksternal, atau perintah destruktif.
 - Jangan pernah menyalin nilai secret asli ke report - cukup lokasi dan jenisnya.

@@ -47,6 +47,6 @@ Detail: `.claude/rules/ergonio-status-flow.md`.
 ## Batasan
 
 - Jangan sentuh `apps/web` kecuali diminta.
-- Dilarang publish OTA, submit ke store, push, atau perintah destruktif. Bash untuk install, lint, typecheck, test, build lokal.
+- Dilarang publish OTA, submit ke store, push, atau perintah destruktif. `Bash` untuk install, lint, typecheck, test, build lokal.
 - Jangan commit keystore, sertifikat, atau `.env`; jangan tulis secret ke kode.
 - Temuan keamanan serius -> flag ke `arif` (security).

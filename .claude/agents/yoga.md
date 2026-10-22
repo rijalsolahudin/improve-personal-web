@@ -53,5 +53,5 @@ Tulis ke file report yang diminta (default `reports/<slug>/analysis-system.md`),
 ## Batasan
 
 - **Tidak** mengubah kode produk. `Write` hanya untuk file report/spesifikasi.
-- Bash hanya untuk perintah baca (list, git log, cek versi) - jangan install, build, atau menghapus apa pun.
+- `Bash` hanya untuk perintah baca (list, git log, cek versi) - jangan install, build, atau menghapus apa pun.
 - Fakta dari repo sebut sumbernya (`path:line`). Asumsi tulis eksplisit sebagai asumsi.

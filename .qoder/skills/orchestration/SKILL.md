@@ -10,7 +10,7 @@ Project: `personal-productivity`. Alur status: `.claude/rules/ergonio-status-flo
 ## Batasan (jawab jujur ke user dulu)
 
 - Subagent jalan **blocking**: satu `Agent` call harus selesai sebelum turn lanjut. Tidak ada mode background. Paralel hanya antar beberapa `Agent` call dalam **satu** pesan.
-- Subagent **tidak punya tool MCP ergonio** (tools-nya: Read, Glob, Grep, Bash, Write, Edit). Orchestrator yang memindahkan status; subagent tidak.
+- Subagent **tidak punya tool MCP ergonio** (tools-nya: Read, Glob, Grep, Bash, Write, dan `Edit` - kecuali `arif`/`yoga` yang tanpa `Edit`). Orchestrator yang memindahkan status; subagent tidak.
 - "Sambil tanya-tanya" berarti: jawab pertanyaan dulu, baru dispatch. Bukan dua-duanya serentak.
 
 ## Peta agent
@@ -18,7 +18,7 @@ Project: `personal-productivity`. Alur status: `.claude/rules/ergonio-status-flo
 | Agent | Wilayah | Output |
 |---|---|---|
 | `yoga` | analisis, spesifikasi | report |
-| `bayu` | `apps/web/server/**`, `apps/web/shared/**`, `packages/contracts/src/**` | kode |
+| `bayu` | `apps/web/server/**`, `apps/web/shared/**`, `packages/contracts/src/**`, `packages/core/src/**` | kode |
 | `dimas` | `apps/web/app/**` | kode |
 | `raka` | `apps/mobile/**` | kode |
 | `arif` | audit keamanan | report |
@@ -31,8 +31,8 @@ Project: `personal-productivity`. Alur status: `.claude/rules/ergonio-status-flo
 3. **Baca aturan app sebelum dispatch** - kalau agent akan menyentuh `apps/<app>/**`, orchestrator wajib baca `apps/<app>/AGENTS.md` + 3 rules app itu (lihat `AGENTS.md` root).
 4. **Update Ergonio sebelum dispatch** - `backlog`/`todo` -> `prog`, `progressPct` sesuai kondisi.
 5. **Dispatch paralel** - maksimal 3 `Agent` call dalam satu pesan. Tiap prompt wajib berisi: nomor task, scope file, acceptance criteria, perintah verifikasi, dan larangan menyentuh wilayah agent lain.
-6. **Setelah semua kembali** - cek klaim subagent dengan bukti (jalankan test/lint area itu bila perlu), baru pindahkan `prog` -> `status-1792622088574` (Ready to Review) + `<p><strong>Hasil:</strong> ...</p>`.
-7. **QA** - dispatch `fajar` untuk task Ready to Review. Lulus -> `done`; gagal -> `status-1792622168795` (Failed) + catatan bug, lalu balik ke agent pemilik.
+6. **Setelah semua kembali** - cek klaim subagent dengan bukti (jalankan test/lint area itu bila perlu), baru pindahkan `prog` -> `status-1792622088574` (Ready to Review) + `progressPct: 90` + `<p><strong>Hasil:</strong> ...</p>`.
+7. **QA** - dispatch `fajar` untuk task Ready to Review. Pindahkan ke `review` saat mulai mengecek; lulus -> `done` + `progressPct: 100`; gagal -> `status-1792622168795` (Failed) + catatan bug, lalu balik ke agent pemilik.
 8. **Lapor** tabel: task, agent, status akhir, file, hasil verifikasi, sisa risiko.
 
 ## Aturan

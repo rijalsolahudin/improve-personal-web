@@ -1,5 +1,5 @@
 node scripts/check-agent-docs.mjs
-node scripts/sync-qoder-config.mjs
-git add .qoder
+node scripts/sync-agent-config.mjs
+git add .qoder .commandcode/agents
 pnpm exec lint-staged
 pnpm run typecheck
