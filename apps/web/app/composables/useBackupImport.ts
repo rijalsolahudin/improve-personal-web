@@ -29,7 +29,8 @@ import { useLocalData } from './useLocalData'
  *    `records` (kalau tidak cocok, berkas ditolak dengan `DATA_COUNT_MISMATCH`) - jadi tidak ada
  *    `JSON.parse` kedua di UI yang bisa menampilkan angka berbeda.
  * 3. **"Ganti semua" tidak bisa dijalankan tanpa konfirmasi.** `canApply` menahan tombolnya, dan
- *    `applyImport` memeriksa ulang aturan yang sama supaya jalur programatik tidak bisa melewatinya.
+ *    `applyImport` mengunci `mode` + konfirmasi sebelum `await` sehingga perubahan state di tengah
+ *    import tidak bisa mengubah keputusan yang sudah lolos gerbang.
  */
 export type BackupImportPreview = {
   readonly rows: readonly BackupPreviewRow[]
@@ -38,6 +39,9 @@ export type BackupImportPreview = {
   /** Versi skema asal berkas kalau dimigrasikan; `null` kalau sudah versi terkini. */
   readonly migratedFrom: number | null
 }
+
+const REPLACE_ALL_UNCONFIRMED_MESSAGE =
+  'Mode "Ganti semua" belum dikonfirmasi, jadi tidak ada data yang diubah. Centang konfirmasi lalu coba lagi.'
 
 export function useBackupImport() {
   const localData = useLocalData()
@@ -53,19 +57,26 @@ export function useBackupImport() {
   const mode = ref<ImportMode>('merge')
   const isReplaceConfirmed = ref(false)
 
+  // Berkas kosong tidak boleh diimpor: di mode "ganti semua" ia akan menghapus seluruh data tanpa
+  // memasukkan apa pun.
+  const hasImportableDocument = computed(
+    () => document.value !== null && preview.value !== null && preview.value.totalRecords > 0,
+  )
+
   const canApply = computed(
     () =>
-      document.value !== null &&
-      preview.value !== null &&
-      // Berkas kosong tidak boleh diimpor: di mode "ganti semua" ia akan menghapus seluruh data
-      // tanpa memasukkan apa pun.
-      preview.value.totalRecords > 0 &&
+      hasImportableDocument.value &&
       !isBusy.value &&
       (mode.value === 'merge' || isReplaceConfirmed.value),
   )
 
+  // Token pilihan aktif. `clearSelection` menaikkannya, sehingga hasil baca berkas lama yang baru
+  // selesai setelah user memilih berkas lain tahu dirinya basi dan tidak menimpa state terbaru.
+  let selectionId = 0
+
   /** Buang pilihan berkas, tapi biarkan pesan status terakhir tetap terlihat. */
   function clearSelection(): void {
+    selectionId += 1
     fileName.value = null
     preview.value = null
     document.value = null
@@ -74,6 +85,7 @@ export function useBackupImport() {
 
   async function selectFile(file: File): Promise<void> {
     clearSelection()
+    const selectedId = selectionId
     // Mode kembali ke "gabung" (default aman) setiap kali berkas baru dipilih. Tanpa ini, pilihan
     // "ganti semua" dari berkas sebelumnya bisa ikut terpakai untuk berkas lain.
     mode.value = 'merge'
@@ -82,6 +94,10 @@ export function useBackupImport() {
     fileName.value = file.name
 
     const read = await readBackupFileText(file, BACKUP_MAX_BYTES)
+
+    // Berkas lain sudah dipilih (atau pilihan dibuang) saat berkas ini masih dibaca: hasilnya basi,
+    // termasuk pesan errornya - yang terakhir dipilih harus menang.
+    if (selectedId !== selectionId) return
 
     if (!read.ok) {
       error.value = read.message
@@ -105,10 +121,27 @@ export function useBackupImport() {
   }
 
   async function applyImport(): Promise<void> {
-    if (!canApply.value) return
+    // Import yang sedang berjalan memakai snapshot-nya sendiri; klik kedua diabaikan.
+    if (isBusy.value) return
+
+    if (!hasImportableDocument.value) return
 
     const selected = document.value
     if (selected === null) return
+
+    // Keputusan mode + konfirmasi dibaca SEKALI, sebelum `await`. Kalau `mode` baru dibaca setelah
+    // `localData.ensure()`, user bisa menekan "Ganti semua" selagi import berjalan - import yang
+    // sudah lolos gerbang sebagai `merge` lalu dieksekusi sebagai replace-all tanpa konfirmasi, dan
+    // `wipe()` menghapus seluruh data lokal yang tidak ada di berkas.
+    const selectedMode = mode.value
+    const isConfirmed = isReplaceConfirmed.value
+
+    // `canApply` menahan tombolnya, tapi jalur programatik harus tetap ditolak dengan jelas:
+    // replace-all tanpa konfirmasi tidak boleh pernah sampai ke `applyBackupDocument`.
+    if (selectedMode === 'replace-all' && !isConfirmed) {
+      error.value = REPLACE_ALL_UNCONFIRMED_MESSAGE
+      return
+    }
 
     isBusy.value = true
     error.value = null
@@ -126,7 +159,7 @@ export function useBackupImport() {
       const result = await applyBackupDocument({
         target: session,
         document: selected,
-        mode: mode.value,
+        mode: selectedMode,
         nowMs: session.clock.nowMs(),
       })
 

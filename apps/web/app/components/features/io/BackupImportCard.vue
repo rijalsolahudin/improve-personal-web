@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { BACKUP_MAX_BYTES } from '@improve-personal/core'
+import { BACKUP_MAX_BYTES, type ImportMode } from '@improve-personal/core'
 
+import type { SegmentedOption } from '~/components/ui/Segmented/index.vue'
 import { formatByteSize } from '~/utils/io/preview'
 
 /**
@@ -9,7 +10,9 @@ import { formatByteSize } from '~/utils/io/preview'
  * Yang tidak boleh dilanggar di sini:
  * - Isi berkas TIDAK pernah dirender sebagai HTML - hanya angka ringkasan dan nama berkas.
  * - Tombol import mati sampai berkas lolos validasi, dan di mode "ganti semua" sampai user
- *   mencentang konfirmasi. Aturan yang sama diperiksa ulang di composable, bukan hanya di `disabled`.
+ *   mencentang konfirmasi. Aturan yang sama dikunci di composable: `mode` + konfirmasi disalin
+ *   sebelum import menulis, jadi perubahan state di tengah import tidak mengubah keputusan.
+ * - Selama `isBusy`, input berkas, mode, dan checkbox konfirmasi sama-sama mati.
  * - Setiap status/kegagalan diumumkan lewat `aria-live`, karena perubahan terjadi setelah user memilih
  *   berkas - bukan setelah klik tombol yang jelas terlihat.
  */
@@ -29,10 +32,12 @@ const {
 
 const maxFileSize = formatByteSize(BACKUP_MAX_BYTES)
 
-const modeOptions = [
-  { value: 'merge', label: 'Gabung' },
-  { value: 'replace-all', label: 'Ganti semua' },
-] as const
+const modeOptions = computed<SegmentedOption<ImportMode>[]>(() => [
+  // Selagi import berjalan, keputusan mode sudah dikunci di composable. Tombolnya dimatikan juga
+  // supaya user tidak mengira perubahan mode akan memengaruhi import yang sedang menulis.
+  { value: 'merge', label: 'Gabung', disabled: isBusy.value },
+  { value: 'replace-all', label: 'Ganti semua', disabled: isBusy.value },
+])
 
 const isReplaceMode = computed(() => mode.value === 'replace-all')
 const exportedOn = computed(() =>
