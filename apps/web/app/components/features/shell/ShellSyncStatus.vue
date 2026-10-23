@@ -1,12 +1,15 @@
 <script setup lang="ts">
 import type { StorageAdapter } from '@improve-personal/core'
 
+import { SYNC_STATE_EVENT } from '~/utils/sync/events'
+
 /**
  * Indikator status sinkronisasi di shell (PRD F15 "Status Sync Terlihat").
  *
  * Sumber datanya `useSyncStatus` → `readSyncStatus` core (bukan kesimpulan komponen): jumlah baris
- * outbox di penyimpanan lokal akun + keadaan jaringan. Belum ada push/pull engine di UI, jadi yang
- * ditampilkan adalah status antrean yang benar-benar ada - bukan "tersinkron" yang dikarang.
+ * outbox di penyimpanan lokal akun + keadaan jaringan. Push/pull dijalankan plugin
+ * `sync.client.ts`; setelah satu siklus selesai event `SYNC_STATE_EVENT` memicu pembacaan ulang, jadi
+ * badge tidak menunggu polling 60 detik.
  *
  * Selama penyimpanan lokal belum terbuka (SSR, perangkat terkunci, atau storage diblokir) statusnya
  * belum diketahui; badge menampilkan "menunggu status sinkronisasi" alih-alih menebak `synced`.
@@ -54,10 +57,16 @@ function onVisibility(): void {
   if (document.visibilityState === 'visible') void refresh()
 }
 
+async function retry(): Promise<void> {
+  const { requestSyncNow } = await import('~/utils/sync/controller')
+  requestSyncNow()
+}
+
 onMounted(() => {
   refresh()
   window.addEventListener('online', refresh)
   window.addEventListener('offline', refresh)
+  window.addEventListener(SYNC_STATE_EVENT, refresh)
   document.addEventListener('visibilitychange', onVisibility)
   timer = setInterval(refresh, SYNC_REFRESH_MS)
 })
@@ -65,6 +74,7 @@ onMounted(() => {
 onBeforeUnmount(() => {
   window.removeEventListener('online', refresh)
   window.removeEventListener('offline', refresh)
+  window.removeEventListener(SYNC_STATE_EVENT, refresh)
   document.removeEventListener('visibilitychange', onVisibility)
   if (timer !== null) clearInterval(timer)
 })
@@ -79,25 +89,37 @@ watch(
 </script>
 
 <template>
-  <p
-    class="sync"
-    :class="`sync--${sync.status.value ?? 'unknown'}`"
-    role="status"
-    aria-live="polite"
-    :title="lastSync ?? undefined"
-  >
-    <span class="dot" aria-hidden="true" />
-    <span class="text">{{ label }}</span>
-    <span v-if="lastSync" class="last">{{ lastSync }}</span>
-  </p>
+  <div class="sync-wrap">
+    <p
+      class="sync"
+      :class="`sync--${sync.status.value ?? 'unknown'}`"
+      role="status"
+      aria-live="polite"
+      :title="lastSync ?? undefined"
+    >
+      <span class="dot" aria-hidden="true" />
+      <span class="text">{{ label }}</span>
+      <span v-if="lastSync" class="last">{{ lastSync }}</span>
+    </p>
+    <button v-if="sync.status.value === 'error'" type="button" class="retry" @click="retry">
+      {{ t('sync.retry') }}
+    </button>
+  </div>
 </template>
 
 <style scoped>
+.sync-wrap {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4, 0.25rem);
+  margin: 0 0 var(--space-6, 0.5rem);
+}
+
 .sync {
   display: inline-flex;
   align-items: center;
   gap: var(--space-4, 0.25rem);
-  margin: 0 0 var(--space-6, 0.5rem);
+  margin: 0;
   padding: var(--space-3, 0.2rem) var(--space-6, 0.5rem);
   border: var(--border-thin, 1px) solid var(--line, #e6ded1);
   border-radius: var(--radius-pill, 999px);
@@ -105,6 +127,21 @@ watch(
   color: var(--text-muted, #6b5e4b);
   font-size: var(--fs-caption, 0.75rem);
   font-weight: var(--fw-medium, 500);
+}
+
+.retry {
+  padding: var(--space-3, 0.2rem) var(--space-6, 0.5rem);
+  border: var(--border-thin, 1px) solid var(--line, #e6ded1);
+  border-radius: var(--radius-pill, 999px);
+  background: transparent;
+  color: var(--text-muted, #6b5e4b);
+  font-size: var(--fs-caption, 0.75rem);
+  cursor: pointer;
+}
+
+.retry:hover {
+  border-color: var(--danger, #b0283e);
+  color: var(--danger, #b0283e);
 }
 
 .dot {

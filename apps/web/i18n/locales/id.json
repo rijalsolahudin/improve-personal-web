@@ -84,7 +84,8 @@
       "offline": "Offline",
       "error": "Gagal sinkron"
     },
-    "lastSync": "terakhir {time}"
+    "lastSync": "terakhir {time}",
+    "retry": "Coba lagi"
   },
   "placeholder": {
     "note": "Halaman ini belum didesain · {code}",

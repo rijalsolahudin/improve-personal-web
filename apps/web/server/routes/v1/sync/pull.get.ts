@@ -27,9 +27,14 @@ import { pullRecords } from '../../../services/sync'
  * tanpa itu, perangkat lama bisa "menghidupkan lagi" record yang sudah dipurge (zombie
  * resurrection). `nextCursor` juga bukan `server_seq` record sendiri - klien tidak boleh melompati
  * record perangkat lain yang belum ditarik.
+ *
+ * `requireExpectedUserId` jalan SEBELUM query diparse dan sebelum rate limit (temuan H1): cookie
+ * sesi ambient bisa membuat tab yang login sebagai akun lain menarik data akun tersebut. Request
+ * yang bukan milik sesi ini ditolak `FORBIDDEN` tanpa membaca data dan tanpa menghabiskan jatah.
  */
 export default defineApiHandler(async (event) => {
   const auth = await requireSession(event)
+  requireExpectedUserId(event, auth)
   const query = await getValidatedQuery(event, (value) => syncPullQuerySchema.parse(value))
   const ctx = serviceContext(event)
 

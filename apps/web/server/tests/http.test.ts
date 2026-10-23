@@ -815,6 +815,110 @@ describe('sync lewat HTTP (T21)', () => {
   })
 })
 
+describe('sync: penanda pemilik request `x-expected-user-id` (H1)', () => {
+  const HEADER = 'x-expected-user-id'
+
+  /** Sesi milik user fixture ini, siap dipakai lewat cookie (HTTP nyata). */
+  async function sessionOf(fixture: Fixture) {
+    return await seedSession(liveCtx(fixture), { email: fixture.email })
+  }
+
+  it('header cocok -> push & pull diproses seperti biasa', async () => {
+    const fixture = scope.fixture({ prefix: 'http-sync-owner' })
+    const session = await sessionOf(fixture)
+    const cookie = cookieFor(session.token)
+    const id = randomUUID()
+
+    const pushed = await api('/v1/sync/push', {
+      method: 'POST',
+      cookie,
+      headers: { [HEADER]: session.userId },
+      body: { records: [{ id, hlc: '1000-0-a', deleted: false, blob: blobOf('milik-sendiri') }] },
+    })
+    expect(pushed.status).toBe(200)
+
+    const pulled = await api('/v1/sync/pull?cursor=0&limit=10', {
+      cookie,
+      headers: { [HEADER]: session.userId },
+    })
+    expect(pulled.status).toBe(200)
+    expect(
+      apiDataEnvelopeSchema(syncPullResultSchema)
+        .parse(pulled.body)
+        .data.records.map((record) => record.id),
+    ).toEqual([id])
+  })
+
+  it('tanpa header -> tetap dilayani (kompatibilitas klien lama)', async () => {
+    const fixture = scope.fixture({ prefix: 'http-sync-legacy' })
+    const session = await sessionOf(fixture)
+    const cookie = cookieFor(session.token)
+    const id = randomUUID()
+
+    const pushed = await api('/v1/sync/push', {
+      method: 'POST',
+      cookie,
+      body: { records: [{ id, hlc: '1000-0-a', deleted: false, blob: blobOf('x') }] },
+    })
+    expect(pushed.status).toBe(200)
+
+    const pulled = await api('/v1/sync/pull?cursor=0&limit=10', { cookie })
+    expect(pulled.status).toBe(200)
+  })
+
+  it('header user lain -> 403 FORBIDDEN sebelum menyentuh data/jatah, nilai header tidak dipantulkan', async () => {
+    const alice = scope.fixture({ prefix: 'http-sync-owner-alice' })
+    const bob = scope.fixture({ prefix: 'http-sync-owner-bob' })
+    const session = await sessionOf(alice)
+    const bobUserId = await bob.userId()
+    const cookie = cookieFor(session.token)
+    const id = randomUUID()
+
+    const push = await api('/v1/sync/push', {
+      method: 'POST',
+      cookie,
+      headers: { [HEADER]: bobUserId },
+      body: { records: [{ id, hlc: '1000-0-a', deleted: false, blob: blobOf('bukan-miliknya') }] },
+    })
+    expect(push.status).toBe(403)
+    expect(problemOf(push).error.code).toBe('FORBIDDEN')
+    expect(JSON.stringify(push.body)).not.toContain(bobUserId)
+
+    const pull = await api('/v1/sync/pull?cursor=0&limit=10', {
+      cookie,
+      headers: { [HEADER]: bobUserId },
+    })
+    expect(pull.status).toBe(403)
+    expect(problemOf(pull).error.code).toBe('FORBIDDEN')
+    expect(JSON.stringify(pull.body)).not.toContain(id)
+
+    // Ditolak SEBELUM rate limit: jatah `sync:*` milik user sesi masih utuh.
+    expect(await rateLimitCount(alice.env, session.userId)).toBe(0)
+
+    // Dan tidak ada yang tertulis: pull yang sah tidak memuat record dari request yang ditolak.
+    const legit = await api('/v1/sync/pull?cursor=0&limit=10', { cookie })
+    expect(legit.status).toBe(200)
+    expect(
+      apiDataEnvelopeSchema(syncPullResultSchema)
+        .parse(legit.body)
+        .data.records.map((record) => record.id),
+    ).not.toContain(id)
+  })
+
+  it('header kosong -> 403 (fail-closed), bukan dianggap "tanpa header"', async () => {
+    const fixture = scope.fixture({ prefix: 'http-sync-owner-empty' })
+    const session = await sessionOf(fixture)
+
+    const response = await api('/v1/sync/pull?cursor=0&limit=10', {
+      cookie: cookieFor(session.token),
+      headers: { [HEADER]: '' },
+    })
+
+    expect(response.status).toBe(403)
+    expect(problemOf(response).error.code).toBe('FORBIDDEN')
+  })
+})
+
 describe('hapus akun lewat HTTP', () => {
   it('kode salah -> 400 dan akun masih ada; kode benar -> 204 dan cookie dibersihkan', async () => {
     const fixture = scope.fixture({ prefix: 'http-delete' })

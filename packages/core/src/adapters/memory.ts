@@ -97,6 +97,7 @@ function copyOutbox(row: OutboxRow): OutboxRow {
 function applyPutRecord(tables: MemoryTables, write: RecordWrite, clock: Clock): void {
   const previous = tables.records.get(write.sealed.id)
   const nowMs = clock.nowMs()
+  const index = write.index
 
   tables.records.set(write.sealed.id, {
     id: write.sealed.id,
@@ -104,17 +105,20 @@ function applyPutRecord(tables: MemoryTables, write: RecordWrite, clock: Clock):
     deleted: write.sealed.deleted,
     blob: write.sealed.blob,
     createdAtMs: previous?.createdAtMs ?? nowMs,
-    // Index yang ditulis bersama record membawa `updatedAtMs` versi data; record tanpa index
-    // memakai jam adapter. Keduanya "pembukuan lokal" yang tidak ikut sync (`ports.ts`).
-    updatedAtMs: write.index === null ? nowMs : write.index.updatedAtMs,
+    // Index yang ditulis bersama record membawa `updatedAtMs` versi data; record tanpa index (dan
+    // record `'keep'`, yang index-nya tidak kita sentuh) memakai jam adapter. Keduanya "pembukuan
+    // lokal" yang tidak ikut sync (`ports.ts`).
+    updatedAtMs: index === null || index === 'keep' ? nowMs : index.updatedAtMs,
   })
 
   // Index dan record harus selalu sinkron: entitas tanpa dimensi waktu tidak boleh meninggalkan
-  // baris index lama yang masih menunjuk ke record-nya.
-  if (write.index === null) {
+  // baris index lama yang masih menunjuk ke record-nya. `'keep'` satu-satunya pengecualian: baris
+  // index lama DIBIARKAN apa adanya (lihat `ports.ts`), dan kalau belum ada baris index tidak ada
+  // yang dibuat - adapter tidak boleh mengarang index.
+  if (index === null) {
     tables.indexes.delete(write.sealed.id)
-  } else {
-    tables.indexes.set(write.sealed.id, { ...write.index, recordId: write.sealed.id })
+  } else if (index !== 'keep') {
+    tables.indexes.set(write.sealed.id, { ...index, recordId: write.sealed.id })
   }
 
   tables.outbox.set(write.outbox.id, {

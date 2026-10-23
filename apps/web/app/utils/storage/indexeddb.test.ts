@@ -139,6 +139,85 @@ describe('sifat khas IndexedDB (di luar kontrak StorageAdapter)', () => {
     expect(ranged).toEqual([])
   })
 
+  it("index 'keep' membiarkan baris record_index lama (record tidak hilang dari query)", async () => {
+    // Regresi QA T76 B2: decrypt gagal TIDAK boleh diartikan `null` (hapus index). Record yang
+    // index-nya terhapus tidak akan pernah muncul di kalender/daftar maupun export.
+    const storage = createTestStorage(createManualClock(START_MS))
+    const entry = {
+      recordId: 'rec-keep',
+      entityType: 'todo' as const,
+      rangeStartMs: START_MS,
+      rangeEndMs: null,
+      updatedAtMs: START_MS,
+    }
+
+    await storage.runTransaction('seed', async (tx) => {
+      await tx.putRecord({
+        sealed: { id: 'rec-keep', hlc: `${START_MS}-0-devicea`, deleted: false, blob: 'blob-lama' },
+        index: entry,
+        op: 'put',
+        outbox: { id: 'outbox-keep-1', queuedAtMs: START_MS },
+      })
+    })
+
+    await storage.runTransaction('keep', async (tx) => {
+      await tx.putRecord({
+        sealed: {
+          id: 'rec-keep',
+          hlc: `${START_MS + 10}-0-devicea`,
+          deleted: false,
+          blob: 'blob-baru',
+        },
+        // `'keep'`: baris index lama harus dibiarkan apa adanya.
+        index: 'keep',
+        op: 'put',
+        outbox: { id: 'outbox-keep-2', queuedAtMs: START_MS + 10 },
+      })
+    })
+
+    const entries = await storage.listIndexByType('todo')
+    expect(entries).toHaveLength(1)
+    expect(entries[0]).toMatchObject({ recordId: 'rec-keep', rangeStartMs: START_MS })
+
+    // Record-nya sendiri tetap diperbarui - blob baru yang menang, bukan blob lama.
+    expect((await storage.getRecord('rec-keep'))?.blob).toBe('blob-baru')
+  })
+
+  it('index `null` tetap MENGHAPUS baris lama (entitas tanpa dimensi waktu)', async () => {
+    const storage = createTestStorage(createManualClock(START_MS))
+
+    await storage.runTransaction('seed', async (tx) => {
+      await tx.putRecord({
+        sealed: { id: 'rec-null', hlc: `${START_MS}-0-devicea`, deleted: false, blob: 'blob' },
+        index: {
+          recordId: 'rec-null',
+          entityType: 'user_prefs',
+          rangeStartMs: START_MS,
+          rangeEndMs: null,
+          updatedAtMs: START_MS,
+        },
+        op: 'put',
+        outbox: { id: 'outbox-null-1', queuedAtMs: START_MS },
+      })
+    })
+
+    await storage.runTransaction('nul', async (tx) => {
+      await tx.putRecord({
+        sealed: {
+          id: 'rec-null',
+          hlc: `${START_MS + 10}-0-devicea`,
+          deleted: false,
+          blob: 'blob-baru',
+        },
+        index: null,
+        op: 'put',
+        outbox: { id: 'outbox-null-2', queuedAtMs: START_MS + 10 },
+      })
+    })
+
+    expect(await storage.listIndexByType('user_prefs')).toEqual([])
+  })
+
   it('banyak tipe dalam satu query digabung dan tetap urut naik & terbatas', async () => {
     const storage = createTestStorage(createManualClock(START_MS))
     const at = (id: string, type: 'todo' | 'schedule', ms: number) =>

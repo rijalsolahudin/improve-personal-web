@@ -229,6 +229,40 @@ export function runStorageAdapterContractTests(
         })
         expect(await storage.listIndexByType('todo')).toHaveLength(0)
       })
+
+      it("putRecord dengan index 'keep' mempertahankan baris index lama", async () => {
+        await storage.runTransaction('contract.write', async (tx) => {
+          await tx.putRecord(
+            write({
+              id: id(24),
+              hlc: hlcOf(24),
+              index: rangeIndex(id(24), 'todo', START_MS + 7_000, null),
+            }),
+          )
+        })
+        const before = await storage.listIndexByType('todo')
+        expect(before).toHaveLength(1)
+
+        await storage.runTransaction('contract.write', async (tx) => {
+          await tx.putRecord(
+            write({ id: id(24), hlc: hlcOf(25), blob: 'blob-baru', index: 'keep' }),
+          )
+        })
+
+        // Record-nya diperbarui, index-nya tidak disentuh sama sekali.
+        expect((await storage.getRecord(id(24)))?.blob).toBe('blob-baru')
+        expect(await storage.listIndexByType('todo')).toEqual(before)
+      })
+
+      it("putRecord dengan index 'keep' tidak mengarang index saat belum ada", async () => {
+        await storage.runTransaction('contract.write', async (tx) => {
+          await tx.putRecord(write({ id: id(25), hlc: hlcOf(25), index: 'keep' }))
+        })
+
+        expect((await storage.getRecord(id(25)))?.blob).toBe(`blob-${id(25)}`)
+        expect(await storage.listIndexByType('todo')).toEqual([])
+        expect(await storage.listIndexByType('schedule')).toEqual([])
+      })
     })
 
     describe('outbox', () => {

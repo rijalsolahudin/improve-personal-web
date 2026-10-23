@@ -29,6 +29,12 @@ import { readSyncStatus } from './status.ts'
  *   ada di server walaupun versi lokal menang.
  * - **Merge LWW** lewat `decideMerge` (HLC, tie-break deviceId) - bukan "yang datang belakangan
  *   menang".
+ * - **Tulisan lokal yang mendarat di tengah pull tetap menang.** Versi lokal dibaca DUA kali: sebelum
+ *   `indexFor` (kripto, bisa lama) dan sesudahnya, tepat sebelum transaksi tulis. Karena itu edit
+ *   lokal ber-HLC lebih tinggi tidak ditimpa versi server yang lebih tua walau editnya masuk saat
+ *   blob halaman sedang didekripsi. Sisa jendela: antara re-cek dan `runTransaction` - beberapa
+ *   microtask tanpa kripto. Menutupnya sepenuhnya butuh compare-and-swap di `StorageAdapter`, dan
+ *   port itu belum punya; jadi tidak diklaim tertutup.
  * - **`409 SYNC_RESET_REQUIRED`** (cursor di bawah watermark purge) = reset cursor ke 0 lalu pull
  *   ulang dari awal. Tanpa itu, perangkat yang lama offline bisa menghidupkan lagi data yang sudah
  *   user hapus (zombie resurrection).
@@ -64,11 +70,22 @@ export type PullDeltaInput = {
    *
    * Core tidak bisa membangunnya sendiri: `entity_type` dan rentang tanggal ada DI DALAM blob
    * (`ADR 4`), jadi butuh kunci data untuk membukanya - dan itu milik shell yang sudah unlock.
-   * Default `null`: record diterapkan tanpa index, dan shell membangun ulang index-nya saat unlock
-   * (`database.dbml` Bagian A: index boleh dibangun ulang di memori). Record yang benar-benar
-   * berubah memang wajib dibangun ulang - kalau versi lokal yang menang, record ini tidak disentuh.
+   * Boleh asinkron (shell harus mendekripsi blob dulu). Nilainya DIHITUNG SEBELUM transaksi tulis:
+   * `runTransaction` dilarang menyelipkan `await` non-storage di tengah transaksi (port §3).
+   *
+   * Tiga nilai yang boleh dikembalikan:
+   * - `RecordIndexEntry` - index baru untuk record ini.
+   * - `null` - record diterapkan TANPA index; baris index lama dihapus. Hanya benar kalau record-nya
+   *   memang tidak punya dimensi waktu. Shell tetap bisa membangun ulang index saat unlock
+   *   (`database.dbml` Bagian A: index boleh dibangun ulang di memori).
+   * - `'keep'` - JANGAN sentuh baris index lama. Dipakai saat index tidak bisa dihitung (mis. blob
+   *   gagal didekripsi karena skema lebih baru): record tetap diterapkan, tapi ia tidak boleh hilang
+   *   dari kalender/overview/export hanya karena index-nya tidak sempat dibangun. `null` di kasus itu
+   *   menghapus `record_index` yang masih sah - lihat `ports.ts`.
    */
-  readonly indexFor?: (record: ServerRecord) => RecordIndexEntry | null
+  readonly indexFor?: (
+    record: ServerRecord,
+  ) => RecordIndexEntry | null | 'keep' | Promise<RecordIndexEntry | null | 'keep'>
 }
 
 export type PullSummary = {
@@ -153,9 +170,29 @@ export async function pullDelta(input: PullDeltaInput): Promise<PullSummary> {
     const locals = await input.storage.getRecords(records.map((record) => record.id))
     const localById = new Map(locals.map((record) => [record.id, record] as const))
 
-    const toApply = records.filter(
+    const candidates = records.filter(
       (remote) => decideMerge(localById.get(remote.id) ?? null, remote).action !== 'skip',
     )
+
+    // Index dihitung di LUAR transaksi: membuka blob itu operasi kripto (await non-storage), dan
+    // transaksi IndexedDB auto-commit kalau ada pekerjaan lain diselipkan di antara request-nya.
+    // Karena itu snapshot `getRecords` di atas diambil SEBELUM kripto, lalu dibaca ulang tepat
+    // sebelum menulis (di bawah) - lihat catatan modul soal jendela balapan.
+    const indexById = new Map<string, RecordIndexEntry | null | 'keep'>()
+    if (input.indexFor !== undefined) {
+      for (const remote of candidates) {
+        indexById.set(remote.id, await input.indexFor(remote))
+      }
+    }
+
+    // Snapshot KEDUA, sesudah kripto: tulisan lokal yang mendarat selama `indexFor` berjalan harus
+    // ikut diputuskan. Tanpa ini, edit lokal ber-HLC lebih tinggi yang datang di tengah dekripsi
+    // ditimpa versi server yang lebih tua. Himpunan hasil re-cek hanya bisa MENYUSUT (HLC lokal
+    // monoton naik): record yang sudah kalah di snapshot pertama tidak mungkin menang belakangan,
+    // jadi tidak ada record yang jadi terlewat.
+    const toApply =
+      candidates.length === 0 ? candidates : await recheckCandidates(input.storage, candidates)
+
     applied += toApply.length
     skipped += records.length - toApply.length
 
@@ -170,7 +207,7 @@ export async function pullDelta(input: PullDeltaInput): Promise<PullSummary> {
             deleted: remote.deleted,
             blob: remote.blob,
           },
-          index: input.indexFor === undefined ? null : input.indexFor(remote),
+          index: indexById.get(remote.id) ?? null,
           op: remote.deleted ? 'delete' : 'put',
           outbox: { id: outboxId, queuedAtMs: input.nowMs },
         })
@@ -207,6 +244,27 @@ export async function pullDelta(input: PullDeltaInput): Promise<PullSummary> {
 function clampLimit(limit: number): number {
   if (!Number.isSafeInteger(limit) || limit < 1) return SYNC_DEFAULT_PULL_LIMIT
   return Math.min(limit, SYNC_MAX_PULL_LIMIT)
+}
+
+/**
+ * Baca ulang kandidat dan buang yang versi lokalnya sudah menang.
+ *
+ * Kenapa perlu dibaca ulang: keputusan merge diambil dari snapshot yang usianya selebar pekerjaan
+ * kripto `indexFor` (dekripsi blob per record). Tulisan lokal yang mendarat di jendela itu tidak
+ * terlihat snapshot pertama, dan tanpa re-cek versi server yang LEBIH TUA akan menimpanya. HLC
+ * perangkat ini monoton naik, jadi hasil saringan ini selalu himpunan bagian dari `candidates` -
+ * tidak ada record yang jadi terlewat karena re-cek.
+ */
+async function recheckCandidates(
+  storage: StorageAdapter,
+  candidates: readonly ServerRecord[],
+): Promise<readonly ServerRecord[]> {
+  const fresh = await storage.getRecords(candidates.map((record) => record.id))
+  const freshById = new Map(fresh.map((record) => [record.id, record] as const))
+
+  return candidates.filter(
+    (remote) => decideMerge(freshById.get(remote.id) ?? null, remote).action !== 'skip',
+  )
 }
 
 async function patchStatus(storage: StorageAdapter, status: SyncStatus): Promise<SyncStatus> {

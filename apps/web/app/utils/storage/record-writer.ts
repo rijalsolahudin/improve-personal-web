@@ -13,6 +13,7 @@ import {
   type StorageAdapter,
 } from '@improve-personal/core'
 
+import { notifyLocalWrite } from '../sync/events'
 import { decodeRecord, encodeRecord } from './record-codec'
 import { createOutboxId, createUuidV7Generator } from './uuid'
 
@@ -141,6 +142,10 @@ export async function writeRecord(
     }),
     label: `record.write:${input.type}`,
   })
+
+  // Outbox sudah ikut commit. Plugin sync memakai ini untuk menjadwalkan push berdebounce - tanpa
+  // event, satu-satunya pemicu adalah timer, dan data baru bisa tertahan sampai 5 menit.
+  notifyLocalWrite()
 
   return { id, hlc }
 }

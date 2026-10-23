@@ -41,6 +41,25 @@ export type DecodeOptions = {
   readonly migrations?: readonly SchemaMigration[]
 }
 
+/**
+ * Record tidak bisa DIBUKA: kunci data tidak cocok, atau ciphertext-nya rusak/terpotong.
+ *
+ * Dibedakan dari kegagalan isi (payload bukan JSON, skema lebih baru, validasi gagal) karena
+ * konsekuensinya di jalur sync berbeda jauh:
+ * - kunci salah = TIDAK ADA record di halaman itu yang bisa dibaca dengan kunci ini. Melanjutkan pull
+ *   berarti memajukan cursor di atas data yang tidak bisa dibuka - data hilang diam-diam. Jadi
+ *   pemanggil harus MENGhentikan pull dan melaporkan error.
+ * - isi tidak dikenal = satu record saja yang tidak bisa di-index; record lain tetap boleh masuk.
+ *
+ * Pesannya sengaja tidak memuat blob/kunci: hanya id record (`shared-security.md`).
+ */
+export class RecordKeyError extends Error {
+  constructor(message: string, options?: { cause?: unknown }) {
+    super(message, options)
+    this.name = 'RecordKeyError'
+  }
+}
+
 /** Envelope plaintext → `blob` tersegel. */
 export async function encodeRecord(
   provider: CryptoProvider,
@@ -74,11 +93,7 @@ export async function decodeRecord(
   stored: StoredRecord,
   options: DecodeOptions = {},
 ): Promise<Record<unknown>> {
-  const plaintext = await provider.openRecord({
-    recordId: stored.id,
-    dataKey,
-    blob: stored.blob,
-  })
+  const plaintext = await openPlaintext(provider, dataKey, stored)
 
   const parsed = payloadSchema.safeParse(parseJson(plaintext, stored.id))
   if (!parsed.success) {
@@ -116,6 +131,26 @@ export async function decodeRecord(
     schemaVersion: CURRENT_SCHEMA_VERSION,
     data: validation.data,
   })
+}
+
+/**
+ * Buka isi blob. Semua kegagalan di sini adalah kegagalan KRIPTO (kunci tidak cocok atau ciphertext
+ * rusak), jadi dilempar sebagai `RecordKeyError` - bukan error generik - supaya pemanggil bisa
+ * membedakannya dari "isi record tidak dikenal".
+ */
+async function openPlaintext(
+  provider: CryptoProvider,
+  dataKey: SecureKeyMaterial,
+  stored: StoredRecord,
+): Promise<string> {
+  try {
+    return await provider.openRecord({ recordId: stored.id, dataKey, blob: stored.blob })
+  } catch (error) {
+    throw new RecordKeyError(
+      `record ${stored.id} tidak bisa dibuka: kunci data tidak cocok atau isinya rusak`,
+      { cause: error },
+    )
+  }
 }
 
 function parseJson(plaintext: string, recordId: string): unknown {
