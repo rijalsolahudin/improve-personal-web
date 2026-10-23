@@ -8,5 +8,28 @@ allowBuilds:
   unrs-resolver: false
 
 # Satu versi happy-dom di seluruh workspace (peer opsional vitest), yang lolos minimumReleaseAge.
+# @nuxt/devtools 3.4.3 masih di dalam range `nuxt` (^3.4.1) dan sudah melepas dependency
+# `simple-git` + `@simple-git/argv-parser`, yang membawa 2 critical + 2 high (QA #30 / MAYOR-3):
+# GHSA-x6jw-m9v5-85vh, GHSA-v5rq-49vh-5v5c, GHSA-g4wm-2vf7-vfgr, GHSA-858h-whjf-mvg5.
+# Kit & wizard ikut dipin karena dirilis in-lockstep dengan devtools (hindari dua versi terpasang).
 overrides:
   happy-dom: 20.14.5
+  '@nuxt/devtools': 3.4.3
+  '@nuxt/devtools-kit': 3.4.3
+  '@nuxt/devtools-wizard': 3.4.3
+
+# Advisory yang belum punya versi patched di npm (first_patched_version = null per GitHub
+# advisory API), jadi tidak bisa ditutup dengan upgrade apa pun. Keduanya hanya ada di jalur
+# build/dev toolchain - tidak ikut ke bundle produksi (apps/web/.output/server tidak memuat
+# node-forge, listhen, braces, maupun micromatch):
+#   - GHSA-86w9-cpqp-85rv (node-forge, high) : listhen <- @nuxt/cli / nitropack, dipakai untuk
+#     self-signed HTTPS dev server. Paket upstream terakhir 1.4.0 (belum ada 1.4.1).
+#   - GHSA-vfj7-8cjw-p6xm (braces, high)     : micromatch <- globby/nitropack & fast-glob i18n,
+#     dipakai untuk glob pattern build yang ditulis developer sendiri, bukan input user.
+#     Paket upstream terakhir 3.0.3 (belum ada 3.0.4).
+# Ini BUKAN mematikan audit: advisory lain tetap memblokir. Cabut entri di bawah begitu versi
+# patched terbit (cek: pnpm audit --json | jq '.advisories').
+auditConfig:
+  ignoreGhsas:
+    - GHSA-86w9-cpqp-85rv
+    - GHSA-vfj7-8cjw-p6xm
