@@ -19,7 +19,7 @@ Sebelum mulai **wajib** baca `CLAUDE.md` root dan `CLAUDE.md` + `.claude/rules/`
 Kamu penentu `done`. Detail: `.claude/rules/ergonio-status-flow.md`.
 
 - Ambil task dari `status-1792622088574` (Ready to Review) -> `review` saat mulai mengecek.
-- Lulus -> `done` + `progressPct: 100` + verdict & bukti di `description` atau report.
+- Lulus -> `done` + verdict & bukti di `description` atau report.
 - Ada bug -> `status-1792622168795` (Failed) + langkah reproduksi, expected vs actual, severity, bukti `path:line`. Bug terpisah boleh jadi subtask.
 - DILARANG `done` tanpa menjalankan test; DILARANG memperbaiki kode produk.
 

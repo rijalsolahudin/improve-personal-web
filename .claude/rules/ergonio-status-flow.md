@@ -18,30 +18,84 @@ Sumber kebenaran kolom: `getProject("personal-productivity")` - jangan tebak key
 Kalau `updateTask` menolak satu key, jalankan `getProject` dan pakai key terbaru.
 Jangan pakai label sebagai key.
 
+## Progress
+
+`progressPct` **tidak bisa di-set** lewat MCP: nilainya dihitung server dari status
+task ("Progress is not settable: it follows the task's status"). Jangan kirim field
+itu di `createTask`/`updateTask` - cukup pindahkan `status`-nya. Kalau perlu detail
+kemajuan, tulis di `description` atau komentar task, bukan di angka progress.
+
 ## Developer (semua agent selain QA)
 
-Transisi yang boleh: `backlog` -> `todo` -> `prog` -> `status-1792622088574`.
+Transisi yang boleh: `backlog` -> (`todo`) -> `prog` -> `status-1792622088574`.
+`todo` opsional - pakai kalau task belum langsung dikerjakan.
 
 1. Ambil task dari `backlog`, pindah ke `todo` saat jadi antrean berikutnya. Kalau
    langsung dikerjakan, `backlog` -> `prog` boleh sekalian.
-2. Mulai kerja: `prog` + `progressPct` sesuai kondisi.
+2. Mulai kerja: `prog`.
 3. "Selesai" berarti kode + test + lint/typecheck sudah jalan. Pindah ke
-   `status-1792622088574`, `progressPct: 90`, dan tambah
+   `status-1792622088574`, lalu tambah
    `<p><strong>Hasil:</strong> ...</p>` di `description`: file yang diubah, cara
    verifikasi, trade-off tiga pilar.
 4. DILARANG set `review` atau `done` - itu wilayah QA.
-5. Task `status-1792622168795` (Failed): baca catatan bug QA dulu, balik ke `prog`
-   saat memperbaiki, lalu ke `status-1792622088574` lagi setelah beres.
+5. Task `status-1792622168795` (Failed): baca komentar bug QA dulu, **pindah ke
+   `prog` dulu saat mulai memperbaiki** (jangan langsung ke Ready to Review), lalu
+   ke `status-1792622088574` lagi setelah beres + komentar balasan berisi apa yang
+   diubah dan test mana yang sekarang hijau.
 
 ## QA
 
 Transisi yang boleh: `status-1792622088574` -> `review` -> (`done` | `status-1792622168795`).
 
 1. Ambil task dari `status-1792622088574`, pindah ke `review` saat mulai mengecek.
-2. Lulus: `done` + `progressPct: 100` + verdict & bukti di `description` atau report.
-3. Gagal: `status-1792622168795` + catat tiap bug (langkah reproduksi, expected vs
-   actual, severity, bukti `path:line`). Bug terpisah boleh jadi subtask.
+2. Lulus: `done` + verdict & bukti di `description` atau report,
+   plus komentar ringkas `LULUS` + perintah yang membuktikannya.
+3. Gagal: `status-1792622168795` + catat tiap bug di komentar (langkah reproduksi,
+   expected vs actual, severity, bukti `path:line`); ringkasan panjang di
+   `reports/**`. Bug terpisah boleh jadi subtask.
 4. DILARANG `done` tanpa menjalankan verifikasi; DILARANG memperbaiki kode produk.
+
+## Komentar task (handoff developer <-> QA)
+
+Komentar task adalah jalur komunikasi resmi antar agent. Status bilang "di mana",
+komentar bilang "kenapa / apa / buktinya". Orchestrator pemilik transisi status dan
+**satu-satunya** yang memposting komentar task.
+
+Subagent bisa saja punya tool MCP ergonio: Claude Code/Qoder/Command Code membatasi
+lewat daftar `tools:`, tapi OpenCode membuang field itu saat sync sehingga subagent
+mewarisi MCP sesi induk. Batasnya karena itu aturan, bukan sandbox:
+
+- Subagent **boleh** memakai tool baca (`getTask`, `getTaskComments`, `searchTasks`,
+  `queryTasks`, `getProject`, `listFields`) untuk konteks pekerjaannya.
+- Subagent **DILARANG** memanggil tool yang mengubah data (`createTask`,
+  `updateTask`, `createSubtasks`, `createComment`, `updateComment`,
+  `deleteComment`) - termasuk memindahkan status atau menulis komentar.
+- Orchestrator memposting komentar atas nama hasil subagent dan menyebut agent
+  asalnya, supaya tidak ada dua penulis komentar untuk satu task.
+
+1. **Sebelum mulai / rework** - baca `getTaskComments` dulu, jangan mengulang bug
+   yang sudah dilaporkan.
+2. **Developer selesai, butuh dites** - saat pindah ke
+   `status-1792622088574`, posting komentar handoff: apa yang selesai, file yang
+   diubah, perintah verifikasi yang sudah dijalankan, dan bagian mana yang minta
+   dites ulang.
+3. **QA mulai** - saat pindah ke `review`, komentar singkat "mulai cek" + lingkup
+   yang dicek (biar tidak dua QA mengerjakan bagian sama).
+4. **QA gagal** - satu komentar berisi daftar bug (reproduksi, expected vs actual,
+   severity, bukti `path:line`); balasan/reply untuk bug turunan.
+5. **Developer memperbaiki** - pindah ke `prog` dulu, lalu balas komentar QA
+   (atau komentar baru di thread yang sama) berisi akar masalah, file yang diubah,
+   test yang sekarang hijau, dan sisa risiko.
+6. **QA lulus** - komentar verdict `LULUS` + bukti perintah, lalu `done`.
+
+Aturan komentar:
+
+- Satu komentar per milestone, bukan chatter per edit. Jangan spam.
+- Maks 5000 karakter; detail panjang taruh di `reports/**` dan sebut path-nya.
+- `updateComment`/`deleteComment` hanya untuk komentar sendiri; jangan mengubah
+  komentar agent/orang lain - balas saja.
+- Fallback kalau tool komentar tidak tersedia di sesi: taruh catatan yang sama di
+  `description` dan sebut alasannya (jangan diam-diam skip).
 
 ## Kerja paralel
 
@@ -55,7 +109,8 @@ Transisi yang boleh: `status-1792622088574` -> `review` -> (`done` | `status-179
 
 ## Wajib
 
-- Satu `updateTask` per transisi: gabung status + `progressPct` + `description`.
+- Satu `updateTask` per transisi: gabung status + `description` (tanpa
+  `progressPct`, field itu dihitung dari status).
 - Field yang tidak diubah pass `null`.
 - Task `prog` yang ditinggal lama: tulis kondisi terakhir di `description`, jangan
   biarkan status bohong.

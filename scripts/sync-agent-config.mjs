@@ -1,12 +1,15 @@
 #!/usr/bin/env node
-// Salin agent config dari `.claude` (sumber kebenaran) ke `.qoder` dan `.commandcode`.
+// Salin agent config dari `.claude` (sumber kebenaran) ke `.qoder`, `.commandcode`,
+// dan `.opencode`.
 //
 // Kenapa salinan, bukan symlink: workspace ini ada di mount `fuse` yang tidak
 // mendukung symlink - `ln -s` di sana menghasilkan file teks berisi path target,
 // sehingga client melihat dua file, bukan dua direktori.
 //
-// `.commandcode/skills` tidak perlu disalin: `.commandcode/settings.json` sudah
-// menunjuk langsung ke `.claude/skills`.
+// Skill tidak perlu disalin ke `.opencode/skills`: `.commandcode/settings.json`
+// menunjuk langsung ke `.claude/skills`, dan `opencode.json` di root menunjuk
+// `.qoder/skills` (salinan yang sama dengan yang dipakai Qoder). OpenCode juga
+// tetap membaca `.claude/skills` sebagai compatibility source.
 import { cp, mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -30,7 +33,7 @@ const COMMAND_CODE_TOOLS = {
   Edit: 'edit_file',
 }
 const TOOL_WORD = /\b(?:Read|Glob|Grep|Bash|Write|Edit)\b/g
-const FRONTMATTER = /^---\n[\s\S]*?\n---\n\n/
+const FRONTMATTER = /^---\n([\s\S]*?)\n---\n\n/
 
 const toCommandCode = (markdown, file) =>
   markdown
@@ -41,6 +44,39 @@ const toCommandCode = (markdown, file) =>
       (frontmatter) =>
         `${frontmatter}> Sumber asli: \`.claude/agents/${file}\`. Yang beda cuma nama tool + pin \`model\` (format Command Code). Ubah persona di file sumber, lalu jalankan \`pnpm sync:agents\`.\n\n`,
     )
+
+// OpenCode V2 membuang field legacy `tools`; batasan tool ditulis sebagai
+// `permissions` (aturan terakhir yang menang). Agent yang di sumbernya cuma punya
+// `Write` (tanpa `Edit`) memang tidak boleh menyentuh kode produk, jadi izin
+// edit-nya dipersempit ke `reports/` - tempat report audit/analisis ditulis.
+// `model:` juga dibuang supaya subagent mewarisi model sesi induk, tidak terikat
+// ke provider tertentu.
+const OPENCODE_REPORTS_ONLY = [
+  'permissions:',
+  '  - action: edit',
+  '    resource: "*"',
+  '    effect: deny',
+  '  - action: edit',
+  '    resource: "reports/**"',
+  '    effect: allow',
+].join('\n')
+
+const toOpencode = (markdown, file) => {
+  const fields = markdown.match(FRONTMATTER)?.[1] ?? ''
+  const tools = fields.match(/^tools:\s*(.+)$/m)?.[1] ?? ''
+  const isWriteOnly = /\bWrite\b/.test(tools) && !/\bEdit\b/.test(tools)
+
+  const frontmatter = [
+    ...fields.split('\n').filter((line) => !/^(?:name|tools|model):/.test(line)),
+    'mode: subagent',
+    ...(isWriteOnly ? [OPENCODE_REPORTS_ONLY] : []),
+  ].join('\n')
+
+  return markdown.replace(
+    FRONTMATTER,
+    `---\n${frontmatter}\n---\n\n> Sumber asli: \`.claude/agents/${file}\`. Yang beda cuma \`mode\`/\`permissions\` (format OpenCode V2) dan \`model\` yang diwarisi sesi induk. Ubah persona di file sumber, lalu jalankan \`pnpm sync:agents\`.\n\n`,
+  )
+}
 
 const listDirs = async (path) =>
   (await readdir(path, { withFileTypes: true })).filter((entry) => entry.isDirectory())
@@ -75,8 +111,12 @@ async function syncSkills(clientDir) {
 const qoderAgents = await syncAgents('.qoder', stripModel)
 const qoderSkills = await syncSkills('.qoder')
 const commandCodeAgents = await syncAgents('.commandcode', toCommandCode)
+const opencodeAgents = await syncAgents('.opencode', toOpencode)
 
 console.log(`.qoder disinkronkan dari .claude: ${qoderAgents} agent, ${qoderSkills} skill`)
 console.log(
   `.commandcode disinkronkan dari .claude: ${commandCodeAgents} agent (skill dibaca langsung dari .claude/skills)`,
+)
+console.log(
+  `.opencode disinkronkan dari .claude: ${opencodeAgents} agent (skill dibaca dari .qoder/skills lewat opencode.json, model ikut sesi induk)`,
 )

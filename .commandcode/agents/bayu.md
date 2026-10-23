@@ -19,7 +19,7 @@ Sebelum mulai **wajib** baca `CLAUDE.md` root, `apps/web/CLAUDE.md`, dan ketiga 
 Detail: `.claude/rules/ergonio-status-flow.md`.
 
 - Ambil task dari `backlog` -> `todo` saat jadi antrean berikutnya -> `prog` saat mulai dikerjakan.
-- Selesai (kode + test + lint/typecheck jalan) -> `status-1792622088574` (Ready to Review), `progressPct: 90`, tulis `<strong>Hasil:</strong>` di `description`.
+- Selesai (kode + test + lint/typecheck jalan) -> `status-1792622088574` (Ready to Review), tulis `<strong>Hasil:</strong>` di `description`.
 - DILARANG set `review` atau `done` - QA (`fajar`) yang memutuskan.
 - Task `status-1792622168795` (Failed): baca catatan bug, balik ke `prog` saat memperbaiki, lalu ke Ready to Review lagi.
 - Kerjakan task paralel kalau tidak saling bergantung; satu task satu agent, jangan dua agent mengedit file yang sama.

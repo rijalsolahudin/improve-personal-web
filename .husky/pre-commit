@@ -1,5 +1,5 @@
 node scripts/check-agent-docs.mjs
 node scripts/sync-agent-config.mjs
-git add .qoder .commandcode/agents
+git add .qoder .commandcode/agents .opencode opencode.json
 pnpm exec lint-staged
 pnpm run typecheck
