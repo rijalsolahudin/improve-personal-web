@@ -6,6 +6,7 @@ import {
   DEFAULT_THEME_COLOR,
   THEME_COLORS,
   appStyleSchema,
+  normalizeAppStyle,
   themeColorSchema,
   type AppStyle,
   type ThemeColor,
@@ -24,10 +25,15 @@ import { epochMsSchema, uuidV7Schema } from './primitives.ts'
  * - `userPrefsSchema`     : bentuk ketat, dipakai saat MENULIS/memvalidasi berkas import sebagai
  *                           "schema lengkap" (F10). Nilai asing ditolak di sini supaya berkas yang
  *                           formatnya tidak kita kenal tidak diam-diam "diperbaiki" saat import.
+ *                           Satu pengecualian yang disengaja: ejaan gaya lama (`cute_pure`) tetap
+ *                           diterima dan diubah ke bentuk kanonik (`cute-pure`), karena itu data sah
+ *                           dari versi sebelumnya - bukan format asing.
  * - `normalizeUserPrefs`  : jalur BACA data yang sudah ada (sync/decrypt/baca DB). Nilai tak dikenal
  *                           di-map ke default, tanpa error, dan jumlah perbaikannya dilaporkan supaya
  *                           bisa dicatat/di-debug.
  *
+ * Ejaan gaya: kanoniknya `cute-pure` (sama dengan `STYLE_NAMES`/`data-style` di tokens). Alias
+ * `cute_pure` hanya untuk migrasi baca - lihat `LEGACY_APP_STYLES` di `domain/enums.ts`.
  * Memisahkan keduanya penting: kalau jalur baca juga menolak, satu nilai asing dari perangkat lain
  * bisa bikin app gagal unlock. Kalau jalur tulis juga menormalkan, berkas export rusak akan lolos
  * diam-diam dan tidak pernah ketahuan.
@@ -73,7 +79,12 @@ export function isKnownThemeColor(value: unknown): value is ThemeColor {
   return typeof value === 'string' && (THEME_COLORS as readonly string[]).includes(value)
 }
 
-/** Aturan murni: apakah string ini salah satu nilai gaya yang kita kenal. */
+/**
+ * Aturan murni: apakah string ini salah satu nilai gaya KANONIK.
+ *
+ * Fungsi ini sekaligus type guard ke `AppStyle`, jadi ejaan lama (`cute_pure`) sengaja TIDAK lolos:
+ * nilainya bukan `AppStyle`. Jalur baca yang harus menerima alias memakai `normalizeAppStyle`.
+ */
 export function isKnownAppStyle(value: unknown): value is AppStyle {
   return typeof value === 'string' && (APP_STYLES as readonly string[]).includes(value)
 }
@@ -102,8 +113,11 @@ export function normalizeUserPrefs(raw: unknown): NormalizedPrefs {
   }
 
   let style: AppStyle = DEFAULT_USER_PREFS.style
-  if (isKnownAppStyle(source['style'])) {
-    style = source['style']
+  const knownStyle = normalizeAppStyle(source['style'])
+  if (knownStyle !== null) {
+    // Ejaan lama (`cute_pure`) ikut masuk di sini dan keluar sebagai bentuk kanonik (`cute-pure`),
+    // jadi record lama tetap memakai Cute Pure - bukan jatuh ke default (QA T25 B2).
+    style = knownStyle
   } else if ('style' in source) {
     fallbacks.push({
       field: 'style',

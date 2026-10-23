@@ -14,6 +14,7 @@ export {
   BACKUP_MAX_RECORDS,
   BACKUP_PLAINTEXT_WARNING,
   SUPPORTED_BACKUP_FORMAT_VERSIONS,
+  BackupExportLimitError,
   backupDataCountSchema,
   backupDocumentSchema,
   backupFileName,
@@ -24,9 +25,12 @@ export {
   serializeBackup,
   type BackupDataCount,
   type BackupDocument,
+  type BackupExportLimitKind,
   type BackupRecord,
   type BackupRecordInput,
   type BuildBackupInput,
+  type BuildBackupOptions,
+  type SerializeBackupOptions,
 } from './backup.ts'
 
 export {
@@ -39,6 +43,7 @@ export {
 export {
   IMPORT_MODES,
   IMPORT_REJECTION_REASONS,
+  BackupImportInvariantError,
   applyBackupImport,
   validateBackupText,
   type ApplyImportInput,

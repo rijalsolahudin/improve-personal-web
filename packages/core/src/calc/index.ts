@@ -36,3 +36,24 @@ export {
   type StreakInput,
   type StreakResult,
 } from './streak.ts'
+
+export {
+  goalItemsProgress,
+  goalProgressReport,
+  goalSlices,
+  habitPeriodProgressPercent,
+  schedulePeriodProgressPercent,
+  taskProgressPercent,
+  type GoalChapterProgress,
+  type GoalHabitSource,
+  type GoalItemSources,
+  type GoalItemsProgress,
+  type GoalItemsProgressInput,
+  type GoalProgressInput,
+  type GoalProgressPeriod,
+  type GoalProgressReport,
+  type GoalScheduleSource,
+  type GoalSlicesInput,
+  type HabitPeriodProgressInput,
+  type SchedulePeriodProgressInput,
+} from './goal.ts'

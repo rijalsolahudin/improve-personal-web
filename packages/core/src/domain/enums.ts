@@ -185,9 +185,20 @@ export const themeColorSchema = z.enum(THEME_COLORS)
 /** Default pertama kali: Cute + Kuning (PRD F16). */
 export const DEFAULT_THEME_COLOR: ThemeColor = 'kuning'
 
+/**
+ * Kosakata gaya (F16) - KANONIK, sama persis dengan `STYLE_NAMES` di `@improve-personal/tokens`.
+ *
+ * Kebab-case (`cute-pure`) karena nilai ini dipakai UI sebagai `data-style`/selector CSS dan ditulis
+ * ke `user_prefs` apa adanya. Satu ejaan saja untuk data baru: JANGAN menambah nilai kanonik dengan
+ * underscore - nilai seperti itu tidak akan pernah cocok dengan `data-style` di CSS.
+ *
+ * Ejaan lama `cute_pure` (snake_case) tetap DIBACA lewat `LEGACY_APP_STYLES`/`normalizeAppStyle` dan
+ * tidak dihapus, karena record `user_prefs`, hasil sync, serta berkas export versi sebelumnya masih
+ * memakainya. Tanpa alias itu Cute Pure jatuh ke Cute (QA T25 B2).
+ */
 export const APP_STYLES = [
   'cute',
-  'cute_pure',
+  'cute-pure',
   'kertas',
   'simple',
   'elegan',
@@ -197,6 +208,50 @@ export const APP_STYLES = [
 
 export type AppStyle = (typeof APP_STYLES)[number]
 
-export const appStyleSchema = z.enum(APP_STYLES)
+/**
+ * Ejaan lama yang masih bisa muncul di data tersimpan/berkas export versi sebelumnya.
+ *
+ * Hanya untuk MIGRASI BACA: nilai ini dipetakan ke bentuk kanonik saat di-parse, tidak pernah
+ * ditulis ulang oleh kode baru. Tambah entri di sini kalau ada ejaan lama lain - jangan menambahkannya
+ * ke `APP_STYLES`, karena daftar kanonik harus identik dengan daftar gaya UI.
+ */
+export const LEGACY_APP_STYLES = ['cute_pure'] as const
+
+export type LegacyAppStyle = (typeof LEGACY_APP_STYLES)[number]
+
+/** Ejaan lama -> bentuk kanonik. Satu-satunya tempat pemetaan ini didefinisikan. */
+export const LEGACY_APP_STYLE_TO_CURRENT: Readonly<Record<LegacyAppStyle, AppStyle>> = {
+  cute_pure: 'cute-pure',
+}
+
+/** Aturan murni: apakah string ini ejaan lama yang masih harus diterima saat membaca data. */
+export function isLegacyAppStyle(value: unknown): value is LegacyAppStyle {
+  return typeof value === 'string' && (LEGACY_APP_STYLES as readonly string[]).includes(value)
+}
+
+/**
+ * Kanonik-kan satu nilai gaya dari sumber mana pun (record DB, sync, import).
+ *
+ * Mengembalikan `null` untuk nilai yang benar-benar asing - pemanggil yang menentukan apakah itu
+ * harus jadi default (F16) atau ditolak (schema tulis/import).
+ */
+export function normalizeAppStyle(value: unknown): AppStyle | null {
+  if (typeof value !== 'string') return null
+  if ((APP_STYLES as readonly string[]).includes(value)) return value as AppStyle
+  if (isLegacyAppStyle(value)) return LEGACY_APP_STYLE_TO_CURRENT[value]
+  return null
+}
+
+/**
+ * Schema gaya yang dipakai `user_prefs` (jalur tulis/import).
+ *
+ * Menerima kanonik DAN ejaan lama, tetapi hasil parse SELALU kanonik. Dengan begitu berkas export
+ * lama tetap lolos validasi (tidak perlu "diperbaiki" manual) dan record yang ditulis ulang otomatis
+ * termigrasi ke ejaan kanonik. Nilai asing tetap ditolak - lihat catatan di `domain/user-prefs.ts`.
+ */
+export const appStyleSchema = z.preprocess(
+  (value: unknown) => normalizeAppStyle(value) ?? value,
+  z.enum(APP_STYLES),
+)
 
 export const DEFAULT_APP_STYLE: AppStyle = 'cute'

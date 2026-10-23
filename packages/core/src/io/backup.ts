@@ -1,4 +1,4 @@
-import { hlcSchema } from '@improve-personal/contracts'
+import { hlcSchema, utf8ByteLength } from '@improve-personal/contracts'
 import { z } from 'zod'
 
 import {
@@ -46,6 +46,39 @@ export const BACKUP_MAX_BYTES = 32 * 1024 * 1024
 
 /** Batas jumlah record per berkas; pagar supaya berkas raksasa tidak menghabiskan memori perangkat. */
 export const BACKUP_MAX_RECORDS = 50_000
+
+/**
+ * Batas yang dilanggar saat menyusun berkas export.
+ *
+ * Batas ini SENGAJA memakai angka yang sama dengan import (`BACKUP_MAX_BYTES`/`BACKUP_MAX_RECORDS`):
+ * berkas backup yang tidak bisa dipulihkan oleh aplikasi sendiri sama dengan kehilangan data.
+ */
+export type BackupExportLimitKind = 'records' | 'bytes'
+
+/**
+ * Dilempar `buildBackupDocument` (jumlah record) dan `serializeBackup` (ukuran byte) kalau berkas
+ * yang akan ditulis melebihi batas import. `message` sudah siap tampil ke user; `kind`/`actual`/
+ * `limit` tersedia kalau UI ingin menyusun pesannya sendiri.
+ */
+export class BackupExportLimitError extends Error {
+  readonly kind: BackupExportLimitKind
+  /** Nilai sebenarnya: jumlah record atau ukuran byte. */
+  readonly actual: number
+  /** Batas yang dilanggar - angka yang sama yang dipakai import. */
+  readonly limit: number
+
+  constructor(kind: BackupExportLimitKind, actual: number, limit: number) {
+    super(
+      kind === 'records'
+        ? `Tidak bisa membuat berkas backup: ${actual} data melebihi batas ${limit} data per berkas.`
+        : `Tidak bisa membuat berkas backup: ukurannya ${actual} byte, melebihi batas ${limit} byte.`,
+    )
+    this.name = 'BackupExportLimitError'
+    this.kind = kind
+    this.actual = actual
+    this.limit = limit
+  }
+}
 
 /** Peringatan wajib sebelum export (PRD F10). UI menampilkannya apa adanya. */
 export const BACKUP_PLAINTEXT_WARNING =
@@ -108,13 +141,27 @@ export type BuildBackupInput = {
   readonly appVersion?: string
 }
 
+export type BuildBackupOptions = {
+  /** Batas jumlah record; default `BACKUP_MAX_RECORDS`. Dipakai test untuk berkas kecil. */
+  readonly maxRecords?: number
+}
+
 /**
  * Susun dokumen backup dari record plaintext.
  *
- * Tidak melempar error untuk payload yang aneh: yang memutuskan boleh/tidaknya sebuah berkas adalah
- * `validateBackupText` saat import. Fungsi ini cuma menyusun.
+ * Payload yang aneh tidak divalidasi di sini (yang memutuskan boleh/tidaknya isi berkas adalah
+ * `validateBackupText` saat import), TAPI batas jumlah record ditegakkan: dokumen yang melebihi
+ * `BACKUP_MAX_RECORDS` tidak akan pernah bisa diimpor, jadi lebih baik ditolak sebelum ditulis.
  */
-export function buildBackupDocument(input: BuildBackupInput): BackupDocument {
+export function buildBackupDocument(
+  input: BuildBackupInput,
+  options?: BuildBackupOptions,
+): BackupDocument {
+  const maxRecords = options?.maxRecords ?? BACKUP_MAX_RECORDS
+  if (input.records.length > maxRecords) {
+    throw new BackupExportLimitError('records', input.records.length, maxRecords)
+  }
+
   const records: BackupRecord[] = input.records.map((record) => ({
     id: record.id,
     type: record.type,
@@ -155,9 +202,38 @@ export function describeDataCount(counts: Readonly<Partial<Record<EntityType, nu
   return parts.length === 0 ? 'tidak ada data' : parts.join(', ')
 }
 
-/** Serialisasi berkas. `pretty` (default) supaya berkasnya benar-benar bisa dibaca manusia. */
-export function serializeBackup(document: BackupDocument, options?: { pretty?: boolean }): string {
-  return options?.pretty === false ? JSON.stringify(document) : JSON.stringify(document, null, 2)
+export type SerializeBackupOptions = {
+  readonly pretty?: boolean
+  /** Batas ukuran berkas; default `BACKUP_MAX_BYTES`. Dipakai test untuk berkas kecil. */
+  readonly maxBytes?: number
+  /** Batas jumlah record; default `BACKUP_MAX_RECORDS`. */
+  readonly maxRecords?: number
+}
+
+/**
+ * Serialisasi berkas. `pretty` (default) supaya berkasnya benar-benar bisa dibaca manusia.
+ *
+ * Di titik inilah ukuran berkas benar-benar diketahui, jadi batas import ditegakkan di sini juga:
+ * `serializeBackup` melempar `BackupExportLimitError` alih-alih menghasilkan berkas yang tidak bisa
+ * dipulihkan. Dengan begitu hasil export SELALU lolos `validateBackupText` pada batas default.
+ */
+export function serializeBackup(
+  document: BackupDocument,
+  options?: SerializeBackupOptions,
+): string {
+  const maxRecords = options?.maxRecords ?? BACKUP_MAX_RECORDS
+  if (document.records.length > maxRecords) {
+    throw new BackupExportLimitError('records', document.records.length, maxRecords)
+  }
+
+  const text =
+    options?.pretty === false ? JSON.stringify(document) : JSON.stringify(document, null, 2)
+
+  const maxBytes = options?.maxBytes ?? BACKUP_MAX_BYTES
+  const bytes = utf8ByteLength(text)
+  if (bytes > maxBytes) throw new BackupExportLimitError('bytes', bytes, maxBytes)
+
+  return text
 }
 
 /** Nama berkas sesuai PRD F10: `improve-personal-backup-YYYY-MM-DD.json` (tanggal lokal perangkat). */

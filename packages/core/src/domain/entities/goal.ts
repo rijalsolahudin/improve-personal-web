@@ -56,13 +56,25 @@ export const goalChapterSchema = z
     id: uuidV7Schema,
     goalId: uuidV7Schema,
     title: z.string().trim().min(1).max(300),
-    /** Wajib di dalam rentang main goal. */
+    /**
+     * Wajib di dalam rentang main goal.
+     *
+     * Schema per-record tidak bisa melihat goal induknya, jadi aturan ini ditegakkan
+     * `checkGoalBundle` di jalur simpan/import (bukan di sini).
+     */
     startDate: localDateSchema,
     endDate: localDateSchema,
     /** Urutan bisa di-drag untuk reorder. */
     sortOrder: z.int().min(0).max(10_000),
     /** Tandai selesai manual -> progress 100% (termasuk chapter tanpa item). */
     isCompleted: z.boolean(),
+    /**
+     * Chapter ditutup lewat aksi review F13 ("tutup"): tidak dihitung "terlewat" lagi.
+     *
+     * `.default(false)` wajib untuk backward-compatibility: chapter yang dibuat sebelum field ini ada
+     * (berkas export/import versi lama) tetap lolos validasi, dan absen = belum ditutup.
+     */
+    isClosed: z.boolean().default(false),
     createdAt: epochMsSchema,
     updatedAt: epochMsSchema,
   })
@@ -125,6 +137,38 @@ export function existingLinkFor(
   return null
 }
 
+/** Hasil pemisahan tautan yang itemnya masih ada vs tautan yatim (item sudah dihapus). */
+export type ResolvedGoalLinks = {
+  readonly resolved: readonly GoalLink[]
+  readonly orphans: readonly GoalLink[]
+}
+
+/**
+ * Aturan murni: pisahkan tautan yang itemnya masih ada dari tautan yatim.
+ *
+ * `goal_link.itemId` adalah soft ref, jadi item boleh sudah dihapus (ARCHITECTURE §6). Tautan yatim
+ * TIDAK dihitung progress (item hilang = 0 data, bukan 100%) dan bisa dilepas pemanggil; item-nya
+ * sendiri tidak pernah ikut terhapus.
+ *
+ * `existingItems` cukup daftar referensi item yang benar-benar ada saat ini; fungsi ini tidak
+ * menyentuh storage, jadi hasilnya deterministik untuk test.
+ */
+export function resolveGoalLinks(
+  links: readonly GoalLink[],
+  existingItems: readonly Pick<GoalLink, 'itemType' | 'itemId'>[],
+): ResolvedGoalLinks {
+  const existingKeys = new Set(existingItems.map((item) => goalLinkKey(item)))
+  const resolved: GoalLink[] = []
+  const orphans: GoalLink[] = []
+
+  for (const link of links) {
+    if (existingKeys.has(goalLinkKey(link))) resolved.push(link)
+    else orphans.push(link)
+  }
+
+  return { resolved, orphans }
+}
+
 /** Hasil validasi rentang chapter terhadap main goal. */
 export type ChapterRangeCheck =
   { readonly ok: true } | { readonly ok: false; readonly message: string }
@@ -162,6 +206,140 @@ export function chaptersOutsideGoal(
   return chapters.filter(
     (chapter) => chapter.startDate < next.startDate || chapter.endDate > next.targetDate,
   )
+}
+
+/** Kumpulan record satu goal yang harus diperiksa bersama-sama (bukan per-record). */
+export type GoalBundle = {
+  readonly goal: Pick<Goal, 'id' | 'startDate' | 'targetDate'>
+  readonly chapters: readonly GoalChapter[]
+  readonly links: readonly GoalLink[]
+}
+
+/** Hasil pemeriksaan lintas-record: lolos, atau daftar alasan yang bisa ditampilkan ke user. */
+export type GoalBundleCheck =
+  { readonly ok: true } | { readonly ok: false; readonly issues: readonly string[] }
+
+/**
+ * Aturan murni GLOBAL: satu item hanya boleh punya satu tautan, lintas goal sekalipun.
+ *
+ * `checkGoalBundle` memeriksa satu goal; jalur import/load memegang SEMUA record, jadi fungsi ini yang
+ * menegakkan `uq_goal_link_item` sebenarnya (item yang sama tidak boleh muncul di dua goal/chapter).
+ */
+export function checkGoalLinksUnique(links: readonly GoalLink[]): GoalBundleCheck {
+  const seen = new Map<string, GoalLink>()
+  const issues: string[] = []
+
+  for (const link of links) {
+    const key = goalLinkKey(link)
+    const previous = seen.get(key)
+    if (previous === undefined) {
+      seen.set(key, link)
+      continue
+    }
+
+    const sameGoal = previous.goalId === link.goalId
+    issues.push(
+      sameGoal
+        ? `Item ${key} punya lebih dari satu tautan (${previous.id} dan ${link.id}); satu item cuma boleh di satu tempat`
+        : `Item ${key} ditautkan ke dua goal berbeda (${previous.goalId} dan ${link.goalId})`,
+    )
+  }
+
+  return issues.length === 0 ? { ok: true } : { ok: false, issues }
+}
+
+/**
+ * Aturan murni: invarian yang HANYA bisa dicek kalau goal + chapter + tautan dilihat bersama.
+ *
+ * Validasi schema per-record tidak bisa melihat goal induknya, dan store lokal berbentuk blob per
+ * record (tidak ada unique index fisik), jadi dua invarian PRD F13 ditegakkan di sini:
+ *
+ * - chapter wajib berada di dalam rentang main goal (`checkChapterWithinGoal`);
+ * - satu item hanya boleh punya satu tautan (`uq_goal_link_item`), termasuk tautan ke goal lain;
+ * - tautan wajib menunjuk chapter milik goal yang sama (soft ref boleh yatim untuk ITEM, bukan untuk
+ *   chapter - chapter yang dihapus sudah dipindah/dilepas lebih dulu).
+ *
+ * Dipakai jalur import/load: tolak dengan alasan jelas, jangan melempar error. Item yang sudah
+ * dihapus BUKAN pelanggaran - itu ditangani `resolveGoalLinks`. Jalur import memanggilnya lewat
+ * `io/goal-invariants.ts` (semua record sekaligus) dan memakai `checkGoalLinksUnique` untuk seluruh
+ * record tautan, karena satu goal saja tidak cukup untuk menegakkan `uq_goal_link_item`.
+ */
+export function checkGoalBundle(bundle: GoalBundle): GoalBundleCheck {
+  const issues: string[] = []
+  const knownChapterIds = new Set<string>()
+
+  for (const chapter of bundle.chapters) {
+    if (chapter.goalId !== bundle.goal.id) {
+      issues.push(
+        `Chapter "${chapter.title}" (${chapter.id}) milik goal lain (${chapter.goalId}), bukan ${bundle.goal.id}`,
+      )
+      continue
+    }
+
+    // Dua baris chapter dengan id sama tidak jelas mana yang berlaku - tolak, jangan pilih diam-diam.
+    if (knownChapterIds.has(chapter.id)) {
+      issues.push(`Chapter ${chapter.id} muncul lebih dari sekali`)
+      continue
+    }
+    knownChapterIds.add(chapter.id)
+
+    const range = checkChapterWithinGoal(chapter, bundle.goal)
+    if (!range.ok) issues.push(range.message)
+  }
+
+  for (const link of bundle.links) {
+    if (link.goalId !== bundle.goal.id) {
+      issues.push(`Tautan ${link.id} menunjuk goal lain (${link.goalId}), bukan ${bundle.goal.id}`)
+      continue
+    }
+    if (link.chapterId !== null && !knownChapterIds.has(link.chapterId)) {
+      issues.push(`Tautan ${link.id} menunjuk chapter ${link.chapterId} yang tidak ada di goal ini`)
+    }
+  }
+
+  const uniqueness = checkGoalLinksUnique(bundle.links)
+  if (!uniqueness.ok) issues.push(...uniqueness.issues)
+
+  return issues.length === 0 ? { ok: true } : { ok: false, issues }
+}
+
+/** Hasil penautan satu item: tautan baru, tautan lama (idempoten), atau penolakan yang bisa dibaca. */
+export type GoalLinkAttachResult =
+  | { readonly ok: true; readonly link: GoalLink; readonly created: boolean }
+  | {
+      readonly ok: false
+      readonly reason: 'already_linked'
+      readonly existing: GoalLink
+      readonly message: string
+    }
+
+/**
+ * Aturan murni: tautkan item ke goal/chapter dengan menghormati `uq_goal_link_item`.
+ *
+ * Menyimpan ulang form yang sama TIDAK boleh membuat tautan kedua - hasilnya tautan yang sudah ada
+ * (`created: false`). Memindahkan item ke chapter lain adalah UPDATE pada record tautan yang sama
+ * (ubah `chapterId`), bukan tautan baru; karena itu percobaan menautkan ulang ke tempat berbeda
+ * ditolak dengan pesan yang menyebut chapter lamanya.
+ */
+export function attachGoalLink(
+  links: readonly GoalLink[],
+  candidate: GoalLink,
+): GoalLinkAttachResult {
+  const existing = existingLinkFor(links, candidate)
+  if (existing === null) return { ok: true, link: candidate, created: true }
+
+  if (existing.goalId === candidate.goalId && existing.chapterId === candidate.chapterId) {
+    return { ok: true, link: existing, created: false }
+  }
+
+  const currentPlace =
+    existing.chapterId === null ? 'Sepanjang Goal' : `chapter ${existing.chapterId}`
+  return {
+    ok: false,
+    reason: 'already_linked',
+    existing,
+    message: `Item ${goalLinkKey(candidate)} sudah ditautkan ke ${currentPlace}. Pindahkan dengan mengubah tautan ${existing.id}, bukan membuat tautan baru.`,
+  }
 }
 
 /**
@@ -217,20 +395,55 @@ export function idsToDeleteWithGoal(
   return [...ids]
 }
 
-/**
- * Status chapter dihitung dari tanggal + progress (PRD F13 "Status Chapter"), tidak disimpan.
- *
- * Dihitung dari `todayLocalDate` yang di-inject supaya tetap murni dan deterministik.
- */
-export const CHAPTER_STATUSES = ['belum_mulai', 'berjalan', 'selesai', 'terlewat'] as const
+/** Status chapter yang disimpan/ditampilkan. Nilai sengaja `snake_case` (lihat catatan pemetaan web). */
+export const CHAPTER_STATUSES = [
+  'belum_mulai',
+  'berjalan',
+  'selesai',
+  'terlewat',
+  'ditutup',
+] as const
 
 export type ChapterStatus = (typeof CHAPTER_STATUSES)[number]
 
+/**
+ * Pemetaan untuk web (`apps/web/app/utils/goals.ts`, halaman Goals #32):
+ *
+ * | core (sumber tunggal) | web sekarang         | catatan                                   |
+ * |-----------------------|----------------------|-------------------------------------------|
+ * | `belum_mulai`         | `belum-mulai`        | beda hanya pemisah kata                   |
+ * | `berjalan`            | `berjalan`           | sama                                      |
+ * | `selesai`             | `selesai`            | sama                                      |
+ * | `terlewat`            | `terlewat`           | sama                                      |
+ * | `ditutup`             | `ditutup`            | dari `chapter.isClosed` (aksi review F13) |
+ *
+ * Status goal core juga lebih lengkap: `aktif/selesai/ditunda/dibatalkan`, sedangkan web belum punya
+ * `dibatalkan`. Web wajib memakai enum & fungsi di modul ini saat halaman Goals memakai model core;
+ * jangan menulis ulang rata-rata/status di app (aturan kontrak bersama).
+ *
+ * Perbedaan progress yang harus ikut berubah di web: core menghitung rata-rata per TIPE item
+ * (task `selesai/total`, habit %, jadwal %) sesuai PRD F13, bukan per item; chapter kosong = 0%
+ * (bukan 100%). Implementasi agregasinya ada di `calc/goal.ts`.
+ */
+
+/** Input status chapter; `isClosed` opsional supaya pemanggil lama tidak perlu mengisi field baru. */
+export type ChapterStatusInput = Pick<GoalChapter, 'startDate' | 'endDate' | 'isCompleted'> & {
+  readonly isClosed?: boolean
+}
+
+/**
+ * Status chapter dihitung dari tanggal + progress (PRD F13 "Status Chapter"), tidak disimpan.
+ *
+ * Dihitung dari `todayLocalDate` yang di-inject supaya tetap murni dan deterministik. Chapter yang
+ * ditutup lewat review menang atas tanggal: user sudah memutuskan berhenti, jadi jangan terus
+ * ditandai "terlewat" dan memunculkan kartu review lagi.
+ */
 export function chapterStatus(
-  chapter: Pick<GoalChapter, 'startDate' | 'endDate' | 'isCompleted'>,
+  chapter: ChapterStatusInput,
   todayLocalDate: string,
   progressPercent: number,
 ): ChapterStatus {
+  if (chapter.isClosed === true) return 'ditutup'
   if (chapter.isCompleted) return 'selesai'
   if (todayLocalDate < chapter.startDate) return 'belum_mulai'
   if (todayLocalDate <= chapter.endDate) return 'berjalan'
@@ -240,28 +453,44 @@ export function chapterStatus(
 /** Satu potongan progress (task/habit/jadwal) di dalam satu chapter atau Sepanjang Goal. */
 export type ProgressSlice = {
   readonly itemType: GoalLink['itemType']
-  /** `null` kalau tidak ada item untuk dihitung - diperlakukan sebagai 100% (bukan 0%). */
+  /**
+   * `null` = tipe ini tidak punya data terukur (tidak ada item, atau itemnya belum punya hari/kejadian
+   * yang bisa dinilai). Slice `null` DIKELUARKAN dari penyebut - bukan dianggap 100%.
+   */
   readonly percent: number | null
+}
+
+/** Input progress chapter; `isClosed` opsional supaya pemanggil lama tetap kompatibel. */
+export type ChapterProgressInput = Pick<GoalChapter, 'isCompleted'> & {
+  readonly isClosed?: boolean
 }
 
 /**
  * Aturan murni progress F13:
  *
  * - Chapter selesai manual -> 100% (termasuk chapter tanpa item).
- * - Rata-rata biasa dari item di dalamnya.
- * - Chapter tanpa item sama sekali = 100%: tidak ada yang tertunda, jadi tidak masuk akal
- *   menahannya di 0% selamanya. Ini juga yang bikin main goal dengan chapter kosong tidak anjlok.
+ * - Rata-rata dari tipe item yang punya data; slice `null` tidak ikut penyebut.
+ * - Chapter tanpa item sama sekali = **0%**, bukan 100%: kosong != selesai. Kalau kosong dianggap
+ *   100%, chapter yang lewat tanggal tidak pernah "terlewat", kartu review F13 tidak muncul, dan
+ *   progress main goal naik palsu.
+ *
+ * Chapter `ditutup` tidak otomatis 100% - progress tetap angka terukur; statusnya yang berubah.
  */
 export function chapterProgressPercent(
-  chapter: Pick<GoalChapter, 'isCompleted'>,
+  chapter: ChapterProgressInput,
   slices: readonly ProgressSlice[],
 ): number {
   if (chapter.isCompleted) return 100
-  if (slices.length === 0) return 100
 
   let total = 0
-  for (const slice of slices) total += slice.percent ?? 100
-  return clampPercent(total / slices.length)
+  let counted = 0
+  for (const slice of slices) {
+    if (slice.percent === null) continue
+    total += clampPercent(slice.percent)
+    counted += 1
+  }
+  if (counted === 0) return 0
+  return clampPercent(total / counted)
 }
 
 /**
