@@ -91,6 +91,15 @@ export const NAV_GROUPS: readonly FeatureGroup[] = ['utama', 'rencana', 'fokus']
 /** Tab bar mobile: 4 tab + tombol Menu (Desktop.dc.html mode mobile). */
 export const MOBILE_TAB_IDS: readonly FeatureId[] = ['home', 'kalender', 'to-do', 'pomodoro']
 
+/**
+ * Halaman di luar tiga grup utama (grup `lainnya`) yang tetap harus bisa dibuka dari HP.
+ *
+ * `jadwal` & `sticker` tidak ikut: jadwal dibuat lewat Kalender, dan sticker dipakai lewat mode hias.
+ * `import-export` WAJIB ada di sini - di desktop pintunya menu akun, dan tanpa entri ini pengguna HP
+ * tidak punya jalan ke halaman backup sama sekali.
+ */
+export const MOBILE_MENU_EXTRA_IDS: readonly FeatureId[] = ['import-export', 'panduan', 'akun']
+
 export function isFeatureId(value: unknown): value is FeatureId {
   return typeof value === 'string' && (FEATURE_IDS as readonly string[]).includes(value)
 }

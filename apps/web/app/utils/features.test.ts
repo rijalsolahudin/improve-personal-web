@@ -5,6 +5,7 @@ import {
   FEATURE_IDS,
   MOBILE_TAB_IDS,
   NAV_GROUPS,
+  MOBILE_MENU_EXTRA_IDS,
   featureIdFromPath,
   featuresInGroup,
   getFeature,
@@ -26,6 +27,14 @@ describe('registri fitur', () => {
 
   it('tab mobile menunjuk fitur yang terdaftar', () => {
     for (const id of MOBILE_TAB_IDS) expect(getFeature(id).id).toBe(id)
+  })
+
+  it('menu HP menyertakan pintu ke Import & Export (F10) di luar tiga grup utama', () => {
+    // Tanpa entri ini halaman backup tidak punya jalan masuk sama sekali di HP: sidebar (tempat menu
+    // akun berada) disembunyikan di layar kecil.
+    expect(MOBILE_MENU_EXTRA_IDS).toContain('import-export')
+    for (const id of MOBILE_MENU_EXTRA_IDS) expect(getFeature(id).id).toBe(id)
+    expect(NAV_GROUPS).not.toContain('lainnya')
   })
 
   it('navigasi utama mengikuti urutan Desktop.dc.html', () => {

@@ -2,10 +2,15 @@
 const emit = defineEmits<{ close: [] }>()
 
 const route = useRoute()
-const groups = (['utama', 'rencana', 'fokus'] as const).map((group) => ({
-  group,
-  items: featuresInGroup(group),
-}))
+const groups = [
+  ...(['utama', 'rencana', 'fokus'] as const).map((group) => ({
+    group,
+    items: featuresInGroup(group),
+  })),
+  // Grup `lainnya` sengaja TIDAK ditampilkan utuh (jadwal & sticker punya pintu lain); hanya halaman
+  // yang benar-benar dibutuhkan di HP - termasuk Import & Export.
+  { group: 'lainnya', items: MOBILE_MENU_EXTRA_IDS.map(getFeature) },
+]
 </script>
 
 <template>
