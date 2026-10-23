@@ -8,8 +8,10 @@ import {
 
 import type { RecordIndexEntry, SyncStatus } from '../domain/envelope.ts'
 import { HttpError, type HttpClient, type HttpRequestInit, type StorageAdapter } from '../ports.ts'
+import type { HlcGenerator } from './hlc.ts'
 import { decideMerge } from './merge.ts'
 import { pullOutboxId } from './outbox.ts'
+import { readSyncStatus } from './status.ts'
 
 /**
  * Pull delta berhalaman dari cursor (ARCHITECTURE.md §9, `GET /v1/sync/pull`).
@@ -17,7 +19,14 @@ import { pullOutboxId } from './outbox.ts'
  * Aturan yang dipegang di sini:
  * - **Cursor hidup di client** (`sync_state.cursor`) dan HANYA berasal dari `nextCursor` jawaban
  *   pull - bukan dari `serverSeq` hasil push (`packages/contracts/src/sync.ts`).
- * - **Halaman berikutnya diminta selama server masih mengirim penuh.** Halaman kosong = selesai.
+ * - **Halaman berikutnya diminta sampai `nextCursor` berhenti maju.** Halaman pendek BUKAN tanda
+ *   selesai: server boleh memotong halaman karena plafon byte (`SYNC_MAX_PULL_BYTES`), dan kontrak
+ *   menyatakan klien wajib melanjutkan dari `nextCursor` (`packages/contracts/src/sync.ts`).
+ *   Selesai = halaman kosong atau `nextCursor` tidak maju.
+ * - **HLC server diadopsi lewat `hlc.observe()`.** Tanpa ini, tulisan lokal sesudah pull memakai jam
+ *   lokal yang mungkin tertinggal dari perangkat lain - edit terakhir kalah dari versi lama dan dua
+ *   perangkat diam-diam divergen. Record yang `skipped` pun tetap di-`observe`: nilai HLC-nya sudah
+ *   ada di server walaupun versi lokal menang.
  * - **Merge LWW** lewat `decideMerge` (HLC, tie-break deviceId) - bukan "yang datang belakangan
  *   menang".
  * - **`409 SYNC_RESET_REQUIRED`** (cursor di bawah watermark purge) = reset cursor ke 0 lalu pull
@@ -41,6 +50,12 @@ export type PullDeltaInput = {
   /** URL absolut `GET /v1/sync/pull` (tanpa query); core menambahkan `cursor` + `limit`. */
   readonly url: string
   readonly nowMs: number
+  /**
+   * Generator HLC perangkat ini. Setiap record yang diterima di-`observe`, termasuk yang versinya
+   * kalah (`skipped`), supaya tulisan lokal berikutnya selalu lebih besar dari HLC mana pun yang
+   * sudah terlihat di server.
+   */
+  readonly hlc: HlcGenerator
   readonly pageLimit?: number
   readonly maxPages?: number
   readonly signal?: unknown
@@ -128,6 +143,11 @@ export async function pullDelta(input: PullDeltaInput): Promise<PullSummary> {
     const { records, nextCursor } = parsed.data
     if (records.length === 0) break
 
+    // Adopsi HLC server SEBELUM merge: keputusan merge memakai HLC record yang tersimpan, sedangkan
+    // `observe` hanya memengaruhi tulisan LOKAL berikutnya. Karena itu semua record di halaman ikut
+    // di-`observe` - termasuk yang nanti `skipped`, yang HLC-nya tetap hidup di server.
+    for (const remote of records) input.hlc.observe(remote.hlc)
+
     pages += 1
 
     const locals = await input.storage.getRecords(records.map((record) => record.id))
@@ -171,11 +191,15 @@ export async function pullDelta(input: PullDeltaInput): Promise<PullSummary> {
 
     cursor = nextCursor
 
-    if (records.length < limit) break
+    // TIDAK ada break berbasis `records.length < limit`: halaman pendek bisa berarti server memotong
+    // karena plafon byte, bukan karena delta habis. Selesai hanya kalau halaman kosong (di atas) atau
+    // `nextCursor` tidak maju.
   }
 
-  const pendingCount = await input.storage.countOutbox()
-  const finalStatus = await patchStatus(input.storage, pendingCount > 0 ? 'pending' : 'synced')
+  // Satu sumber derivasi status: baris outbox yang pernah gagal (`lastError`) harus tetap `error`,
+  // bukan ditimpa `pending` hanya karena outbox masih berisi. Lihat `status.ts`.
+  const finalStatus = await readSyncStatus({ storage: input.storage, online: true })
+  await patchStatus(input.storage, finalStatus)
 
   return { pages, applied, skipped, cursor, resets, status: finalStatus }
 }

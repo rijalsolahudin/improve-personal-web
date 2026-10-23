@@ -33,6 +33,11 @@ export function deriveSyncStatus(input: SyncStatusInput): SyncStatus {
 export async function readSyncStatus(input: {
   readonly storage: StorageAdapter
   readonly online: boolean
+  /**
+   * Override eksplisit kalau pemanggil sudah tahu ada error (mis. baru saja menerima `rejected`).
+   * Kalau tidak diisi, error dideteksi dari baris outbox yang punya `lastError` - jadi status
+   * `error` tidak bisa tertimpa `pending` hanya karena push lalu pull berjalan berurutan.
+   */
   readonly hasError?: boolean
 }): Promise<SyncStatus> {
   const pendingCount = await input.storage.countOutbox()
@@ -40,6 +45,20 @@ export async function readSyncStatus(input: {
   return deriveSyncStatus({
     online: input.online,
     pendingCount,
-    hasError: input.hasError === true,
+    hasError: input.hasError ?? (await hasOutboxError(input.storage, pendingCount)),
   })
+}
+
+/**
+ * Apakah ada baris outbox yang tercatat gagal (pernah `markOutboxFailure`).
+ *
+ * Daftar outbox dibaca penuh saat ada baris menunggu: kalau hanya membaca batch pertama, baris gagal
+ * di urutan belakang bisa lolos dan statusnya turun jadi `pending` - bug yang justru ingin ditutup.
+ * Outbox kosong (kasus normal) tidak memicu pembacaan tambahan.
+ */
+async function hasOutboxError(storage: StorageAdapter, pendingCount: number): Promise<boolean> {
+  if (pendingCount === 0) return false
+
+  const rows = await storage.listOutbox(pendingCount)
+  return rows.some((row) => row.lastError !== null)
 }

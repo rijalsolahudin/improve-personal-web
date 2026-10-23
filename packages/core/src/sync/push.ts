@@ -14,6 +14,7 @@ import {
   type StorageAdapter,
   type StoredRecord,
 } from '../ports.ts'
+import type { HlcGenerator } from './hlc.ts'
 
 /**
  * Push outbox ke server (ARCHITECTURE.md §9, kontrak `POST /v1/sync/push` di `packages/contracts`).
@@ -25,8 +26,11 @@ import {
  *   - dan itu bikin dua perangkat bisa berakhir dengan pemenang berbeda.
  * - **Baris outbox dibuang hanya untuk status yang benar-benar selesai** (`applied` dan `stale`).
  *   `stale` tetap "selesai": server sudah punya versi yang lebih baru, jadi mengirim ulang kiriman
- *   yang kalah tidak akan pernah berhasil. `rejected` TIDAK dibuang dan TIDAK diulang tanpa jejak -
- *   barisnya disimpan dengan `attempts` + pesan error generik supaya UI bisa menawarkan pilihan.
+ *   yang kalah tidak akan pernah berhasil. `serverHlc` dari jawaban `stale` di-`observe` supaya
+ *   tulisan lokal berikutnya pasti lebih besar dari versi yang menang - tanpa itu, perangkat yang
+ *   jamnya tertinggal bisa kalah berulang kali dari versi lama dan tidak pernah pulih.
+ *   `rejected` TIDAK dibuang dan TIDAK diulang tanpa jejak - barisnya disimpan dengan `attempts` +
+ *   pesan error generik supaya UI bisa menawarkan pilihan.
  * - **Pesan error tidak pernah memuat isi record.** Yang disimpan cuma kode (`REJECTED`,
  *   `RECORD_MISSING`, ...) - bukan blob, bukan token, bukan pesan server mentah.
  * - **Gagal jaringan ≠ gagal server.** Timeout/tidak sampai server berarti `offline` (outbox tetap
@@ -48,6 +52,11 @@ export type PushOutboxInput = {
   /** URL absolut `POST /v1/sync/push`; core tidak menyimpan base URL atau token. */
   readonly url: string
   readonly nowMs: number
+  /**
+   * Generator HLC perangkat ini. Dipakai untuk mengadopsi `serverHlc` saat server menjawab `stale`,
+   * supaya tulisan lokal berikutnya lebih besar dari versi server yang menang.
+   */
+  readonly hlc: HlcGenerator
   /** Default `SYNC_MAX_BATCH`; lebih kecil hanya untuk test. */
   readonly maxBatch?: number
   /** `AbortSignal` milik platform. */
@@ -177,6 +186,14 @@ export async function pushOutbox(input: PushOutboxInput): Promise<PushSummary> {
     if (rowResult.status === 'rejected') {
       await input.storage.markOutboxFailure(row.id, { lastError: OUTBOX_ERROR_REJECTED })
       continue
+    }
+
+    if (rowResult.status === 'stale' && rowResult.serverHlc !== undefined) {
+      // Server menang; versi yang menang itu jadi batas bawah HLC lokal. Record lokalnya sendiri
+      // tidak bisa diperbaiki di sini (jawaban `stale` tidak membawa blob) - pull berikutnya yang
+      // menarik versi server, dan `serverSeq` versi itu selalu di depan cursor selama HLC lokal
+      // belum pernah melewatinya.
+      input.hlc.observe(rowResult.serverHlc)
     }
 
     resolvedOutboxIds.push(row.id)

@@ -229,6 +229,7 @@ async function push(device: Device, server: FakeServer, maxBatch?: number): Prom
     http: server.http,
     url: PUSH_URL,
     nowMs: device.clock.nowMs(),
+    hlc: device.hlc,
     ...(maxBatch === undefined ? {} : { maxBatch }),
   })
 }
@@ -243,6 +244,7 @@ async function pull(
     http: server.http,
     url: PULL_URL,
     nowMs: device.clock.nowMs(),
+    hlc: device.hlc,
     ...(options?.pageLimit === undefined ? {} : { pageLimit: options.pageLimit }),
   })
 }
@@ -354,6 +356,9 @@ describe('sync engine - dua perangkat', () => {
 
     await sync(a, server)
 
+    // Semua pull milik B dihitung dari titik ini; pull milik A saat `sync` di atas tidak ikut.
+    const callsBeforeB = server.pullCalls.length
+
     const first = await pull(b, server, { pageLimit: 2 })
     expect(first.pages).toBe(3)
     expect(first.applied).toBe(5)
@@ -366,10 +371,12 @@ describe('sync engine - dua perangkat', () => {
     expect(second.pages).toBe(0)
     expect(second.cursor).toBe(cursorAfterFirst)
 
-    // Cursor yang dipakai benar-benar naik halaman demi halaman, bukan mengulang dari 0.
-    // (Panggilan pertama milik perangkat A saat `sync` di atas, jadi tiga berikutnya milik B.)
-    expect(server.pullCalls.slice(1, 4).map((call) => call.cursor)).toEqual([0, 2, 4])
-    expect(server.pullCalls.slice(1).every((call) => call.limit === 2)).toBe(true)
+    // Cursor yang dipakai benar-benar naik halaman demi halaman, bukan mengulang dari 0. Halaman
+    // pendek TIDAK mengakhiri pull; selesai hanya saat server mengirim halaman kosong pada cursor
+    // terakhir (probe ke-5, lalu sekali lagi di pull kedua).
+    const callsForB = server.pullCalls.slice(callsBeforeB)
+    expect(callsForB.map((call) => call.cursor)).toEqual([0, 2, 4, 5, 5])
+    expect(callsForB.every((call) => call.limit === 2)).toBe(true)
   })
 
   it('409 SYNC_RESET_REQUIRED: cursor direset ke 0 lalu full pull', async () => {
@@ -395,14 +402,15 @@ describe('sync engine - dua perangkat', () => {
 
     server.setPurgeWatermarkBreach(true)
 
+    const callsBeforeReset = server.pullCalls.length
     const afterReset = await pull(b, server)
     expect(afterReset.resets).toBe(1)
     expect(afterReset.applied).toBe(1)
     expect(afterReset.status).not.toBe('error')
 
-    // Permintaan setelah reset memakai cursor 0 (full pull), bukan cursor lama.
-    expect(server.pullCalls.at(-2)?.cursor).toBe(1)
-    expect(server.pullCalls.at(-1)?.cursor).toBe(0)
+    // Permintaan setelah reset memakai cursor 0 (full pull), bukan cursor lama; lalu satu probe
+    // kosong pada cursor terakhir untuk memastikan delta habis.
+    expect(server.pullCalls.slice(callsBeforeReset).map((call) => call.cursor)).toEqual([1, 0, 2])
     expect((await b.storage.getRecord(r2))?.blob).toBe(blobFor(2))
   })
 
@@ -426,6 +434,31 @@ describe('sync engine - dua perangkat', () => {
     expectConverged(winner, await versionOf(b, [r1]), [r1])
     // Pemenangnya adalah hlc yang lebih besar (B, yang menulis belakangan) - satu versi utuh.
     expect(winner.get(r1)?.blob).toBe(blobFor(2))
+  })
+
+  it('jawaban stale mengadopsi serverHlc supaya tulisan lokal berikutnya menang', async () => {
+    const server = createFakeServer()
+    const a = createDevice({
+      deviceId: 'devicez',
+      clock: createManualClock(START_MS + 60_000),
+    })
+    const b = createDevice({ deviceId: 'devicea', clock: createManualClock(START_MS) })
+    const r1 = recordIdFor(45)
+
+    await a.write(r1, 1)
+    await sync(a, server)
+
+    // B belum pernah pull, jadi HLC-nya masih di belakang A: kiriman pertama kalah (`stale`).
+    await b.write(r1, 2)
+    const firstPush = await push(b, server)
+    expect(firstPush.stale).toBe(1)
+    expect(await b.storage.countOutbox()).toBe(0)
+
+    // Tanpa `observe(serverHlc)` HLC B tetap di bawah A dan tulisan berikutnya kalah lagi selamanya.
+    await b.write(r1, 3)
+    const secondPush = await push(b, server)
+    expect(secondPush.applied).toBe(1)
+    expect(server.rowOf(r1)?.blob).toBe(blobFor(3))
   })
 
   it('jam perangkat ngaco tidak menang melawan HLC', async () => {
@@ -573,6 +606,7 @@ describe('sync engine - kegagalan', () => {
       http: offlineHttp,
       url: PUSH_URL,
       nowMs: clock.nowMs(),
+      hlc,
     })
     expect(pushResult.status).toBe('offline')
     expect(await storage.countOutbox()).toBe(1)
@@ -582,6 +616,7 @@ describe('sync engine - kegagalan', () => {
       http: offlineHttp,
       url: PULL_URL,
       nowMs: clock.nowMs(),
+      hlc,
     })
     expect(pullResult.status).toBe('offline')
     expect((await storage.getSyncState())?.status).toBe('offline')
