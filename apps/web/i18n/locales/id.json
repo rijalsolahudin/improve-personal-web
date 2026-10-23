@@ -76,6 +76,16 @@
       "logout": "Logout"
     }
   },
+  "sync": {
+    "status": {
+      "unknown": "Menunggu status sinkronisasi",
+      "synced": "Tersinkron",
+      "pending": "Menunggu dikirim ({n})",
+      "offline": "Offline",
+      "error": "Gagal sinkron"
+    },
+    "lastSync": "terakhir {time}"
+  },
   "placeholder": {
     "note": "Halaman ini belum didesain · {code}",
     "back": "← Kembali ke Daily"
@@ -178,7 +188,9 @@
       "link": "Buka To-do →",
       "empty": "Belum ada to-do buat hari ini.",
       "add": "Tambah to-do, lalu Enter…",
-      "addLabel": "Judul to-do baru"
+      "addLabel": "Judul to-do baru",
+      "more": "Lihat {n} lagi",
+      "less": "Lipat lagi"
     },
     "habit": {
       "title": "Habit hari ini",
@@ -189,6 +201,13 @@
     },
     "schedule": {
       "title": "Jadwal hari ini"
+    },
+    "goalReview": {
+      "title": "Review goal",
+      "question": "Gimana progress {goal} / {chapter}?",
+      "placeholder": "Ceritakan progress-nya…",
+      "save": "Simpan ke jurnal",
+      "skip": "Lewati"
     }
   },
   "todo": {
@@ -235,7 +254,8 @@
         "titleRequired": "Judul task wajib diisi.",
         "titleTooLong": "Judul task maksimal 200 karakter.",
         "deadline": "Tanggal atau jam deadline belum valid."
-      }
+      },
+      "goal": "Untuk goal (opsional)"
     }
   },
   "eisenhower": {
@@ -372,7 +392,8 @@
         "monthPattern": "Pola bulanan belum valid.",
         "untilDate": "Tanggal berakhir tidak boleh sebelum tanggal mulai.",
         "count": "Jumlah kejadian harus 1 sampai 999."
-      }
+      },
+      "goal": "Untuk goal (opsional)"
     },
     "noDeadline": "Tanpa deadline",
     "grid": {
@@ -484,9 +505,9 @@
       "habit": "Habit tercapai",
       "habitSub": "completion rate",
       "done": "Task selesai",
-      "doneSub": "total saat ini",
-      "late": "Task terlambat",
-      "lateSub": "lewat deadline"
+      "doneSub": "selesai di rentang ini",
+      "onTime": "Task tepat waktu",
+      "onTimeSub": "selesai sebelum deadline"
     },
     "streak": {
       "title": "Streak",
@@ -547,7 +568,8 @@
       "aktif": "Aktif",
       "selesai": "Selesai",
       "ditunda": "Ditunda",
-      "semua": "Semua"
+      "semua": "Semua",
+      "dibatalkan": "Dibatalkan"
     },
     "category": {
       "karier": "Karier",
@@ -630,7 +652,8 @@
         "tooManyChapters": "Maksimal 20 chapter.",
         "chapterTitle": "Semua chapter perlu judul.",
         "chapterRange": "Periode chapter harus di dalam rentang goal."
-      }
+      },
+      "noGoal": "Tidak ada"
     }
   },
   "deco": {
@@ -927,7 +950,7 @@
       "words": "{n} kata · buka jurnal →",
       "open": "Buka jurnal lengkap →"
     },
-    "summary": "{n} memo · cari, tulis, dan sebut jadwal pakai {'@'}",
+    "summary": "{n} memo · cari, tulis, dan sebut jadwal {'@'} atau goal {'#'}",
     "search": "Cari di jurnal…",
     "datesLabel": "Tanggal jurnal",
     "today": "Hari ini",
@@ -945,14 +968,18 @@
       "proud": "Aku bangga sama diriku karena…",
       "tomorrow": "Besok aku mau…"
     },
-    "wordsHint": "{n} kata · ketik {'@'} buat nyebut jadwal",
+    "wordsHint": "{n} kata · ketik {'@'} buat jadwal atau {'#'} buat goal",
     "untitled": "Catatan kecil",
     "delete": "Hapus",
     "deleteConfirm": "Yakin hapus?",
     "emptyDay": "Halaman ini masih kosong. Mulai nulis di atas, ya.",
     "openInCalendar": "Buka di kalender",
     "deletedSchedule": "jadwal dihapus",
-    "deletedScheduleHint": "Jadwal ini sudah dihapus"
+    "deletedScheduleHint": "Jadwal ini sudah dihapus",
+    "openGoal": "Buka goal",
+    "deletedGoal": "goal dihapus",
+    "deletedGoalHint": "Goal ini sudah dihapus",
+    "goalMentionTitle": "Sebut goal"
   },
   "landing": {
     "meta": {
@@ -1068,6 +1095,16 @@
       "resend": "Kirim ulang",
       "resendIn": "Kirim ulang dalam {time}"
     },
+    "recovery": {
+      "link": "Tidak bisa menerima kode? Pakai passkey atau kode pemulihan",
+      "eyebrow": "LUPA OTP",
+      "title": "Pakai passkey atau kode pemulihan?",
+      "sub": "Kalau emailmu tidak bisa dibuka, pembuka kunci di perangkat ini masih bisa dipakai.",
+      "checking": "Memeriksa sesi perangkat…",
+      "noSession": "Perangkat ini belum punya sesi aktif. Passkey dan kode pemulihan membuka DATA di perangkat ini, bukan sesi login - jadi masuk dulu dengan OTP, atau buka dari perangkat yang masih login lalu tambahkan perangkat ini lewat QR.",
+      "back": "Kembali ke email",
+      "recovered": "Kunci terbuka. Membuka aplikasi…"
+    },
     "error": {
       "emailEmpty": "Isi email dulu ya.",
       "emailInvalid": "Format email belum benar.",
@@ -1172,8 +1209,83 @@
       "title": "Perangkat",
       "empty": "Belum ada perangkat lain.",
       "current": "perangkat ini",
-      "lastSeen": "terakhir aktif",
+      "lastSeen": "login terakhir",
+      "revoked": "sudah dicabut",
       "revoke": "Cabut akses"
+    },
+    "pairing": {
+      "title": "Tambah perangkat",
+      "open": "Tambah perangkat",
+      "cardHint": "Pindai QR dari perangkat baru yang sudah masuk, atau tampilkan QR di perangkat ini kalau perangkat ini yang baru. QR berlaku 2 menit dan hanya bisa dipakai sekali.",
+      "intro": "Pilih peran perangkat ini. Arah QR-nya berlawanan, jadi kami tidak menebaknya.",
+      "roles": {
+        "new": "Perangkat ini yang baru (butuh kunci)",
+        "existing": "Perangkat ini sudah punya kunci"
+      },
+      "back": "Ganti peran",
+      "expired": "QR sudah kedaluwarsa. Buat QR baru untuk melanjutkan.",
+      "expiresIn": "Berlaku {time}",
+      "regenerate": "Buat QR baru",
+      "scanHint": "Arahkan kamera ke QR di perangkat lain, atau tempel isi QR di bawah.",
+      "scanStart": "Nyalakan kamera",
+      "scanStop": "Matikan kamera",
+      "scanErrors": {
+        "unsupported": "Browser ini belum bisa memindai QR. Tempel isi QR secara manual di bawah.",
+        "camera": "Kamera tidak bisa dibuka (izin ditolak atau bukan koneksi aman). Tempel isi QR secara manual.",
+        "decode": "Isi QR masih kosong."
+      },
+      "manualLabel": "Isi QR",
+      "manualPlaceholder": "Tempel teks QR di sini",
+      "manualSubmit": "Pakai isi ini",
+      "errors": {
+        "qr": "QR tidak dikenali. Pastikan yang dipindai adalah QR dari halaman Tambah perangkat.",
+        "expired": "QR sudah kedaluwarsa atau sudah dipakai. Buat QR baru.",
+        "noSession": "Sesi perangkat ini belum aktif. Masuk dulu, lalu coba lagi.",
+        "locked": "Buka dulu datamu di perangkat ini (passkey atau kode pemulihan), lalu coba lagi.",
+        "alreadyPaired": "Perangkat ini sudah punya kunci. Tidak perlu menambah perangkat.",
+        "server": "Server tidak bisa dihubungi. Periksa koneksi, lalu coba lagi."
+      },
+      "newDevice": {
+        "title": "Tampilkan QR ini di perangkat lama",
+        "hint": "Di perangkat yang sudah punya datamu, pilih Tambah perangkat lalu pindai QR ini. Setelah itu pindai QR balasan di sini.",
+        "qrLabel": "QR permintaan perangkat baru",
+        "scanResponse": "Sudah dipindai perangkat lama? Pindai QR balasannya di sini.",
+        "done": "Perangkat ini sudah punya kunci. Buka aplikasi seperti biasa."
+      },
+      "existingDevice": {
+        "title": "Pindai QR dari perangkat baru",
+        "hint": "Buka halaman Tambah perangkat di perangkat baru, lalu pindai QR yang tampil di sana.",
+        "doneTitle": "Tunjukkan QR ini ke perangkat baru",
+        "doneHint": "Kunci utama dikirim terenkripsi dan hanya bisa dibuka perangkat baru itu. QR ini berlaku sampai waktu habis dan hanya bisa dipakai sekali.",
+        "qrLabel": "QR jawaban untuk perangkat baru",
+        "restart": "Mulai lagi"
+      }
+    },
+    "delete": {
+      "cardTitle": "Hapus akun",
+      "cardHint": "Menghapus akun dan semua data di server secara permanen. Tidak bisa dibatalkan.",
+      "open": "Hapus akun",
+      "title": "Hapus akun permanen",
+      "warning": "Semua data akun di server dihapus permanen: perangkat, sesi, dan seluruh record. Tindakan ini tidak bisa dibatalkan.",
+      "emailLabel": "Email akun",
+      "emailHint": "Ketik ulang email akunmu - harus sama dengan email yang login.",
+      "codeLabel": "Kode konfirmasi",
+      "codePlaceholder": "6 digit",
+      "send": "Kirim kode ke email",
+      "sending": "Mengirim kode…",
+      "resendIn": "Kirim ulang dalam {time}",
+      "submit": "Hapus akun permanen",
+      "busy": "Menghapus…",
+      "errors": {
+        "emailEmpty": "Isi email akun dulu ya.",
+        "emailInvalid": "Format email belum benar.",
+        "emailMismatch": "Email ini bukan email akun yang sedang login.",
+        "codeIncomplete": "Lengkapi 6 digit kodenya.",
+        "codeInvalid": "Kode salah atau sudah kedaluwarsa.",
+        "rateLimited": "Kebanyakan percobaan. Tunggu sebentar, lalu coba lagi.",
+        "unavailable": "Server tidak bisa dihubungi. Periksa koneksi, lalu coba lagi.",
+        "generic": "Ada yang salah. Coba lagi sebentar lagi."
+      }
     },
     "backup": {
       "title": "Backup kode pemulihan",
@@ -1241,6 +1353,9 @@
     "unlock": {
       "title": "Buka datamu di perangkat ini",
       "lead": "Akunmu sudah punya kunci enkripsi di perangkat lain, dan perangkat ini belum punya pembukanya. Pilih salah satu cara di bawah.",
+      "addDevice": "Tambah perangkat lewat QR",
+      "addDeviceLead": "Punya perangkat lain yang sudah bisa membuka datamu? Tampilkan QR di bawah ini, lalu pindai dengan perangkat itu. Kunci utama terkirim terenkripsi dan hanya bisa dibuka perangkat ini.",
+      "backToUnlock": "Kembali ke pembukaan kunci",
       "passkey": "Buka dengan Face ID/passkey",
       "passkeyBusy": "Menunggu konfirmasi perangkat…",
       "or": "atau pakai kode pemulihan",

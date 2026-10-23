@@ -327,9 +327,14 @@ Enum theme_color {
   ungu
 }
 
+// Kanonik: kebab-case, sama dengan STYLE_NAMES di packages/tokens (dipakai UI sebagai
+// data-style) dan APP_STYLES di packages/core. Nilai ini yang ditulis ke data baru.
+// Ejaan lama cute_pure masih DIBACA sebagai alias (LEGACY_APP_STYLES di core) supaya
+// record/berkas export versi sebelumnya tidak kehilangan Cute Pure; record lama ikut
+// termigrasi ke bentuk kanonik saat ditulis ulang. Nilai asing -> default 'cute'.
 Enum app_style {
   cute
-  cute_pure
+  "cute-pure"
   kertas
   simple
   elegan
