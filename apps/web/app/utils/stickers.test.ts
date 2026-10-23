@@ -1,7 +1,5 @@
 import { describe, expect, it } from 'vitest'
 
-import { createGoalsMock } from '~/composables/goals/mock'
-
 import { isStickerId } from './deco'
 import { STICKER_PACKS } from './stickerCatalog'
 import { findSticker, mascotArt, searchStickers, stickersInPack } from './stickers'
@@ -20,9 +18,9 @@ describe('katalog sticker', () => {
     }
   })
 
-  it('sampul di data contoh Goals ada di katalog', () => {
-    for (const goal of createGoalsMock('2026-10-09')) {
-      if (goal.cover) expect(findSticker(goal.cover), goal.cover).not.toBeNull()
+  it('sampul bawaan yang dipakai halaman Goals ada di katalog', () => {
+    for (const cover of ['aktivitas/belajar', 'aktivitas/olahraga']) {
+      expect(findSticker(cover), cover).not.toBeNull()
     }
   })
 
