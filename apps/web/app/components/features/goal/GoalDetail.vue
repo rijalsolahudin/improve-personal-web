@@ -1,12 +1,11 @@
 <script setup lang="ts">
 import {
-  average,
   chapterProgress,
   chapterStatus,
   closeChapter,
   extendChapter,
   focusChapterIndex,
-  itemProgress,
+  itemsProgress,
   shiftChapter,
   toggleChapterDone,
   type Chapter,
@@ -60,8 +59,8 @@ const sections = computed(() =>
 
 function review(chapterId: string, action: 'extend' | 'shift' | 'close'): void {
   const apply: Record<typeof action, (chapter: Chapter) => Chapter> = {
-    extend: (chapter) => extendChapter(chapter, today),
-    shift: (chapter) => shiftChapter(chapter, today),
+    extend: (chapter) => extendChapter(chapter, today, goal.end),
+    shift: (chapter) => shiftChapter(chapter, today, goal.end),
     close: closeChapter,
   }
   updateChapter(goal.id, chapterId, apply[action])
@@ -86,7 +85,7 @@ function openChapter(chapterId: string): void {
       badge="∞"
       :title="$t('goals.along')"
       :sub="$t('goals.alongSub', { n: goal.along.length })"
-      :progress="average(goal.along.map(itemProgress))"
+      :progress="itemsProgress(goal.along)"
       :items="goal.along"
       :is-open="isOpen(ALONG)"
       @toggle="toggle(ALONG)"

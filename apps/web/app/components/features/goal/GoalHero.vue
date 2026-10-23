@@ -56,7 +56,13 @@ const daysLeftLabel = computed(() => {
       </ProgressRing>
     </div>
     <div class="actions">
-      <NuxtLink :to="getFeature('countdown').path" class="btn solid">
+      <NuxtLink
+        :to="{
+          path: getFeature('countdown').path,
+          query: { title: goal.title, date: goal.end },
+        }"
+        class="btn solid"
+      >
         {{ $t('goals.makeCountdown') }}
       </NuxtLink>
       <Button variant="paper" size="sm" @click="$emit('edit')">{{ $t('goals.edit') }}</Button>

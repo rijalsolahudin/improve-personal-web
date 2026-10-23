@@ -9,7 +9,7 @@ const status = defineModel<GoalStatusFilter>('status', { required: true })
 const category = defineModel<GoalCategoryFilter>('category', { required: true })
 
 const { t } = useI18n()
-const STATUS_FILTERS = ['aktif', 'selesai', 'ditunda', 'semua'] as const
+const STATUS_FILTERS = ['aktif', 'selesai', 'ditunda', 'dibatalkan', 'semua'] as const
 const statusOptions = computed<SegmentedOption<GoalStatusFilter>[]>(() =>
   STATUS_FILTERS.map((value) => ({ value, label: t(`goals.status.${value}`) })),
 )

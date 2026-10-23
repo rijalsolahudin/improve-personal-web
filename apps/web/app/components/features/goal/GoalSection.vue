@@ -104,7 +104,9 @@ const bodyId = useId()
             :label="$t('goals.toggleTask', { title: item.title })"
             @toggle="emit('toggle-item', item.id)"
           />
-          <span v-else class="rate" :class="item.kind">{{ itemProgress(item) }}%</span>
+          <span v-else class="rate" :class="item.kind">
+            {{ itemProgress(item) === null ? '–' : `${itemProgress(item)}%` }}
+          </span>
         </li>
         <li v-if="!items.length" class="item empty">{{ $t('goals.noItems') }}</li>
       </ul>

@@ -20,10 +20,12 @@ import {
   removeSchedule,
 } from '~/utils/schedules/persistence'
 import { resizeEntry } from '~/utils/calendarGrid'
+import { removeItemGoalLinks, syncItemGoalLink } from '~/utils/goals/links'
 import type { LocalDataSession } from '~/utils/storage/session'
 import { createUuidV7Generator } from '~/utils/storage/uuid'
 import { deviceTimeZone } from '~/utils/time'
 
+import { useGoalLinks } from './useGoalLinks'
 import { useLocalData } from './useLocalData'
 
 /**
@@ -51,6 +53,7 @@ export function resetSchedulesHydrationForTest(): void {
 export function useSchedules(options: UseSchedulesOptions = {}) {
   const localData = useLocalData()
   const getSession = options.session ?? localData.ensure
+  const goalLinks = useGoalLinks(options.session ? { session: options.session } : {})
   const tz = deviceTimeZone()
 
   const schedules = useState<Schedule[]>('schedules', () => [])
@@ -73,7 +76,16 @@ export function useSchedules(options: UseSchedulesOptions = {}) {
           return
         }
 
-        const data = await loadScheduleData(session, tz)
+        await goalLinks.hydrate()
+        const data = await loadScheduleData(
+          session,
+          tz,
+          new Map(
+            goalLinks.links.value
+              .filter((link) => link.itemType === 'schedule')
+              .map((link) => [link.itemId, link] as const),
+          ),
+        )
         schedules.value = data.schedules
         attendance.value = data.attendance
         status.value = 'ready'
@@ -140,8 +152,21 @@ export function useSchedules(options: UseSchedulesOptions = {}) {
     const removed = [...before.keys()].filter((id) => !nextIds.has(id))
 
     background(async (session) => {
-      for (const schedule of changed) await persistSchedule(session, schedule, tz)
-      for (const id of removed) await removeSchedule(session, id)
+      for (const schedule of changed) {
+        await persistSchedule(session, schedule, tz)
+        const link = await syncItemGoalLink(session, {
+          itemType: 'schedule',
+          itemId: schedule.id,
+          goalId: schedule.goalId,
+          goalChapterId: schedule.goalChapterId ?? null,
+        })
+        if (link.ok) goalLinks.apply('schedule', schedule.id, link.link)
+      }
+      for (const id of removed) {
+        await removeSchedule(session, id)
+        await removeItemGoalLinks(session, 'schedule', id)
+        goalLinks.apply('schedule', id, null)
+      }
     }, 'jadwal tidak bisa disimpan')
 
     // Pemanggil (form) memakai id ini untuk menautkan task ke jadwal. "Kejadian ini"/"ini &
@@ -165,8 +190,13 @@ export function useSchedules(options: UseSchedulesOptions = {}) {
     attendance.value = withoutAttendance(attendance.value, id, fromDay, exact)
 
     background(async (session) => {
-      if (survivor) await persistSchedule(session, survivor, tz)
-      else await removeSchedule(session, id)
+      if (survivor) {
+        await persistSchedule(session, survivor, tz)
+      } else {
+        await removeSchedule(session, id)
+        await removeItemGoalLinks(session, 'schedule', id)
+        goalLinks.apply('schedule', id, null)
+      }
       await removeAttendanceFrom(session, id, fromDay, tz, exact)
     }, 'jadwal tidak bisa dihapus')
   }

@@ -35,11 +35,16 @@ export type MoodByDate = Record<string, number>
 
 // ---- Mention jadwal ------------------------------------------------------------------
 
-const MENTION_TOKEN = /@\[([\w-]{1,64})\]/g
-/** `@kata` yang sedang diketik di akhir teks (pemicu autocomplete). */
+const MENTION_TOKEN = /([@#])\[([\w-]{1,64})\]/g
+/** `@kata` yang sedang diketik di akhir teks (pemicu autocomplete jadwal). */
 const TRAILING_QUERY = /@([^\s@[]*)$/
+/** `#kata` yang sedang diketik di akhir teks (pemicu autocomplete goal/chapter). */
+const TRAILING_GOAL_QUERY = /#([^\s#[\]]*)$/
 
-export type MemoSegment = { kind: 'text'; text: string } | { kind: 'mention'; scheduleId: string }
+export type MemoSegment =
+  | { kind: 'text'; text: string }
+  | { kind: 'mention'; scheduleId: string }
+  | { kind: 'goal-mention'; goalId: string }
 
 export function splitMentions(text: string): MemoSegment[] {
   const segments: MemoSegment[] = []
@@ -47,29 +52,44 @@ export function splitMentions(text: string): MemoSegment[] {
   for (const match of text.matchAll(MENTION_TOKEN)) {
     const index = match.index ?? 0
     if (index > last) segments.push({ kind: 'text', text: text.slice(last, index) })
-    segments.push({ kind: 'mention', scheduleId: match[1] ?? '' })
+    if (match[1] === '#') segments.push({ kind: 'goal-mention', goalId: match[2] ?? '' })
+    else segments.push({ kind: 'mention', scheduleId: match[2] ?? '' })
     last = index + match[0].length
   }
   if (last < text.length) segments.push({ kind: 'text', text: text.slice(last) })
   return segments
 }
 
-/** Teks polos untuk pencarian & pratinjau: token mention diganti `@judul`. */
+/** Teks polos untuk pencarian & pratinjau: token mention diganti `@judul` / `#judul`. */
 export function plainText(
   text: string,
   titleOf: (id: string) => string | null,
   deleted: string,
+  goalTitleOf: (id: string) => string | null = () => null,
+  deletedGoal = deleted,
 ): string {
-  return text.replace(MENTION_TOKEN, (_, id: string) => `@${titleOf(id) ?? deleted}`)
+  return text.replace(MENTION_TOKEN, (_, sigil: string, id: string) =>
+    sigil === '#' ? `#${goalTitleOf(id) ?? deletedGoal}` : `@${titleOf(id) ?? deleted}`,
+  )
 }
 
 export function mentionQuery(text: string): string | null {
   return TRAILING_QUERY.exec(text)?.[1] ?? null
 }
 
+/** `#kata` yang sedang diketik di akhir teks; `null` kalau tidak sedang mengetik mention goal. */
+export function goalMentionQuery(text: string): string | null {
+  return TRAILING_GOAL_QUERY.exec(text)?.[1] ?? null
+}
+
 /** Ganti `@kata` terakhir dengan token mention + spasi. */
 export function insertMention(text: string, scheduleId: string): string {
   return text.replace(TRAILING_QUERY, `@[${scheduleId}] `)
+}
+
+/** Ganti `#kata` terakhir dengan token mention goal + spasi. */
+export function insertGoalMention(text: string, goalId: string): string {
+  return text.replace(TRAILING_GOAL_QUERY, `#[${goalId}] `)
 }
 
 // ---- Daftar & pencarian --------------------------------------------------------------
@@ -90,6 +110,11 @@ export function journalDates(memos: readonly Memo[], moods: MoodByDate, today: s
 
 export function memosOn(memos: readonly Memo[], day: string): Memo[] {
   return memos.filter((memo) => memo.date === day).sort((a, b) => b.createdAt - a.createdAt)
+}
+
+/** Halaman jurnal satu tanggal (PRD F8: satu halaman per hari). */
+export function memoOn(memos: readonly Memo[], day: string): Memo | null {
+  return memos.find((memo) => memo.date === day) ?? null
 }
 
 export function wordCount(text: string): number {

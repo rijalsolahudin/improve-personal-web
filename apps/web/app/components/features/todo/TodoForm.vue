@@ -116,6 +116,25 @@ function onDelete(): void {
         />
       </Field>
 
+      <Field :label="$t('todo.form.goal')" is-group>
+        <GoalPicker
+          :goal-id="draft.goalId"
+          :chapter-id="draft.goalChapterId"
+          @select="
+            (goalId, chapterId) => {
+              draft.goalId = goalId
+              draft.goalChapterId = chapterId
+            }
+          "
+          @clear="
+            () => {
+              draft.goalId = null
+              draft.goalChapterId = null
+            }
+          "
+        />
+      </Field>
+
       <Field :label="$t('todo.form.schedule')" is-group>
         <div class="schedules">
           <Chip

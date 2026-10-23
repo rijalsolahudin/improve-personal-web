@@ -6,6 +6,7 @@ import {
   endOfLocalDay,
   expandOccurrenceTimes,
   fromLocalDateTime,
+  localDateOf,
   startOfLocalDay,
   weekdayFromJsIndex,
   type ExpansibleSchedule,
@@ -70,6 +71,8 @@ export interface Schedule {
   exceptions: string[]
   /** Goal tertaut (PRD F13 "Untuk goal"), opsional. */
   goalId: string | null
+  /** Chapter tujuan; `null` = Sepanjang goal. */
+  goalChapterId?: string | null
   /**
    * Zona waktu tempat jam jadwal dihitung. `undefined` = zona waktu perangkat saat ini (jadwal baru).
    * Disimpan supaya jam tidak bergeser kalau perangkat pindah zona waktu.
@@ -215,7 +218,167 @@ export interface Occurrence {
 }
 
 /**
- * Kejadian di `[from, to]` (inklusif), urut tanggal lalu jam. Ekspansi hanya untuk rentang ini.
+ * Cache ekspansi per objek jadwal.
+ *
+ * Kalender membaca data per tanggal: grid bulan 35-42 sel, timeline pekan 7 kolom, panel hari,
+ * overview, dan target Pomodoro. Tanpa cache, setiap panggilan mengulang seluruh daftar jadwal dan
+ * mengonversi waktu lewat `Intl` di dalam engine core - biayanya O(jadwal x hari) dan view bulan
+ * melampaui anggaran AC T9.
+ *
+ * Cache disimpan di `WeakMap` supaya tidak menahan jadwal yang sudah dihapus dari memori. Semua
+ * mutasi jadwal di app ini mengganti objek (`useSchedules`), jadi identitas objek = versi data;
+ * field yang memengaruhi hasil tetap dibandingkan supaya mutasi di tempat pun tidak jadi basi.
+ */
+interface ScheduleExpansion {
+  /** Zona waktu hasil resolusi (`schedule.tz` atau zona perangkat saat cache dibuat). */
+  zone: string
+  start: string
+  time: string
+  dur: number
+  allDay: boolean
+  rec: Recurrence
+  ends: EndRule
+  core: ExpansibleSchedule
+  recurrence: ScheduleRecurrence | null
+  /** Tanggal lokal kejadian pertama (`null` recurrence = sekali) + jam mulai dalam menit. */
+  day: string
+  minute: number
+  /** Hasil ekspansi terakhir: rentang, pengecualian, dan kejadian per tanggal. */
+  expanded: {
+    from: string
+    to: string
+    exceptions: readonly string[]
+    byDay: Map<string, Occurrence[]>
+  } | null
+}
+
+const EXPANSION_CACHE = new WeakMap<Schedule, ScheduleExpansion>()
+
+const sameExceptions = (left: readonly string[], right: readonly string[]): boolean =>
+  left.length === right.length && left.every((day, index) => day === right[index])
+
+function expansionOf(schedule: Schedule, zone: string): ScheduleExpansion {
+  const cached = EXPANSION_CACHE.get(schedule)
+  if (
+    cached !== undefined &&
+    cached.zone === zone &&
+    cached.start === schedule.start &&
+    cached.time === schedule.time &&
+    cached.dur === schedule.dur &&
+    cached.allDay === schedule.allDay &&
+    cached.rec === schedule.rec &&
+    cached.ends === schedule.ends
+  ) {
+    return cached
+  }
+
+  const core = toCoreSchedule(schedule, zone)
+  const entry: ScheduleExpansion = {
+    zone,
+    start: schedule.start,
+    time: schedule.time,
+    dur: schedule.dur,
+    allDay: schedule.allDay,
+    rec: schedule.rec,
+    ends: schedule.ends,
+    core,
+    recurrence: toCoreRecurrence(schedule, zone),
+    day: localDateOf(core.startAt, zone),
+    minute: toMinutes(schedule.time),
+    expanded: null,
+  }
+  EXPANSION_CACHE.set(schedule, entry)
+  return entry
+}
+
+/**
+ * Rentang ekspansi untuk satu permintaan.
+ *
+ * Permintaan satu hari hampir selalu datang dari pembaca per tanggal (sel grid bulan, panel hari,
+ * timeline) yang tetap butuh grid bulan penuh, jadi hari tunggal diekspansi sebagai satu grid bulan
+ * dan hasilnya dipakai ulang untuk semua tanggal di grid itu. Rentang lain (pekan, rentang custom)
+ * diekspansi apa adanya supaya tidak menghitung hari yang tidak dilihat.
+ */
+function expansionWindow(from: string, to: string): { from: string; to: string } {
+  if (from !== to) return { from, to }
+  const grid = monthDays(from)
+  return { from: grid[0] ?? from, to: grid.at(-1) ?? to }
+}
+
+function toOccurrence(
+  schedule: Schedule,
+  expansion: ScheduleExpansion,
+  day: string,
+  at: number,
+): Occurrence {
+  return {
+    schedule,
+    day,
+    key: `${schedule.id}@${day}`,
+    start: expansion.minute,
+    end: expansion.minute + schedule.dur,
+    at,
+  }
+}
+
+/** Kejadian satu jadwal berulang di `[from, to]`, memakai/mengisi cache ekspansi. */
+function recurringOccurrences(
+  schedule: Schedule,
+  expansion: ScheduleExpansion,
+  recurrence: ScheduleRecurrence,
+  from: string,
+  to: string,
+): Occurrence[] {
+  const cached = expansion.expanded
+  if (
+    cached !== null &&
+    cached.from <= from &&
+    cached.to >= to &&
+    sameExceptions(cached.exceptions, schedule.exceptions)
+  ) {
+    return pickDays(cached.byDay, from, to)
+  }
+
+  const window = expansionWindow(from, to)
+  const byDay = new Map<string, Occurrence[]>()
+  const times = expandOccurrenceTimes(expansion.core, recurrence, {
+    fromMs: startOfLocalDay(window.from, expansion.zone),
+    toMs: endOfLocalDay(window.to, expansion.zone),
+  })
+
+  for (const time of times) {
+    const day = time.localDate
+    if (day < window.from || day > window.to || schedule.exceptions.includes(day)) continue
+    const occurrence = toOccurrence(schedule, expansion, day, time.startAt)
+    const sameDay = byDay.get(day)
+    if (sameDay === undefined) byDay.set(day, [occurrence])
+    else sameDay.push(occurrence)
+  }
+
+  expansion.expanded = {
+    from: window.from,
+    to: window.to,
+    exceptions: [...schedule.exceptions],
+    byDay,
+  }
+  return pickDays(byDay, from, to)
+}
+
+function pickDays(
+  byDay: ReadonlyMap<string, Occurrence[]>,
+  from: string,
+  to: string,
+): Occurrence[] {
+  const result: Occurrence[] = []
+  for (const [day, occurrences] of byDay) {
+    if (day >= from && day <= to) result.push(...occurrences)
+  }
+  return result
+}
+
+/**
+ * Kejadian di `[from, to]` (inklusif), urut tanggal lalu jam. Ekspansi hanya untuk rentang ini
+ * (satu hari = satu grid bulan, lihat `expansionWindow`) dan di-cache per jadwal.
  */
 export function occurrencesBetween(
   schedules: readonly Schedule[],
@@ -223,29 +386,26 @@ export function occurrencesBetween(
   to: string,
   tz = deviceTimeZone(),
 ): Occurrence[] {
+  if (from > to) return []
+
   const result: Occurrence[] = []
 
   for (const schedule of schedules) {
-    const zone = schedule.tz ?? tz
-    const times = expandOccurrenceTimes(
-      toCoreSchedule(schedule, zone),
-      toCoreRecurrence(schedule, zone),
-      { fromMs: startOfLocalDay(from, zone), toMs: endOfLocalDay(to, zone) },
-    )
-    const start = toMinutes(schedule.time)
+    const expansion = expansionOf(schedule, schedule.tz ?? tz)
 
-    for (const time of times) {
-      const day = time.localDate
-      if (day < from || day > to || schedule.exceptions.includes(day)) continue
-      result.push({
-        schedule,
-        day,
-        key: `${schedule.id}@${day}`,
-        start,
-        end: start + schedule.dur,
-        at: time.startAt,
-      })
+    // Jadwal sekali: tanggal & instan mulainya sudah dihitung di cache, tidak perlu ekspansi.
+    if (expansion.recurrence === null) {
+      if (
+        expansion.day >= from &&
+        expansion.day <= to &&
+        !schedule.exceptions.includes(expansion.day)
+      ) {
+        result.push(toOccurrence(schedule, expansion, expansion.day, expansion.core.startAt))
+      }
+      continue
     }
+
+    result.push(...recurringOccurrences(schedule, expansion, expansion.recurrence, from, to))
   }
 
   return result.sort((a, b) => a.day.localeCompare(b.day) || a.start - b.start)
@@ -354,6 +514,8 @@ export interface ScheduleDraft {
   ends: EndRule['type']
   untilDate: string
   count: number
+  goalId: string | null
+  goalChapterId: string | null
 }
 
 export type ScheduleDraftError =
@@ -456,6 +618,8 @@ export function newScheduleDraft(date: string, time = '09:00'): ScheduleDraft {
     ends: 'never',
     untilDate: date,
     count: DEFAULT_COUNT,
+    goalId: null,
+    goalChapterId: null,
   }
 }
 
@@ -480,6 +644,8 @@ export function draftFromSchedule(schedule: Schedule, day: string): ScheduleDraf
     ends: schedule.ends.type,
     untilDate: schedule.ends.type === 'until' ? schedule.ends.date : day,
     count: schedule.ends.type === 'count' ? schedule.ends.count : DEFAULT_COUNT,
+    goalId: schedule.goalId,
+    goalChapterId: schedule.goalChapterId ?? null,
   }
 }
 
@@ -495,7 +661,8 @@ function fromDraft(draft: ScheduleDraft, id: string, start: string, allDay: bool
     rec: recurrenceFromDraft(draft),
     ends: endsFromDraft(draft),
     exceptions: [],
-    goalId: null,
+    goalId: draft.goalId,
+    goalChapterId: draft.goalChapterId,
   }
 }
 
@@ -550,7 +717,8 @@ export function editSchedules(
     const updated = {
       ...fromDraft(draft, original.id, start, allDay),
       exceptions: original.exceptions,
-      goalId: original.goalId,
+      goalId: draft.goalId,
+      goalChapterId: draft.goalChapterId,
       tz: original.tz,
     }
     return schedules.map((schedule) => (schedule.id === original.id ? updated : schedule))
@@ -563,14 +731,16 @@ export function editSchedules(
         ...fromDraft(draft, newId, draft.date, allDay),
         rec: { type: 'once' },
         ends: { type: 'never' },
-        goalId: original.goalId,
+        goalId: draft.goalId,
+        goalChapterId: draft.goalChapterId,
         tz: original.tz,
       },
     ]
   }
   const next = {
     ...fromDraft(draft, newId, draft.date, allDay),
-    goalId: original.goalId,
+    goalId: draft.goalId,
+    goalChapterId: draft.goalChapterId,
     tz: original.tz,
   }
   // Jumlah yang tak diubah user = sisa kejadian, bukan total seri lama.

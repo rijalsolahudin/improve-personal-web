@@ -153,6 +153,25 @@ const deleteLabel = computed(() => {
 
       <ScheduleRecurrence v-model="draft" :error="error" />
 
+      <Field :label="$t('calendar.form.goal')" is-group>
+        <GoalPicker
+          :goal-id="draft.goalId"
+          :chapter-id="draft.goalChapterId"
+          @select="
+            (goalId, chapterId) => {
+              draft.goalId = goalId
+              draft.goalChapterId = chapterId
+            }
+          "
+          @clear="
+            () => {
+              draft.goalId = null
+              draft.goalChapterId = null
+            }
+          "
+        />
+      </Field>
+
       <ScheduleLinkedTasks
         v-model:pending="pendingTasks"
         v-model:title="linkedTitle"

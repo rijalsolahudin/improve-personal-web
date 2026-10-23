@@ -1,13 +1,22 @@
 // Domain Goals (PRD F13 + Home Desktop.dc.html · halaman Goals). Fungsi murni; tanggal
 // pakai string ISO lokal `YYYY-MM-DD` supaya cocok dengan <input type="date">.
 
-import { addDays, addMonths, daysBetween, isIsoDate } from './time'
+import {
+  chapterProgressPercent,
+  chapterStatus as coreChapterStatus,
+  clampPercent,
+  mainGoalProgressPercent,
+  taskProgressPercent,
+  type ChapterStatus as CoreChapterStatus,
+  type ProgressSlice,
+} from '@improve-personal/core'
+
+import { addDays, addMonths, daysBetween, fromIsoDate, isIsoDate } from './time'
 
 export const GOAL_CATEGORIES = ['karier', 'kesehatan', 'keuangan', 'diri', 'relasi'] as const
 export type GoalCategory = (typeof GOAL_CATEGORIES)[number]
 
-/** Design hanya memakai tiga status ini; "dibatalkan" (PRD) menyusul. */
-export const GOAL_STATUSES = ['aktif', 'ditunda', 'selesai'] as const
+export const GOAL_STATUSES = ['aktif', 'ditunda', 'selesai', 'dibatalkan'] as const
 export type GoalStatus = (typeof GOAL_STATUSES)[number]
 
 export const CHAPTER_STATUSES = [
@@ -35,6 +44,7 @@ export const GOAL_STATUS_TONE: Record<GoalStatus, GoalTone> = {
   aktif: 'green',
   ditunda: 'sand',
   selesai: 'violet',
+  dibatalkan: 'grey',
 }
 
 export const ITEM_TONE: Record<GoalItemKind, GoalTone> = {
@@ -69,8 +79,13 @@ export interface GoalItem {
   meta: string
   /** Task: selesai/belum. */
   done: boolean
-  /** Habit/jadwal: % target tercapai (0–100). */
-  rate: number
+  /**
+   * Habit/jadwal: % target tercapai (0–100).
+   *
+   * `null` = item ada tapi belum punya hari/kejadian yang bisa dinilai; tipe itu tidak ikut penyebut
+   * progress (aturan `ProgressSlice` core), bukan dianggap 0%.
+   */
+  rate: number | null
 }
 
 export interface Chapter {
@@ -82,6 +97,8 @@ export interface Chapter {
   isManualDone: boolean
   isClosed: boolean
   items: GoalItem[]
+  /** Timestamp record core; dipertahankan saat menimpa supaya `createdAt` tidak berubah. */
+  createdAt?: number
 }
 
 export interface Goal {
@@ -97,38 +114,168 @@ export interface Goal {
   /** "Sepanjang goal": item yang ditaut langsung ke goal. */
   along: GoalItem[]
   chapters: Chapter[]
+  createdAt?: number
 }
 
 // ---- Progres & status ----------------------------------------------------------------
 
-export function average(values: readonly number[]): number {
-  return values.length ? Math.round(values.reduce((sum, v) => sum + v, 0) / values.length) : 0
+/** Rata-rata dengan pembulatan 1 desimal yang sama dengan core (`clampPercent`). */
+function average(values: readonly number[]): number {
+  if (!values.length) return 0
+  return clampPercent(values.reduce((sum, v) => sum + v, 0) / values.length)
 }
 
-export function itemProgress(item: GoalItem): number {
+export function itemProgress(item: GoalItem): number | null {
   return item.kind === 'task' ? (item.done ? 100 : 0) : item.rate
 }
 
+/**
+ * Progress per TIPE item, bukan per item - satu-satunya formula yang dipakai core & mobile
+ * (PRD F13). Item sejenis dirata-ratakan dulu, lalu tipe yang punya data dirata-ratakan.
+ *
+ * Fungsi ini sengaja memakai primitif core (`taskProgressPercent`, `chapterProgressPercent`) supaya
+ * web tidak punya definisi progress sendiri. `goalProgressReport` memakai aturan yang sama untuk data
+ * core; halaman yang membaca `Goal` presentasi tetap mendapat angka identik.
+ */
+export function itemSlices(items: readonly GoalItem[]): ProgressSlice[] {
+  const slices: ProgressSlice[] = []
+
+  const tasks = items.filter((item) => item.kind === 'task')
+  if (tasks.length) {
+    slices.push({
+      itemType: 'todo',
+      percent: taskProgressPercent(tasks.map((item) => ({ isDone: item.done }))),
+    })
+  }
+
+  for (const [itemType, kind] of [
+    ['habit', 'habit'],
+    ['schedule', 'jadwal'],
+  ] as const) {
+    const entries = items.filter((item) => item.kind === kind)
+    if (!entries.length) continue
+    const rates = entries.map((item) => item.rate).filter((rate): rate is number => rate !== null)
+    slices.push({ itemType, percent: rates.length ? average(rates) : null })
+  }
+
+  return slices
+}
+
 export function chapterProgress(chapter: Chapter): number {
-  return chapter.isManualDone ? 100 : average(chapter.items.map(itemProgress))
+  return chapterProgressPercent({ isCompleted: chapter.isManualDone }, itemSlices(chapter.items))
+}
+
+/** Progress rata-rata per tipe untuk daftar item (dipakai "Sepanjang goal"). */
+export function itemsProgress(items: readonly GoalItem[]): number {
+  return chapterProgressPercent({ isCompleted: false }, itemSlices(items))
+}
+
+/** Status core (`snake_case`) → kosakata UI (`kebab-case`). */
+const STATUS_FROM_CORE: Record<CoreChapterStatus, ChapterStatus> = {
+  belum_mulai: 'belum-mulai',
+  berjalan: 'berjalan',
+  selesai: 'selesai',
+  terlewat: 'terlewat',
+  ditutup: 'ditutup',
 }
 
 export function chapterStatus(chapter: Chapter, today: string): ChapterStatus {
-  if (chapter.isClosed) return 'ditutup'
-  if (today < chapter.start) return 'belum-mulai'
-  if (today > chapter.end) return chapterProgress(chapter) >= 100 ? 'selesai' : 'terlewat'
-  return chapter.isManualDone ? 'selesai' : 'berjalan'
+  return STATUS_FROM_CORE[
+    coreChapterStatus(
+      {
+        startDate: chapter.start,
+        endDate: chapter.end,
+        isCompleted: chapter.isManualDone,
+        isClosed: chapter.isClosed,
+      },
+      today,
+      chapterProgress(chapter),
+    )
+  ]
 }
 
 /** Ada chapter → rata-rata chapter (+ Sepanjang goal kalau ada isinya), bobot sama. */
 export function goalProgress(goal: Goal): number {
-  const along = goal.along.map(itemProgress)
-  if (!goal.chapters.length) return average(along)
-  return average([...goal.chapters.map(chapterProgress), ...(along.length ? [average(along)] : [])])
+  const along = goal.along.length ? itemsProgress(goal.along) : null
+  return mainGoalProgressPercent(goal.chapters.map(chapterProgress), along)
 }
 
 export function needsReview(goal: Goal, today: string): boolean {
   return goal.chapters.some((chapter) => chapterStatus(chapter, today) === 'terlewat')
+}
+
+/** Sabtu/Minggu - pemicu review berkala untuk goal aktif (PRD F13). */
+export function isWeekend(today: string): boolean {
+  const day = fromIsoDate(today).getDay()
+  return day === 0 || day === 6
+}
+
+/** Satu kartu review Daily: chapter terlewat/berakhir, atau goal aktif di akhir pekan. */
+export type GoalReviewTarget = {
+  readonly key: string
+  readonly goalId: string
+  readonly goalTitle: string
+  /** Akhir periode main goal: batas aksi perpanjang/geser. */
+  readonly goalEnd: string
+  readonly chapterId: string | null
+  readonly chapterTitle: string | null
+  readonly status: ChapterStatus
+  /** `true` = chapter sudah lewat tanggal & progress < 100% (opsi perpanjang/geser/tutup). */
+  readonly isOverdue: boolean
+}
+
+/**
+ * Kartu review yang harus muncul di Daily (PRD F13):
+ * - chapter berakhir hari ini, atau sudah `terlewat`;
+ * - tiap akhir pekan, satu review per goal aktif yang belum punya kartu.
+ *
+ * Tidak ada state "sudah dijawab" di sini supaya fungsi tetap murni; komponen menyaring yang sudah
+ * dijawab di sesi itu.
+ */
+export function goalReviewTargets(goals: readonly Goal[], today: string): GoalReviewTarget[] {
+  const targets: GoalReviewTarget[] = []
+  const seenGoals = new Set<string>()
+
+  for (const goal of goals) {
+    if (goal.status !== 'aktif' && goal.status !== 'ditunda') continue
+
+    for (const chapter of goal.chapters) {
+      const status = chapterStatus(chapter, today)
+      const endedToday = chapter.end === today
+      if (status !== 'terlewat' && !endedToday) continue
+
+      targets.push({
+        key: `${goal.id}:${chapter.id}`,
+        goalId: goal.id,
+        goalTitle: goal.title,
+        goalEnd: goal.end,
+        chapterId: chapter.id,
+        chapterTitle: chapter.title,
+        status,
+        isOverdue: status === 'terlewat',
+      })
+      seenGoals.add(goal.id)
+    }
+  }
+
+  if (!isWeekend(today)) return targets
+
+  for (const goal of goals) {
+    if (goal.status !== 'aktif' || seenGoals.has(goal.id)) continue
+    const focus = goal.chapters[focusChapterIndex(goal, today)]
+    targets.push({
+      key: `${goal.id}:weekend`,
+      goalId: goal.id,
+      goalTitle: goal.title,
+      goalEnd: goal.end,
+      chapterId: focus?.id ?? null,
+      chapterTitle: focus?.title ?? null,
+      status: focus ? chapterStatus(focus, today) : 'berjalan',
+      isOverdue: false,
+    })
+  }
+
+  return targets
 }
 
 /** Chapter yang dibuka default di detail: yang terlewat atau sedang berjalan. */
@@ -141,13 +288,18 @@ export function focusChapterIndex(goal: Goal, today: string): number {
 
 // ---- Aksi review chapter -------------------------------------------------------------
 
-export function extendChapter(chapter: Chapter, today: string): Chapter {
-  return { ...chapter, end: addDays(today, CHAPTER_EXTEND_DAYS) }
+/** `goalEnd` opsional = batas main goal; chapter tidak boleh melewatinya (PRD F13). */
+export function extendChapter(chapter: Chapter, today: string, goalEnd?: string): Chapter {
+  const wanted = addDays(today, CHAPTER_EXTEND_DAYS)
+  const end = goalEnd !== undefined && wanted > goalEnd ? goalEnd : wanted
+  return { ...chapter, end: end < chapter.start ? chapter.start : end }
 }
 
-/** Geser periode: panjang tetap, mulai hari ini. */
-export function shiftChapter(chapter: Chapter, today: string): Chapter {
-  return { ...chapter, start: today, end: addDays(today, daysBetween(chapter.start, chapter.end)) }
+/** Geser periode: panjang tetap kalau muat, mulai hari ini, tidak melewati akhir main goal. */
+export function shiftChapter(chapter: Chapter, today: string, goalEnd?: string): Chapter {
+  const wanted = addDays(today, daysBetween(chapter.start, chapter.end))
+  const end = goalEnd !== undefined && wanted > goalEnd ? goalEnd : wanted
+  return { ...chapter, start: today, end: end < today ? today : end }
 }
 
 export function closeChapter(chapter: Chapter): Chapter {
@@ -277,6 +429,7 @@ export function applyGoalDraft(draft: GoalDraft, base: Goal | null, newId: () =>
 
   return {
     id: base?.id ?? newId(),
+    ...(base?.createdAt === undefined ? {} : { createdAt: base.createdAt }),
     cover: base?.cover ?? null,
     title: draft.title.trim(),
     why: draft.why.trim(),
@@ -289,6 +442,7 @@ export function applyGoalDraft(draft: GoalDraft, base: Goal | null, newId: () =>
       const old = chapter.sourceId ? previous.get(chapter.sourceId) : undefined
       return {
         id: old?.id ?? newId(),
+        ...(old?.createdAt === undefined ? {} : { createdAt: old.createdAt }),
         isManualDone: old?.isManualDone ?? false,
         isClosed: old?.isClosed ?? false,
         items: old?.items ?? [],

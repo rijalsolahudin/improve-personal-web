@@ -14,11 +14,13 @@ import {
   type HabitDraft,
   type HabitDraftError,
 } from '~/utils/habits'
+import { removeItemGoalLinks, syncItemGoalLink } from '~/utils/goals/links'
 import { loadHabits, persistCheckin, persistHabit, removeHabit } from '~/utils/habits/persistence'
 import type { LocalDataSession } from '~/utils/storage/session'
 import { createUuidV7Generator } from '~/utils/storage/uuid'
 import { toIsoDate } from '~/utils/time'
 
+import { useGoalLinks } from './useGoalLinks'
 import { useLocalData } from './useLocalData'
 
 /**
@@ -168,6 +170,7 @@ function mergeCheckIns(
 export function useHabits(options: UseHabitsOptions = {}) {
   const localData = useLocalData()
   const getSession = options.session ?? localData.ensure
+  const goalLinks = useGoalLinks(options.session ? { session: options.session } : {})
 
   const now = useNow()
   const today = computed(() => toIsoDate(new Date(now.value)))
@@ -220,7 +223,15 @@ export function useHabits(options: UseHabitsOptions = {}) {
             return
           }
 
-          const loaded = await loadHabits(session)
+          await goalLinks.hydrate()
+          const loaded = await loadHabits(
+            session,
+            new Map(
+              goalLinks.links.value
+                .filter((link) => link.itemType === 'habit')
+                .map((link) => [link.itemId, link] as const),
+            ),
+          )
           const mergedHabits = mergeHabits(loaded.habits, beforeHabits, habits.value)
           habits.value = mergedHabits
           checkIns.value = mergeCheckIns(
@@ -330,7 +341,16 @@ export function useHabits(options: UseHabitsOptions = {}) {
       : [...habits.value, saved]
 
     const revision = nextRevision(saved.id)
-    const written = await enqueue((session) => persistHabit(session, saved))
+    const written = await enqueue(async (session) => {
+      await persistHabit(session, saved)
+      const link = await syncItemGoalLink(session, {
+        itemType: 'habit',
+        itemId: saved.id,
+        goalId: saved.goalId,
+        goalChapterId: saved.goalChapterId ?? null,
+      })
+      if (link.ok) goalLinks.apply('habit', saved.id, link.link)
+    })
     if (!written.ok) {
       // Tulisan yang lebih baru (kalau ada) sudah menang - jangan dihapus oleh kegagalan ini.
       if (writeRevision.get(saved.id) === revision) revertHabit(saved, base)
@@ -352,7 +372,11 @@ export function useHabits(options: UseHabitsOptions = {}) {
     checkIns.value = checkInsLeft
 
     const revision = nextRevision(id)
-    const written = await enqueue((session) => removeHabit(session, id))
+    const written = await enqueue(async (session) => {
+      await removeHabit(session, id)
+      await removeItemGoalLinks(session, 'habit', id)
+      goalLinks.apply('habit', id, null)
+    })
     if (!written.ok && writeRevision.get(id) === revision) {
       // Kembalikan di posisi semula supaya urutan grid tidak berubah karena kegagalan sesaat.
       if (!habits.value.some((habit) => habit.id === removed.id)) {

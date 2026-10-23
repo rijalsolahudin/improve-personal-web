@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { groupCountdowns } from '~/utils/countdown'
+import { COUNTDOWN_TITLE_MAX, groupCountdowns } from '~/utils/countdown'
+import { isIsoDate } from '~/utils/time'
 
 definePageMeta({ layout: 'dashboard' })
 
@@ -18,6 +19,21 @@ const showArchive = ref(false)
 
 /** `undefined` = form tertutup; `null` = momen baru. */
 const editing = ref<string | null | undefined>(undefined)
+
+/**
+ * Prefill dari halaman Goal ("Buat countdown"): judul + tanggal target. Nilai query tidak
+ * dipercaya; panjang judul dipotong dan tanggal harus ISO supaya form tetap valid.
+ */
+const route = useRoute()
+const initial = computed(() => {
+  const title = typeof route.query.title === 'string' ? route.query.title : ''
+  const date = typeof route.query.date === 'string' ? route.query.date : ''
+  if (!title && !date) return null
+  return {
+    ...(title ? { title: title.slice(0, COUNTDOWN_TITLE_MAX) } : {}),
+    ...(isIsoDate(date) ? { date } : {}),
+  }
+})
 
 const summary = computed(() =>
   hero.value
@@ -109,6 +125,7 @@ function openEdit(id: string): void {
     <CountdownForm
       v-if="editing !== undefined"
       :countdown-id="editing"
+      :initial="editing === null ? initial : null"
       @close="editing = undefined"
       @saved="editing = undefined"
     />

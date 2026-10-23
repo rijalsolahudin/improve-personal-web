@@ -96,6 +96,8 @@ export interface Habit {
   /** Check-in per hari yang dibutuhkan. */
   target: number
   goalId: string | null
+  /** Chapter tujuan; `null` = Sepanjang goal. */
+  goalChapterId?: string | null
   /** Habit terarsip tetap tersimpan & bisa dibuka, tapi tidak dihitung di daftar aktif. */
   isArchived: boolean
 }
@@ -179,6 +181,7 @@ export interface HabitDraft {
   days: number[] | null
   target: number
   goalId: string | null
+  goalChapterId: string | null
 }
 
 export type HabitDraftError = 'nameRequired' | 'nameTooLong' | 'noDays' | 'target'
@@ -195,21 +198,37 @@ export function validateHabitDraft(draft: HabitDraft): HabitDraftError | null {
 }
 
 export function emptyHabitDraft(): HabitDraft {
-  return { name: '', icon: 'star', sticker: null, color: 0, days: null, target: 1, goalId: null }
+  return {
+    name: '',
+    icon: 'star',
+    sticker: null,
+    color: 0,
+    days: null,
+    target: 1,
+    goalId: null,
+    goalChapterId: null,
+  }
 }
 
 /** Arsip bukan bagian form: nilai lamanya dipertahankan pemanggil (`applyHabitDraft`). */
 export function draftFromHabit(habit: Habit): HabitDraft {
   const { id: _id, isArchived: _isArchived, ...draft } = habit
-  return { ...draft, days: draft.days ? [...draft.days] : null }
+  return {
+    ...draft,
+    days: draft.days ? [...draft.days] : null,
+    goalChapterId: draft.goalChapterId ?? null,
+  }
 }
 
 export function applyHabitDraft(draft: HabitDraft, id: string, isArchived = false): Habit {
+  const { goalChapterId, ...rest } = draft
   return {
-    ...draft,
+    ...rest,
     id,
     name: draft.name.trim(),
     days: draft.days ? [...draft.days] : null,
+    // `null` = Sepanjang goal; field opsional tidak ditulis supaya bentuk record lama tetap sama.
+    ...(goalChapterId === null ? {} : { goalChapterId }),
     isArchived,
   }
 }

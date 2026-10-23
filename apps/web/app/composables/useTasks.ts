@@ -13,10 +13,12 @@ import {
   type TaskDraft,
   type TaskDraftError,
 } from '~/utils/tasks'
+import { removeItemGoalLinks, syncItemGoalLink } from '~/utils/goals/links'
 import { loadTasks, persistTask, removeTask } from '~/utils/tasks/persistence'
 import type { LocalDataSession } from '~/utils/storage/session'
 import { createUuidV7Generator } from '~/utils/storage/uuid'
 
+import { useGoalLinks } from './useGoalLinks'
 import { useLocalData } from './useLocalData'
 
 /**
@@ -53,6 +55,13 @@ export type UseTasksOptions = {
  */
 let hydrateInFlight: Promise<void> | null = null
 
+/** Tautan goal terakhir yang sudah ditulis per task, supaya toggle biasa tidak memuat `goal_link`. */
+const writtenGoalPlace = new Map<string, string>()
+
+function goalPlaceKey(task: Task): string {
+  return `${task.goalId ?? ''}:${task.goalChapterId ?? ''}`
+}
+
 /**
  * Antrean tulis GLOBAL (satu untuk seluruh app).
  *
@@ -70,11 +79,13 @@ let writeQueue: Promise<void> = Promise.resolve()
 export function resetTasksHydrationForTest(): void {
   hydrateInFlight = null
   writeQueue = Promise.resolve()
+  writtenGoalPlace.clear()
 }
 
 export function useTasks(options: UseTasksOptions = {}) {
   const localData = useLocalData()
   const getSession = options.session ?? localData.ensure
+  const goalLinks = useGoalLinks(options.session ? { session: options.session } : {})
 
   const tasks = useState<Task[]>('tasks', () => [])
   const status = useState<'idle' | 'loading' | 'ready' | 'error'>('tasksStatus', () => 'idle')
@@ -108,7 +119,16 @@ export function useTasks(options: UseTasksOptions = {}) {
           return
         }
 
-        tasks.value = await loadTasks(session)
+        await goalLinks.hydrate()
+        tasks.value = await loadTasks(
+          session,
+          new Map(
+            goalLinks.links.value
+              .filter((link) => link.itemType === 'todo')
+              .map((link) => [link.itemId, link] as const),
+          ),
+        )
+        for (const task of tasks.value) writtenGoalPlace.set(task.id, goalPlaceKey(task))
         status.value = 'ready'
         error.value = null
       } catch (cause) {
@@ -149,7 +169,22 @@ export function useTasks(options: UseTasksOptions = {}) {
   }
 
   function persist(task: Task): void {
-    background((session) => persistTask(session, task), 'task tidak bisa disimpan')
+    const place = goalPlaceKey(task)
+    const needsLinkSync = writtenGoalPlace.get(task.id) !== place
+    background(async (session) => {
+      await persistTask(session, task)
+      if (!needsLinkSync) return
+
+      const link = await syncItemGoalLink(session, {
+        itemType: 'todo',
+        itemId: task.id,
+        goalId: task.goalId ?? null,
+        goalChapterId: task.goalChapterId ?? null,
+      })
+      if (!link.ok) return
+      writtenGoalPlace.set(task.id, place)
+      goalLinks.apply('todo', task.id, link.link)
+    }, 'task tidak bisa disimpan')
   }
 
   function replace(task: Task): void {
@@ -164,7 +199,10 @@ export function useTasks(options: UseTasksOptions = {}) {
 
   function toggle(id: string): void {
     const task = findTask(id)
-    if (task) update(id, { done: !task.done })
+    if (!task) return
+    const done = !task.done
+    // Catat kapan selesai supaya Overview bisa menghitung "selesai di rentang ini" tanpa reload.
+    update(id, { done, completedAt: done ? Date.now() : null })
   }
 
   /** Tambah cepat; id task baru, atau `null` kalau judul kosong. */
@@ -200,7 +238,12 @@ export function useTasks(options: UseTasksOptions = {}) {
 
   function remove(id: string): void {
     tasks.value = tasks.value.filter((task) => task.id !== id)
-    background((session) => removeTask(session, id), 'task tidak bisa dihapus')
+    writtenGoalPlace.delete(id)
+    background(async (session) => {
+      await removeTask(session, id)
+      await removeItemGoalLinks(session, 'todo', id)
+      goalLinks.apply('todo', id, null)
+    }, 'task tidak bisa dihapus')
   }
 
   /**

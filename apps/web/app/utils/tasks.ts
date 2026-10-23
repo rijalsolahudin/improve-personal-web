@@ -32,12 +32,21 @@ export interface Task {
   /** Epoch ms, `null` = tanpa deadline. */
   deadline: number | null
   done: boolean
+  /**
+   * Epoch ms saat task ditandai selesai (`null`/tidak ada = belum pernah selesai).
+   * Dipakai Overview untuk metrik "selesai di rentang ini" - jangan dibuang saat record dibaca.
+   */
+  completedAt?: number | null
   /** Jadwal tertaut (F1), opsional. */
   scheduleId: string | null
   /** Kuadran Eisenhower (F3), `null` = belum dipilah. */
   quadrant: Quadrant | null
   /** Urutan tampil di dalam kuadran (0 = paling atas); tidak dipakai di luar matrix. */
   position: number
+  /** Goal tertaut (PRD F13 "Untuk goal"), opsional. */
+  goalId?: string | null
+  /** Chapter tujuan; `null` = Sepanjang goal. */
+  goalChapterId?: string | null
 }
 
 // ---- Filter & urutan -----------------------------------------------------------------
@@ -102,6 +111,9 @@ export interface TaskDraft {
   date: string
   time: string
   scheduleId: string | null
+  /** Opsional supaya pemanggil lama (quick add/import) tetap valid; form selalu mengisinya. */
+  goalId?: string | null
+  goalChapterId?: string | null
 }
 
 export type TaskDraftError = 'titleRequired' | 'titleTooLong' | 'deadline'
@@ -128,6 +140,8 @@ export function emptyTaskDraft(today: string): TaskDraft {
     date: today,
     time: DEFAULT_TIME,
     scheduleId: null,
+    goalId: null,
+    goalChapterId: null,
   }
 }
 
@@ -142,6 +156,8 @@ export function draftFromTask(task: Task, today: string): TaskDraft {
     date: date ? toIsoDate(date) : today,
     time: date ? `${pad(date.getHours())}:${pad(date.getMinutes())}` : DEFAULT_TIME,
     scheduleId: task.scheduleId,
+    goalId: task.goalId ?? null,
+    goalChapterId: task.goalChapterId ?? null,
   }
 }
 
@@ -150,11 +166,14 @@ export function applyTaskDraft(draft: TaskDraft, base: Task | null, id: string):
   return {
     id: base?.id ?? id,
     done: base?.done ?? false,
+    completedAt: base?.completedAt ?? null,
     quadrant: base?.quadrant ?? null,
     title: draft.title.trim(),
     priority: draft.priority,
     deadline: draft.hasDeadline ? deadlineFrom(draft.date, draft.time) : null,
     scheduleId: draft.scheduleId,
+    goalId: draft.goalId ?? null,
+    goalChapterId: draft.goalChapterId ?? null,
     position: base?.position ?? 0,
   }
 }
