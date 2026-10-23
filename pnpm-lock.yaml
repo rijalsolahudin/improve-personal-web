@@ -9,6 +9,8 @@ overrides:
   '@nuxt/devtools': 3.4.3
   '@nuxt/devtools-kit': 3.4.3
   '@nuxt/devtools-wizard': 3.4.3
+  simple-git: 4.0.2
+  '@simple-git/argv-parser': 2.0.1
 
 importers:
 

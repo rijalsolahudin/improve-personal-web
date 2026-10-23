@@ -1,0 +1,46 @@
+name: Security audit
+
+# Gate dependency wajib: `.claude/rules/shared-security.md` (Dependency & supply chain) +
+# `apps/web/.claude/rules/security.md` §12 - High/Critical = blocking.
+# Advisory yang tidak punya versi patched dicatat eksplisit di `pnpm-workspace.yaml`
+# (`auditConfig.ignoreGhsas`) dan di `reports/security-t63-audit.md`.
+on:
+  pull_request:
+  push:
+    branches: [main]
+  # Advisory baru bisa terbit tanpa ada PR: tetap dicek tiap Senin 02:00 UTC.
+  schedule:
+    - cron: '0 2 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: security-audit-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  audit:
+    name: pnpm audit (high+)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      # Action di-pin ke commit SHA (tag di komentar) supaya tag yang dipindahkan tidak bisa
+      # menyuntikkan kode ke pipeline.
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Setup pnpm
+        uses: pnpm/action-setup@ff378ebe6b225b0680b81c1ad4498ae0d1d3a5e3 # v6.0.10
+        # versi pnpm dibaca dari field `packageManager` di package.json
+      - name: Setup Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: pnpm
+      # `--ignore-scripts`: gate ini tidak butuh lifecycle script (nuxt prepare dsb.),
+      # sekaligus memastikan lockfile yang di-commit konsisten dengan package.json.
+      - name: Install (frozen lockfile, tanpa lifecycle script)
+        run: pnpm install --frozen-lockfile --ignore-scripts
+      - name: Audit - blokir High/Critical
+        run: pnpm run audit:security
