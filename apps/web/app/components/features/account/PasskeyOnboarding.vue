@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import E2eeExplainer from '~/components/features/account/E2eeExplainer.vue'
-import RecoveryBackupCard from '~/components/features/account/RecoveryBackupCard.vue'
 import { BRAND } from '#shared/brand'
 import { isWebAuthnAvailable } from '~/utils/crypto/webauthn'
 import {
@@ -49,19 +48,28 @@ const backupStep = ref(false)
  */
 const isSupported = ref(false)
 
+/** Penanda skip hanya dibaca setelah sesi & dukungan WebAuthn diketahui (lihat `onMounted`). */
+const hasSkipped = ref(false)
+
 const isOpen = computed(
   () =>
     backupStep.value ||
     shouldForcePasskeyOnboarding({
       localDataStatus: localData.state.value.status,
       hasPasskey: account.passkey.value === 'set',
-      hasSkipped: readPasskeySkip(),
+      hasSkipped: hasSkipped.value,
     }),
 )
 
 onMounted(async () => {
   isSupported.value = isWebAuthnAvailable()
   await ensureLoaded()
+  // Per akun, dan hanya dihormati kalau perangkat ini memang tidak punya WebAuthn: nilai di
+  // `localStorage` bisa diubah siapa pun, tapi dukungan WebAuthn tidak bisa dipalsukan dari console.
+  hasSkipped.value = readPasskeySkip({
+    userId: session.value?.user.id ?? null,
+    isSupported: isSupported.value,
+  })
   await account.load()
 })
 
@@ -91,7 +99,8 @@ function closeOnboarding(): void {
 
 /** Hanya ditawarkan saat perangkatnya tidak mendukung - lihat catatan di atas. */
 function continueWithoutPasskey(): void {
-  writePasskeySkip()
+  writePasskeySkip(session.value?.user.id ?? null)
+  hasSkipped.value = true
   account.load()
 }
 </script>
@@ -125,7 +134,10 @@ function continueWithoutPasskey(): void {
 
     <template v-if="backupStep">
       <p class="lead">{{ $t('account.passkeyOnboarding.backupHint') }}</p>
-      <RecoveryBackupCard is-embedded @saved="closeOnboarding" />
+      <!-- Lazy: kartu backup cuma dirender setelah passkey aktif. Impor statisnya menarik jalur
+           backup/enkripsi (kripto + unduh berkas) ke bundel awal `/app`, padahal mayoritas kunjungan
+           tidak pernah membuka langkah ini. -->
+      <LazyRecoveryBackupCard is-embedded @saved="closeOnboarding" />
       <Button class="exit" variant="ghost" block @click="closeOnboarding">
         {{
           account.passkey.value === 'set'

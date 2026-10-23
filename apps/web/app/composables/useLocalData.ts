@@ -49,6 +49,15 @@ function emptyState(status: LocalDataStatus): LocalDataState {
 let cached: { readonly userId: string; readonly promise: Promise<LocalDataSession> } | null = null
 
 /**
+ * Sesi yang sudah benar-benar terbuka (hasil `cached`), atau `null`.
+ *
+ * Dipakai pembaca yang TIDAK boleh membuka penyimpanan sendiri - mis. indikator status sync. Kalau
+ * mereka memanggil `ensure()`, `ensure()` menulis state (`loading`) dan pembaca lain melihat status
+ * yang berkedip padahal sesinya sudah siap.
+ */
+let opened: LocalDataSession | null = null
+
+/**
  * Apakah ini perangkat PERTAMA akun ini, jadi boleh membuat kunci utama baru?
  *
  * Ada envelope passkey di server = akun sudah punya kunci di perangkat lain. Membuat kunci baru di sini
@@ -85,6 +94,7 @@ export function useLocalData() {
 
       if (userId === undefined) {
         cached = null
+        opened = null
         state.value = emptyState('idle')
         return null
       }
@@ -92,6 +102,7 @@ export function useLocalData() {
       if (cached !== null && cached.userId !== userId) {
         // Akun berganti (mis. login akun lain tanpa reload penuh): sesi lama dibuang, TIDAK dipakai ulang.
         cached = null
+        opened = null
       }
 
       cached ??= {
@@ -99,6 +110,7 @@ export function useLocalData() {
         promise: openLocalDataSession({ userId, canCreateKey: isFirstDeviceOfAccount }),
       }
       const session = await cached.promise
+      opened = session
 
       state.value = {
         status: 'ready',
@@ -112,6 +124,7 @@ export function useLocalData() {
     } catch (error) {
       // Dibiarkan bisa dicoba lagi pada muat berikutnya (mis. storage sementara tidak bisa dibuka).
       cached = null
+      opened = null
 
       if (error instanceof LocalKeyMissingError) {
         state.value = { ...emptyState('locked'), userId: auth.session.value?.user.id ?? null }
@@ -127,13 +140,23 @@ export function useLocalData() {
     }
   }
 
+  /** Sesi yang SUDAH terbuka untuk akun yang sedang login. Tidak membuka apa pun, tidak mengubah state. */
+  function current(): LocalDataSession | null {
+    const userId = auth.session.value?.user.id
+    if (userId === undefined || opened === null || opened.userId !== userId) return null
+
+    return opened
+  }
+
   return {
     state: computed(() => state.value),
     ensure,
+    current,
   }
 }
 
 /** Dipakai test untuk memastikan tidak ada sesi yang bocor antar kasus. */
 export function resetLocalDataSessionForTest(): void {
   cached = null
+  opened = null
 }

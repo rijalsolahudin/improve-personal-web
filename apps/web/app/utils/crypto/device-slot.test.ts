@@ -11,6 +11,8 @@ import { IDBFactory } from 'fake-indexeddb'
 import { openDB } from 'idb'
 import { beforeEach, describe, expect, it } from 'vitest'
 
+import { KEY_SLOTS_LOCAL } from '@improve-personal/core'
+
 import { createWebKeyStore } from './key-store'
 import {
   DEVICE_MATERIAL_KIND,
@@ -192,5 +194,12 @@ describe('slot device', () => {
 
     await keyStore.put('device', { kind: DEVICE_MATERIAL_KIND, handle: { wrappingKey: {} } })
     await expect(unlockMasterKeyWithDevice(keyStore)).rejects.toThrow(/rusak/)
+  })
+
+  it('Salinan 1 (gembok OTP) benar-benar dihapus: tidak ada slot OTP di perangkat', () => {
+    // AC T20 + ADR 10: OTP cuma untuk sesi API. Daftar slot lokal tidak punya (dan tidak boleh
+    // mendapat) slot `otp`, jadi tidak ada jalur yang menyimpan/membuka kunci dengan OTP.
+    expect([...KEY_SLOTS_LOCAL]).toEqual(['device', 'passkey', 'recovery'])
+    expect(KEY_SLOTS_LOCAL).not.toContain('otp')
   })
 })

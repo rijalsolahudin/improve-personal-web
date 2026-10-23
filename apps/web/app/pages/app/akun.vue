@@ -1,18 +1,12 @@
 <script setup lang="ts">
 /**
- * Halaman "Akun & perangkat" (PRD T22, ARCHITECTURE §7).
+ * Halaman "Akun & perangkat" (PRD F15, ARCHITECTURE §7).
  *
- * Yang ADA di halaman ini:
- * - status pembuka kunci (passkey: sudah diatur atau belum),
- * - mengaktifkan passkey (envelope dititip ke server, kredensialnya tinggal di perangkat),
- * - daftar perangkat + logout jarak jauh.
+ * Isinya: status pembuka kunci, aktivasi passkey, kartu backup kode pemulihan, tambah perangkat lewat
+ * QR, daftar perangkat + logout jarak jauh, dan hapus akun.
  *
- * Yang BELUM ada, dan tidak diklaim ada: memulihkan akses lewat passkey saat pembuka perangkat hilang,
- * layar tambah perangkat via QR (butuh pemindai QR), hapus akun, alur lupa OTP, dan opsi menyimpan
- * salinan kunci ke cloud.
- *
- * Catatan keputusan: 24 kata recovery DIHAPUS dari UI karena membingungkan user; pembuka kuncinya
- * sekarang passkey. Modul kripto & artefaknya masih ada dan teruji, menunggu jalur cloud.
+ * Catatan keputusan: 24 kata recovery tidak ditampilkan sebagai daftar kata; pembuka kuncinya passkey
+ * dan kode pemulihan dalam SATU string (`iprk1.*`). Server hanya menyimpan envelope passkey.
  */
 import RecoveryBackupCard from '~/components/features/account/RecoveryBackupCard.vue'
 import { BRAND } from '#shared/brand'
@@ -23,7 +17,21 @@ const { t } = useI18n()
 const { session, ensureLoaded } = useAuthSession()
 const account = useAccount()
 
+const isPairingOpen = ref(false)
+const isDeleteOpen = ref(false)
+
 const email = computed(() => session.value?.user.email ?? '')
+
+/**
+ * Perangkat aktif dulu, jejak audit (sudah dicabut) di bawah. Server sengaja mengembalikan baris yang
+ * sudah di-revoke (`revokedAt` terisi); daftar ini adalah "perangkat yang login sekarang", jadi yang
+ * sudah tidak aktif tidak boleh tampil setara.
+ */
+const devices = computed(() =>
+  [...account.devices.value].sort(
+    (a, b) => Number(a.revokedAt !== null) - Number(b.revokedAt !== null),
+  ),
+)
 
 onMounted(async () => {
   await ensureLoaded()
@@ -74,20 +82,38 @@ async function activatePasskey(): Promise<void> {
     <RecoveryBackupCard />
 
     <article class="card">
+      <h2 class="card-title">{{ t('account.pairing.title') }}</h2>
+      <p class="hint">{{ t('account.pairing.cardHint') }}</p>
+      <div class="actions">
+        <Button variant="outline" size="sm" @click="isPairingOpen = true">
+          {{ t('account.pairing.open') }}
+        </Button>
+      </div>
+    </article>
+
+    <article class="card">
       <h2 class="card-title">{{ t('account.devices.title') }}</h2>
-      <p v-if="account.devices.value.length === 0" class="hint">{{ t('account.devices.empty') }}</p>
+      <p v-if="devices.length === 0" class="hint">{{ t('account.devices.empty') }}</p>
       <ul v-else class="devices">
-        <li v-for="device in account.devices.value" :key="device.id" class="device">
+        <li
+          v-for="device in devices"
+          :key="device.id"
+          class="device"
+          :class="{ 'device--revoked': device.revokedAt !== null }"
+        >
           <span class="device-name">
             {{ device.name }}
             <span v-if="device.isCurrent" class="badge ok">{{ t('account.devices.current') }}</span>
+            <span v-if="device.revokedAt" class="badge muted">
+              {{ t('account.devices.revoked') }}
+            </span>
           </span>
           <span class="device-meta">
             {{ device.platform }} · {{ t('account.devices.lastSeen') }} {{ device.lastSeenAt }}
             <template v-if="device.lastIpCity"> · {{ device.lastIpCity }}</template>
           </span>
           <Button
-            v-if="!device.isCurrent"
+            v-if="!device.isCurrent && !device.revokedAt"
             variant="danger"
             size="sm"
             :disabled="account.busy.value"
@@ -98,6 +124,23 @@ async function activatePasskey(): Promise<void> {
         </li>
       </ul>
     </article>
+
+    <article class="card card--danger">
+      <h2 class="card-title">{{ t('account.delete.cardTitle') }}</h2>
+      <p class="hint">{{ t('account.delete.cardHint') }}</p>
+      <div class="actions">
+        <Button variant="danger" size="sm" @click="isDeleteOpen = true">
+          {{ t('account.delete.open') }}
+        </Button>
+      </div>
+    </article>
+
+    <AccountDevicePairingDialog :open="isPairingOpen" @close="isPairingOpen = false" />
+    <AccountDeleteAccountDialog
+      :open="isDeleteOpen"
+      :session-email="email"
+      @close="isDeleteOpen = false"
+    />
   </section>
 </template>
 
@@ -118,6 +161,10 @@ async function activatePasskey(): Promise<void> {
   border: 1px solid #e6ded1;
   border-radius: 0.8rem;
   background: #fffdf8;
+}
+
+.card--danger {
+  border-color: #e9b7ae;
 }
 
 .card-title {
@@ -152,6 +199,11 @@ async function activatePasskey(): Promise<void> {
   color: #8a5a00;
 }
 
+.badge.muted {
+  background: #efe8db;
+  color: #6b5e4b;
+}
+
 .hint {
   margin: 0.4rem 0;
   font-size: 0.85rem;
@@ -178,6 +230,10 @@ async function activatePasskey(): Promise<void> {
   gap: 0.2rem;
   padding-top: 0.5rem;
   border-top: 1px solid #efe8db;
+}
+
+.device--revoked {
+  opacity: 0.6;
 }
 
 .device-meta {

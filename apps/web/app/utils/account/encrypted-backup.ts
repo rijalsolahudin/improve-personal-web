@@ -4,6 +4,7 @@ import { BRAND } from '#shared/brand'
 import { TECH_IDENTITY } from '#shared/tech-identity'
 
 import { aadFor, openWithKey, sealWithKey } from '../crypto/envelope'
+import { MAX_KDF_MEM_BYTES, MAX_KDF_OPS } from '../crypto/kdf-limits'
 import { loadSodium } from '../crypto/sodium'
 
 /**
@@ -33,13 +34,14 @@ export const ENCRYPTED_BACKUP_FORMAT = TECH_IDENTITY.formatMarkers.recoveryEncry
 export const ENCRYPTED_BACKUP_VERSION = 1
 
 /**
- * Panjang minimum kata sandi.
+ * Panjang minimum kata sandi: **12 karakter** (PRD 907, AC T20). Huruf besar/kecil dihitung.
  *
- * Bukan angka keamanan yang ajaib: kata sandi ini membungkus rahasia yang bisa membuka seluruh data user,
- * dan satu kali tebak yang berhasil berarti kehilangan total. 8 karakter adalah batas yang diminta untuk
- * kemudahan user; kata sandi yang lebih panjang tetap dianjurkan, dan menolak "1234" tetap dijaga.
+ * Bukan angka keajaiban: kata sandi ini membungkus rahasia yang bisa membuka seluruh data user, dan satu
+ * kali tebak yang berhasil berarti kehilangan total. Berkasnya bisa disalin siapa pun, jadi tebakan bisa
+ * dilakukan offline tanpa rate limit kita - 12 karakter adalah batas yang disepakati sebagai kompromi
+ * antara kekuatan dan kemudahan. Turunkan hanya lewat perubahan PRD/AC, bukan di kode.
  */
-export const MIN_PASSPHRASE_LENGTH = 8
+export const MIN_PASSPHRASE_LENGTH = 12
 
 /** Dinyatakan di berkasnya sendiri, bukan cuma di UI. */
 export const ENCRYPTED_BACKUP_WARNING =
@@ -54,15 +56,11 @@ const SALT_BYTES = 16
 const KEY_BYTES = 32
 
 /**
- * Batas atas parameter Argon2id yang diterima dari berkas.
+ * Bentuk berkas yang diterima.
  *
- * `ops`/`mem` dibaca dari berkasnya sendiri, jadi berkas buatan orang lain bisa meminta KDF yang
- * membuat tab membeku atau kehabisan memori. Batasnya setara preset libsodium `SENSITIVE` (ops) dan
- * `MODERATE` (mem) - jauh di atas `INTERACTIVE` yang dipakai saat membuat berkas.
+ * `ops`/`mem` dibaca dari berkasnya sendiri, jadi batas atasnya wajib ada - lihat
+ * `crypto/kdf-limits.ts` (satu sumber dengan kode `iprk1.*` dan berkas envelope recovery).
  */
-const MAX_KDF_OPS = 4
-const MAX_KDF_MEM_BYTES = 256 * 1024 * 1024
-
 export const encryptedBackupDocumentSchema = z
   .object({
     format: z.literal(ENCRYPTED_BACKUP_FORMAT),

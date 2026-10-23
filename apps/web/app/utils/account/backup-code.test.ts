@@ -101,6 +101,62 @@ describe('kode cadangan tunggal', () => {
       /tidak valid/,
     )
   })
+
+  it('kode dengan parameter Argon2id berlebihan ditolak sebelum KDF dijalankan', async () => {
+    // Kode `iprk1.*` bisa datang dari orang lain (mis. "pakai kode ini untuk memulihkan akunmu").
+    // Kalau `ops`/`mem` dipercaya mentah, Argon2id bisa diminta 256 MiB+ (atau jauh lebih besar) dan
+    // tab pemulihan membeku - alasan yang sama dengan batas pada berkas terenkripsi (PRD 912).
+    const sodium = await loadSodium()
+    const { words, envelope } = await freshPair()
+    const code = await buildBackupCode({ words, envelope })
+
+    const payload = JSON.parse(
+      sodium.to_string(
+        sodium.from_base64(
+          code.slice(BACKUP_CODE_PREFIX.length),
+          sodium.base64_variants.URLSAFE_NO_PADDING,
+        ),
+      ),
+    ) as { v: 1; words: string; envelope: Record<string, unknown> }
+
+    const greedy = `${BACKUP_CODE_PREFIX}${sodium.to_base64(
+      sodium.from_string(
+        JSON.stringify({
+          ...payload,
+          envelope: { ...payload.envelope, mem: 4 * 1024 * 1024 * 1024 },
+        }),
+      ),
+      sodium.base64_variants.URLSAFE_NO_PADDING,
+    )}`
+
+    const messageOf = async (value: string): Promise<string> => {
+      try {
+        await parseBackupCode(value)
+      } catch (error) {
+        return (error as Error).message
+      }
+      return ''
+    }
+
+    const memMessage = await messageOf(greedy)
+    expect(memMessage).toMatch(/envelope kunci yang sah/)
+    // Pesan penolakan tidak menggemakan angka dari payload (bukan oracle untuk menebak parameter).
+    expect(memMessage).not.toContain('4294967296')
+
+    const excessiveOps = `${BACKUP_CODE_PREFIX}${sodium.to_base64(
+      sodium.from_string(
+        JSON.stringify({ ...payload, envelope: { ...payload.envelope, ops: 1000 } }),
+      ),
+      sodium.base64_variants.URLSAFE_NO_PADDING,
+    )}`
+
+    const opsMessage = await messageOf(excessiveOps)
+    expect(opsMessage).toMatch(/envelope kunci yang sah/)
+    expect(opsMessage).not.toContain('1000')
+
+    // Nilai preset INTERACTIVE (ops=2, mem=64 MiB) tetap diterima: kode lama tidak boleh mati.
+    await expect(parseBackupCode(code)).resolves.toMatchObject({ words })
+  })
 })
 
 describe('berkas backup terenkripsi', () => {
@@ -184,6 +240,23 @@ describe('berkas backup terenkripsi', () => {
     ).rejects.toThrow(/minimal/)
   })
 
+  it('batas minimum kata sandi 12 karakter (AC T20), bukan 8', async () => {
+    // AC T20 + PRD 907: berkas ini membungkus kunci utama, jadi batasnya 12 karakter. Test ini
+    // sengaja menguji PERILAKU (bukan konstanta), supaya penurunan batas ke 8 tidak lolos diam-diam.
+    const eleven = 'Abcdefghi12'
+    const twelve = 'Abcdefghij12'
+    expect(eleven).toHaveLength(11)
+    expect(twelve).toHaveLength(12)
+
+    await expect(
+      encryptRecoveryBackup({ payload: 'apa saja', passphrase: eleven, createdAtMs: 1 }),
+    ).rejects.toThrow(/minimal 12 karakter/)
+
+    await expect(
+      encryptRecoveryBackup({ payload: 'apa saja', passphrase: twelve, createdAtMs: 1 }),
+    ).resolves.toMatchObject({ encryption: 'argon2id-xchacha20poly1305' })
+  })
+
   it('berkas dengan format/isi asing ditolak sebelum KDF dijalankan', async () => {
     expect(() => parseEncryptedBackup('bukan json')).toThrow(/bukan JSON/)
     expect(() =>
@@ -199,11 +272,28 @@ describe('berkas backup terenkripsi', () => {
     })
 
     // 4 GiB memori: cukup untuk membekukan/mematikan tab kalau dipercaya mentah.
-    const greedy = serializeEncryptedBackup({ ...document, mem: 4 * 1024 * 1024 * 1024 })
-    expect(() => parseEncryptedBackup(greedy)).toThrow(/tidak dikenali/)
-    expect(() =>
-      parseEncryptedBackup(serializeEncryptedBackup({ ...document, ops: 1000 })),
-    ).toThrow(/tidak dikenali/)
+    const messageOf = (text: string): string => {
+      try {
+        parseEncryptedBackup(text)
+      } catch (error) {
+        return (error as Error).message
+      }
+      return ''
+    }
+
+    const memMessage = messageOf(
+      serializeEncryptedBackup({ ...document, mem: 4 * 1024 * 1024 * 1024 }),
+    )
+    expect(memMessage).toMatch(/tidak dikenali/)
+    // Pesannya generik: angka dari berkas tidak diulang (bukan oracle).
+    expect(memMessage).not.toContain('4294967296')
+
+    const opsMessage = messageOf(serializeEncryptedBackup({ ...document, ops: 1000 }))
+    expect(opsMessage).toMatch(/tidak dikenali/)
+    expect(opsMessage).not.toContain('1000')
+
+    // Berkas yang dibuat aplikasi ini (preset INTERACTIVE) tetap diterima setelah batas atas ditambah.
+    expect(messageOf(serializeEncryptedBackup(document))).toBe('')
   })
 
   it('mengenali berkas terenkripsi dari penandanya, dan tidak salah menganggap kode biasa', async () => {

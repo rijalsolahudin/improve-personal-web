@@ -74,6 +74,9 @@ const emailModel = computed({ get: () => flow.email.value, set: flow.setEmail })
       </AuthPrimaryButton>
     </form>
     <p class="hint">{{ $t('login.choose.hint') }}</p>
+    <Button variant="link" class="forgot" @click="flow.openRecovery">
+      {{ $t('login.recovery.link') }}
+    </Button>
   </div>
 </template>
 
@@ -177,5 +180,10 @@ const emailModel = computed({ get: () => flow.email.value, set: flow.setEmail })
   font-size: var(--fs-caption);
   line-height: 1.5;
   color: #8a7a60;
+}
+
+.forgot {
+  align-self: flex-start;
+  margin-top: -12px;
 }
 </style>

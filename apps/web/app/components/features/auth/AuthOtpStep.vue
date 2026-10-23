@@ -104,6 +104,9 @@ const resendCountdown = computed(() => `0:${String(flow.resendSecondsLeft.value)
         {{ $t('login.otp.resendIn', { time: resendCountdown }) }}
       </span>
     </p>
+    <Button variant="link" class="forgot" @click="flow.openRecovery">
+      {{ $t('login.recovery.link') }}
+    </Button>
     <!-- Sengaja TANPA catatan kode demo: hanya server yang tahu apakah mode OTP fix aktif
          (env `NUXT_SMTP_URL` - lihat log startup server), jadi UI tidak menebak kodenya. -->
   </div>
@@ -183,5 +186,10 @@ const resendCountdown = computed(() => `0:${String(flow.resendSecondsLeft.value)
   font-weight: var(--fw-strong);
   color: #8a7a60;
   font-variant-numeric: tabular-nums;
+}
+
+.forgot {
+  align-self: flex-start;
+  margin-top: -8px;
 }
 </style>

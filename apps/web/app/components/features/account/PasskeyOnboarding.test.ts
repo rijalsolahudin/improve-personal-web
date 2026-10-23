@@ -3,6 +3,7 @@ import { flushPromises, type VueWrapper } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
 import type { LocalDataState } from '~/composables/useLocalData'
+import { PASSKEY_SKIP_STORAGE_KEY } from '~/utils/account/passkey-setup'
 
 import PasskeyOnboarding from './PasskeyOnboarding.vue'
 
@@ -44,7 +45,7 @@ const READY_STATE: LocalDataState = {
 
 beforeEach(() => {
   clearNuxtState(['localData', 'accountPasskey', 'accountStatus', 'accountError'])
-  localStorage.removeItem('ip.passkeySetupSkipped')
+  localStorage.removeItem(PASSKEY_SKIP_STORAGE_KEY)
 })
 
 afterEach(async () => {
@@ -114,6 +115,33 @@ describe('onboarding passkey', () => {
         .map((button) => button.text())
         .join(' | '),
     ).toContain('Lanjut tanpa passkey')
+  })
+
+  it('kartu "Backup kode pemulihan" disarankan, bukan gerbang: bisa dilewati setelah passkey aktif', async () => {
+    const wrapper = await mount()
+    setLocalDataState(READY_STATE)
+    setPasskey('unset')
+    await nextTick()
+
+    // Langkah 2 dibuka tanpa menunggu passkey: user boleh menyiapkan kode lebih dulu.
+    const backupFirst = wrapper
+      .findAll('button')
+      .find((button) => button.text() === 'Simpan Kode Pemulihan Cadangan')
+    expect(backupFirst).toBeDefined()
+    await backupFirst?.trigger('click')
+    await nextTick()
+    expect(wrapper.text()).toContain('Simpan kode pemulihan')
+
+    // Passkey sudah aktif -> langkah backup boleh ditinggalkan ("Lewati dulu"), bukan menahan user.
+    setPasskey('set')
+    await nextTick()
+
+    const skip = wrapper.findAll('button').find((button) => button.text() === 'Lewati dulu')
+    expect(skip).toBeDefined()
+    await skip?.trigger('click')
+    await nextTick()
+
+    expect(wrapper.find('[role="dialog"]').exists()).toBe(false)
   })
 
   it('tidak menahan user saat data lokal belum bisa dibuka', async () => {

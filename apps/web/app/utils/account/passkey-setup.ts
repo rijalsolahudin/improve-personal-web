@@ -41,21 +41,48 @@ export function shouldForcePasskeyOnboarding(input: {
 export const PASSKEY_UNAVAILABLE_HINT =
   'Perangkat/browser ini belum bisa dipakai untuk passkey (butuh WebAuthn + koneksi aman). Coba browser lain, atau buka lewat HTTPS.'
 
-/**
- * Kunci `localStorage` untuk penanda "user melanjutkan tanpa passkey".
- *
- * Dipakai `localStorage`, bukan tabel kunci: ini preferensi UI per-perangkat (seperti tema/hiasan), bukan
- * bahan kripto - dan `SecureKeyStore` sengaja hanya menerima slot yang dikenal (`device`/`passkey`/
- * `recovery`).
- */
-export const PASSKEY_SKIP_STORAGE_KEY = 'ip.passkeySetupSkipped'
+export const PASSKEY_SKIP_STORAGE_KEY = 'ip-passkey-setup-skipped'
 
-export function readPasskeySkip(storage?: Pick<Storage, 'getItem'>): boolean {
-  const target = storage ?? (typeof localStorage === 'undefined' ? undefined : localStorage)
-  return target?.getItem(PASSKEY_SKIP_STORAGE_KEY) === '1'
+/**
+ * Kunci `localStorage` untuk penanda "user melanjutkan tanpa passkey" milik satu akun.
+ *
+ * Dipakai `localStorage`, bukan tabel kunci: ini preferensi UI per-perangkat (seperti tema/hiasan),
+ * bukan bahan kripto - dan `SecureKeyStore` sengaja hanya menerima slot yang dikenal
+ * (`device`/`passkey`/`recovery`). Penandanya per akun karena satu browser bisa dipakai lebih dari satu
+ * akun: "akun A tidak bisa memakai WebAuthn" bukan alasan membiarkan akun B melewati onboarding.
+ *
+ * Prefiksnya WAJIB `ip-` (sama dengan `TECH_IDENTITY.storagePrefix`): `clearAppStorage` menyapu key
+ * ber-prefiks itu saat logout/hapus akun. Versi sebelumnya memakai `ip.` sehingga penandanya tertinggal
+ * di perangkat - termasuk setelah akunnya dihapus.
+ */
+export function passkeySkipStorageKey(userId?: string | null): string {
+  return userId === undefined || userId === null
+    ? PASSKEY_SKIP_STORAGE_KEY
+    : `${PASSKEY_SKIP_STORAGE_KEY}:${userId}`
 }
 
-export function writePasskeySkip(storage?: Pick<Storage, 'setItem'>): void {
+export type PasskeySkipOptions = {
+  /** Akun yang sedang login. Tanpa ini penanda lama (per-perangkat) tidak dihormati. */
+  readonly userId?: string | null
+  /**
+   * Hasil `isWebAuthnAvailable()` di perangkat ini.
+   *
+   * Skip HANYA sah kalau perangkatnya memang tidak mendukung WebAuthn (PRD F15). Nilai di
+   * `localStorage` bisa diubah siapa saja lewat console, jadi penanda itu tidak boleh jadi satu-satunya
+   * penentu: kalau WebAuthn tersedia, onboarding tetap wajib.
+   */
+  readonly isSupported: boolean
+  readonly storage?: Pick<Storage, 'getItem'>
+}
+
+export function readPasskeySkip(options: PasskeySkipOptions): boolean {
+  if (options.isSupported) return false
+
+  const target = options.storage ?? (typeof localStorage === 'undefined' ? undefined : localStorage)
+  return target?.getItem(passkeySkipStorageKey(options.userId)) === '1'
+}
+
+export function writePasskeySkip(userId: string | null, storage?: Pick<Storage, 'setItem'>): void {
   const target = storage ?? (typeof localStorage === 'undefined' ? undefined : localStorage)
-  target?.setItem(PASSKEY_SKIP_STORAGE_KEY, '1')
+  target?.setItem(passkeySkipStorageKey(userId), '1')
 }

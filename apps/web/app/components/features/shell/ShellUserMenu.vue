@@ -15,9 +15,16 @@ const accountEmail = computed(() => session.value?.user.email ?? '')
 const accountInitial = computed(() => accountEmail.value.slice(0, 1).toUpperCase())
 
 const items = [
-  { key: 'profile', glyph: '☺', to: getFeature('akun').path },
-  { key: 'preferences', glyph: '⚙', to: APP_HOME_PATH },
-  { key: 'guide', glyph: '?', to: getFeature('panduan').path },
+  { key: 'profile', glyph: '☺', to: getFeature('akun').path, label: 'shell.user.profile' },
+  { key: 'preferences', glyph: '⚙', to: APP_HOME_PATH, label: 'shell.user.preferences' },
+  { key: 'guide', glyph: '?', to: getFeature('panduan').path, label: 'shell.user.guide' },
+  // Import & Export tidak punya baris sendiri di sidebar (grup `lainnya`): pintunya menu akun.
+  {
+    key: 'importExport',
+    glyph: '⇅',
+    to: getFeature('import-export').path,
+    label: 'feature.import-export.label',
+  },
 ] as const
 
 function onItem(key: (typeof items)[number]['key']): void {
@@ -38,7 +45,7 @@ function onItem(key: (typeof items)[number]['key']): void {
         @click="onItem(item.key)"
       >
         <span class="item-icon" aria-hidden="true">{{ item.glyph }}</span>
-        <span>{{ $t(`shell.user.${item.key}`) }}</span>
+        <span>{{ $t(item.label) }}</span>
       </NuxtLink>
       <button type="button" class="item logout" @click="logout">
         <span class="item-icon" aria-hidden="true">⏻</span>

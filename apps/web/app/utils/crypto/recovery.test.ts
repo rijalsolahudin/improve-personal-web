@@ -11,8 +11,10 @@ import {
   createRecoveryEnvelope,
   createRecoveryWords,
   isValidRecoveryWords,
+  recoveryEnvelopeSchema,
   recoveryWordCount,
   unwrapMasterKeyWithRecovery,
+  type RecoveryEnvelope,
 } from './recovery'
 import { createMasterKey, deriveDataKey } from './master-key'
 import { createSodiumCryptoProvider } from './provider'
@@ -159,5 +161,64 @@ describe('envelope recovery', () => {
     })
 
     expect(opened).toBe(plaintext)
+  })
+
+  it('envelope LAMA hasil preset INTERACTIVE (ops=2, mem=64 MiB) tetap bisa dibuka', async () => {
+    // Artefak nyata dari versi aplikasi sebelum batas KDF ditambahkan: frasa BIP39 standar, salt
+    // tetap, dan blob yang disegel sekali di luar test ini. Angka ops/mem sengaja ditulis literal
+    // (bukan dibaca dari libsodium), karena justru nilai LAMA inilah yang harus tetap diterima setelah
+    // batas atas ditambahkan - kalau batasnya diturunkan di bawah 64 MiB, backup user lama jadi mati.
+    const legacyEnvelope: RecoveryEnvelope = {
+      kdf: 'argon2id',
+      alg: 'xchacha20poly1305',
+      ver: 1,
+      salt: 'AQIDBAUGBwgJCgsMDQ4PEA==',
+      ops: 2,
+      mem: 67_108_864,
+      wrappedKey:
+        '//79/Pv6+fj39vX08/Lx8O/u7ezr6unoqGPAtg8fd389B7GBXPczYKZ3lWJ2gHDd+AKu13gDPSsf6LKi/UMNBWa2jLpQWBmD',
+    }
+    const words =
+      'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon art'
+    const expectedMasterKey = 'ICEiIyQlJicoKSorLC0uLzAxMjM0NTY3ODk6Ozw9Pj8='
+
+    // Schema yang membatasi `ops`/`mem` harus tetap menerima parameter preset lama.
+    expect(recoveryEnvelopeSchema.safeParse(legacyEnvelope).success).toBe(true)
+
+    const recovered = await unwrapMasterKeyWithRecovery(words, legacyEnvelope)
+    expect(Buffer.from(recovered).toString('base64')).toBe(expectedMasterKey)
+  })
+
+  it('parameter KDF berlebihan pada envelope tersimpan ditolak SEBELUM Argon2id (bukan oracle angka)', async () => {
+    // Jalur objek tersimpan (slot `recovery` di perangkat / hasil impor) tidak melewati schema, jadi
+    // pemeriksaan di `deriveRecoveryKey` yang menahan. Kalau tidak ada, Argon2id 4 GiB tetap dijalankan.
+    const sodium = await loadSodium()
+    const words = createRecoveryWords()
+    const envelope = await createRecoveryEnvelope(createMasterKey(sodium), words)
+
+    const memoryError: unknown = await unwrapMasterKeyWithRecovery(words, {
+      ...envelope,
+      mem: 4 * 1024 * 1024 * 1024,
+    }).then(
+      () => null,
+      (error: unknown) => error,
+    )
+
+    expect(memoryError).toBeInstanceOf(Error)
+    expect((memoryError as Error).message).toMatch(/di luar batas/)
+    // Pesan tidak menggemakan angka dari artefak: user tidak mendapat oracle untuk menebak parameter.
+    expect((memoryError as Error).message).not.toContain('4294967296')
+
+    const opsError: unknown = await unwrapMasterKeyWithRecovery(words, {
+      ...envelope,
+      ops: 1000,
+    }).then(
+      () => null,
+      (error: unknown) => error,
+    )
+
+    expect(opsError).toBeInstanceOf(Error)
+    expect((opsError as Error).message).toMatch(/di luar batas/)
+    expect((opsError as Error).message).not.toContain('1000')
   })
 })

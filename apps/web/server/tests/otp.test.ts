@@ -363,6 +363,84 @@ describe('rate limit OTP di Postgres (bukan in-memory)', () => {
   })
 })
 
+describe('requestOtp saat transport email AKTIF (non-production + `NUXT_SMTP_URL`)', () => {
+  /**
+   * AC T19 yang diuji di sini adalah KETERKAITAN-nya, bukan dua perilaku terpisah: `isFixedOtpEnabled`
+   * mematikan mode fix begitu transport ada, dan `requestOtp` harus ikut menghasilkan kode acak -
+   * kalau tidak, email berisi kode acak sementara yang diterima server tetap `777777` (atau
+   * sebaliknya), dan login tidak pernah selesai.
+   *
+   * Transport-nya disuntik (`fixture.mailer`), jadi test ini tidak menyentuh Mailpit/SMTP mana pun -
+   * yang dibuktikan adalah kode yang DIPILIH dan DISIMPAN, bukan pengiriman jaringannya.
+   */
+  it('yang dipakai kode 6 digit acak (bukan 777777), disimpan sebagai hash kode itu, dan tetap bisa ditukar', async () => {
+    const fixture = scope.fixture({
+      prefix: 'otp-smtp-random',
+      env: makeEnv({
+        appEnv: 'development',
+        smtpUrl: 'smtp://127.0.0.1:1025',
+        mailFrom: 'Improve Personal <no-reply@local.test>',
+      }),
+    })
+    const ctx = fixture.ctx()
+
+    // Prasyarat: transport terisi = mode fix mati.
+    expect(ctx.env.fixedOtpEnabled).toBe(false)
+
+    await requestOtp(ctx, {
+      email: fixture.email,
+      purpose: 'login',
+      mailer: fixture.mailer.mailer,
+    })
+
+    const mail = fixture.mailer.mails.at(0)
+    expect(mail?.code).toMatch(/^[0-9]{6}$/)
+
+    const rows = await ctx.db
+      .select()
+      .from(otpChallenges)
+      .where(eq(otpChallenges.emailHash, hmacSha256(fixture.email, ctx.env.otpPepper)))
+    expect(rows).toHaveLength(1)
+    // Yang disimpan adalah hash dari kode yang DIKIRIM - bukan kode fix.
+    expect(rows.at(0)?.codeHash).toBe(hmacSha256(mail?.code ?? '', ctx.env.otpPepper))
+
+    // Peluang kode acak kebetulan `777777` adalah 1 dari 10^6; kalau itu terjadi, test ini tidak boleh
+    // menyesatkan dengan mengklaim kode fix ditolak.
+    if (mail?.code !== FIXED_OTP_CODE) {
+      const fixedRejected = await captureProblem(
+        verifyOtp(ctx, { email: fixture.email, code: FIXED_OTP_CODE, purpose: 'login' }),
+      )
+      expect(fixedRejected?.code).toBe('OTP_INVALID')
+    }
+
+    // Dan kode yang benar-benar dikirim tetap lolos - jalur verifikasi tidak ikut berubah.
+    const accepted = await captureProblem(
+      verifyOtp(ctx, { email: fixture.email, code: mail?.code ?? '', purpose: 'login' }),
+    )
+    expect(accepted).toBeNull()
+  })
+
+  it('rate limit per email tetap dihitung walau transport email aktif', async () => {
+    const fixture = scope.fixture({
+      prefix: 'otp-smtp-rate-limit',
+      env: makeEnv({
+        appEnv: 'staging',
+        smtpUrl: 'smtp://127.0.0.1:1025',
+        mailFrom: 'qa@improve-personal.test',
+      }),
+    })
+
+    await requestOtp(fixture.ctx(), {
+      email: fixture.email,
+      purpose: 'login',
+      mailer: fixture.mailer.mailer,
+    })
+
+    const identifier = `email:${hmacSha256(fixture.email, fixture.env.otpPepper)}`
+    expect(await rateLimitCount(fixture.env, identifier)).toBe(1)
+  })
+})
+
 describe('pemilihan mailer (batas keluar email: Resend / SMTP - tidak ada yang menyentuh jaringan)', () => {
   it('non-production TANPA transport: email tidak dikirim - mailer-nya no-op, tanpa jalur jaringan sama sekali', async () => {
     const mailer = createOtpMailer(makeEnv({ appEnv: 'test' }))

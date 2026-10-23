@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { BRAND } from '#shared/brand'
 import { TECH_IDENTITY } from '#shared/tech-identity'
 
+import { MAX_KDF_MEM_BYTES, MAX_KDF_OPS } from '../crypto/kdf-limits'
 import type { RecoveryEnvelope } from '../crypto/recovery'
 
 /**
@@ -43,8 +44,9 @@ const envelopeSchema = z
     alg: z.string().min(1).max(64),
     ver: z.int().min(1),
     salt: z.string().min(1).max(256),
-    ops: z.int().min(1),
-    mem: z.int().min(1),
+    // Batas atas wajib: `ops`/`mem` menentukan biaya Argon2id yang kita jalankan nanti (PRD 912).
+    ops: z.int().min(1).max(MAX_KDF_OPS),
+    mem: z.int().min(1).max(MAX_KDF_MEM_BYTES),
     wrappedKey: z.string().min(1).max(4096),
   })
   .strict()

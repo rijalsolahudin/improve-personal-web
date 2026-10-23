@@ -100,6 +100,11 @@ async function confirmSaved(): Promise<void> {
           {{ t(`account.backup.status.${isSaved ? 'set' : 'unset'}`) }}
         </span>
       </p>
+      <!-- Kegagalan (mis. data lokal tidak bisa dibuka) HARUS terlihat: dulu kartu ini diam saja, jadi
+           tombolnya terasa rusak padahal kode pemulihan satu-satunya jalan pulih kalau passkey hilang. -->
+      <p v-if="account.error.value" class="error" role="alert">
+        {{ t('account.errorPrefix') }} {{ account.error.value }}
+      </p>
     </template>
 
     <template v-if="code">
@@ -192,6 +197,14 @@ async function confirmSaved(): Promise<void> {
   color: var(--text-muted);
   font-size: var(--fs-body-sm);
   line-height: var(--lh-body);
+}
+
+.error {
+  padding: var(--space-5) var(--space-7);
+  border-radius: var(--radius-inner);
+  background: #ffe1da;
+  color: var(--danger, #b0283e);
+  font-size: var(--fs-body-sm);
 }
 
 .status {

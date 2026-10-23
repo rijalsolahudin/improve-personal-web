@@ -11,7 +11,8 @@ const flow = useLoginFlow()
       <AuthBrandPanel />
       <div class="form-side">
         <AuthEmailStep v-if="flow.step.value === 'choose'" :flow="flow" />
-        <AuthOtpStep v-else :flow="flow" />
+        <AuthOtpStep v-else-if="flow.step.value === 'otp'" :flow="flow" />
+        <AuthRecoveryStep v-else @back="flow.backToEmail" />
         <p class="terms">{{ $t('login.terms') }}</p>
       </div>
     </div>

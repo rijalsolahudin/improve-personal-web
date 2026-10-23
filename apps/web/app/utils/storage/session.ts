@@ -237,8 +237,11 @@ export async function openLocalDataSession(options: OpenSessionOptions): Promise
  * kontrak bersama yang juga dipegang adapter mobile). Yang tersedia adalah index per tipe, jadi tipe
  * entitas diperiksa satu per satu: 20 pembacaan index kecil, sekali per sesi, dan hasilnya hanya
  * dipakai saat slot pembuka perangkat kosong.
+ *
+ * Diekspor karena alur tambah perangkat membutuhkan pertanyaan yang sama sebelum MENIMPA pembuka
+ * perangkat yang sudah ada: menimpanya saat ada record berarti record itu tidak akan bisa dibuka lagi.
  */
-async function hasStoredRecords(storage: StorageAdapter): Promise<boolean> {
+export async function hasStoredRecords(storage: StorageAdapter): Promise<boolean> {
   for (const type of ENTITY_TYPES) {
     if ((await storage.listIndexByType(type)).length > 0) return true
   }

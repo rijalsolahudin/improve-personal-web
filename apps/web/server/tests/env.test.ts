@@ -395,6 +395,32 @@ describe('assertServerEnvForStartup (validasi yang dijalankan plugin startup)', 
     )
   })
 
+  it('production + `NUXT_SMTP_URL` terisi -> server MENOLAK start (AC T19)', () => {
+    // Divalidasi di level STARTUP, bukan cuma `resolveServerEnv`: tanda berkas env non-production
+    // ikut ter-deploy harus terlihat sebagai server yang tidak mau hidup, bukan transport yang
+    // diam-diam diabaikan.
+    expect(() =>
+      assertServerEnvForStartup(
+        baseConfig({
+          appEnv: 'production',
+          ...PRODUCTION_MAIL,
+          smtpUrl: 'smtp://127.0.0.1:1025',
+        }),
+        [],
+        'production',
+      ),
+    ).toThrow(ServerEnvError)
+
+    // Transport tanpa pengirim di non-production juga menolak start: kode fix sudah mati, jadi email
+    // adalah satu-satunya jalan masuk dan pengirim kosong membuat SMTP menolaknya.
+    expect(() =>
+      assertServerEnvForStartup(
+        baseConfig({ appEnv: 'staging', smtpUrl: 'smtp://127.0.0.1:1025', mailFrom: '' }),
+        [],
+      ),
+    ).toThrow(ServerEnvError)
+  })
+
   it('env tidak dikenal/kosong diperlakukan production -> kredensial email wajib', () => {
     expect(() => assertServerEnvForStartup(baseConfig({ appEnv: 'prod' }), [])).toThrow(
       ServerEnvError,

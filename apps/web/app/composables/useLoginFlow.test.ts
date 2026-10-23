@@ -1,8 +1,9 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
+import { OTP_RESEND_COOLDOWN_SECONDS } from '@improve-personal/contracts'
 import { mockNuxtImport } from '@nuxt/test-utils/runtime'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { AuthRequestError, type AuthGateway } from './auth/gateway'
 import { AUTH_SESSION_STATE_KEYS, useAuthSession } from './useAuthSession'
@@ -205,6 +206,69 @@ describe('useLoginFlow', () => {
     routeState.query = { error: 'lain' }
 
     expect(useLoginFlow(fakeGateway()).googleError.value).toBeNull()
+  })
+})
+
+describe('jeda 30 detik & pesan yang tidak membocorkan email terdaftar (T22)', () => {
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('cooldown kirim ulang = 30 detik (konstanta kontrak), kirim ulang ditolak sampai habis', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-10-23T08:00:00.000Z'))
+    clearNuxtState(['now'])
+
+    const gateway = fakeGateway()
+    const flow = useLoginFlow(gateway)
+    flow.setEmail('kamu@email.com')
+
+    await flow.submitEmail()
+
+    expect(OTP_RESEND_COOLDOWN_SECONDS).toBe(30)
+    expect(flow.resendSecondsLeft.value).toBe(30)
+
+    // Selama jeda: tombol kirim ulang tidak mengirim apa pun ke server.
+    await flow.resend()
+    expect(gateway.requestEmailOtp).toHaveBeenCalledTimes(1)
+
+    useState<number>('now').value = Date.now() + 29_000
+    await nextTick()
+    await flow.resend()
+    expect(gateway.requestEmailOtp).toHaveBeenCalledTimes(1)
+
+    // Lewat jeda: boleh kirim lagi, dan jedanya mulai dari 30 detik lagi.
+    useState<number>('now').value = Date.now() + 30_000
+    await nextTick()
+    expect(flow.resendSecondsLeft.value).toBe(0)
+
+    await flow.resend()
+    expect(gateway.requestEmailOtp).toHaveBeenCalledTimes(2)
+    // Ticker jam menyusul; nilai `now` yang dipakai assertion sebelumnya masih di detik ke-30.
+    useState<number>('now').value = Date.now()
+    await nextTick()
+    expect(flow.resendSecondsLeft.value).toBe(30)
+  })
+
+  it('email belum terdaftar & email terdaftar menghasilkan langkah yang sama (tidak ada cabang pendaftaran)', async () => {
+    // Server selalu 204 untuk keduanya; UI memang tidak boleh punya jalur "email tidak dikenal".
+    for (const address of ['baru@email.com', 'sudah-terdaftar@email.com']) {
+      const gateway = fakeGateway()
+      const flow = useLoginFlow(gateway)
+      flow.setEmail(address)
+
+      await flow.submitEmail()
+
+      expect(flow.step.value).toBe('otp')
+      expect(flow.emailError.value).toBeNull()
+    }
+  })
+
+  it('tidak ada pesan login yang menyebut status pendaftaran email', () => {
+    const forbidden = /terdaftar|belum punya akun|tidak ditemukan|tidak dikenal|unknown/i
+    const messages = Object.values(idMessages.login.error)
+
+    expect(messages.filter((message) => forbidden.test(message))).toEqual([])
   })
 })
 

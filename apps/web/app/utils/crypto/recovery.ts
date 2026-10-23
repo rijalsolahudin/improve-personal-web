@@ -3,6 +3,7 @@ import { wordlist } from '@scure/bip39/wordlists/english.js'
 import { z } from 'zod'
 
 import { aadFor, openWithKey, sealWithKey } from './envelope'
+import { MAX_KDF_MEM_BYTES, MAX_KDF_OPS } from './kdf-limits'
 import { assertMasterKey } from './master-key'
 import { loadSodium, type SodiumModule } from './sodium'
 
@@ -33,6 +34,10 @@ export const RECOVERY_WORD_COUNT = 24
  * Dipakai SEMUA artefak yang membawa envelope: berkas plaintext, kode cadangan, dan berkas terenkripsi.
  * Satu definisi, bukan tiga: kalau salah satu jalur melonggarkan validasinya, envelope rusak bisa lolos
  * ke jalur pemulihan - dan di sana kegagalannya cuma terlihat sebagai "tidak bisa membuka data".
+ *
+ * `ops`/`mem` dibatasi atas, bukan hanya minimal: keduanya dibaca dari kode/berkas yang bisa datang dari
+ * orang lain ("pakai kode ini untuk memulihkan akunmu"), jadi tanpa batas atas Argon2id bisa diminta
+ * menghabiskan memori dan membekukan tab pemulihan (PRD 912).
  */
 export const recoveryEnvelopeSchema = z
   .object({
@@ -40,8 +45,8 @@ export const recoveryEnvelopeSchema = z
     alg: z.literal('xchacha20poly1305'),
     ver: z.literal(1),
     salt: z.string().min(1).max(256),
-    ops: z.int().min(1),
-    mem: z.int().min(1),
+    ops: z.int().min(1).max(MAX_KDF_OPS),
+    mem: z.int().min(1).max(MAX_KDF_MEM_BYTES),
     wrappedKey: z.string().min(1).max(4096),
   })
   .strict()
@@ -113,6 +118,22 @@ function normalizeRecoveryWords(words: string): string {
   return words.normalize('NFKD').trim().toLowerCase().replace(/\s+/g, ' ')
 }
 
+/**
+ * Tolak parameter KDF di luar batas SEBELUM Argon2id jalan.
+ *
+ * Schema hanya menjaga envelope yang dibaca dari teks user. Envelope juga bisa sampai ke sini sebagai
+ * objek yang sudah tersimpan (slot `recovery` di perangkat, hasil impor QR), jalur yang tidak melewati
+ * schema - jadi pemeriksaan di titik ini memastikan tidak ada jalan menuju KDF mahal atas permintaan
+ * artefak pihak lain.
+ */
+function assertKdfParams(ops: number, mem: number): void {
+  const isOpsValid = Number.isInteger(ops) && ops >= 1 && ops <= MAX_KDF_OPS
+  const isMemValid = Number.isInteger(mem) && mem >= 1 && mem <= MAX_KDF_MEM_BYTES
+  if (!isOpsValid || !isMemValid) {
+    throw new Error('parameter KDF envelope di luar batas yang diizinkan')
+  }
+}
+
 /** Turunkan kunci pembungkus dari frasa + salt, dengan Argon2id. */
 export function deriveRecoveryKey(
   sodium: SodiumModule,
@@ -121,6 +142,8 @@ export function deriveRecoveryKey(
   ops: number,
   mem: number,
 ): Uint8Array {
+  assertKdfParams(ops, mem)
+
   if (salt.length !== RECOVERY_SALT_BYTES) {
     throw new Error(`salt recovery harus ${RECOVERY_SALT_BYTES} byte, dapat ${salt.length}`)
   }

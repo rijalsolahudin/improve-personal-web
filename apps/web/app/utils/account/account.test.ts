@@ -7,7 +7,11 @@
 import { describe, expect, it } from 'vitest'
 
 import { createMasterKey } from '../crypto/master-key'
-import { createRecoveryEnvelope, createRecoveryWords } from '../crypto/recovery'
+import {
+  createRecoveryEnvelope,
+  createRecoveryWords,
+  unwrapMasterKeyWithRecovery,
+} from '../crypto/recovery'
 import { loadSodium } from '../crypto/sodium'
 import { DevicesRequestError, createDevicesGateway } from './devices-gateway'
 import {
@@ -153,5 +157,65 @@ describe('berkas recovery key', () => {
       ),
     ).toThrow(/belum didukung/)
     expect(text.length).toBeGreaterThan(0)
+  })
+
+  it('berkas recovery dengan parameter KDF berlebihan ditolak sebelum KDF dijalankan', async () => {
+    // Berkas envelope bisa dibuat orang lain ("impor berkas ini"), dan `ops`/`mem` di dalamnya yang
+    // menentukan biaya Argon2id. Batas atasnya harus sama dengan kode `iprk1.*` dan berkas terenkripsi
+    // (PRD 912); pesannya generik supaya tidak menggemakan angka artefak.
+    const sodium = await loadSodium()
+    const envelope = await createRecoveryEnvelope(createMasterKey(sodium), createRecoveryWords())
+    const document = buildRecoveryFileDocument({ envelope, createdAtMs: 1 })
+
+    const messageOf = (text: string): string => {
+      try {
+        parseRecoveryFile(text)
+      } catch (error) {
+        return (error as Error).message
+      }
+      return ''
+    }
+
+    const greedyMem = serializeRecoveryFile({
+      ...document,
+      envelope: { ...document.envelope, mem: 4 * 1024 * 1024 * 1024 },
+    })
+    expect(messageOf(greedyMem)).toMatch(/tidak dikenali/)
+    expect(messageOf(greedyMem)).not.toContain('4294967296')
+
+    const greedyOps = serializeRecoveryFile({
+      ...document,
+      envelope: { ...document.envelope, ops: 1000 },
+    })
+    expect(messageOf(greedyOps)).toMatch(/tidak dikenali/)
+    expect(messageOf(greedyOps)).not.toContain('1000')
+
+    // Nilai preset lama (ops=2, mem=64 MiB) tetap diterima - regresi untuk backup yang sudah beredar.
+    expect(messageOf(serializeRecoveryFile(document))).toBe('')
+  })
+
+  it('envelope saja TIDAK bisa memulihkan kunci utama tanpa 24 kata (AC T20)', async () => {
+    const sodium = await loadSodium()
+    const masterKey = createMasterKey(sodium)
+    const words = createRecoveryWords()
+    const envelope = await createRecoveryEnvelope(masterKey, words)
+
+    // Skenario: user hanya menemukan berkas `-recovery-key.json` (envelope), bukan kode `iprk1.*`.
+    const envelopeOnly = parseRecoveryFile(
+      serializeRecoveryFile(buildRecoveryFileDocument({ envelope, createdAtMs: 1 })),
+    )
+
+    // Tanpa 24 kata: tidak ada bahan KDF sama sekali.
+    await expect(unwrapMasterKeyWithRecovery('', envelopeOnly)).rejects.toThrow(/tidak valid/)
+
+    // Dengan 24 kata yang sah tapi bukan frasa untuk envelope ini: auth tag menolak.
+    await expect(unwrapMasterKeyWithRecovery(createRecoveryWords(), envelopeOnly)).rejects.toThrow(
+      /tidak cocok/,
+    )
+
+    // Hanya pasangan yang benar (envelope + frasa aslinya) yang bisa membuka.
+    expect(Buffer.from(await unwrapMasterKeyWithRecovery(words, envelopeOnly))).toEqual(
+      Buffer.from(masterKey),
+    )
   })
 })
