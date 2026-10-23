@@ -2,9 +2,11 @@ import {
   eisenhowerPlacementSchema,
   todoSchema,
   type EisenhowerPlacement,
+  type GoalLink,
   type Todo,
 } from '@improve-personal/core'
 
+import { NO_GOAL_PLACE, placeOf, type GoalPlace } from '../goals/links'
 import { createRepository } from '../storage/repository'
 import type { LocalDataSession } from '../storage/session'
 import type { Priority, Quadrant, Task } from '../tasks'
@@ -64,7 +66,7 @@ export function toTodoPayload(task: Task, nowMs: number, previous?: Todo): Todo 
     isDone: task.done,
     // `completedAt` hanya terisi saat selesai, dan dibuang saat dibuka lagi (aturan core) - kalau
     // dibiarkan, Overview akan menghitung "selesai hari ini" dari timestamp basi.
-    completedAt: task.done ? (previous?.completedAt ?? nowMs) : null,
+    completedAt: task.done ? (previous?.completedAt ?? task.completedAt ?? nowMs) : null,
     scheduleId: task.scheduleId,
     scheduleOccurrenceAt: previous?.scheduleOccurrenceAt ?? null,
     createdAt: previous?.createdAt ?? nowMs,
@@ -92,17 +94,27 @@ export function toPlacementPayload(input: {
   }
 }
 
-/** Record -> bentuk UI. */
-export function toTask(todo: Todo, placement: EisenhowerPlacement | null): Task {
+/** Record -> bentuk UI. Tautan goal datang dari record `goal_link` terpisah. */
+export function toTask(
+  todo: Todo,
+  placement: EisenhowerPlacement | null,
+  place: GoalPlace = NO_GOAL_PLACE,
+): Task {
   return {
     id: todo.id,
     title: todo.title,
     priority: todo.priority as Priority,
     deadline: todo.deadlineAt,
     done: todo.isDone,
+    // Wajib ikut: Overview menghitung "selesai di rentang ini" dari timestamp ini. Tanpa field ini,
+    // semua task selesai tampak selesai hari ini. Tidak ditulis saat null supaya task yang
+    // belum pernah selesai tetap sama bentuknya seperti sebelumnya.
+    ...(todo.completedAt === null ? {} : { completedAt: todo.completedAt }),
     scheduleId: todo.scheduleId,
     quadrant: placement === null ? null : QUADRANT_FROM_CORE[placement.quadrant],
     position: placement?.position ?? 0,
+    ...(place.goalId === null ? {} : { goalId: place.goalId }),
+    ...(place.goalChapterId === null ? {} : { goalChapterId: place.goalChapterId }),
   }
 }
 
@@ -112,9 +124,15 @@ export function toTask(todo: Todo, placement: EisenhowerPlacement | null): Task 
  * Penempatan dibaca sekaligus lalu dipetakan per `todoId` - bukan satu query per task (itu N+1, dan
  * tabelnya kecil: satu baris per task yang dipilah).
  */
-export async function loadTasks(session: LocalDataSession): Promise<Task[]> {
-  const todos = await session.repos.todo.listAll({ includeDeleted: false })
-  const placements = await placementsOf(session).listAll({ includeDeleted: false })
+export async function loadTasks(
+  session: LocalDataSession,
+  /** Tautan goal yang sudah dimuat pemanggil (hindari query `goal_link` ganda). */
+  goalLinks: ReadonlyMap<string, GoalLink> = new Map(),
+): Promise<Task[]> {
+  const [todos, placements] = await Promise.all([
+    session.repos.todo.listAll({ includeDeleted: false }),
+    placementsOf(session).listAll({ includeDeleted: false }),
+  ])
 
   const byTodoId = new Map<string, EisenhowerPlacement>()
   for (const record of placements) {
@@ -123,7 +141,11 @@ export async function loadTasks(session: LocalDataSession): Promise<Task[]> {
   }
 
   return todos.map((record) =>
-    toTask(todoSchema.parse(record.data), byTodoId.get(record.id) ?? null),
+    toTask(
+      todoSchema.parse(record.data),
+      byTodoId.get(record.id) ?? null,
+      placeOf(goalLinks.get(record.id)),
+    ),
   )
 }
 

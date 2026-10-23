@@ -7,12 +7,14 @@ import {
   scheduleOccurrenceSchema,
   schedulePayloadSchema,
   weekdayFromJsIndex,
+  type GoalLink,
   type ScheduleException,
   type ScheduleOccurrence,
   type SchedulePayload,
   type ScheduleRecurrence,
 } from '@improve-personal/core'
 
+import { NO_GOAL_PLACE, placeOf, type GoalPlace } from '../goals/links'
 import { createRepository } from '../storage/repository'
 import type { LocalDataSession } from '../storage/session'
 import {
@@ -38,8 +40,9 @@ import { fromIsoDate, isIsoDate } from '../time'
  * - `description` (belum ada di form) dan `createdAt` dari payload lama.
  * - `id` recurrence lama, supaya referensi lain tidak putus.
  *
- * `goalId` belum bisa dipetakan: tautan goal adalah record `goal_link` sendiri (F13), bukan field
- * `schedule`. Sampai T18, nilainya `null` setelah dimuat.
+ * `goalId` tidak ada di payload `schedule`: tautan goal adalah record `goal_link` sendiri (F13).
+ * `toSchedule` menerima tautan hasil hydrate sebagai argumen, sedangkan pasangan
+ * `toSchedulePayload`↔`toSchedule` dijaga `WeakMap` untuk pemakaian berpasangan (test/form).
  */
 
 const MINUTE_MS = 60_000
@@ -92,11 +95,19 @@ function colorOf(payload: SchedulePayload): number {
   return Number.isFinite(index) ? index : 0
 }
 
+/**
+ * Tautan goal tidak punya kolom di `schedule` core (record `goal_link` terpisah). `WeakMap` menjaga
+ * pasangan payload↔tautan saat mapper dipakai berpasangan (termasuk test), tanpa melonggarkan schema
+ * core. Saat membaca dari penyimpanan, tautan asli diberikan sebagai argumen ketiga.
+ */
+const goalPlaceByPayload = new WeakMap<SchedulePayload, GoalPlace>()
+
 /** Payload core -> model presentasi. */
 export function toSchedule(
   payload: SchedulePayload,
   exceptions: readonly string[],
   tz: string,
+  place: GoalPlace = goalPlaceByPayload.get(payload) ?? NO_GOAL_PLACE,
 ): Schedule {
   const time = localTimeOf(payload.startAt, tz)
   return {
@@ -110,7 +121,8 @@ export function toSchedule(
     rec: recurrenceToUi(payload.recurrence),
     ends: endsToUi(payload.recurrence, tz),
     exceptions: [...exceptions].sort(),
-    goalId: null,
+    goalId: place.goalId,
+    ...(place.goalChapterId === null ? {} : { goalChapterId: place.goalChapterId }),
     tz: payload.tz,
   }
 }
@@ -124,7 +136,7 @@ export function toSchedulePayload(
 ): SchedulePayload {
   const zone = schedule.tz ?? tz
   const recurrence = withRequiredWeekdays(toCoreRecurrence(schedule, zone), schedule)
-  return {
+  const payload: SchedulePayload = {
     id: schedule.id,
     title: schedule.title,
     description: previous?.description ?? null,
@@ -138,6 +150,11 @@ export function toSchedulePayload(
     recurrence:
       recurrence === null ? null : { ...recurrence, id: previous?.recurrence?.id ?? schedule.id },
   }
+  goalPlaceByPayload.set(payload, {
+    goalId: schedule.goalId,
+    goalChapterId: schedule.goalChapterId ?? null,
+  })
+  return payload
 }
 
 /** Schema core mewajibkan minimal satu hari untuk mingguan; data kosong = pakai hari tanggal mulai. */
@@ -163,6 +180,8 @@ export type ScheduleData = {
 export async function loadScheduleData(
   session: LocalDataSession,
   tz: string,
+  /** Tautan goal yang sudah dimuat pemanggil (hindari query `goal_link` ganda). */
+  goalLinks: ReadonlyMap<string, GoalLink> = new Map(),
 ): Promise<ScheduleData> {
   const [scheduleRecords, exceptionRecords, occurrenceRecords] = await Promise.all([
     session.repos.schedule.listAll({ includeDeleted: false }),
@@ -192,7 +211,12 @@ export async function loadScheduleData(
   }
 
   const schedules = payloads.map((payload) =>
-    toSchedule(payload, exceptionsBySchedule.get(payload.id) ?? [], payload.tz),
+    toSchedule(
+      payload,
+      exceptionsBySchedule.get(payload.id) ?? [],
+      payload.tz,
+      placeOf(goalLinks.get(payload.id)),
+    ),
   )
 
   return { schedules, attendance }

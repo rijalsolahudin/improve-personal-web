@@ -4,9 +4,12 @@ import {
   jsIndexFromWeekday,
   weekdayFromJsIndex,
   type EntityRecord,
+  type GoalLink,
   type Habit as CoreHabit,
   type HabitCheckin,
 } from '@improve-personal/core'
+
+import { NO_GOAL_PLACE, placeOf, type GoalPlace } from '../goals/links'
 
 import {
   HABIT_COLORS,
@@ -47,9 +50,9 @@ import { MS_PER_DAY, fromIsoDate } from '../time'
  * tidak dikenal (mis. sisa palet versi lama) dibaca sebagai warna default - warna tidak layak
  * menggagalkan hydrate seluruh daftar habit.
  *
- * Satu field UI yang masih menunggu kolomnya: `goalId` TIDAK dipersist (butuh relasi `goal_link`,
- * F13/T18), jadi `goalId` kembali `null` setelah reload. `color` sudah tidak termasuk daftar itu - jadi
- * warna yang berubah setelah reload adalah bug, bukan keterbatasan yang diketahui.
+ * `goalId` TIDAK punya kolom di `habit`: tautan disimpan sebagai record `goal_link` (F13/T18) oleh
+ * `utils/goals/links.ts`. Saat hydrate, tautan dibaca sekali oleh pemanggil lalu diberikan ke
+ * `fromCoreHabit`; `toCoreHabit` menyimpan pasangannya di `WeakMap` untuk pemakaian berpasangan.
  */
 
 /** Warna untuk habit tanpa warna tersimpan (`color: null`, termasuk record lama) & hex di luar palet. */
@@ -112,9 +115,18 @@ function habitColorIndex(hex: string | null): number {
   return index === -1 ? DEFAULT_HABIT_COLOR : index
 }
 
+/**
+ * Tautan goal tidak punya kolom di `habit` core (record `goal_link` terpisah).
+ *
+ * `WeakMap` menyimpan pasangan payload↔tautan selama objeknya hidup supaya `toCoreHabit` dan
+ * `fromCoreHabit` tetap bisa dipakai berpasangan (termasuk di test mapper) tanpa mengubah schema
+ * core yang `.strict()`. Saat membaca dari penyimpanan, tautan asli diberikan sebagai argumen kedua.
+ */
+const goalPlaceByPayload = new WeakMap<CoreHabit, GoalPlace>()
+
 /** `Habit` -> payload `habit` core. `previous` menjaga `createdAt` saat menimpa. */
 export function toCoreHabit(habit: Habit, nowMs: number, previous?: CoreHabit): CoreHabit {
-  return {
+  const payload: CoreHabit = {
     id: habit.id,
     name: habit.name,
     iconSticker: habit.sticker ?? habit.icon,
@@ -130,10 +142,18 @@ export function toCoreHabit(habit: Habit, nowMs: number, previous?: CoreHabit): 
     createdAt: previous?.createdAt ?? nowMs,
     updatedAt: nowMs,
   }
+  goalPlaceByPayload.set(payload, {
+    goalId: habit.goalId,
+    goalChapterId: habit.goalChapterId ?? null,
+  })
+  return payload
 }
 
 /** Payload `habit` core -> bentuk UI. */
-export function fromCoreHabit(payload: CoreHabit): Habit {
+export function fromCoreHabit(
+  payload: CoreHabit,
+  place: GoalPlace = goalPlaceByPayload.get(payload) ?? NO_GOAL_PLACE,
+): Habit {
   const iconSticker = payload.iconSticker
   const icon =
     iconSticker === null ? undefined : HABIT_ICONS.find((candidate) => candidate === iconSticker)
@@ -149,7 +169,8 @@ export function fromCoreHabit(payload: CoreHabit): Habit {
         ? null
         : (payload.frequencyDays ?? []).map(jsIndexFromWeekday).sort((left, right) => left - right),
     target: payload.targetPerDay,
-    goalId: null,
+    goalId: place.goalId,
+    ...(place.goalChapterId === null ? {} : { goalChapterId: place.goalChapterId }),
     isArchived: payload.isArchived,
   }
 }
@@ -181,10 +202,12 @@ export async function loadCheckIns(
  */
 export async function loadHabits(
   session: LocalDataSession,
+  /** Tautan goal yang sudah dimuat pemanggil (satu query, bukan query tambahan per hydrate). */
+  goalLinks: ReadonlyMap<string, GoalLink> = new Map(),
 ): Promise<{ habits: Habit[]; checkIns: CheckIns }> {
   const records = await session.repos.habit.listAll({ includeDeleted: false })
   const coreHabits = records.map((record) => habitSchema.parse(record.data))
-  const habits = coreHabits.map(fromCoreHabit)
+  const habits = coreHabits.map((habit) => fromCoreHabit(habit, placeOf(goalLinks.get(habit.id))))
 
   // Tanpa habit tidak ada yang bisa ditampilkan; jangan dekripsi riwayat 400 hari untuk nol hasil.
   if (coreHabits.length === 0) return { habits, checkIns: {} }

@@ -14,7 +14,11 @@ import {
 import { toIsoDate } from '~/utils/time'
 
 /** Modal momen baru / edit (design "Momen baru" / "Edit momen"). */
-const { countdownId } = defineProps<{ countdownId: string | null }>()
+const { countdownId, initial = null } = defineProps<{
+  countdownId: string | null
+  /** Isian awal dari integrasi lain (mis. tanggal target goal, PRD F13/F5). */
+  initial?: { title?: string; date?: string } | null
+}>()
 const emit = defineEmits<{ close: []; saved: [] }>()
 
 const { t } = useI18n()
@@ -25,7 +29,13 @@ const { rememberSticker } = useDeco()
 const original = countdownId ? find(countdownId) : undefined
 
 const draft = ref<CountdownDraft>(
-  original ? draftFromCountdown(original) : newCountdownDraft(toIsoDate(new Date())),
+  original
+    ? draftFromCountdown(original)
+    : {
+        ...newCountdownDraft(toIsoDate(new Date())),
+        ...(initial?.title ? { title: initial.title } : {}),
+        ...(initial?.date ? { date: initial.date } : {}),
+      },
 )
 const error = ref<CountdownDraftError | null>(null)
 const isConfirmingDelete = ref(false)
