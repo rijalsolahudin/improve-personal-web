@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import type { ScheduleRecurrence } from '../domain/entities/schedule.ts'
 import { expandOccurrenceTimes, type ExpansibleSchedule } from './expand.ts'
-import { localDateOf } from './timezone.ts'
+import { localDateOf, localTimeOf } from './timezone.ts'
 
 /**
  * AC T3: "tiap pola menghasilkan tanggal benar untuk rentang 1 tahun; tgl 31 di bulan pendek
@@ -542,6 +542,192 @@ describe('expandOccurrenceTimes - AC T3 "ekspansi cuma di rentang yang diminta"'
 
     const occurrences = expandOccurrenceTimes(schedule, recurrence({ type: 'daily' }), range)
     expect(occurrences).toHaveLength(10_000)
+  })
+})
+
+describe('expandOccurrenceTimes - fast-forward seri lama (C1 T9)', () => {
+  it('mingguan sejak 2020: rentang jauh di depan tetap menghasilkan pola yang sama', () => {
+    // 2020-01-06 adalah Senin. Rentang Sep 2025 ada 6 tahun setelah seed: hasilnya harus identik
+    // dengan pola yang dihitung dari seed, bukan bergeser karena lompatan index.
+    const schedule = scheduleOn('2020-01-06')
+    const range = {
+      fromMs: zonedMidnight('2025-09-01', TZ),
+      toMs: zonedMidnight('2025-10-01', TZ) - 1,
+    }
+
+    const dates = localDates(
+      expandOccurrenceTimes(
+        schedule,
+        recurrence({ type: 'weekly', byWeekdays: ['senin', 'rabu'] }),
+        range,
+      ),
+    )
+
+    expect(dates).toEqual([
+      '2025-09-01',
+      '2025-09-03',
+      '2025-09-08',
+      '2025-09-10',
+      '2025-09-15',
+      '2025-09-17',
+      '2025-09-22',
+      '2025-09-24',
+      '2025-09-29',
+    ])
+  })
+
+  it('bulanan tanggal 31 sejak 2020: bulan pendek tetap dilewati di rentang jauh', () => {
+    const schedule = scheduleOn('2020-01-31')
+    const range = {
+      fromMs: zonedMidnight('2025-01-01', TZ),
+      toMs: zonedMidnight('2026-01-01', TZ) - 1,
+    }
+
+    const dates = localDates(
+      expandOccurrenceTimes(
+        schedule,
+        recurrence({ type: 'monthly', monthMode: 'by_day_of_month', monthDay: 31 }),
+        range,
+      ),
+    )
+
+    expect(dates).toEqual([
+      '2025-01-31',
+      '2025-03-31',
+      '2025-05-31',
+      '2025-07-31',
+      '2025-08-31',
+      '2025-10-31',
+      '2025-12-31',
+    ])
+  })
+
+  it('after_count mingguan: jatah habis sebelum rentang -> kosong', () => {
+    const schedule = scheduleOn('2020-01-06')
+    const range = {
+      fromMs: zonedMidnight('2025-09-01', TZ),
+      toMs: zonedMidnight('2025-10-01', TZ) - 1,
+    }
+
+    const dates = localDates(
+      expandOccurrenceTimes(
+        schedule,
+        recurrence({
+          type: 'weekly',
+          byWeekdays: ['senin'],
+          endMode: 'after_count',
+          occurrenceCount: 3,
+        }),
+        range,
+      ),
+    )
+
+    expect(dates).toEqual([])
+  })
+
+  it('after_count mingguan: batas jatuh di dalam rentang, dihitung dari seed', () => {
+    const schedule = scheduleOn('2020-01-06') // Senin
+    const range = {
+      fromMs: zonedMidnight('2020-01-13', TZ),
+      toMs: zonedMidnight('2020-01-31', TZ) - 1,
+    }
+
+    // Kejadian ke-1..3 = 6, 13, 20 Januari. Rentang mulai 13 Januari -> dua kejadian terakhir.
+    const dates = localDates(
+      expandOccurrenceTimes(
+        schedule,
+        recurrence({
+          type: 'weekly',
+          byWeekdays: ['senin'],
+          endMode: 'after_count',
+          occurrenceCount: 3,
+        }),
+        range,
+      ),
+    )
+
+    expect(dates).toEqual(['2020-01-13', '2020-01-20'])
+  })
+
+  it('after_count bulanan: tanggal 29-31 yang dilewati tidak ikut dihitung', () => {
+    // Kejadian 1..3 = 31 Jan, 31 Mar, 31 Mei 2020 (Feb/Apr tidak punya tanggal 31).
+    const schedule = scheduleOn('2020-01-31')
+    const range = {
+      fromMs: zonedMidnight('2020-05-01', TZ),
+      toMs: zonedMidnight('2021-01-01', TZ) - 1,
+    }
+
+    const dates = localDates(
+      expandOccurrenceTimes(
+        schedule,
+        recurrence({
+          type: 'monthly',
+          monthMode: 'by_day_of_month',
+          monthDay: 31,
+          endMode: 'after_count',
+          occurrenceCount: 3,
+        }),
+        range,
+      ),
+    )
+
+    expect(dates).toEqual(['2020-05-31'])
+  })
+
+  it('after_count dengan jatah jauh lebih kecil dari umur seri: rentang 2025 kosong', () => {
+    const range = {
+      fromMs: zonedMidnight('2025-01-01', TZ),
+      toMs: zonedMidnight('2026-01-01', TZ) - 1,
+    }
+
+    // Harian sejak 2020: 100 kejadian pertama habis Feb 2020.
+    const daily = expandOccurrenceTimes(
+      scheduleOn('2020-01-01'),
+      recurrence({ type: 'daily', endMode: 'after_count', occurrenceCount: 100 }),
+      range,
+    )
+    expect(daily).toHaveLength(0)
+
+    // Bulanan tanggal 31: kejadian ke-1..3 (Jan/Mar/Mei 2020) sudah lewat jauh sebelum 2025.
+    const monthly = expandOccurrenceTimes(
+      scheduleOn('2020-01-31'),
+      recurrence({
+        type: 'monthly',
+        monthMode: 'by_day_of_month',
+        monthDay: 31,
+        endMode: 'after_count',
+        occurrenceCount: 3,
+      }),
+      range,
+    )
+    expect(monthly).toHaveLength(0)
+  })
+
+  it('DST: fast-forward ke rentang jauh tetap mempertahankan jam 09:00 lokal', () => {
+    const tz = 'America/New_York'
+    const schedule: ExpansibleSchedule = {
+      id: 'dst-jauh',
+      // 2020-01-06 14:00 UTC = 09:00 EST (Senin).
+      startAt: Date.UTC(2020, 0, 6, 14, 0),
+      durationMs: 3_600_000,
+      isAllDay: false,
+      tz,
+    }
+    const range = {
+      fromMs: Date.UTC(2025, 2, 7, 0, 0),
+      toMs: Date.UTC(2025, 2, 12, 23, 59, 59, 999),
+    }
+
+    const occurrences = expandOccurrenceTimes(
+      schedule,
+      recurrence({ type: 'weekly', byWeekdays: ['senin'] }),
+      range,
+    )
+
+    expect(localDates(occurrences, tz)).toEqual(['2025-03-10'])
+    expect(localTimeOf(occurrences[0]?.occurrenceAt ?? 0, tz)).toEqual({ hour: 9, minute: 0 })
+    // DST Amerika mulai 2025-03-09 -> Senin 10 Maret sudah UTC-4 (13:00 UTC).
+    expect(new Date(occurrences[0]?.occurrenceAt ?? 0).getUTCHours()).toBe(13)
   })
 })
 

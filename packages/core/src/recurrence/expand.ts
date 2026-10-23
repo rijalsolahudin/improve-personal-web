@@ -42,6 +42,10 @@ import {
  * 4. **Aturan `end_mode` dihitung pada pola, lalu dibatasi rentang.** Untuk `after_count`, hitungannya
  *    merujuk ke N kejadian PERTAMA dari `start_at` - bukan N kejadian dalam rentang yang diminta,
  *    karena artinya "berakhir setelah N kali" pada kalender user.
+ * 5. **Iterasi di-fast-forward ke dekat rentang, tidak berjalan dari seed.** Biaya ekspansi harus
+ *    mengikuti LEBAR rentang, bukan UMUR seri: seri mingguan sejak 2020 yang dibuka di bulan ini tidak
+ *    boleh membangun ribuan kejadian yang sudah lewat. Index langkah dihitung dengan aritmetika pola,
+ *    dan jumlah kejadian sebelum titik mulai dihitung tanpa `Intl` supaya `after_count` tetap benar.
  */
 
 /** Kejadian hasil ekspansi, sebelum/beserta exception & status. */
@@ -129,19 +133,44 @@ function expandRawStartTimes(
     return [seedStartMs]
   }
 
-  const byDay = buildDayGenerator(recurrence, seedLocalDate)
+  const byDay = buildDayPlan(recurrence, seedLocalDate)
   if (byDay === null) return []
 
-  const results: number[] = []
-  const producedLimit = countLimitOf(recurrence)
-  let produced = 0
-
-  // Batas atas pencarian dalam "nomor hari": dipakai supaya loop tetap terbatas walau belum ketemu
-  // kejadian apa pun (mis. tanggal 31 hanya ada beberapa kali setahun).
   const rangeEndLocalDate = localDateOf(range.toMs, schedule.tz)
   const hardStopDay = localDateToDayNumber(rangeEndLocalDate) + 1
+  const seedDay = localDateToDayNumber(seedLocalDate)
 
-  for (const localDate of byDay) {
+  // Rentang berakhir sebelum pola mulai: tidak ada kejadian yang mungkin beririsan.
+  if (hardStopDay < seedDay) return []
+
+  // Batas bawah pencarian. Kejadian yang mulai sebelum `fromMs` hanya bisa beririsan kalau
+  // `start + duration >= fromMs`, dan tanggal lokal monoton terhadap instan - jadi tanggal ini
+  // tidak akan melewatkan kejadian apa pun, tapi memotong seluruh riwayat seri yang sudah lewat.
+  const earliestStartLocalDate = localDateOf(range.fromMs - durationMs, schedule.tz)
+  const searchFromLocalDate =
+    compareLocalDate(earliestStartLocalDate, seedLocalDate) < 0
+      ? seedLocalDate
+      : earliestStartLocalDate
+
+  // Aturan `until_date`: batasnya inklusif sampai AKHIR hari lokal itu, jadi kejadian tepat di
+  // tanggal berakhir tetap muncul (perilaku yang diharapkan user).
+  const untilLocalDate =
+    recurrence.endMode === 'until_date' && recurrence.endDate !== null
+      ? localDateOf(recurrence.endDate, schedule.tz)
+      : null
+  if (untilLocalDate !== null && compareLocalDate(searchFromLocalDate, untilLocalDate) > 0)
+    return []
+
+  const producedLimit = countLimitOf(recurrence)
+  const cursor = byDay.seek(searchFromLocalDate)
+
+  // Semua jatah `after_count` sudah habis sebelum rentang - pola tidak menghasilkan apa pun lagi.
+  if (producedLimit !== null && cursor.producedBefore >= producedLimit) return []
+
+  const results: number[] = []
+  let produced = cursor.producedBefore
+
+  for (const localDate of byDay.daysFrom(cursor.startIndex)) {
     const dayNumber = localDateToDayNumber(localDate)
     if (dayNumber > hardStopDay) break
 
@@ -149,14 +178,9 @@ function expandRawStartTimes(
     // tidak pernah dihasilkan - termasuk kalau dia ada di dalam rentang yang diminta.
     if (producedLimit !== null && produced >= producedLimit) break
 
+    if (untilLocalDate !== null && compareLocalDate(localDate, untilLocalDate) > 0) break
+
     const occurrenceMs = buildInstant(localDate, startTime, schedule.tz)
-
-    // Aturan `until_date`: batasnya inklusif sampai AKHIR hari lokal itu, jadi kejadian tepat di
-    // tanggal berakhir tetap muncul (perilaku yang diharapkan user).
-    if (recurrence.endMode === 'until_date' && recurrence.endDate !== null) {
-      if (compareLocalDate(localDate, localDateOf(recurrence.endDate, schedule.tz)) > 0) break
-    }
-
     produced += 1
 
     if (!overlapsRange(occurrenceMs, occurrenceMs + durationMs, range)) {
@@ -185,23 +209,41 @@ function countLimitOf(recurrence: ScheduleRecurrence): number | null {
   return recurrence.occurrenceCount
 }
 
+/** Titik mulai iterasi pola setelah di-fast-forward, plus jumlah kejadian sebelumnya. */
+type DayCursor = {
+  /** Index langkah pola tempat generator mulai (0 = langkah seed). */
+  readonly startIndex: number
+  /** Jumlah kejadian pola pada index < `startIndex` - dipakai `after_count`. */
+  readonly producedBefore: number
+}
+
 /**
- * Pilih generator tanggal yang sesuai dengan tipe pola.
+ * Rencana iterasi satu tipe pola yang bisa melompat langsung ke dekat rentang.
+ *
+ * `seek` menerjemahkan tanggal lokal target jadi index langkah + jumlah kejadian sebelumnya, dan
+ * `daysFrom` menghasilkan tanggal mulai index itu. Pemisahan ini yang membuat biaya ekspansi mengikuti
+ * lebar rentang: untuk seri sejak 2020, `seek` melompat langsung ke minggu/bulan yang diminta alih-alih
+ * menghasilkan ribuan tanggal lama yang tidak pernah dipakai.
+ */
+type DayPlan = {
+  readonly seek: (startLocalDate: string) => DayCursor
+  readonly daysFrom: (startIndex: number) => Generator<string>
+}
+
+/**
+ * Pilih rencana iterasi yang sesuai dengan tipe pola.
  *
  * `null` berarti tidak ada tanggal yang bisa dihasilkan (mis. `by_weekdays` kosong karena data rusak) -
  * pemanggil memperlakukannya sebagai "tidak ada kejadian", bukan error.
  */
-function buildDayGenerator(
-  recurrence: ScheduleRecurrence,
-  seedLocalDate: string,
-): Generator<string> | null {
+function buildDayPlan(recurrence: ScheduleRecurrence, seedLocalDate: string): DayPlan | null {
   switch (recurrence.type) {
     case 'daily':
-      return dailyGenerator(seedLocalDate, recurrence.intervalN)
+      return dailyPlan(seedLocalDate, recurrence.intervalN)
     case 'weekly':
-      return weeklyGenerator(seedLocalDate, recurrence.intervalN, recurrence.byWeekdays ?? [])
+      return weeklyPlan(seedLocalDate, recurrence.intervalN, recurrence.byWeekdays ?? [])
     case 'monthly':
-      return monthlyGenerator(seedLocalDate, recurrence)
+      return monthlyPlan(seedLocalDate, recurrence)
     default:
       // `once` sudah ditangani sebelum pemanggilan; tipe tak dikenal (data versi lain) -> tanpa kejadian.
       return null
@@ -211,15 +253,27 @@ function buildDayGenerator(
 /**
  * Harian: tiap `intervalN` hari, mulai dari tanggal seed.
  *
- * Interval 1-6 (PRD F1). Nilai di luar batas dikoreksi ke rentang sah supaya data rusak menghasilkan
- * pola yang wajar, bukan loop tak berujung.
+ * Index langkah dihitung dengan pembagian, jadi seri harian sejak bertahun-tahun lalu tidak perlu
+ * diiterasi satu per satu. Interval 1-6 (PRD F1); nilai di luar batas dikoreksi ke rentang sah supaya
+ * data rusak menghasilkan pola yang wajar, bukan loop tak berujung.
  */
-function* dailyGenerator(seedLocalDate: string, intervalN: number): Generator<string> {
+function dailyPlan(seedLocalDate: string, intervalN: number): DayPlan {
   const interval = clampInt(intervalN, 1, RECURRENCE_INTERVAL_MAX_HARIAN)
   const seedDay = localDateToDayNumber(seedLocalDate)
 
-  for (let step = 0; ; step += 1) {
-    yield dayNumberToLocalDate(seedDay + step * interval)
+  return {
+    seek(startLocalDate) {
+      const offset = localDateToDayNumber(startLocalDate) - seedDay
+      // `floor` (bukan `ceil`) supaya kejadian tepat di batas tidak terlewat; kandidat sebelum batas
+      // di minggu/step itu tetap diproses loop dan tersaring oleh `overlapsRange`.
+      const startIndex = offset <= 0 ? 0 : Math.floor(offset / interval)
+      return { startIndex, producedBefore: startIndex }
+    },
+    *daysFrom(startIndex) {
+      for (let step = startIndex; ; step += 1) {
+        yield dayNumberToLocalDate(seedDay + step * interval)
+      }
+    },
   }
 }
 
@@ -231,30 +285,50 @@ function* dailyGenerator(seedLocalDate: string, intervalN: number): Generator<st
  * "2 mingguan tiap Rabu & Senin" bisa menghasilkan urutan minggu yang berbeda tergantung hari mana
  * yang dipilih user - itu bug yang sulit terlihat.
  */
-function* weeklyGenerator(
+function weeklyPlan(
   seedLocalDate: string,
   intervalN: number,
   weekdays: readonly Weekday[],
-): Generator<string> {
+): DayPlan | null {
   const interval = clampInt(intervalN, 1, RECURRENCE_INTERVAL_MAX_MINGGUAN)
   const sortedDays = normalizeWeekdays(weekdays)
 
-  if (sortedDays.length === 0) return
+  if (sortedDays.length === 0) return null
 
+  const seedDay = localDateToDayNumber(seedLocalDate)
   const seedIsoDay = WEEKDAY_INDEX[weekdayOfLocalDate(seedLocalDate)]
   // Geser ke Senin minggu yang memuat seed.
-  const seedWeekStartDay = localDateToDayNumber(seedLocalDate) - (seedIsoDay - 1)
+  const seedWeekStartDay = seedDay - (seedIsoDay - 1)
+  const stride = interval * 7
 
-  for (let week = 0; ; week += 1) {
-    const weekStartDay = seedWeekStartDay + week * interval * 7
-    for (const weekday of sortedDays) {
-      const day = weekStartDay + (WEEKDAY_INDEX[weekday] - 1)
-      const localDate = dayNumberToLocalDate(day)
-      // Minggu pertama bisa berisi hari sebelum seed; itu tetap valid secara pola, tapi kita mulai
-      // dari seed supaya jadwal tidak "muncul sebelum dibuat".
-      if (compareLocalDate(localDate, seedLocalDate) < 0) continue
-      yield localDate
-    }
+  // Minggu pertama bisa sebagian sebelum seed (hari itu tidak pernah dihasilkan), sedangkan minggu
+  // berikutnya selalu penuh. Dua angka ini cukup untuk menghitung jumlah kejadian sebelum index
+  // mana pun tanpa menelusuri minggu satu per satu.
+  const firstWeekCount = sortedDays.filter(
+    (weekday) => seedWeekStartDay + (WEEKDAY_INDEX[weekday] - 1) >= seedDay,
+  ).length
+  const weekSize = sortedDays.length
+
+  return {
+    seek(startLocalDate) {
+      const offset = localDateToDayNumber(startLocalDate) - seedWeekStartDay
+      const startIndex = offset <= 0 ? 0 : Math.floor(offset / stride)
+      const producedBefore = startIndex === 0 ? 0 : firstWeekCount + (startIndex - 1) * weekSize
+      return { startIndex, producedBefore }
+    },
+    *daysFrom(startIndex) {
+      for (let week = startIndex; ; week += 1) {
+        const weekStartDay = seedWeekStartDay + week * stride
+        for (const weekday of sortedDays) {
+          const day = weekStartDay + (WEEKDAY_INDEX[weekday] - 1)
+          const localDate = dayNumberToLocalDate(day)
+          // Minggu pertama bisa berisi hari sebelum seed; itu tetap valid secara pola, tapi kita mulai
+          // dari seed supaya jadwal tidak "muncul sebelum dibuat".
+          if (compareLocalDate(localDate, seedLocalDate) < 0) continue
+          yield localDate
+        }
+      }
+    },
   }
 }
 
@@ -268,47 +342,72 @@ function* weeklyGenerator(
  * `intervalN` untuk bulanan diperlakukan sebagai 1 (DBML mendefinisikan interval hanya untuk harian
  * & mingguan; PRD F1 tidak menyebut "tiap N bulan"), jadi nilainya tidak dipakai di sini.
  */
-function* monthlyGenerator(
-  seedLocalDate: string,
-  recurrence: ScheduleRecurrence,
-): Generator<string> {
+function monthlyPlan(seedLocalDate: string, recurrence: ScheduleRecurrence): DayPlan | null {
   if (recurrence.monthMode === 'by_day_of_month') {
     const monthDay = recurrence.monthDay
-    if (monthDay === null) return
-
-    const seed = parseLocalDateParts(seedLocalDate)
-    for (let step = 0; ; step += 1) {
-      const totalMonths = seed.year * 12 + (seed.month - 1) + step
-      const year = Math.floor(totalMonths / 12)
-      const month = (totalMonths % 12) + 1
-
-      // Bulan yang tidak punya tanggal itu -> DILEWATI, bukan digeser (PRD F1 + Assumptions).
-      const candidate = resolveMonthDay(year, month, monthDay)
-      if (candidate === null) continue
-      if (compareLocalDate(candidate, seedLocalDate) < 0) continue
-      yield candidate
-    }
+    if (monthDay === null) return null
+    return monthPlan(seedLocalDate, (year, month) => resolveMonthDay(year, month, monthDay))
   }
 
   if (recurrence.monthMode === 'by_nth_weekday') {
     const weekOfMonth = recurrence.weekOfMonth
     const weekday = recurrence.monthWeekday
-    if (weekOfMonth === null || weekday === null) return
-
-    const seed = parseLocalDateParts(seedLocalDate)
-    for (let step = 0; ; step += 1) {
-      const totalMonths = seed.year * 12 + (seed.month - 1) + step
-      const year = Math.floor(totalMonths / 12)
-      const month = (totalMonths % 12) + 1
-
-      const candidate = nthWeekdayOfMonth(year, month, weekOfMonth, weekday)
-      if (candidate === null) continue
-      if (compareLocalDate(candidate, seedLocalDate) < 0) continue
-      yield candidate
-    }
+    if (weekOfMonth === null || weekday === null) return null
+    return monthPlan(seedLocalDate, (year, month) =>
+      nthWeekdayOfMonth(year, month, weekOfMonth, weekday),
+    )
   }
 
-  return
+  return null
+}
+
+/**
+ * Rencana iterasi untuk pola "satu kandidat per bulan".
+ *
+ * Jumlah kejadian sebelum index dihitung dengan menelusuri BULAN, bukan kejadian: seri 6 tahun = 72
+ * iterasi aritmetika tanggal tanpa `Intl`, jadi tetap murah bahkan untuk seri yang jauh lebih tua.
+ * Ini yang membuat `after_count` tetap benar tanpa mengiterasi seluruh kejadian dari seed.
+ */
+function monthPlan(
+  seedLocalDate: string,
+  candidateOfMonth: (year: number, month: number) => string | null,
+): DayPlan {
+  const seed = parseLocalDateParts(seedLocalDate)
+  const seedMonthIndex = seed.year * 12 + (seed.month - 1)
+
+  const candidateAt = (step: number): string | null => {
+    const totalMonths = seedMonthIndex + step
+    return candidateOfMonth(Math.floor(totalMonths / 12), (totalMonths % 12) + 1)
+  }
+
+  const countBefore = (stepCount: number): number => {
+    let count = 0
+    for (let step = 0; step < stepCount; step += 1) {
+      const candidate = candidateAt(step)
+      // Bulan seed bisa punya tanggal sebelum tanggal seed (mis. pola tanggal 5 dibuat tanggal 20);
+      // kandidat itu bukan kejadian pertama, jadi tidak dihitung.
+      if (candidate !== null && compareLocalDate(candidate, seedLocalDate) >= 0) count += 1
+    }
+    return count
+  }
+
+  return {
+    seek(startLocalDate) {
+      const start = parseLocalDateParts(startLocalDate)
+      const startMonthIndex = start.year * 12 + (start.month - 1)
+      const startIndex = Math.max(0, startMonthIndex - seedMonthIndex)
+      return { startIndex, producedBefore: countBefore(startIndex) }
+    },
+    *daysFrom(startIndex) {
+      for (let step = startIndex; ; step += 1) {
+        const candidate = candidateAt(step)
+        // Bulan yang tidak punya tanggal itu -> DILEWATI, bukan digeser (PRD F1 + Assumptions).
+        if (candidate === null) continue
+        if (compareLocalDate(candidate, seedLocalDate) < 0) continue
+        yield candidate
+      }
+    },
+  }
 }
 
 /**
