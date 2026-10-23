@@ -133,7 +133,8 @@ const goalStyle = computed(() =>
 
 .done .note-text {
   text-decoration: line-through;
-  opacity: 0.6;
+  /* Latar kartu selesai `#f3f9ef`: `--mute-3` >= 5,30:1; opacity 0.6 hanya ~3,7:1 (QA #62). */
+  color: var(--mute-3);
 }
 
 .note-foot {

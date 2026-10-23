@@ -207,6 +207,8 @@ async function activatePasskey(): Promise<void> {
 .hint {
   margin: 0.4rem 0;
   font-size: 0.85rem;
+  /* 0.8 x `--ink` di kartu terang masih >= 7,15:1 (AA lolos); sengaja tidak diganti token
+     supaya kontras tidak turun (inventaris QA #62: hanya teks < 0,7 yang gagal). */
   opacity: 0.8;
 }
 
@@ -233,12 +235,15 @@ async function activatePasskey(): Promise<void> {
 }
 
 .device--revoked {
-  opacity: 0.6;
+  /* Dulu opacity 0.6 (~3,89:1). Perangkat yang dicabut tetap terbaca; status ditandai badge. */
+  color: var(--mute-3);
 }
 
 .device-meta {
   font-size: 0.8rem;
-  opacity: 0.75;
+  /* Dulu opacity 0.75 x `--ink` (6,07:1). Token `--mute-2` = >= 7,03:1 dan tidak ikut
+     terpangkas opacity induk `.device--revoked` (QA #62). */
+  color: var(--mute-2);
 }
 
 .error {

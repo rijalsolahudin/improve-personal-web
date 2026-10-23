@@ -128,11 +128,15 @@ const timeLeft = computed(() =>
 
 .done .num,
 .done .text {
-  opacity: 0.55;
+  /* opacity 0.55 memudarkan nomor (`--accent`) sampai ~2,3:1; token teks >= 5,38:1 (QA #62). */
+  color: var(--mute-3);
 }
 
 .done .task-title {
   text-decoration: line-through;
+  /* Warna diatur di `.done .text`; diulang di sini supaya aturan judul selesai tetap mandiri
+     untuk penjaga CSS (QA #62). */
+  color: var(--mute-3);
 }
 
 .row .focus {

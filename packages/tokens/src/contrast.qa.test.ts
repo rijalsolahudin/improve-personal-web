@@ -71,7 +71,7 @@ function token(tokens: Record<string, string>, key: string): string {
   return value
 }
 
-function violations(pairs: readonly Pair[]): string[] {
+function violations(pairs: readonly Pair[], threshold: number = AA_NORMAL): string[] {
   const found: string[] = []
   for (const style of STYLE_NAMES) {
     for (const theme of THEME_NAMES) {
@@ -80,7 +80,7 @@ function violations(pairs: readonly Pair[]): string[] {
         const fg = token(tokens, pair.fg)
         const bg = token(tokens, pair.bg)
         const ratio = contrastRatio(fg, bg)
-        if (ratio < AA_NORMAL) {
+        if (ratio < threshold) {
           found.push(
             `${style}/${theme} · ${pair.label}: ${pair.fg} (${fg}) di ${pair.bg} (${bg}) = ${ratio.toFixed(2)}:1`,
           )
@@ -160,8 +160,8 @@ describe('kontras AA di semua kombinasi gaya × tema (F16)', () => {
  *
  * Temuan T25 (441 pasangan di atas) hanya menguji teks di atas `paper`/`bg`. Yang lolos dari mata
  * adalah teks yang duduk di atas permukaan state: `--soft` (hari terpilih, kartu "soft", baris
- * terpilih) dan `--hover` (slot jam yang di-hover). Di sana latarnya lebih gelap, jadi pasangan yang
- * "lulus di paper" bisa gagal:
+ * terpilih), `--hover` (slot jam yang di-hover), dan `--chip` (badge arsip). Di sana latarnya lebih
+ * gelap, jadi pasangan yang "lulus di paper" bisa gagal:
  * - `--mute-3` di `--soft`: 21/21 gagal, terendah 3,51:1 (`CalendarTimeGrid.vue` `.head.selected`).
  * - `--accent` di `--soft`: 16/21 gagal, terendah 3,87:1 (`.head.today .num`).
  * - `--mute` di `--hover`: 4/21 gagal (`CalendarTimeGrid.vue` `.slot:hover`).
@@ -170,52 +170,156 @@ describe('kontras AA di semua kombinasi gaya × tema (F16)', () => {
  * Dua lapis perbaikannya: token redup/aksen digelapkan sampai lulus di permukaan state (supaya
  * pemakaian baru tidak langsung melanggar), dan komponen memakai token yang setara dengan perannya
  * (`--mute-2` untuk caption di state terpilih, `--deep` untuk aksen, `--chip` untuk badge arsip).
- * Test ini menjaga keduanya: kalau ada yang mengembalikan nilai lama, pasangan di bawah merah lagi.
+ *
+ * Pasangan state diuji dengan ambang lebih tinggi dari AA (`STATE_MARGIN`, 4,62:1): setelah token
+ * digelapkan, sisa ruang di atas 4,5:1 hanya 0,005-0,08 untuk tiga pasangan - pembulatan atau satu
+ * langkah penggelapan berikutnya bisa langsung menjatuhkannya di bawah AA tanpa ada yang sadar.
  */
+const STATE_MARGIN = 4.62
+
+/** Permukaan yang benar-benar menampung teks di aplikasi. */
+const STATE_SURFACES = ['soft', 'hover', 'chip'] as const
+
+/** Seluruh ramp teks yang dipakai di atas permukaan state (lihat komponen kalender, chip, kartu). */
+const STATE_TEXT = ['ink', 'ink-2', 'mute', 'mute-2', 'mute-3', 'accent', 'deep', 'deeper'] as const
+
 describe('kontras AA di permukaan state (QA T16 MAYOR-2)', () => {
   it('caption redup tetap terbaca di permukaan state terpilih (soft/hover)', () => {
     expect(
-      violations([
-        { fg: 'mute-3', bg: 'soft', label: 'caption di kepala hari terpilih' },
-        { fg: 'mute-3', bg: 'hover', label: 'caption di slot jam hover' },
-        { fg: 'mute', bg: 'soft', label: 'teks redup di kartu soft' },
-        { fg: 'mute', bg: 'hover', label: 'teks redup di baris hover' },
-        { fg: 'mute-2', bg: 'soft', label: 'caption tegas di permukaan soft' },
-        { fg: 'mute-2', bg: 'hover', label: 'caption tegas di permukaan hover' },
-      ]),
+      violations(
+        [
+          { fg: 'mute-3', bg: 'soft', label: 'caption di kepala hari terpilih' },
+          { fg: 'mute-3', bg: 'hover', label: 'caption di slot jam hover' },
+          { fg: 'mute', bg: 'soft', label: 'teks redup di kartu soft' },
+          { fg: 'mute', bg: 'hover', label: 'teks redup di baris hover' },
+          { fg: 'mute-2', bg: 'soft', label: 'caption tegas di permukaan soft' },
+          { fg: 'mute-2', bg: 'hover', label: 'caption tegas di permukaan hover' },
+        ],
+        STATE_MARGIN,
+      ),
     ).toEqual([])
   })
 
-  it('teks utama & sekunder di permukaan state memenuhi 4.5:1', () => {
+  it('teks utama & sekunder di permukaan state memenuhi ambang', () => {
     expect(
-      violations([
-        { fg: 'ink', bg: 'soft', label: 'teks utama di permukaan soft' },
-        { fg: 'ink-2', bg: 'soft', label: 'teks sekunder di permukaan soft' },
-        { fg: 'ink-2', bg: 'hover', label: 'teks sekunder di permukaan hover' },
-      ]),
+      violations(
+        [
+          { fg: 'ink', bg: 'soft', label: 'teks utama di permukaan soft' },
+          { fg: 'ink-2', bg: 'soft', label: 'teks sekunder di permukaan soft' },
+          { fg: 'ink-2', bg: 'hover', label: 'teks sekunder di permukaan hover' },
+        ],
+        STATE_MARGIN,
+      ),
     ).toEqual([])
   })
 
-  it('aksen sebagai teks di permukaan soft memenuhi 4.5:1', () => {
+  it('aksen sebagai teks di permukaan state memenuhi ambang', () => {
     expect(
-      violations([
-        // `.head.today .num` (22px, bobot < 700) dan teks tautan di kartu ber-`soft`.
-        { fg: 'accent', bg: 'soft', label: 'angka hari ini di kepala soft' },
-        { fg: 'deep', bg: 'soft', label: 'aksen gelap di permukaan soft' },
-        { fg: 'deep', bg: 'hover', label: 'aksen gelap di permukaan hover' },
-        { fg: 'deeper', bg: 'soft', label: 'aksen tergelap di permukaan soft' },
-      ]),
+      violations(
+        [
+          // `.head.today .num` (22px, bobot < 700) dan `.status-via` (chip "lewat" di Panduan).
+          { fg: 'accent', bg: 'soft', label: 'angka hari ini di kepala soft' },
+          { fg: 'deep', bg: 'soft', label: 'aksen gelap di permukaan soft' },
+          { fg: 'deep', bg: 'hover', label: 'aksen gelap di permukaan hover' },
+          { fg: 'deeper', bg: 'soft', label: 'aksen tergelap di permukaan soft' },
+        ],
+        STATE_MARGIN,
+      ),
     ).toEqual([])
   })
 
-  it('badge arsip di atas tanda garis (dash) & chip memenuhi 4.5:1', () => {
+  /**
+   * `--dash` adalah token GARIS (pemisah dashed, scrollbar, sel habit kosong, batas check-in), bukan
+   * permukaan teks - dan tidak bisa dirangkap jadi keduanya:
+   * - supaya `--mute-3` (L≈0,13) lulus 4,5:1, `--dash` harus ≥L 0,65-0,75 (~#E0E0E0) di SEMUA gaya;
+   * - sebagai garis, `--dash` justru harus tetap lebih gelap dari kertas (sekarang 1,3-2,9:1).
+   * Nilai yang memenuhi keduanya tidak ada. Karena itu teks redup tidak boleh ditaruh di atas `--dash`
+   * (satu-satunya pemakaian, badge sesi Pomodoro yang dilewati, sudah pindah ke `--chip`), sementara
+   * teks kuat (`--ink`/`--ink-2`) tetap dijaga lulus di atasnya.
+   */
+  it('badge arsip di atas chip & tanda garis (dash) memenuhi ambang', () => {
     expect(
-      violations([
-        // `--dash` dipakai sebagai latar badge "dilewati"; `--chip` adalah pengganti yang benar.
-        { fg: 'ink-2', bg: 'dash', label: 'badge arsip di atas dash' },
-        { fg: 'ink-2', bg: 'chip', label: 'badge arsip di atas chip' },
-        { fg: 'mute', bg: 'chip', label: 'teks redup di atas chip' },
-      ]),
+      violations(
+        [
+          { fg: 'ink-2', bg: 'dash', label: 'badge arsip di atas dash' },
+          { fg: 'ink-2', bg: 'chip', label: 'badge arsip di atas chip' },
+          { fg: 'mute', bg: 'chip', label: 'teks redup di atas chip' },
+        ],
+        STATE_MARGIN,
+      ),
+    ).toEqual([])
+  })
+
+  it('seluruh ramp teks lulus di setiap permukaan state (24 pasangan x 21 kombinasi)', () => {
+    const pairs = STATE_TEXT.flatMap((fg) =>
+      STATE_SURFACES.map((bg) => ({ fg, bg, label: `ramp ${fg} di ${bg}` })),
+    )
+    expect(violations(pairs, STATE_MARGIN)).toEqual([])
+  })
+})
+
+/**
+ * QA #67 - teks di atas permukaan `--primary` (blok fitur: strip "Sekarang", ringkasan hari di
+ * kalender, kartu langkah & kartu "Berikutnya" di landing, StatTile `tone="primary"`).
+ *
+ * `--primary` adalah pastel signature, bukan permukaan teks netral. Diukur di 21 kombinasi
+ * gaya x tema: `--accent` 3,58:1, `--mute-3` 3,57:1, `--mute` 3,82:1, `--deep` 3,98:1,
+ * `--mute-2` 4,15:1, `--paper` 1,02:1 - semuanya gagal 4,5:1. Yang lulus cuma tinta kuat:
+ * `--ink` >=7,72:1 dan `--deeper` >=5,09:1 (juga `--ink-2` 4,59:1, tapi terlalu mepet ambang
+ * `STATE_MARGIN` sehingga tidak diizinkan sebagai teks di permukaan ini).
+ *
+ * Karena itu komponen memakai `--deeper` untuk label/caption dan `--ink` untuk judul di atas
+ * `--primary` (bukan `--deep`). Ambang `STATE_MARGIN` dipakai supaya token tidak "pas-pasan" -
+ * kedua tinta yang diizinkan menyisakan >=0,47 di atas AA.
+ */
+const PRIMARY_PAIRS: readonly Pair[] = [
+  { fg: 'ink', bg: 'primary', label: 'judul di blok fitur primary' },
+  { fg: 'deeper', bg: 'primary', label: 'label/caption di blok fitur primary' },
+]
+
+describe('kontras AA teks di permukaan primary (QA #67)', () => {
+  it('label & judul di blok fitur primary lulus ambang state (2 pasangan x 21 kombinasi)', () => {
+    expect(violations(PRIMARY_PAIRS, STATE_MARGIN)).toEqual([])
+  })
+})
+
+/**
+ * QA #62 - teks state "selesai"/arsip tidak boleh diredupkan lewat `opacity`.
+ *
+ * Pola lama `opacity: 0.5-0.6` pada judul to-do/habit/goal membuat `--ink` (11-13:1) jatuh ke
+ * 2,8-3,7:1, di bawah AA - dan `opacity` tidak bisa diaudit dari token. Penggantinya token teks
+ * yang sudah diukur: `--mute-3` untuk permukaan `paper`/`alt` (>= 5,39:1), `--mute` untuk latar
+ * campuran warna kategori/jadwal atau kartu arsip yang tint-nya bervariasi (>= 4,89:1), karena
+ * `--mute-3` di campuran `#0A55E6`/`#E2445C` 15% turun ke 4,32-4,46:1.
+ *
+ * Ambang tetap `STATE_MARGIN` supaya token tidak "pas-pasan" di 4,5:1.
+ */
+describe('teks state selesai & arsip (QA #62)', () => {
+  it('judul selesai di permukaan kertas/inset/menu memenuhi ambang', () => {
+    expect(
+      violations(
+        [
+          { fg: 'mute-3', bg: 'paper', label: 'judul to-do selesai' },
+          { fg: 'mute-3', bg: 'bg', label: 'judul selesai di halaman' },
+          { fg: 'mute-3', bg: 'alt', label: 'baris selesai di inset / tanggal luar bulan' },
+          { fg: 'mute-3', bg: 'soft', label: 'judul selesai di kartu soft / opsi terpilih' },
+        ],
+        STATE_MARGIN,
+      ),
+    ).toEqual([])
+  })
+
+  it('teks redup di kartu arsip & kartu jadwal (latar tint kategori) memenuhi ambang', () => {
+    expect(
+      violations(
+        [
+          { fg: 'mute', bg: 'paper', label: 'judul selesai di kartu jadwal' },
+          { fg: 'mute', bg: 'alt', label: 'teks redup di latar inset' },
+          { fg: 'mute', bg: 'hover', label: 'teks redup di baris hover' },
+          { fg: 'mute', bg: 'chip', label: 'teks redup di badge arsip' },
+        ],
+        STATE_MARGIN,
+      ),
     ).toEqual([])
   })
 })

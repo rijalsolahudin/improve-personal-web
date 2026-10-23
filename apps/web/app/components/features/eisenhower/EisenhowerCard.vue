@@ -65,7 +65,9 @@ const timeLeft = computed(() => (task.done ? t('time.done') : formatTimeLeft(tas
 }
 
 .card.dragging {
-  opacity: 0.35;
+  /* 0.35 memudarkan judul di bawah AA. 0.7 masih jelas "terangkat" (plus kursor grab) dan
+     teks `--ink` tetap >= 4,84:1 di `--paper` (QA #62). */
+  opacity: 0.7;
 }
 
 .grip {
@@ -90,7 +92,8 @@ const timeLeft = computed(() => (task.done ? t('time.done') : formatTimeLeft(tas
 
 .done .title {
   text-decoration: line-through;
-  opacity: 0.55;
+  /* `--mute-3` >= 5,38:1 di `--paper`; opacity 0.55 hanya ~3,2:1 (QA #62). */
+  color: var(--mute-3);
 }
 
 .left {

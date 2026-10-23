@@ -87,7 +87,8 @@ const checkLabel = computed(() => label ?? t('common.toggleDone', { title }))
 
 .done .title {
   text-decoration: line-through;
-  opacity: 0.5;
+  /* `--mute-3` >= 5,38:1 di `--paper` maupun `--alt` (QA #62); jangan dimudarkan lewat opacity. */
+  color: var(--mute-3);
 }
 
 .meta {

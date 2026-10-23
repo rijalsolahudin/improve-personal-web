@@ -100,7 +100,8 @@ const formatTimeLeft = useTimeLeft()
 }
 
 .item.dragging {
-  opacity: 0.35;
+  /* Lihat EisenhowerCard: 0.7 menjaga `--ink` >= 4,73:1 di `--alt` saat kartu diseret. */
+  opacity: 0.7;
 }
 
 .dot {

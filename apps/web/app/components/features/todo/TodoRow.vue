@@ -83,7 +83,9 @@ const deadlineLabel = computed(() =>
 
 .done .title {
   text-decoration: line-through;
-  opacity: 0.5;
+  /* Redup lewat token teks, bukan `opacity`: opacity 0.5 memudarkan `--ink` sampai ~2,8:1
+     (gagal AA 4.5:1). `--mute-3` terukur >= 5,38:1 di `--paper`/`--alt` (QA #62). */
+  color: var(--mute-3);
 }
 
 .chips {

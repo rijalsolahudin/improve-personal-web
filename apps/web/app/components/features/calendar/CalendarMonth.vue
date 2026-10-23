@@ -144,7 +144,9 @@ const weekdays = computed(() =>
 
 .cell.outside {
   background: var(--alt);
-  opacity: 0.55;
+  /* Dulu `opacity: 0.55` (teks ~3,15:1). Tanggal di luar bulan tetap terbedakan lewat latar
+     `--alt` + teks `--mute-3` (>= 5,39:1), bukan pucat seluruh sel (QA #62). */
+  color: var(--mute-3);
 }
 
 .cell.selected {

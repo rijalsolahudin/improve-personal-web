@@ -90,4 +90,10 @@ const style = computed(() => (isPreset.value ? undefined : { background: tone })
   color: var(--deep);
   text-wrap: pretty;
 }
+
+/* `--deep` di atas `--primary` cuma 3,98:1 (cute/hijau, cute/kuning) - label 13-19px wajib 4,5:1.
+   `--deeper` tetap >=5,09:1 di semua 21 kombinasi gaya x tema (QA #67). */
+.tile-primary .label {
+  color: var(--deeper);
+}
 </style>

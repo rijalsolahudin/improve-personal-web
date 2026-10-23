@@ -159,7 +159,8 @@ const rows = computed(() =>
 
 .done .name {
   text-decoration: line-through;
-  opacity: 0.6;
+  /* `--mute-3` >= 5,38:1 di `--paper`; opacity 0.6 hanya ~3,68:1 (QA #62). */
+  color: var(--mute-3);
 }
 
 .pips {

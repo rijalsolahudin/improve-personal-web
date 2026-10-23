@@ -140,7 +140,20 @@ const style = computed(() => ({
 }
 
 .event.done {
-  opacity: 0.6;
+  /* Dulu `opacity: 0.6` - seluruh kartu (termasuk judul) turun ke ~3,37:1. Sekarang hanya teks
+     yang diredupkan lewat token; latar & centang tetap penuh supaya state selesai masih jelas. */
+  background: color-mix(in srgb, var(--ev-solid) 8%, var(--paper));
+}
+
+.event.done .title {
+  /* Latar kartu = campuran warna kategori; `--mute-3` gagal di biru/pink (4,32-4,47:1),
+     `--mute` terukur >= 4,89:1 di semua campuran (QA #62). */
+  color: var(--mute);
+  text-decoration: line-through;
+}
+
+.event.done .time {
+  color: var(--mute);
 }
 
 .event.dragging {
@@ -282,10 +295,6 @@ const style = computed(() => ({
 
 .event:not(.compact) .title.clamp {
   white-space: nowrap;
-}
-
-.done .title {
-  text-decoration: line-through;
 }
 
 .time {

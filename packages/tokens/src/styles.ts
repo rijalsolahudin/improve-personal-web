@@ -54,11 +54,12 @@ const NO_SHADOW = { x: 0, y: 0, blur: 0, color: 'transparent' } as const
 
 /**
  * Aksen jenuh untuk gaya netral (Cute Pure, Simple, Tegas). Digelapkan sampai AA 4.5:1 sebagai teks
- * **di atas permukaan state `soft`** juga (QA T16 MAYOR-2), bukan hanya di atas `paper`/`bg`.
+ * **di atas permukaan state `soft`** juga (QA T16 MAYOR-2), bukan hanya di atas `paper`/`bg`, dengan
+ * sisa ruang ≥0,12 (terendah 4,62:1) supaya tidak mepet ambang.
  */
 const BRAND_BRIGHT = {
   kuning: {
-    accent: '#AA4C16',
+    accent: '#A94B15',
     deep: '#9C4412',
     deeper: '#803710',
     soft: '#FDE4D3',
@@ -74,7 +75,7 @@ const BRAND_BRIGHT = {
     primary: '#CDEBD9',
   },
   ungu: {
-    accent: '#6948D9',
+    accent: '#6847D8',
     deep: '#5535C0',
     deeper: '#41279A',
     soft: '#E6DEFB',
@@ -123,7 +124,7 @@ export const uiStyles = {
       dash: '#E2DCD2',
       'dash-2': '#D6CEC1',
       mline: '#E9E4DC',
-      'mute-3': '#69635C',
+      'mute-3': '#68625B',
       mute: '#635D56',
       'mute-2': '#59544D',
       'ink-2': '#4E463C',
@@ -156,10 +157,10 @@ export const uiStyles = {
       dash: '#989791',
       'dash-2': '#6E6D68',
       mline: '#CFCEC7',
-      'mute-3': '#64645F',
+      'mute-3': '#63635E',
       mute: '#55554F',
       'mute-2': '#45453F',
-      'ink-2': '#2A2A27',
+      'ink-2': '#282825',
       placeholder: '#6F6F6A',
       ink: '#1E1E1E',
       grid: 'transparent',
@@ -259,7 +260,7 @@ export const uiStyles = {
       dash: '#E0E0DB',
       'dash-2': '#D3D3CD',
       mline: '#E6E6E1',
-      'mute-3': '#64645F',
+      'mute-3': '#63635E',
       mute: '#5E5E59',
       'mute-2': '#555550',
       'ink-2': '#3B3B36',
@@ -293,7 +294,7 @@ export const uiStyles = {
       dash: '#DDD5C8',
       'dash-2': '#CFC5B5',
       mline: '#E6E0D5',
-      'mute-3': '#6D675E',
+      'mute-3': '#6C665D',
       mute: '#666158',
       'mute-2': '#5C574F',
       'ink-2': '#463F37',
@@ -303,7 +304,7 @@ export const uiStyles = {
     }),
     brand: {
       kuning: {
-        accent: '#7E643C',
+        accent: '#7D633B',
         deep: '#745B34',
         deeper: '#5C4829',
         soft: '#F1E9DA',
@@ -319,7 +320,7 @@ export const uiStyles = {
         primary: '#DCE7E1',
       },
       ungu: {
-        accent: '#7B5F77',
+        accent: '#7A5E76',
         deep: '#70546D',
         deeper: '#574154',
         soft: '#EFE6EE',
@@ -352,17 +353,17 @@ export const uiStyles = {
       dash: '#BBA37C',
       'dash-2': '#A68D66',
       mline: '#D3C09D',
-      'mute-3': '#675944',
+      'mute-3': '#665843',
       mute: '#615440',
       'mute-2': '#574C3A',
-      'ink-2': '#4A3826',
+      'ink-2': '#493725',
       placeholder: '#776952',
       ink: '#3B2A1E',
       grid: 'transparent',
     }),
     brand: {
       kuning: {
-        accent: '#8D4928',
+        accent: '#8C4827',
         deep: '#83421F',
         deeper: '#663318',
         soft: '#E9D2B8',
@@ -370,7 +371,7 @@ export const uiStyles = {
         primary: '#E6CCAE',
       },
       hijau: {
-        accent: '#576235',
+        accent: '#566134',
         deep: '#4B552D',
         deeper: '#3A4222',
         soft: '#DCD9B8',
@@ -411,7 +412,7 @@ export const uiStyles = {
       dash: '#D9D9D9',
       'dash-2': '#C9C9C9',
       mline: '#E3E3E3',
-      'mute-3': '#646464',
+      'mute-3': '#636363',
       mute: '#5E5E5E',
       'mute-2': '#555555',
       'ink-2': '#333333',

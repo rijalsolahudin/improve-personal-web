@@ -35,6 +35,7 @@ const options = computed(() =>
 }
 
 .option {
+  position: relative;
   width: 34px;
   height: 34px;
   display: flex;
@@ -55,7 +56,21 @@ const options = computed(() =>
 .option.on {
   border-color: var(--outline);
   background: var(--primary);
-  color: var(--weather-color);
+  /* Ikon = informasi non-teks: warna cuaca (#E6A800 dst.) cuma 1,1-3,9:1 di atas `--primary` dan
+     gagal ambang 3:1. Ikon pakai `--deeper` (>=5,09:1); warna cuaca tetap terbaca sebagai bar
+     dekoratif, tidak memikul beban kontras (jenis cuaca sudah dibawa bentuk ikon + label). */
+  color: var(--deeper);
   transform: rotate(calc(-4deg * var(--bev))) scale(1.06);
+}
+
+.option.on::after {
+  content: '';
+  position: absolute;
+  right: 7px;
+  bottom: 4px;
+  left: 7px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--weather-color);
 }
 </style>

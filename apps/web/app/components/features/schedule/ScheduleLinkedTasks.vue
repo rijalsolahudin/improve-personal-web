@@ -94,7 +94,8 @@ function removePending(index: number): void {
 
 .done .name {
   text-decoration: line-through;
-  opacity: 0.55;
+  /* `--mute-3` >= 5,38:1 di `--paper`; opacity 0.55 hanya ~3,2:1 (QA #62). */
+  color: var(--mute-3);
 }
 
 .bullet {

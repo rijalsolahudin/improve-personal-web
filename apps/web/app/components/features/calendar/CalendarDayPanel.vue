@@ -256,7 +256,8 @@ function timeLabel(occurrence: Occurrence): string {
 }
 
 .dow {
-  color: var(--deep);
+  /* Eyebrow di atas `--primary`: `--deep` 3,98:1 (cute/hijau), `--deeper` 5,09:1 (QA #67). */
+  color: var(--deeper);
 }
 
 .date {
@@ -449,7 +450,8 @@ function timeLabel(occurrence: Occurrence): string {
 
 .done .task-title {
   text-decoration: line-through;
-  opacity: 0.55;
+  /* Token teks, bukan opacity 0.55 (~3,2:1). `--mute-3` >= 5,38:1 di `--paper` (QA #62). */
+  color: var(--mute-3);
 }
 
 .memo {

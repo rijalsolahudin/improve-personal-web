@@ -70,8 +70,14 @@ const badge = computed(() => {
   gap: 10px;
 }
 
-.card.dim {
-  opacity: 0.7;
+.card.dim .title,
+.card.dim .sub,
+.card.dim .left,
+.card.dim .date {
+  /* Kartu arsip dulu `opacity: 0.7` (batas aman cuma di sebagian latar tint). Token teks
+     `--mute` >= 4,95:1 di semua tint countdown (QA #62); state arsip tetap terlihat dari
+     judul redup + tombol "batal arsip". */
+  color: var(--mute);
 }
 
 .head {

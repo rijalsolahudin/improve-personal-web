@@ -94,7 +94,10 @@ const size = computed(() => (isDense ? 'sm' : 'md'))
 
 .done .title {
   text-decoration: line-through;
-  opacity: 0.55;
+  /* Baris ini juga dipakai di dalam kartu jadwal yang latarnya campuran warna kategori
+     (`color-mix(--ev-solid 15%, --paper)`). `--mute-3` bisa jatuh ke 4,32:1 di sana, jadi pakai
+     `--mute` yang terukur >= 4,89:1 pada seluruh campuran kategori (QA #62). */
+  color: var(--mute);
 }
 
 .meta {

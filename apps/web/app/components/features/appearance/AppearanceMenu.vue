@@ -176,6 +176,8 @@ const styleOptions = computed(() =>
   font-weight: var(--fw-medium);
   font-size: 11.5px;
   line-height: 1.3;
-  opacity: 0.8;
+  /* `--mute-2` >= 6,97:1 di `--paper`, >= 5,33:1 di `--soft` (gaya terpilih) - naik dari
+     opacity 0.8 (4,07:1 di `--soft`) tanpa menurunkan kontras di `--paper` (QA #62). */
+  color: var(--mute-2);
 }
 </style>
