@@ -14,7 +14,7 @@ Monorepo `improve-personal`: `apps/web` (Nuxt) + `apps/mobile` (React Native). B
 
 Detail: `.claude/rules/ergonio-status-flow.md`.
 
-- Ambil task dari `backlog` -> `todo` saat jadi antrean berikutnya -> `prog` saat mulai dikerjakan.
+- Ambil task dari `backlog` -> (`todo`) -> `prog` saat mulai dikerjakan; `todo` opsional, cuma penanda antrean.
 - Report selesai -> `status-1792622088574` (Ready to Review), tulis `<strong>Hasil:</strong>` + path report di `description`.
 - DILARANG set `review` atau `done` - QA (`fajar`) yang memutuskan.
 - Task `status-1792622168795` (Failed): baca catatan bug, balik ke `prog` saat memperbaiki report.

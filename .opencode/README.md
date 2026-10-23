@@ -9,7 +9,10 @@ terikat ke satu provider. Agent yang di sumbernya cuma punya `Write` (tanpa
 Karena field `tools:` dibuang, subagent OpenCode **mewarisi seluruh tool sesi
 induk, termasuk MCP ergonio**. Batas "hanya baca, jangan ubah status/komentar"
 karena itu aturan tertulis (`.claude/rules/ergonio-status-flow.md`), bukan sandbox.
-Transisi status dan komentar task tetap milik orchestrator.
+Larangan mencakup tool destruktif: `deleteTask` (menghapus seluruh subtask di semua
+kedalaman) serta `createMilestone`/`updateMilestone`/`deleteMilestone`. Semua tool
+di luar daftar baca dianggap terlarang. Transisi status dan komentar task tetap
+milik orchestrator.
 
 **Jangan diedit langsung** — ubah persona di sumbernya, lalu jalankan:
 

@@ -1,6 +1,6 @@
 ---
 name: ergonio
-description: Lacak setiap task kerja di Ergonio (project personal-productivity) lewat MCP ergonio. Pakai di awal setiap task implementasi/perbaikan/riset di repo ini - bikin task dulu, lalu update status & progress sampai selesai. Juga pakai kalau user sebut Ergonio, "bikin task", atau "update task".
+description: Lacak setiap task kerja di Ergonio (project personal-productivity) lewat MCP ergonio. Pakai di awal setiap task implementasi/perbaikan/riset di repo ini - bikin task dulu, lalu update status sampai selesai (progress mengikuti status). Juga pakai kalau user sebut Ergonio, "bikin task", atau "update task".
 ---
 
 # Ergonio task tracking

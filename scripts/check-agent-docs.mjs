@@ -64,20 +64,34 @@ for (const app of APPS) {
 
 // Aturan status tidak boleh tumbuh kembali: MCP menghitung `progressPct` dari
 // status (`updateTask` tidak menerimanya), dan subagent OpenCode mewarisi MCP
-// sesi induk karena `tools:` dibuang saat sync. Keduanya koreksi task #60.
+// sesi induk karena `tools:` dibuang saat sync. Semua ini koreksi task #60/#64.
+const RULES_DOC = '.claude/rules/ergonio-status-flow.md'
+const ERGONIO_SKILL = '.claude/skills/ergonio/SKILL.md'
+const OPENCODE_README = '.opencode/README.md'
+const ORCHESTRATION_SKILL = '.claude/skills/orchestration/SKILL.md'
+
+const agentFiles = (await readdir(join(root, '.claude', 'agents')))
+  .filter((file) => file.endsWith('.md'))
+  .map((file) => `.claude/agents/${file}`)
+
 const AGENT_DOCS = [
   'AGENTS.md',
   'CLAUDE.md',
-  '.claude/rules/ergonio-status-flow.md',
-  '.claude/skills/ergonio/SKILL.md',
-  '.claude/skills/orchestration/SKILL.md',
-  ...(await readdir(join(root, '.claude', 'agents')))
-    .filter((file) => file.endsWith('.md'))
-    .map((file) => `.claude/agents/${file}`),
+  RULES_DOC,
+  ERGONIO_SKILL,
+  ORCHESTRATION_SKILL,
+  OPENCODE_README,
+  ...agentFiles,
 ]
 
-const SETS_PROGRESS = /`?progressPct`?\s*:/
-const FALSE_MCP_CLAIM = /subagent[^\n]*tidak punya[^\n]*MCP|tidak punya tool MCP/i
+// `progressPct` baru jadi instruksi kalau diikuti nilai (`progressPct: 90`,
+// `"progressPct": 90`, `progressPct = 90`). Penjelasan read-only seperti
+// "`progressPct`: dihitung server" sengaja tidak ditangkap.
+const SETS_PROGRESS = /["'`]?progressPct["'`]?\s*[:=]\s*["'`]?(?:\d|true|false|null)/i
+// Klaim "subagent tidak punya/dapat memakai MCP" salah di OpenCode. Negasi yang
+// sah soal `progressPct` ("tidak bisa di-set lewat MCP") dikecualikan.
+const FALSE_MCP_CLAIM =
+  /(?:tidak|tak|nggak|bukan)\s+(?:punya|dapat|bisa|ada|memiliki|memegang)\b(?:(?!\b(?:di-set|diatur|dikirim|kirim)\b)[^\n]){0,40}\bMCP\b|\btanpa\s+(?:tool\s+)?MCP\b/i
 
 for (const doc of AGENT_DOCS) {
   const text = await read(doc)
@@ -89,20 +103,54 @@ for (const doc of AGENT_DOCS) {
     )
 }
 
-// Ringkasan di AGENTS.md harus selonggar rule: `todo` boleh dilewati.
+// Agent pemilik alur developer harus selonggar rule: `todo` boleh dilewati.
+// Kalau hanya AGENTS.md yang dijaga, agent yang membaca filenya sendiri merasa
+// `todo` wajib.
 const agentsEntry = await read('AGENTS.md')
 if (!agentsEntry.includes('`todo` opsional'))
   errors.push('AGENTS.md: alur status harus menyebut `todo` opsional (boleh `backlog` -> `prog`)')
 
+for (const doc of agentFiles) {
+  const text = await read(doc)
+  if (text.includes('`backlog`') && !text.includes('`todo` opsional'))
+    errors.push(
+      `${doc}: alur status harus menyebut \`todo\` opsional (boleh \`backlog\` -> \`prog\`)`,
+    )
+}
+
+// Daftar tool mutasi terlarang harus utuh: `deleteTask` menghapus seluruh subtask
+// di semua kedalaman, dan milestone pun bisa dihapus. Daftar yang bolong dibaca
+// agent sebagai izin.
+const MUTATION_TOOLS = [
+  'createTask',
+  'updateTask',
+  'deleteTask',
+  'createSubtasks',
+  'createComment',
+  'updateComment',
+  'deleteComment',
+  'createMilestone',
+  'updateMilestone',
+  'deleteMilestone',
+]
+
+for (const doc of [RULES_DOC, ORCHESTRATION_SKILL]) {
+  const text = await read(doc)
+  const missingTools = MUTATION_TOOLS.filter((tool) => !text.includes(tool))
+  if (missingTools.length > 0)
+    errors.push(`${doc}: daftar tool mutasi terlarang belum memuat ${missingTools.join(', ')}`)
+}
+if (!(await read(OPENCODE_README)).includes('deleteTask'))
+  errors.push(`${OPENCODE_README}: larangan harus menyebut deleteTask (tool destruktif)`)
+
 // Protokol komentar adalah jalur handoff developer <-> QA. Kalau frasa intinya
 // hilang, aturan itu diam-diam rusak walau status flow masih "benar".
-const RULES_DOC = '.claude/rules/ergonio-status-flow.md'
 const rulesText = await read(RULES_DOC)
 for (const phrase of ['getTaskComments', 'handoff', 'mulai cek', 'LULUS']) {
   if (!rulesText.includes(phrase))
     errors.push(`${RULES_DOC}: frasa protokol komentar hilang: ${phrase}`)
 }
-for (const doc of ['.claude/skills/ergonio/SKILL.md', '.claude/skills/orchestration/SKILL.md']) {
+for (const doc of [ERGONIO_SKILL, ORCHESTRATION_SKILL]) {
   if (!(await read(doc)).includes('Komentar task'))
     errors.push(`${doc}: harus merujuk bagian "Komentar task" di ${RULES_DOC}`)
 }

@@ -54,6 +54,19 @@ Transisi yang boleh: `status-1792622088574` -> `review` -> (`done` | `status-179
    expected vs actual, severity, bukti `path:line`); ringkasan panjang di
    `reports/**`. Bug terpisah boleh jadi subtask.
 4. DILARANG `done` tanpa menjalankan verifikasi; DILARANG memperbaiki kode produk.
+5. **Cek per modul, bukan seluruh app.** QA memverifikasi delta task itu (file + test yang disentuh) plus regresi area terdekat. Sidak end-to-end semua AC hanya di task payung (mis. T16/#30), dijalankan sekali setelah turunannya `done`. Task docs-only/deps-only diverifikasi orchestrator lewat script gate (perintahnya ditulis di komentar verdict), tidak perlu antre QA manual.
+6. **Tier verifikasi - pilih yang paling ringan yang masih membuktikan AC:**
+
+   | Tier | Kapan dipakai | Yang dijalankan | Batas waktu |
+   |---|---|---|---|
+   | **T1 cepat** (default) | UI, komponen, composable, util, copy | test file yang disentuh + 2-3 file test area terdekat; eslint/prettier file itu; baca diff | <= 10 menit |
+   | **T2 sedang** | server, auth, kripto, storage/IndexedDB, skema, perbaikan data-loss | T1 + `typecheck` + build/audit bila relevan | <= 20 menit |
+   | **T3 rilis** | task payung (T16/#30) | suite penuh, build, Lighthouse, e2e/PWA | sekali per rilis |
+
+   DILARANG menjalankan suite penuh, `build`, atau Lighthouse di T1/T2. Suite penuh + typecheck dijalankan orchestrator **sekali per batch** sebelum beberapa task naik ke `status-1792622088574`, bukan per task.
+7. **Satu putaran QA + satu re-check.** Re-check hanya menguji bug yang dilaporkan pada putaran sebelumnya; DILARANG membuka area atau skenario baru saat re-check. Skenario baru = task baru.
+8. **Temuan di luar AC tidak menggagalkan task.** Kalau kriteria task lulus tetapi QA menemukan isu lain: orchestrator membuat task terpisah, lalu task tetap `done`. Status `Failed` hanya untuk AC gagal, regresi, atau data-loss **di jalur yang diubah task itu**.
+9. **Hemat alat ukur.** Build/Lighthouse/benchmark hanya bila AC-nya memang menyebut angka itu; selain itu pakai test yang sudah ada. Jangan mengulang pengukuran yang sudah dibuktikan task lain di tree yang sama.
 
 ## Komentar task (handoff developer <-> QA)
 
@@ -68,8 +81,12 @@ mewarisi MCP sesi induk. Batasnya karena itu aturan, bukan sandbox:
 - Subagent **boleh** memakai tool baca (`getTask`, `getTaskComments`, `searchTasks`,
   `queryTasks`, `getProject`, `listFields`) untuk konteks pekerjaannya.
 - Subagent **DILARANG** memanggil tool yang mengubah data (`createTask`,
-  `updateTask`, `createSubtasks`, `createComment`, `updateComment`,
-  `deleteComment`) - termasuk memindahkan status atau menulis komentar.
+  `updateTask`, `deleteTask`, `createSubtasks`, `createComment`, `updateComment`,
+  `deleteComment`, `createMilestone`, `updateMilestone`, `deleteMilestone`) -
+  termasuk memindahkan status, menulis komentar, atau menghapus task/milestone.
+  `deleteTask` ikut terlarang karena menghapus seluruh subtask di semua kedalaman.
+  Anggap **semua** tool di luar daftar baca di atas terlarang - daftar ini contoh
+  minimum, bukan izin.
 - Orchestrator memposting komentar atas nama hasil subagent dan menyebut agent
   asalnya, supaya tidak ada dua penulis komentar untuk satu task.
 
