@@ -180,13 +180,14 @@ export const GUIDE_FEATURES: readonly GuideFeature[] = [
     code: 'F8',
     group: 'fokus',
     title: 'Journal',
-    status: 'partial',
+    status: 'ready',
     summary:
-      'Jurnal harian berisi catatan bebas, mood, dan niat harian. Masih tahap awal: isi jurnal dan mood baru bertahan selama sesi, belum tersimpan permanen, jadi jangan dijadikan satu-satunya tempat untuk catatan penting.',
+      'Jurnal harian berisi catatan bebas, mood, dan niat harian. Isi jurnal, judul, dan mood tersimpan terenkripsi di perangkat ini lewat penyimpanan lokal yang sama dengan fitur lain, jadi tetap ada setelah aplikasi ditutup.',
     tips: [
       'Tulis @ di editor untuk menyebut jadwal, atau # untuk menyebut goal dan chapter; keduanya jadi chip yang bisa diklik.',
+      'Satu halaman per tanggal: menyimpan lagi di tanggal yang sama memperbarui halaman itu, bukan membuat salinan baru.',
+      'Tulisan yang belum disimpan tetap tersimpan sebagai draf lokal dan dipulihkan saat kamu membuka tanggal itu lagi.',
       'Pencarian mencocokkan isi catatan, bukan cuma tanggal.',
-      'Mood dan streak menulis jurnal ikut tampil di Overview.',
     ],
     href: getFeature('memo').path,
   },
@@ -438,8 +439,8 @@ export const GUIDE_FAQ: readonly GuideFaqItem[] = [
       'Tidak. Tema dan gaya cuma mengubah tampilan, bukan isi atau kunci. Pilihannya tersimpan di perangkat ini dan belum ikut akun.',
   },
   {
-    question: 'Kenapa isi jurnal hilang setelah reload?',
+    question: 'Apakah data tetap ada setelah reload?',
     answer:
-      'Hanya jurnal (termasuk mood harian) yang masih tahap awal: isinya bertahan selama sesi dan belum disimpan permanen. Goal dan chapter sudah tersimpan terenkripsi di perangkat ini, begitu juga task, habit, jadwal, countdown, dan sesi Pomodoro, jadi semuanya tetap ada setelah reload.',
+      'Ya. Task, habit, jadwal, countdown, goal, sesi Pomodoro, dan jurnal (termasuk mood harian) tersimpan terenkripsi di perangkat ini, jadi semuanya tetap ada setelah reload atau aplikasi ditutup. Sync antar perangkat belum tersambung, dan berkas export sengaja tidak terenkripsi.',
   },
 ]

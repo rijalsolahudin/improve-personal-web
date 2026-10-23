@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 
-import type { Memo } from '~/utils/memo'
+import { MEMO_TEXT_MAX, type Memo } from '~/utils/memo'
 
 import { clearAppStorage } from './useLogout'
 import { MEMO_DRAFT_PREFIX, useMemoDraft } from './useMemoDraft'
@@ -22,13 +22,20 @@ const page = (overrides: Partial<Memo> = {}): Memo => ({
 })
 
 function reload(): void {
-  clearNuxtState(['memo-draft', 'memo-draft-day', 'memo-draft-saved'])
+  clearNuxtState(['memo-draft', 'memo-draft-day', 'memo-draft-saved', 'memo-draft-held'])
 }
 
 describe('useMemoDraft', () => {
   beforeEach(() => {
     localStorage.clear()
-    clearNuxtState(['memos', 'memo-draft', 'memo-draft-day', 'memo-draft-saved'])
+    clearNuxtState([
+      'memos',
+      'memosUnsaved',
+      'memo-draft',
+      'memo-draft-day',
+      'memo-draft-saved',
+      'memo-draft-held',
+    ])
   })
 
   it('pindah tanggal membuka isi halaman tanggal itu, tanggal kosong mengosongkan editor', () => {
@@ -84,7 +91,10 @@ describe('useMemoDraft', () => {
     before.draft.value.text = 'Revisi yang belum disimpan'
 
     expect(localStorage.getItem(keyOf(DAY))).toBe(
-      JSON.stringify({ title: 'Judul', text: 'Revisi yang belum disimpan', feelings: ['tenang'] }),
+      JSON.stringify({
+        values: { title: 'Judul', text: 'Revisi yang belum disimpan', feelings: ['tenang'] },
+        base: { title: 'Judul', text: 'Isi', feelings: ['tenang'] },
+      }),
     )
     expect(keyOf(DAY).startsWith('ip-')).toBe(true)
 
@@ -94,6 +104,42 @@ describe('useMemoDraft', () => {
     after.showDay(DAY, page())
 
     expect(after.draft.value.text).toBe('Revisi yang belum disimpan')
+  })
+
+  /**
+   * QA #54 R2: base version dulu hanya di `useState`, jadi setelah reload draf dibandingkan dengan
+   * halaman TERKINI (base = current) dan catatan penulis luar yang masuk selama reload terlihat
+   * seperti "tidak ada perubahan" - lalu hilang saat draf disimpan.
+   */
+  it('reload di tengah draf tetap mempertahankan catatan penulis luar', () => {
+    const before = useMemoDraft()
+    before.showDay(DAY, page({ text: 'Tulisan awal.' }))
+    before.draft.value.text = 'Draf saya yang belum disimpan'
+
+    reload()
+    const after = useMemoDraft()
+    const withReview = page({ text: 'Tulisan awal.\n\nCatatan review goal' })
+    after.showDay(DAY, withReview)
+
+    const values = after.prepareSave(DAY, withReview)
+    expect(values.text).toContain('Catatan review goal')
+    expect(values.text).toContain('Draf saya yang belum disimpan')
+  })
+
+  /** QA #54 R1: saat clamp 5.000 karakter, catatan penulis luar tidak boleh terpotong. */
+  it('clamp 5.000 karakter memprioritaskan catatan penulis luar', () => {
+    const { draft, prepareSave, showDay } = useMemoDraft()
+    const base = 'A'.repeat(4_000)
+    showDay(DAY, page({ text: base }))
+    // User menulis ulang seluruh halaman hampir sampai batas.
+    draft.value.text = 'C'.repeat(MEMO_TEXT_MAX)
+
+    const withReview = page({ text: `${base}\n\nCatatan review goal` })
+    const values = prepareSave(DAY, withReview)
+
+    expect(values.text).toHaveLength(MEMO_TEXT_MAX)
+    expect(values.text).toContain('Catatan review goal')
+    expect(values.text.startsWith('Catatan review goal')).toBe(false)
   })
 
   it('isi yang kembali sama dengan halaman tersimpan tidak meninggalkan draf', () => {
@@ -120,6 +166,48 @@ describe('useMemoDraft', () => {
     load(saved)
     expect(localStorage.getItem(keyOf(DAY))).toBeNull()
     expect(draft.value.text).toBe('Hari ini tenang.')
+  })
+
+  /**
+   * BUG-65-01: penyimpanan memperbarui halaman di memori lebih dulu, jadi draf bisa terlihat "sama
+   * dengan halaman tersimpan" SEBELUM tulisannya berhasil. Selama ditahan (`hold`), draf tidak boleh
+   * dibuang - kalau tidak, tulisan user hilang bersama kegagalan tulis.
+   */
+  it('draf yang ditahan tidak dibuang walau isinya sama dengan halaman; dilepas setelah tulis sukses', () => {
+    const { draft, hold, load, release, showDay } = useMemoDraft()
+    showDay(DAY, page({ text: 'Isi lama.' }))
+    draft.value.text = 'Revisi yang sedang disimpan.'
+
+    hold(DAY)
+    // Simulasi penyimpanan optimistis: halaman di memori sudah memuat nilai draf.
+    load({ title: 'Judul', text: 'Revisi yang sedang disimpan.', feelings: ['tenang'] })
+
+    expect(localStorage.getItem(keyOf(DAY))).not.toBeNull()
+
+    release(DAY)
+    expect(localStorage.getItem(keyOf(DAY))).toBeNull()
+  })
+
+  /**
+   * Tulisan berjalan di latar; user bisa pindah tanggal sebelum tulisannya selesai. Halaman yang
+   * barusan tersimpan hanya boleh menyentuh draf tanggal ITU - draf tanggal lain yang sedang diketik
+   * tidak boleh tertimpa (data loss yang sama bentuknya dengan BUG-65-01).
+   */
+  it('tulisan selesai setelah pindah tanggal tidak menimpa draf tanggal yang sedang terbuka', () => {
+    const { draft, hold, load, release, showDay } = useMemoDraft()
+    showDay(DAY, null)
+    draft.value.text = 'Tulisan hari pertama'
+    hold(DAY)
+
+    showDay(OTHER_DAY, null)
+    draft.value.text = 'Tulisan hari kedua'
+
+    load({ title: '', text: 'Tulisan hari pertama', feelings: [] }, DAY)
+    release(DAY)
+
+    expect(draft.value.text).toBe('Tulisan hari kedua')
+    expect(localStorage.getItem(keyOf(DAY))).toBeNull()
+    expect(localStorage.getItem(keyOf(OTHER_DAY))).toContain('Tulisan hari kedua')
   })
 
   it('storage rusak atau bertipe salah diabaikan, bukan dipercaya mentah', () => {

@@ -27,7 +27,7 @@ const { schedules } = useSchedules()
 const { goals } = useGoals()
 const { longDate, shortDate } = useDateFormat()
 
-const { draft, load, showDay } = useMemoDraft()
+const { draft, hold, load, prepareSave, release, showDay, unchangedSince } = useMemoDraft()
 const paper = computed({
   get: () => memos.paper.value,
   set: (value) => memos.setPaper(value),
@@ -102,10 +102,61 @@ watch(
   { immediate: true },
 )
 
-function save(): void {
-  const saved = memos.save({ date: day, ...draft.value, paper: paper.value })
-  // Halaman yang baru disimpan tetap terbuka supaya bisa dikoreksi (id tetap, bukan halaman baru).
-  if (saved) load(saved)
+/**
+ * Halaman tersimpan bisa datang belakangan (hidrasi repository setelah editor mount) atau berubah
+ * di luar editor (kartu review goal). `showDay` untuk tanggal yang sama hanya merekonsiliasi, jadi
+ * draf yang sedang diketik tidak tertimpa - tetapi halaman yang baru dimuat ikut tampil.
+ */
+watch(
+  () => memos.memoOn(day),
+  (page, previous) => {
+    showDay(day, page)
+    // Halaman yang dihapus/dikosongkan sudah tidak punya tulisan tertunda: lepas tahanan drafnya
+    // supaya banner & "Coba lagi" tidak nyangkut setelah tombol hapus (BUG-71-02). Kalau pengosongan
+    // gagal (masih `unsaved`), tahanan tetap sampai tulisannya terkonfirmasi.
+    if (page === null && previous !== null && previous.date === day && !memos.hasUnsaved(day)) {
+      release(day)
+    }
+  },
+)
+
+const saving = ref(false)
+/** Tulisan tanggal ini pernah gagal: tampilkan "belum tersimpan" + tombol coba lagi. */
+const saveFailed = computed(() => memos.hasUnsaved(day))
+
+/**
+ * Simpan halaman. Draf ditahan sampai tulisannya benar-benar terkonfirmasi (BUG-65-01): kalau
+ * penyimpanan gagal (quota penuh, IndexedDB diblokir, kunci hilang), teks user tetap ada di draf,
+ * banner error muncul, dan tombol "coba lagi" memakai jalur yang sama.
+ */
+async function save(): Promise<void> {
+  if (saving.value) return
+
+  // Tanggal dikunci di awal: user boleh pindah tanggal selama tulisan berjalan.
+  const target = day
+  // BUG-54-01: halaman ini juga ditulis penulis lain (kartu review goal). Ambil nilai yang sudah
+  // digabung dengan halaman terkini supaya simpan tidak menghapus catatan yang masuk di sela-selanya.
+  const values = prepareSave(target, memos.memoOn(target))
+  hold(target)
+  saving.value = true
+  try {
+    const page = memos.save({ date: target, ...values, paper: paper.value })
+    if (page === null) {
+      release(target)
+      return
+    }
+    if (!(await memos.waitForSave(page.id))) return
+
+    // BUG-71-03: textarea tetap bisa diketik selama menunggu tulis. Kalau draf tanggal ini sudah
+    // berubah, `load` akan menimpa ketikan itu dengan versi yang lebih lama. Hanya segarkan editor
+    // (dan buang draf) bila isinya masih sama dengan yang tadi dikirim; kalau berubah, ketikan user
+    // dipertahankan bersama drafnya dan tinggal disimpan lagi. `release` tetap dipanggil supaya
+    // tahanan draf tidak menggantung; draf yang berbeda dari halaman tidak ikut dibuang.
+    if (unchangedSince(target, values)) load(memos.memoOn(target) ?? page, target)
+    release(target)
+  } finally {
+    saving.value = false
+  }
 }
 </script>
 
@@ -209,8 +260,16 @@ function save(): void {
       </button>
     </div>
     <div class="bottom">
+      <p v-if="saveFailed" class="save-error" role="alert">
+        <span>{{ $t('memo.saveFailed') }}</span>
+        <button type="button" class="retry" :disabled="saving" @click="save">
+          {{ $t('memo.retry') }}
+        </button>
+      </p>
       <p id="memo-hint" class="hint">{{ $t('memo.wordsHint', { n: words }) }}</p>
-      <Button variant="primary" :disabled="!words" @click="save">{{ $t('memo.save') }}</Button>
+      <Button variant="primary" :disabled="!words || saving" @click="save">
+        {{ saving ? $t('memo.saving') : $t('memo.save') }}
+      </Button>
     </div>
   </section>
 </template>
@@ -376,6 +435,30 @@ function save(): void {
   font-weight: var(--fw-strong);
   font-size: 13px;
   color: var(--mute);
+}
+
+.save-error {
+  flex: 1 0 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border: var(--border-thin) solid var(--danger);
+  border-radius: var(--radius-row);
+  color: var(--danger);
+  font-weight: var(--fw-strong);
+  font-size: 13px;
+}
+
+.retry {
+  padding: 4px 12px;
+  border: var(--border-thin) solid currentcolor;
+  border-radius: var(--radius-pill);
+  background: none;
+  color: inherit;
+  font-weight: var(--fw-strong);
+  font-size: 13px;
 }
 
 @media (max-width: 599px) {

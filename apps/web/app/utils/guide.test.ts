@@ -109,6 +109,19 @@ describe('status & klaim mengikuti kode', () => {
     expect(goalTip).toMatch(/goal/i)
   })
 
+  it('Journal siap dipakai: isi jurnal dan mood tersimpan terenkripsi, bukan cuma sesi', () => {
+    const feature = GUIDE_FEATURES.find((item) => item.code === 'F8')
+    const copy = `${feature?.summary} ${feature?.tips.join(' ')}`
+    expect(feature?.status).toBe('ready')
+    expect(copy).toMatch(/tersimpan/i)
+    expect(copy).toMatch(/terenkripsi/i)
+    expect(copy).toMatch(/mood/i)
+    // Klaim lama tidak boleh kembali: jurnal sudah persist, bukan in-memory.
+    expect(copy).not.toMatch(/selama sesi/i)
+    expect(copy).not.toMatch(/belum tersimpan/i)
+    expect(copy).not.toMatch(/belum permanen/i)
+  })
+
   it('Goals siap dipakai: tersimpan terenkripsi dan progres otomatis', () => {
     const feature = GUIDE_FEATURES.find((item) => item.code === 'F13')
     const copy = `${feature?.summary} ${feature?.tips.join(' ')}`

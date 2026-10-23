@@ -117,6 +117,28 @@ export function memoOn(memos: readonly Memo[], day: string): Memo | null {
   return memos.find((memo) => memo.date === day) ?? null
 }
 
+/**
+ * Sambung teks `lead` + `tail` jadi dua paragraf, dengan `tail` (catatan penulis lain) yang
+ * DIPRIORITASKAN saat melewati `MEMO_TEXT_MAX`.
+ *
+ * Alasannya bukan selera: `tail` biasanya ditulis fitur lain (kartu review goal -> `memos.append`)
+ * setelah draf user dibuat. Kalau pemotongan dari depan (perilaku lama), justru catatan eksternal
+ * yang dibuang diam-diam - QA #54 R1. Di sini `lead` yang dipotong lebih dulu; `tail` hanya
+ * dipotong kalau dia sendiri sudah melebihi batas.
+ */
+export function joinMemoText(lead: string, tail: string, max = MEMO_TEXT_MAX): string {
+  const left = lead.trimEnd()
+  const right = tail.trim()
+  if (!right) return left.slice(0, max)
+  if (!left) return right.slice(0, max)
+
+  const separator = '\n\n'
+  const budget = max - right.length - separator.length
+  if (budget <= 0) return right.slice(0, max)
+
+  return `${left.slice(0, budget).trimEnd()}${separator}${right}`.slice(0, max)
+}
+
 export function wordCount(text: string): number {
   return text.trim() ? text.trim().split(/\s+/).length : 0
 }

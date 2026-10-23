@@ -945,6 +945,9 @@
     "textLabel": "Isi memo hari ini",
     "placeholder": "Dear diary, hari ini…",
     "save": "Simpan ke jurnal",
+    "saving": "Menyimpan…",
+    "saveFailed": "Belum tersimpan di perangkat. Tulisanmu masih ada di draf — coba lagi.",
+    "retry": "Coba lagi",
     "status": {
       "saved": "✓ Tersimpan · buka jurnal →",
       "words": "{n} kata · buka jurnal →",
@@ -956,7 +959,7 @@
     "today": "Hari ini",
     "noEntryPreview": "Belum ada memo",
     "noMatch": "Nggak ketemu halaman dengan kata itu.",
-    "draftKept": "✓ Draf disimpan selama sesi",
+    "draftKept": "✓ Draf tersimpan di perangkat ini",
     "feelingsLabel": "Perasaan hari ini",
     "titlePlaceholder": "Kasih judul halaman ini…",
     "titleLabel": "Judul halaman",

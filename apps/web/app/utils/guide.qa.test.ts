@@ -72,10 +72,13 @@ describe('isi panduan sesuai kode saat ini', () => {
     expect(SECURITY_TEXT).toMatch(/server tidak menyimpan kode/i)
   })
 
-  it('pemulihan lewat perangkat baru menyebut OTP bukan pembuka kunci & QR masih belum ada', () => {
+  it('pemulihan lewat perangkat baru menyebut OTP bukan pembuka kunci; QR sudah ada, sync otomatis yang belum', () => {
     const [firstStep] = GUIDE_SECURITY.recoverySteps
     expect(firstStep).toMatch(/login/i)
     expect(firstStep).toMatch(/bukan membuka data/i)
+    // Nama test lama ("QR masih belum ada") sudah basi sejak tambah-perangkat lewat QR dirilis.
+    // Yang tetap harus benar: copy menyebut QR DAN menyebut apa yang masih belum tersambung,
+    // supaya user tidak mengira sinkronisasi otomatis sudah jalan.
     expect(GUIDE_SECURITY.soon).toMatch(/QR/i)
     expect(GUIDE_SECURITY.soon).toMatch(/belum/i)
   })

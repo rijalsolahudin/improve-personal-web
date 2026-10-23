@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  MEMO_TEXT_MAX,
   goalMentionQuery,
   insertGoalMention,
   insertMention,
+  joinMemoText,
   journalDates,
   matchesQuery,
   memoOn,
@@ -68,6 +70,28 @@ describe('mention jadwal', () => {
     expect(mentionQuery('Tadi ikut @')).toBe('')
     expect(mentionQuery('email a@b.c selesai')).toBeNull()
     expect(insertMention('Tadi ikut @ke', 'aws')).toBe('Tadi ikut @[aws] ')
+  })
+})
+
+describe('gabung teks & batas panjang', () => {
+  it('menyambung dua bagian jadi paragraf tanpa baris kosong berlebih', () => {
+    expect(joinMemoText('Isi lama.  ', '  Tambahan.  ')).toBe('Isi lama.\n\nTambahan.')
+    expect(joinMemoText('', 'Hanya tambahan')).toBe('Hanya tambahan')
+    expect(joinMemoText('Hanya isi', '   ')).toBe('Hanya isi')
+  })
+
+  it('saat batas tercapai, teks pertama dipotong lebih dulu - catatan penulis luar utuh', () => {
+    const external = 'Catatan review goal'
+    const joined = joinMemoText('A'.repeat(MEMO_TEXT_MAX), external)
+
+    expect(joined).toHaveLength(MEMO_TEXT_MAX)
+    expect(joined.endsWith(external)).toBe(true)
+  })
+
+  it('catatan luar yang sendiri melebihi batas dipotong ke batas', () => {
+    const joined = joinMemoText('Isi user', 'B'.repeat(MEMO_TEXT_MAX + 50))
+    expect(joined).toHaveLength(MEMO_TEXT_MAX)
+    expect(joined).not.toContain('Isi user')
   })
 })
 
