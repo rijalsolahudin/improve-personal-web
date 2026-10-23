@@ -28,7 +28,6 @@ type PendingAction = 'save' | 'delete' | 'archive'
 
 const { t } = useI18n()
 const { findHabit, save, remove, setArchived } = useHabits()
-const { goals } = useGoals()
 const { rememberSticker } = useDeco()
 const { weekdayOfIndex } = useDateFormat()
 
@@ -42,7 +41,6 @@ const isPickingSticker = ref(false)
 
 watch(draft, () => (error.value = null), { deep: true })
 
-const activeGoals = computed(() => goals.value.filter((goal) => goal.status === 'aktif'))
 const soft = computed(() => (HABIT_COLORS[draft.value.color] ?? HABIT_COLORS[0])[1])
 const colorOptions = computed(() =>
   HABIT_COLORS.map(([solid], index) => ({
@@ -221,19 +219,22 @@ async function onArchive(): Promise<void> {
       </Field>
 
       <Field :label="$t('habit.form.goal')" is-group>
-        <div class="pills wrap">
-          <Chip :active="draft.goalId === null" @click="draft.goalId = null">
-            {{ $t('habit.form.noGoal') }}
-          </Chip>
-          <Chip
-            v-for="goal in activeGoals"
-            :key="goal.id"
-            :active="draft.goalId === goal.id"
-            @click="draft.goalId = goal.id"
-          >
-            {{ goal.title }}
-          </Chip>
-        </div>
+        <GoalPicker
+          :goal-id="draft.goalId"
+          :chapter-id="draft.goalChapterId"
+          @select="
+            (goalId, chapterId) => {
+              draft.goalId = goalId
+              draft.goalChapterId = chapterId
+            }
+          "
+          @clear="
+            () => {
+              draft.goalId = null
+              draft.goalChapterId = null
+            }
+          "
+        />
       </Field>
 
       <p v-if="error" class="error" role="alert">{{ $t(`habit.form.error.${error}`) }}</p>
