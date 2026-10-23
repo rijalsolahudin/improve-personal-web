@@ -40,6 +40,86 @@ export const WEATHER_META: Record<WeatherKind, { icon: IconName; color: string }
   hujan: { icon: 'cloud-rain', color: '#0A55E6' },
 }
 
+// ---- State harian --------------------------------------------------------------------
+
+/**
+ * State halaman Daily per tanggal (bukan data core): langkah rutinitas, task yang dicentang,
+ * cuaca manual, dan id quick add versi lama. Disimpan di localStorage supaya tidak hilang saat
+ * reload (PRD F12: centang bertahan "sampai ganti hari", cuaca menampilkan data terakhir).
+ */
+export interface DailyDay {
+  doneSteps: readonly string[]
+  /** Task yang dicentang dari Daily hari ini: tetap tampil dicoret di Prioritas sampai ganti hari. */
+  checkedTaskIds: readonly string[]
+  weather: WeatherKind | null
+  /** Quick add versi lama (sebelum deadline hari ini dipakai); dipertahankan saat membaca storage. */
+  addedTaskIds: readonly string[]
+}
+
+export const EMPTY_DAILY_DAY: DailyDay = {
+  doneSteps: [],
+  checkedTaskIds: [],
+  weather: null,
+  addedTaskIds: [],
+}
+
+/** localStorage cuma menyimpan beberapa hari terakhir; hari lebih lama dibuang. */
+export const DAILY_STORE_MAX_DAYS = 14
+const DAILY_ID_MAX = 120
+const DAILY_IDS_MAX = 200
+const ISO_DATE_KEY = /^\d{4}-\d{2}-\d{2}$/
+
+function parseIds(value: unknown): string[] {
+  if (!Array.isArray(value)) return []
+  return value
+    .filter(
+      (id): id is string => typeof id === 'string' && id.length > 0 && id.length <= DAILY_ID_MAX,
+    )
+    .slice(0, DAILY_IDS_MAX)
+}
+
+function isWeatherKind(value: unknown): value is WeatherKind {
+  return typeof value === 'string' && (WEATHER_KINDS as readonly string[]).includes(value)
+}
+
+/**
+ * Baca peta state harian dari storage yang tidak tepercaya: tanggal tidak valid, field asing, dan
+ * nilai di luar tipe dibuang. Hanya `DAILY_STORE_MAX_DAYS` tanggal terbaru yang dipertahankan.
+ */
+export function parseDailyDays(raw: unknown): Record<string, DailyDay> {
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return {}
+
+  const entries = Object.entries(raw as Record<string, unknown>)
+    .filter(
+      ([date, day]) =>
+        ISO_DATE_KEY.test(date) && typeof day === 'object' && day !== null && !Array.isArray(day),
+    )
+    .sort(([left], [right]) => right.localeCompare(left))
+    .slice(0, DAILY_STORE_MAX_DAYS)
+
+  return Object.fromEntries(
+    entries.map(([date, value]) => {
+      const day = value as Record<string, unknown>
+      const parsed: DailyDay = {
+        doneSteps: parseIds(day.doneSteps),
+        checkedTaskIds: parseIds(day.checkedTaskIds),
+        weather: isWeatherKind(day.weather) ? day.weather : null,
+        addedTaskIds: parseIds(day.addedTaskIds),
+      }
+      return [date, parsed]
+    }),
+  )
+}
+
+/** Tulis state satu hari, lalu buang tanggal paling lama supaya storage tidak membengkak. */
+export function withDailyDay(
+  days: Readonly<Record<string, DailyDay>>,
+  date: string,
+  day: DailyDay,
+): Record<string, DailyDay> {
+  return parseDailyDays({ ...days, [date]: day })
+}
+
 // ---- Prioritas -----------------------------------------------------------------------
 
 /** Daftar panjang dilipat di "Lihat N lagi" setelah sekian item (PRD F12), bukan dipotong. */
@@ -80,7 +160,10 @@ export function dailyPriorities(
 
 // ---- To-do hari ini -------------------------------------------------------------------
 
-/** Widget tetap ringkas; sisanya di halaman To-do. */
+/**
+ * Jumlah baris yang tampil sebelum dilipat di "Lihat N lagi" (PRD F12). Ini batas tampilan,
+ * bukan batas data: progres tetap dihitung dari seluruh to-do hari ini.
+ */
 export const TODAY_TASK_LIMIT = 10
 
 export interface TodayTask {
@@ -114,7 +197,6 @@ export function todayTasks(
     .filter(
       (task) => !excluded.has(task.id) && (added.has(task.id) || isDueToday(task, start, end)),
     )
-    .slice(0, TODAY_TASK_LIMIT)
     .map((task) => ({
       task,
       isOverdue: !task.done && task.deadline !== null && task.deadline < now,

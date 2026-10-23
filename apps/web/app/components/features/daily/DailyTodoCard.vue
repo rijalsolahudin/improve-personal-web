@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { TodayTask } from '~/utils/dailyRoutine'
+import { TODAY_TASK_LIMIT, type TodayTask } from '~/utils/dailyRoutine'
 import { TASK_TITLE_MAX } from '~/utils/tasks'
 import { formatHourMinute, toIsoDate } from '~/utils/time'
 
@@ -19,7 +19,9 @@ const emit = defineEmits<{
 const { t } = useI18n()
 const { dayMonth } = useDateFormat()
 const draft = ref('')
+const isExpanded = ref(false)
 
+/** Progres dari SELURUH to-do hari ini, bukan cuma baris yang sedang tampil. */
 const doneCount = computed(() => items.filter(({ task }) => task.done).length)
 const pct = computed(() => (items.length ? Math.round((doneCount.value / items.length) * 100) : 0))
 /** Tanpa deadline → tanpa jam; deadline hari sebelumnya ikut tanggalnya. */
@@ -31,6 +33,11 @@ function deadlineMeta(deadline: number | null): string {
 
 const rows = computed(() =>
   items.map(({ task, isOverdue }) => ({ task, isOverdue, meta: deadlineMeta(task.deadline) })),
+)
+/** Daftar panjang dilipat seperti Prioritas (PRD F12), bukan dipotong diam-diam. */
+const hiddenCount = computed(() => Math.max(0, items.length - TODAY_TASK_LIMIT))
+const visibleRows = computed(() =>
+  isExpanded.value ? rows.value : rows.value.slice(0, TODAY_TASK_LIMIT),
 )
 
 function submit(): void {
@@ -54,18 +61,31 @@ function submit(): void {
       :pct="pct"
       :meta="t('daily.meta', { done: doneCount, total: items.length })"
     />
-    <TodoLine
-      v-for="{ task, isOverdue, meta } in rows"
-      :key="task.id"
-      :task="task"
-      :meta="meta"
-      :is-overdue="isOverdue"
-      can-edit
-      @toggle="emit('toggle', task.id)"
-      @focus="emit('focus', $event)"
-      @edit="emit('edit', task.id)"
-    />
+    <div id="daily-todo-list" class="list">
+      <TodoLine
+        v-for="{ task, isOverdue, meta } in visibleRows"
+        :key="task.id"
+        :task="task"
+        :meta="meta"
+        :is-overdue="isOverdue"
+        can-edit
+        @toggle="emit('toggle', task.id)"
+        @focus="emit('focus', $event)"
+        @edit="emit('edit', task.id)"
+      />
+    </div>
     <p v-if="!items.length" class="empty">{{ $t('daily.todo.empty') }}</p>
+    <Button
+      v-if="hiddenCount"
+      variant="dashed"
+      size="xs"
+      class="more"
+      aria-controls="daily-todo-list"
+      :aria-expanded="isExpanded"
+      @click="isExpanded = !isExpanded"
+    >
+      {{ isExpanded ? $t('daily.todo.less') : $t('daily.todo.more', { n: hiddenCount }) }}
+    </Button>
     <form class="add" @submit.prevent="submit">
       <span class="plus" aria-hidden="true">+</span>
       <Input
@@ -94,6 +114,11 @@ function submit(): void {
 .card-head {
   padding-bottom: 12px;
   border-bottom: var(--border-thin) dashed var(--dash);
+}
+
+.more {
+  align-self: flex-start;
+  margin-top: 8px;
 }
 
 .empty {

@@ -1,6 +1,16 @@
 import { describe, expect, it } from 'vitest'
 
-import { blockOf, dailyPriorities, splitMinutes, sumProgress, todayTasks } from './dailyRoutine'
+import {
+  DAILY_STORE_MAX_DAYS,
+  EMPTY_DAILY_DAY,
+  blockOf,
+  dailyPriorities,
+  parseDailyDays,
+  splitMinutes,
+  sumProgress,
+  todayTasks,
+  withDailyDay,
+} from './dailyRoutine'
 import type { Task } from './tasks'
 
 const NOW = new Date(2026, 9, 16, 14, 0).getTime()
@@ -95,6 +105,59 @@ describe('todayTasks', () => {
       task: expect.objectContaining({ id: 'no-deadline' }),
       isOverdue: false,
     })
+  })
+
+  it('tidak memotong daftar: 12 task hari ini semuanya kembali (B2)', () => {
+    const banyak = Array.from({ length: 12 }, (_, index) =>
+      task(`due-${index}`, { deadline: at(16, index + 8) }),
+    )
+
+    // Batas tampilan di widget bukan batas data: progres harus menghitung seluruh to-do hari ini.
+    expect(todayTasks(banyak, [], [], TODAY, NOW)).toHaveLength(12)
+  })
+})
+
+describe('state harian tersimpan (B3)', () => {
+  it('baca storage tak tepercaya: field divalidasi, tanggal/field asing dibuang', () => {
+    const parsed = parseDailyDays({
+      '2026-10-19': {
+        doneSteps: ['langkah-1'],
+        checkedTaskIds: ['task-1', 42, ''],
+        weather: 'hujan',
+      },
+      '2026-10-18': { weather: 'badai' },
+      'bukan-tanggal': { checkedTaskIds: ['task-x'] },
+      '2026-10-17': null,
+      '2026-10-16': ['array'],
+    })
+
+    expect(parsed['2026-10-19']).toEqual({
+      doneSteps: ['langkah-1'],
+      checkedTaskIds: ['task-1'],
+      weather: 'hujan',
+      addedTaskIds: [],
+    })
+    expect(parsed['2026-10-18']?.weather).toBeNull()
+    expect(parsed['bukan-tanggal']).toBeUndefined()
+    expect(parsed['2026-10-17']).toBeUndefined()
+    expect(parsed['2026-10-16']).toBeUndefined()
+    expect(parseDailyDays('{rusak')).toEqual({})
+    expect(parseDailyDays(null)).toEqual({})
+  })
+
+  it('menulis satu hari lalu menyimpan hanya tanggal terbaru dalam batas', () => {
+    const days = Object.fromEntries(
+      Array.from({ length: 20 }, (_, index) => {
+        const date = `2026-10-${String(index + 1).padStart(2, '0')}`
+        return [date, EMPTY_DAILY_DAY]
+      }),
+    )
+
+    const pruned = withDailyDay(days, '2026-10-21', { ...EMPTY_DAILY_DAY, weather: 'cerah' })
+
+    expect(Object.keys(pruned)).toHaveLength(DAILY_STORE_MAX_DAYS)
+    expect(pruned['2026-10-21']?.weather).toBe('cerah')
+    expect(pruned['2026-10-01']).toBeUndefined()
   })
 })
 

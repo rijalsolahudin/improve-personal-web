@@ -1,29 +1,45 @@
 import {
+  EMPTY_DAILY_DAY,
   ROUTINE_BLOCKS,
   ROUTINE_BLOCK_META,
   blockOf,
   dailyPriorities,
+  parseDailyDays,
   sumProgress,
   todayTasks,
+  withDailyDay,
+  type DailyDay,
   type RoutineBlock,
   type WeatherKind,
 } from '~/utils/dailyRoutine'
 import { countOn, isScheduled } from '~/utils/habits'
 import { occurrencesOn } from '~/utils/schedule'
+import { END_OF_DAY, deadlineFrom } from '~/utils/tasks'
 import { toIsoDate } from '~/utils/time'
 
 import { createRoutineMock } from './routine/mock'
 
-interface DailyDay {
-  doneSteps: readonly string[]
-  /** Task yang dicentang dari Daily hari ini: tetap tampil dicoret di Prioritas sampai ganti hari. */
-  checkedTaskIds: readonly string[]
-  weather: WeatherKind | null
-  /** Task yang ditambah lewat quick add hari ini (tampil walau tanpa deadline). */
-  addedTaskIds: readonly string[]
+/** State harian (bukan data core) disimpan di localStorage; ikut terhapus saat logout. */
+export const DAILY_STORAGE_KEY = 'ip-daily'
+
+function readDays(): Record<string, DailyDay> {
+  if (!import.meta.client) return {}
+  try {
+    return parseDailyDays(JSON.parse(localStorage.getItem(DAILY_STORAGE_KEY) ?? 'null'))
+  } catch {
+    // Storage rusak/diblokir: mulai kosong, jangan gagalkan halaman.
+    return {}
+  }
 }
 
-const EMPTY_DAY: DailyDay = { doneSteps: [], checkedTaskIds: [], weather: null, addedTaskIds: [] }
+function writeDays(days: Record<string, DailyDay>): void {
+  if (!import.meta.client) return
+  try {
+    localStorage.setItem(DAILY_STORAGE_KEY, JSON.stringify(days))
+  } catch {
+    // Storage penuh/diblokir: perubahan tetap berlaku untuk sesi ini.
+  }
+}
 
 /** Item blok rutinitas: jadwal hari ini di jam blok itu + langkah rutinitas. */
 export interface RoutineItem {
@@ -44,15 +60,14 @@ export function useDailyRoutine() {
   const today = computed(() => toIsoDate(new Date(now.value)))
   const store = useState('daily-routine', () => ({
     steps: createRoutineMock(),
-    days: {} as Record<string, DailyDay>,
+    days: readDays(),
   }))
-  const day = computed(() => store.value.days[today.value] ?? EMPTY_DAY)
+  const day = computed(() => store.value.days[today.value] ?? EMPTY_DAILY_DAY)
 
   function updateDay(change: Partial<DailyDay>): void {
-    store.value = {
-      ...store.value,
-      days: { ...store.value.days, [today.value]: { ...day.value, ...change } },
-    }
+    const days = withDailyDay(store.value.days, today.value, { ...day.value, ...change })
+    store.value = { ...store.value, days }
+    writeDays(days)
   }
 
   // ---- Jadwal & blok rutinitas ----
@@ -131,14 +146,11 @@ export function useDailyRoutine() {
   }
 
   /**
-   * Quick add: tanpa deadline (keputusan user, beda dari PRD F12 "deadline default hari ini").
-   * Id-nya dicatat per hari supaya tetap muncul di grup "Tanpa deadline" hari ini.
+   * Quick add (PRD F12): judul + deadline akhir hari ini + prioritas default. Deadline ini yang
+   * membuat task tetap muncul di To-do setelah reload dan besok tampil sebagai terlambat.
    */
   function addTodayTask(title: string): boolean {
-    const id = add(title, 'medium', null)
-    if (id === null) return false
-    updateDay({ addedTaskIds: [...day.value.addedTaskIds, id] })
-    return true
+    return add(title, 'medium', deadlineFrom(today.value, END_OF_DAY)) !== null
   }
 
   // ---- Habit ----
