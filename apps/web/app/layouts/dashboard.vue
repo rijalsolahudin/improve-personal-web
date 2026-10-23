@@ -2,6 +2,20 @@
 const route = useRoute()
 const isMenuOpen = ref(false)
 
+/**
+ * Preferensi tampilan per akun (PRD F16: record `user_prefs`, ikut sync). Dulu dipanggil di
+ * `app.vue`, tetapi halaman publik (`/`, `/login`) tidak punya akun: memanggilnya di root membuat
+ * modul `@improve-personal/core` (skema zod + repository) ikut ke JS awal SETIAP rute - 10 KB gzip
+ * untuk fitur yang tidak bisa dipakai sebelum login. Shell ber-sesi inilah tempatnya.
+ *
+ * Hanya di client: layout ini dipakai rute `/app/**` yang `ssr: false` (tidak pernah dirender
+ * server), dan datanya ada di IndexedDB.
+ *
+ * Komposabel ini tetap menonton pergantian akun (`localData.state.userId`), jadi akun B tidak
+ * mewarisi tampilan akun A tanpa reload.
+ */
+if (import.meta.client) useAppearancePrefs()
+
 watch(
   () => route.path,
   () => {

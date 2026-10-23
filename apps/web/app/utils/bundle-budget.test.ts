@@ -72,6 +72,33 @@ describe('budget bundel (artefak build)', () => {
     },
   )
 
+  it.skipIf(!existsSync(nuxtDir))(
+    'chunk libsodium tidak diimpor statis oleh chunk lain (tidak ikut bundel awal)',
+    () => {
+      // Regresi yang dijaga: Rolldown dulu menumpuk helper kecil (namespace `import()`) ke chunk
+      // libsodium. Akibatnya chunk 185 KB itu jadi dependensi STATIS layout dashboard & form
+      // pemulihan, lalu di-`<link rel="prefetch">` di semua rute - persis MAYOR-1. Pemisahan chunk
+      // ada di `nuxt.config.ts` (`advancedChunks`); test ini memastikan tidak ada yang menyeretnya
+      // kembali lewat impor statis.
+      const sodiumFile = jsChunks().find(
+        ({ path }) => readFileSync(path, 'utf8').includes(SODIUM_MARKER) === true,
+      )
+      expect(sodiumFile, 'chunk libsodium tidak ditemukan di artefak').toBeDefined()
+
+      const staticImporters = jsChunks()
+        .filter(({ file }) => file !== sodiumFile?.file)
+        // Impor statis di bundel minified selalu berbentuk `from"./<berkas>.js"`. Referensi di dalam
+        // `import()`/`__vite__mapDeps` sengaja TIDAK dihitung: itu justru jalur malas yang diinginkan.
+        .filter(({ path }) => readFileSync(path, 'utf8').includes(`from"./${sodiumFile?.file}"`))
+        .map(({ file }) => file)
+
+      expect(
+        staticImporters,
+        'chunk libsodium diimpor statis - ia akan diunduh di setiap rute; cek `advancedChunks` di nuxt.config.ts',
+      ).toEqual([])
+    },
+  )
+
   it.skipIf(!existsSync(nuxtDir))('precache PWA tidak memuat berkas turunan kompresi', () => {
     const sw = readFileSync(join(outputRoot, 'sw.js'), 'utf8')
     const start = sw.indexOf('precacheAndRoute([')
@@ -84,4 +111,53 @@ describe('budget bundel (artefak build)', () => {
     // ukuran, dan yang dipakai browser adalah hasil dekompresinya).
     expect(urls.filter((url) => /\.(br|gz)$/.test(url))).toEqual([])
   })
+
+  /**
+   * Budget JS awal per RUTE (T66). Halaman landing adalah satu-satunya rute yang HTML-nya ada di
+   * artefak, jadi di situlah batas 170 KB gzip (`performance.md` §Budget) bisa ditegakkan tanpa
+   * menjalankan server. Yang dihitung sama dengan cara QA mengukurnya: `modulepreload` + `<script>`
+   * awal, bukan prefetch (itu hint idle).
+   */
+  it.skipIf(!existsSync(join(outputRoot, 'index.html')))(
+    'JS awal landing (modulepreload + script) <= 170 KB gzip',
+    () => {
+      const html = readFileSync(join(outputRoot, 'index.html'), 'utf8')
+      const hrefs = [
+        ...html.matchAll(/<link[^>]*rel="modulepreload"[^>]*href="([^"]+)"/g),
+        ...html.matchAll(/<script[^>]*type="module"[^>]*src="([^"]+)"/g),
+      ].map((match) => match[1] ?? '')
+
+      const unique = [...new Set(hrefs)]
+      let total = 0
+      for (const href of unique) {
+        const path = join(outputRoot, href)
+        if (!existsSync(path)) throw new Error(`berkas JS awal hilang: ${href}`)
+        total += gzipSync(readFileSync(path), { level: 9 }).length
+      }
+
+      expect(
+        total,
+        `JS awal landing ${(total / 1024).toFixed(1)} KB gzip (${unique.length} berkas) melewati budget 170 KB - cek impor statis di pages/index.vue / LandingHero.vue`,
+      ).toBeLessThanOrEqual(170 * 1024)
+    },
+  )
+
+  /**
+   * `nuxt-security` menandatangani preload font dengan hash SHA-384 dari isi KOSONG (berkas
+   * `/_fonts/*.woff2` ditulis `@nuxt/fonts` setelah peta SRI dibangun). Browser menolak preload
+   * dengan digest salah, lalu mengunduh font yang sama lagi - dua kali ~59 KB di jalur render.
+   * `server/plugins/50-font-preload-integrity.ts` membuang atribut itu; test ini menjaga hasilnya
+   * di HTML yang di-prerender.
+   */
+  it.skipIf(!existsSync(join(outputRoot, 'index.html')))(
+    'preload font tidak memakai integrity hash kosong (SRI font tidak valid)',
+    () => {
+      const html = readFileSync(join(outputRoot, 'index.html'), 'utf8')
+      const fontPreloads = [...html.matchAll(/<link[^>]*as="font"[^>]*>/g)].map((match) => match[0])
+      expect(fontPreloads.length, 'preload font hilang dari landing').toBeGreaterThan(0)
+
+      const EMPTY_SHA384 = 'sha384-OLBgp1GsljhM2TJ+sbHjaiH9txEUvgdDTAzHv2P24donTt6/529l+9Ua0vFImLlb'
+      expect(fontPreloads.filter((tag) => tag.includes(EMPTY_SHA384))).toEqual([])
+    },
+  )
 })

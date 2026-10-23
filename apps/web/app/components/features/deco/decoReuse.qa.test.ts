@@ -157,10 +157,15 @@ describe('QA T24 · aset sticker offline (precache service worker)', () => {
     }
   })
 
-  it('nuxt.config mem-precache semua JS/CSS/SVG + teks i18n → sticker tetap tampil offline', () => {
+  it('nuxt.config mem-precache kerangka + ikon SVG dan menyimpan chunk saat dipakai → sticker tetap tampil offline', () => {
     const config = source('../../../../nuxt.config.ts')
-    expect(config).toContain("globPatterns: ['**/*.{js,css,html,svg}'")
+    // Sejak QA T16 MAYOR-1, precache sengaja hanya kerangka (HTML shell, offline, i18n, ikon) supaya
+    // kunjungan pertama tidak mengunduh seluruh bundel; chunk JS/CSS disimpan lewat runtime cache.
+    expect(config).toContain('offline/index.html')
+    expect(config).toContain('icons/**/*.svg')
     expect(config).toContain('_i18n/**/messages.json')
+    // Chunk & CSS ber-hash (termasuk aset sticker) masuk cache saat benar-benar dipakai.
+    expect(config).toMatch(/urlPattern: \/\\\/_nuxt\\\/\.\*\\\.\(\?:js\|css\)\$\//)
     // Runtime cache halaman & font, bukan data user.
     expect(config).toMatch(/runtimeCaching/)
   })

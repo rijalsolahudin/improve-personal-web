@@ -17,13 +17,8 @@ import { createWebKeyStore } from '../crypto/key-store'
 import { saveDeviceUnlock } from '../crypto/device-slot'
 import { createMasterKey } from '../crypto/master-key'
 import { loadSodium } from '../crypto/sodium'
-import {
-  assertUserId,
-  keyDatabaseName,
-  localDatabaseName,
-  openLocalDataSession,
-  type OpenSessionOptions,
-} from './session'
+import { assertUserId, keyDatabaseName, localDatabaseName } from './database-names'
+import { openLocalDataSession, type OpenSessionOptions } from './session'
 
 /**
  * Runtime test (node) tidak punya syarat browser yang diperiksa `openLocalDataSession`

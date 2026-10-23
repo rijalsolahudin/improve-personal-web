@@ -177,14 +177,20 @@ export function createAuthGateway(request: AuthFetch, options: AuthGatewayOption
 }
 
 /**
- * Gateway nyata untuk web: `$fetch` Nuxt ke path relatif. Origin sama, jadi cookie `HttpOnly` sesi
- * ikut otomatis dan tidak ada CORS/token yang perlu diurus client.
+ * Gateway nyata untuk web: request ke path relatif di origin yang sama, jadi cookie `HttpOnly`
+ * sesi ikut otomatis dan tidak ada CORS/token yang perlu diurus client.
+ *
+ * `useRequestFetch()`, bukan `$fetch` global: saat SSR (middleware `auth.global` di rute SSR
+ * seperti `/login`), `$fetch` dengan path RELATIF tidak punya origin dan tidak meneruskan cookie
+ * request - akibatnya sesi yang hidup terbaca kosong, lalu halaman login dirender untuk user yang
+ * sebenarnya sudah masuk. `useRequestFetch()` memakai origin + header request di server dan sama
+ * dengan `$fetch` di client.
  */
 export function useAuthGateway(): AuthGateway {
   // Tidak ada flag "mode demo" di sini: apakah OTP fix aktif hanya bisa diketahui server
   // (`NUXT_SMTP_URL`, dilaporkan di log startup `server/plugins/env.ts`), sementara public config
   // tidak melihatnya. UI tidak menebak - hint kode demo dihapus, bukan diganti tebakan baru.
-  return createAuthGateway((path, options) => $fetch(path, options), {
+  return createAuthGateway((path, options) => useRequestFetch()(path, options), {
     device: currentDeviceInfo(),
   })
 }

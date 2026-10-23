@@ -5,7 +5,17 @@
       <p class="headline">{{ $t('login.brand.headline') }}</p>
       <p class="sub">{{ $t('login.brand.sub') }}</p>
     </div>
-    <Mascot class="mascot" name="kelinci" :size="120" />
+    <!--
+      Pembungkus sendiri, bukan `<Mascot class="mascot">`: posisi absolut dipasang pada elemen milik
+      panel ini, bukan pada root milik komponen Mascot. Kalau kelas yang sama dipakai di dua
+      komponen, `position` bergantung pada URUTAN stylesheet - dan urutan CSS hasil SSR (inline)
+      berbeda dari CSS yang dimuat client, sehingga maskot melompat ~100 px setelah hidrasi
+      (CLS 0,233 saat `/login` dicoba SSR). Dengan pembungkus, tidak ada dua aturan yang berebut
+      properti yang sama.
+    -->
+    <div class="mascot">
+      <Mascot name="kelinci" :size="120" />
+    </div>
   </div>
 </template>
 

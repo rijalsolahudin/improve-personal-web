@@ -43,7 +43,8 @@ server/             # API v1 (auth + relay ciphertext) - Nitro/H3 di app yang sa
 ## 2. Mode render & output build
 
 - Data user cuma ada di perangkat, jadi halaman app dirender di client (`ssr: false`) dan hanya landing publik yang di-prerender (ADR 6).
-- Ditetapkan per route di `routeRules` (`nuxt.config.ts`), bukan global: `/` prerender, `/login` dan `/app/**` `ssr: false`.
+- Ditetapkan per route di `routeRules` (`nuxt.config.ts`), bukan global: `/` prerender, `/login` SSR, `/app/**` `ssr: false`.
+  - `/login` SSR sejak T66: teks form ada di HTML pertama (LCP tidak lagi menunggu bundel SPA + `_i18n/**/messages.json`). Halaman ini tidak memuat data akun - hanya form + hasil guard sesi (`useRequestFetch` meneruskan cookie request); HTML-nya tetap **tidak** di-cache service worker.
 - Output: `nitro.preset` **bukan** `static` lagi - ada server route API di app ini, jadi build-nya preset server (Node). Konsekuensi deploy: butuh host Node, `apps/web` nggak bisa lagi disajikan murni sebagai situs statis dari CDN.
 
 ## 3. PWA

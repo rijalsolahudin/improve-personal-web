@@ -17,7 +17,7 @@ import {
   createWebAuthnUserId,
   isWebAuthnAvailable,
 } from '~/utils/crypto/webauthn'
-import { keyDatabaseName } from '~/utils/storage/session'
+import { keyDatabaseName } from '~/utils/storage/database-names'
 
 /** Kunci pesan di `account.unlock.errors.*`: UI tidak pernah menampilkan pesan mentah dari kripto/server. */
 export type KeyRecoveryError =

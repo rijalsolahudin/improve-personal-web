@@ -18,7 +18,13 @@
       </div>
       <p class="note">{{ $t('landing.hero.note') }}</p>
     </div>
-    <LandingPreviewCard />
+    <!--
+      Cuplikan dashboard di hero: murni hiasan statis (`aria-hidden`), tidak punya state atau
+      interaksi. Dirender saat build/pre-render, tetapi tidak dihidrasi - chunk maskot yang
+      dibutuhkannya tidak lagi masuk `modulepreload` halaman ini (Nuxt masih memberi hint
+      `prefetch` prioritas rendah karena komponennya async; itu perilaku framework).
+    -->
+    <LazyLandingPreviewCard hydrate-never />
   </header>
 </template>
 

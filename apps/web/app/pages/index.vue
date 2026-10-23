@@ -13,10 +13,22 @@ useSeoMeta({
   <div class="landing paper-grid">
     <LandingNav />
     <LandingHero />
-    <LandingFeatureGrid />
-    <LandingSteps />
-    <LandingOutro />
-    <LandingFooter />
+    <!--
+      Bagian di bawah fold tidak butuh JavaScript sebelum user menggulir: markup-nya tetap dirender
+      saat build (prerender), tetapi komponennya jadi chunk terpisah yang TIDAK masuk
+      `modulepreload` halaman ini.
+      `hydrate-never` dipilih, bukan `hydrate-on-visible`: isinya murni teks + tautan jangkar, jadi
+      tidak ada state Vue yang perlu dihidupkan.
+      Catatan jujur: Nuxt tetap menaruh `<link rel="prefetch">` prioritas rendah untuk komponen
+      async yang dirender (perilaku framework, tidak bisa dimatikan lewat config) - jadi chunk ini
+      bisa tiba belakangan saat jaringan menganggur, tetapi tidak lagi bersaing dengan resource
+      render. Angka `modulepreload` turun 16,5 KB (chunk ikon) + chunk bagian landing; lihat
+      `app/utils/bundle-budget.test.ts`.
+    -->
+    <LazyLandingFeatureGrid hydrate-never />
+    <LazyLandingSteps hydrate-never />
+    <LazyLandingOutro hydrate-never />
+    <LazyLandingFooter hydrate-never />
   </div>
 </template>
 

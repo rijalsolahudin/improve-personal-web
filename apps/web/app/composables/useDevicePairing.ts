@@ -19,7 +19,7 @@ import {
   type TransferRequest,
 } from '~/utils/crypto/transfer'
 import type { JsonFetch } from '~/utils/http/json-fetch'
-import { hasStoredRecords, keyDatabaseName } from '~/utils/storage/session'
+import { hasStoredRecords, keyDatabaseName } from '~/utils/storage/database-names'
 
 import { useAuthSession } from './useAuthSession'
 import { useLocalData } from './useLocalData'

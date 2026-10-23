@@ -38,8 +38,28 @@ async function openRecovery(wrapper: VueWrapper): Promise<void> {
   expect(link, 'tautan lupa OTP tidak ada di langkah email').toBeDefined()
 
   await link?.trigger('click')
+  // Langkah pemulihan adalah komponen async (chunk sendiri, supaya JS awal `/login` tetap di bawah
+  // budget 170 KB). Satu `flushPromises` tidak cukup: modul + komponen anaknya baru selesai dimuat
+  // beberapa tick kemudian, jadi tunggu sampai tombol "kembali" milik langkah itu muncul.
+  await vi.waitFor(
+    () => {
+      expect(wrapper.text()).toMatch(/kembali ke email/i)
+    },
+    { timeout: 5000 },
+  )
   await flushPromises()
   await nextTick()
+}
+
+/** Langkah OTP juga komponen async: tunggu sampai kotak kode 6 digit benar-benar ter-render. */
+async function waitForOtpStep(wrapper: VueWrapper): Promise<void> {
+  await vi.waitFor(
+    () => {
+      expect(wrapper.findAll('input.box')).toHaveLength(6)
+    },
+    { timeout: 5000 },
+  )
+  await flushPromises()
 }
 
 beforeEach(() => {
@@ -98,6 +118,7 @@ describe('lupa OTP: pilihan passkey / kode pemulihan', () => {
     await wrapper.find('form').trigger('submit')
     await flushPromises()
     await nextTick()
+    await waitForOtpStep(wrapper)
 
     expect(wrapper.findAll('input.box')).toHaveLength(6)
     expect(

@@ -3,12 +3,35 @@ const { t } = useI18n()
 useHead({ title: () => t('login.meta.title') })
 
 const flow = useLoginFlow()
+
+/**
+ * Halaman login tidak memakai layout shell: satu kartu di tengah, tanpa sidebar/nav. Ditulis
+ * eksplisit (`layout: false`) supaya `<NuxtLayout>` tidak perlu me-resolve layout `default` yang
+ * tidak ada - konsekuensinya dulu chunk layout dashboard ikut di-`modulepreload` di rute ini.
+ */
+definePageMeta({ layout: false })
+
+/**
+ * Langkah OTP & pemulihan hanya muncul dari interaksi user, jadi chunk-nya tidak perlu ikut render
+ * awal. Langkah pemulihan menarik form kunci (PasswordInput -> ikon, crypto) yang berat; memisahkannya
+ * menjaga JS initial `/login` di bawah budget 170 KB (`app/utils/bundle-budget.test.ts`).
+ *
+ * `defineAsyncComponent` eksplisit, bukan prefix `Lazy`: loader-nya bisa diuji (import dinamis yang
+ * sama dipakai test komponen) dan tetap satu chunk terpisah hasil code-splitting Vite.
+ */
+const AuthOtpStep = defineAsyncComponent(() => import('~/components/features/auth/AuthOtpStep.vue'))
+const AuthRecoveryStep = defineAsyncComponent(
+  () => import('~/components/features/auth/AuthRecoveryStep.vue'),
+)
 </script>
 
 <template>
   <div class="page">
     <div class="card">
-      <AuthBrandPanel />
+      <!-- Panel merek: teks statis + maskot hias. Markup-nya dirender di server (LCP halaman ini),
+           hidrasinya tidak dibutuhkan karena tidak ada interaksi - jadi chunk maskot/BrandMark
+           tidak ikut render-blocking JS. -->
+      <LazyAuthBrandPanel hydrate-never />
       <div class="form-side">
         <AuthEmailStep v-if="flow.step.value === 'choose'" :flow="flow" />
         <AuthOtpStep v-else-if="flow.step.value === 'otp'" :flow="flow" />

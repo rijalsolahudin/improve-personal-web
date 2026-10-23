@@ -4,7 +4,7 @@ import { mockNuxtImport, mountSuspended } from '@nuxt/test-utils/runtime'
 import { flushPromises, type VueWrapper } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { keyDatabaseName } from '~/utils/storage/session'
+import { keyDatabaseName } from '~/utils/storage/database-names'
 import { createWebKeyStore } from '~/utils/crypto/key-store'
 import { parseBackupCode } from '~/utils/account/backup-code'
 import { resetLocalDataSessionForTest } from '~/composables/useLocalData'

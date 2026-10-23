@@ -46,7 +46,8 @@ const STEPS = ['1', '2', '3'] as const
   font-weight: var(--fw-strong);
   font-size: var(--fs-caption);
   letter-spacing: var(--tracking-group);
-  color: var(--deep);
+  /* Kicker di atas `--primary`: `--deep` 3,98:1 (cute/hijau), `--deeper` 5,09:1 (QA #67). */
+  color: var(--deeper);
 }
 
 .heading {

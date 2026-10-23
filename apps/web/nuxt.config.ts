@@ -43,6 +43,13 @@ const FONT_CACHE_MAX_ENTRIES = 24
 /** Font immutable: aman disimpan lama supaya gaya yang pernah dipakai tetap ada saat offline. */
 const FONT_CACHE_MAX_AGE_SECONDS = 365 * 24 * 60 * 60
 /**
+ * Chunk `/_nuxt/**` ber-hash isi: nama berkas berubah kalau isinya berubah, jadi aman disimpan lama.
+ * Batas umurnya cuma untuk membuang sisa deploy lama, bukan karena kontennya bisa basi.
+ */
+const ASSET_CACHE_MAX_AGE_SECONDS = 30 * 24 * 60 * 60
+/** Cukup untuk seluruh chunk + CSS satu build (88 JS + ~14 CSS), tanpa menyimpan dua build sekaligus. */
+const ASSET_CACHE_MAX_ENTRIES = 100
+/**
  * Halaman fallback untuk navigasi yang gagal (offline). Sengaja HTML statis tanpa JavaScript,
  * BUKAN `app/pages/offline.vue`: kalau yang disajikan HTML hasil render Nuxt, hidrasi mengambil alih
  * route sesuai URL di address bar dan halaman offline langsung tertimpa route yang gagal dimuat.
@@ -157,7 +164,15 @@ export default defineNuxtConfig({
 
   routeRules: {
     '/': { prerender: true },
-    '/login': { ssr: false },
+    // `/login` SSR: HTML-nya sudah membawa teks form, jadi LCP tidak lagi menunggu bundel SPA +
+    // `_i18n/**/messages.json` (QA T16 lanjutan: LCP 3,8 s). Percobaan `ssr: true` sebelumnya
+    // menghasilkan CLS 0,233 - penyebab sesungguhnya bukan i18n, melainkan dua aturan CSS yang
+    // berebut `position` pada maskot panel merek (urutan CSS inline hasil SSR != CSS hasil impor
+    // client). Itu sudah diperbaiki di `AuthBrandPanel.vue`, jadi hidrasi sekarang tidak menggeser
+    // apa pun (CLS 0 diukur ulang).
+    // Guard `auth.global` tetap jalan di server: `useAuthGateway` memakai `useRequestFetch`, yang
+    // meneruskan cookie request pada SSR, sehingga user yang sudah login tidak berhenti di sini.
+    '/login': { ssr: true },
     // `/app/**` sengaja TANPA cache (bukan `swr`/`isr`): isinya data per akun. `ssr: false` bikin
     // HTML-nya cuma kerangka SPA (lihat catatan `pwa.workbox.runtimeCaching` di bawah).
     '/app/**': { ssr: false },
@@ -215,8 +230,14 @@ export default defineNuxtConfig({
       ],
     },
     workbox: {
-      // Precache: app shell statis + aset ber-hash `/_nuxt/**` + ikon. Semua berkas ini publik dan
-      // tidak diturunkan dari sesi user - aman disimpan di perangkat bersama.
+      // Precache: HANYA kerangka yang wajib ada sebelum satu pun request jaringan - halaman shell
+      // hasil prerender (`/`), halaman offline, teks i18n, ikon, dan manifest.
+      //
+      // Kenapa bukan `**/*.{js,css}` lagi (QA T16 MAYOR-1): pola itu menghasilkan **151 entri /
+      // ~1,8 MB** yang seluruhnya diunduh saat kunjungan PERTAMA - bersamaan dengan CSS/JS yang
+      // dibutuhkan render. Itu 2-3x lipat berat halaman pertama demi keuntungan offline yang baru
+      // terpakai belakangan. Chunk `/_nuxt/**` sekarang disimpan lewat `runtimeCaching` di bawah
+      // ketika benar-benar dipakai; berkas ber-hash itu immutable, jadi tidak ada risiko versi basi.
       //
       // Font (`/_fonts/**`) sengaja TIDAK ikut precache: font tiap gaya di-lazy-load (F16), jadi
       // mem-preload semuanya memaksa setiap user mengunduh font 7 gaya saat instalasi SW dan
@@ -225,9 +246,17 @@ export default defineNuxtConfig({
       //
       // `_i18n/**/messages.json` ikut precache: teks UI diambil `@nuxtjs/i18n` lewat request
       // terpisah saat runtime (bukan bagian chunk JS), jadi tanpa ini seluruh UI tampil sebagai
-      // kunci mentah ("login.meta.title") begitu offline. Isinya statis dan bukan data user. Ikut
-      // ter-precache juga halaman offline (`offline/index.html`) lewat `**/*.html`.
-      globPatterns: ['**/*.{js,css,html,svg}', '_i18n/**/messages.json'],
+      // kunci mentah ("login.meta.title") begitu offline. Isinya statis dan bukan data user.
+      // Halaman offline (`offline/index.html`) WAJIB ikut: `precacheFallback` di bawah menunjuk
+      // ke `/offline`.
+      globPatterns: [
+        'index.html',
+        'offline/index.html',
+        '_i18n/**/messages.json',
+        'manifest.webmanifest',
+        'favicon.svg',
+        'icons/**/*.svg',
+      ],
       // WAJIB diisi string kosong, bukan dihilangkan dan bukan `null`. Kalau key ini tidak ada,
       // `@vite-pwa/nuxt` mengisinya sendiri dengan `app.baseURL` ('/') - lihat
       // `if (!("navigateFallback" in options.workbox))` di `dist/shared/nuxt.*.mjs`. Workbox lalu
@@ -263,6 +292,23 @@ export default defineNuxtConfig({
           method: 'GET',
         },
         {
+          // Chunk & CSS ber-hash `/_nuxt/**`: bagian dari shell app, bukan data user. Disimpan saat
+          // dipakai (bukan diprecache di muka) supaya kunjungan pertama tidak mengunduh seluruh
+          // bundel. Nama berkas = hash isi, jadi CacheFirst tidak pernah menyajikan versi basi;
+          // `maxEntries` membatasi sisa chunk dari deploy lama.
+          urlPattern: /\/_nuxt\/.*\.(?:js|css)$/,
+          handler: 'CacheFirst',
+          method: 'GET',
+          options: {
+            cacheName: 'nuxt-assets',
+            expiration: {
+              maxEntries: ASSET_CACHE_MAX_ENTRIES,
+              maxAgeSeconds: ASSET_CACHE_MAX_AGE_SECONDS,
+            },
+            cacheableResponse: { statuses: [200] },
+          },
+        },
+        {
           // Kerangka `/app/**`. Route ini `ssr: false` (lihat `routeRules`), jadi HTML yang dikirim
           // server adalah template SPA yang SAMA untuk semua akun: tidak ada `__NUXT__` berisi data
           // user di dalamnya, hanya config publik. Isi data user tetap di IndexedDB.
@@ -274,11 +320,13 @@ export default defineNuxtConfig({
           options: pageCacheOptions('app-shell', APP_SHELL_MAX_ENTRIES),
         },
         {
-          // `/login` `ssr: false`, tapi HTML-nya sengaja TIDAK disimpan: form login tidak berguna
-          // tanpa jaringan (OTP/Google butuh server), jadi menyimpannya hanya menampilkan halaman
-          // yang pasti gagal. `NetworkOnly` + `precacheFallback` = online selalu HTML asli,
-          // offline langsung halaman offline statis. Tanpa rule ini service worker tidak menangani
-          // navigasi sama sekali dan user melihat layar error browser, bukan pesan yang jelas.
+          // `/login` sekarang SSR (lihat `routeRules`), tetapi HTML-nya sengaja TIDAK disimpan:
+          // form login tidak berguna tanpa jaringan (OTP/Google butuh server), jadi menyimpannya
+          // hanya menampilkan halaman yang pasti gagal. HTML SSR rute ini juga berisi keputusan
+          // redirect dari guard sesi, yang tidak boleh dibekukan di cache perangkat.
+          // `NetworkOnly` + `precacheFallback` = online selalu HTML asli, offline langsung halaman
+          // offline statis. Tanpa rule ini service worker tidak menangani navigasi sama sekali dan
+          // user melihat layar error browser, bukan pesan yang jelas.
           urlPattern: /^https?:\/\/[^/]+\/login(?:\/|$)/,
           handler: 'NetworkOnly',
           method: 'GET',
@@ -330,11 +378,16 @@ export default defineNuxtConfig({
   // Self-hosted saat build, subset latin saja. Patrick Hand cuma dipakai di permukaan jurnal.
   // Font gaya non-Cute (PRD F16) cuma dideklarasikan, tidak di-preload: browser baru mengunduhnya
   // saat gaya itu aktif, jadi gaya default tetap 3 file font.
+  //
+  // Dua font yang dipakai di paint pertama (`--font-display` = Baloo 2, `--font-body` = Nunito)
+  // di-preload: LCP halaman landing adalah teks hero dengan font display, dan tanpa preload berkasnya
+  // baru diminta setelah CSS selesai diurai - teks berganti font setelah paint (CLS 0,088 di QA T16).
+  // Total dua berkas tetap di bawah budget font (<= 2 berkas / 100 KB woff2).
   fonts: {
     defaults: { subsets: ['latin'], styles: ['normal'] },
     families: [
-      { name: 'Baloo 2', provider: 'google', weights: [800] },
-      { name: 'Nunito', provider: 'google', weights: [600, 700, 800] },
+      { name: 'Baloo 2', provider: 'google', weights: [800], preload: true },
+      { name: 'Nunito', provider: 'google', weights: [600, 700, 800], preload: true },
       { name: 'Patrick Hand', provider: 'google', weights: [400] },
       ...STYLE_FONT_FAMILIES.map(({ name, weights }) => ({
         name,
@@ -350,6 +403,12 @@ export default defineNuxtConfig({
     strategy: 'no_prefix',
     detectBrowserLanguage: false,
     locales: [{ code: 'id', language: 'id-ID', file: 'id.json' }],
+    // Sengaja TIDAK memakai `experimental.preload` (pesan locale di-serialisasi ke HTML).
+    // Halaman `/login` sudah SSR, jadi teksnya tetap ada di render pertama; pesan yang sama lalu
+    // diambil dari `_i18n/**/messages.json` sebelum hidrasi (plugin i18n menunggunya), sehingga
+    // markup server & client identik. Sebaliknya `preload` menambah ~20 KB JSON ke HTML dinamis
+    // `/login` (belum terkompresi) dan ~41 KB ke landing hasil prerender - dibayar setiap kunjungan
+    // hanya untuk menghindari satu request 13 KB yang sudah dicache service worker.
   },
 
   security: {
@@ -418,6 +477,22 @@ export default defineNuxtConfig({
   // i18n tidak terdeteksi. Polling hanya untuk dev; biayanya sedikit CPU saat develop.
   vite: {
     server: { watch: { usePolling: true, interval: 300 } },
+    build: {
+      rolldownOptions: {
+        output: {
+          // libsodium WAJIB chunk sendiri. Tanpa aturan ini Rollup/Rolldown menumpuk helper kecil
+          // (namespace import dinamis) ke chunk import()-nya - hasilnya chunk 185 KB itu ikut jadi
+          // dependensi STATIS banyak chunk (layout dashboard, form pemulihan), lalu di-prefetch di
+          // setiap rute. Dipisah di sini, satu-satunya jalan masuk tetap `import()` di
+          // `app/utils/crypto/sodium.ts`.
+          codeSplitting: {
+            groups: [
+              { name: 'libsodium', test: /[\\/]node_modules[\\/](?:\.pnpm[\\/])?libsodium/ },
+            ],
+          },
+        },
+      },
+    },
   },
 
   // security.md §11 & §12: console.* dibuang dari bundle production, devtools WAJIB mati -

@@ -2,11 +2,9 @@
 const { t } = useI18n()
 const { theme, style } = useAppearance()
 
-/**
- * Preferensi tampilan (PRD F16) ada di record `user_prefs` per akun. Dipasang di root supaya pilihan
- * akun ikut berubah saat sesi berganti tanpa reload, di halaman mana pun.
- */
-useAppearancePrefs()
+// Preferensi tampilan per akun (PRD F16) dihidrasi oleh layout dashboard - lihat komentar di sana.
+// Sengaja TIDAK di sini: halaman publik (`/`, `/login`) tidak punya akun, jadi tidak perlu menyeret
+// modul core + akses IndexedDB ke dalam JS awalnya.
 const appearance = useAppearanceStore()
 const { session } = useAuthSession()
 

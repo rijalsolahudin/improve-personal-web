@@ -123,7 +123,8 @@ const PREVIEW_TODOS = [
 
 .next-label {
   letter-spacing: 0.12em;
-  color: var(--deep);
+  /* Label di atas `--primary`: `--deep` 3,98:1 (cute/hijau), `--deeper` 5,09:1 (QA #67). */
+  color: var(--deeper);
 }
 
 .next-title {

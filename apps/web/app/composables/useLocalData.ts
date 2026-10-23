@@ -1,9 +1,4 @@
-import { createKeysGateway } from '~/utils/crypto/keys-gateway'
-import {
-  LocalKeyMissingError,
-  openLocalDataSession,
-  type LocalDataSession,
-} from '~/utils/storage/session'
+import type { LocalDataSession } from '~/utils/storage/session'
 
 import { useAuthSession } from './useAuthSession'
 
@@ -49,6 +44,22 @@ function emptyState(status: LocalDataStatus): LocalDataState {
 let cached: { readonly userId: string; readonly promise: Promise<LocalDataSession> } | null = null
 
 /**
+ * Lapisan data lokal (adaptor IndexedDB + kripto + repository) sengaja dimuat lewat `import()`.
+ *
+ * Modul itu ~49 KB gzip dan hanya berguna di halaman yang benar-benar membaca data lokal; kalau
+ * diimpor statis, ia ikut di `<link rel="modulepreload">` SEMUA rute - termasuk landing dan `/login`
+ * yang tidak menyentuh IndexedDB (QA T16 MAYOR-1: JS awal `/` 192 KB, `/login` 170 KB). ESM sudah
+ * menyimpan modul yang pernah dimuat, jadi `import()` di sini hanya sekali per sesi browser.
+ */
+let sessionModule: Promise<typeof import('~/utils/storage/session')> | null = null
+
+function loadSessionModule(): Promise<typeof import('~/utils/storage/session')> {
+  sessionModule ??= import('~/utils/storage/session')
+
+  return sessionModule
+}
+
+/**
  * Sesi yang sudah benar-benar terbuka (hasil `cached`), atau `null`.
  *
  * Dipakai pembaca yang TIDAK boleh membuka penyimpanan sendiri - mis. indikator status sync. Kalau
@@ -66,7 +77,12 @@ let opened: LocalDataSession | null = null
  * menebak "boleh" adalah arah yang bisa menghilangkan data.
  */
 async function isFirstDeviceOfAccount(): Promise<boolean> {
+  // `import()` di sini, bukan impor statis: `keys-gateway` membawa skema zod dari
+  // `@improve-personal/contracts` (~28 KB gzip). Impor statis menaruhnya di graf awal SEMUA rute -
+  // termasuk landing yang tidak pernah memanggil fungsi ini. Dipanggil paling banyak sekali per sesi.
+  const { createKeysGateway } = await import('~/utils/crypto/keys-gateway')
   const keys = createKeysGateway((path, init) => $fetch(path, init))
+
   return (await keys.listEnvelopes()).length === 0
 }
 
@@ -105,10 +121,17 @@ export function useLocalData() {
         opened = null
       }
 
+      // Ditugaskan SINKRON (tanpa `await` di antara cek dan isi): dua pemanggil `ensure()` yang
+      // berbarengan (mis. preferensi tampilan + daftar task) harus memakai satu promise sesi. Kalau
+      // tidak, dua `openLocalDataSession` bisa berjalan bersamaan dan sama-sama membuat kunci utama
+      // di perangkat yang belum punya pembuka.
       cached ??= {
         userId,
-        promise: openLocalDataSession({ userId, canCreateKey: isFirstDeviceOfAccount }),
+        promise: loadSessionModule().then((module) =>
+          module.openLocalDataSession({ userId, canCreateKey: isFirstDeviceOfAccount }),
+        ),
       }
+
       const session = await cached.promise
       opened = session
 
@@ -126,7 +149,11 @@ export function useLocalData() {
       cached = null
       opened = null
 
-      if (error instanceof LocalKeyMissingError) {
+      const LocalKeyMissingError = await loadSessionModule()
+        .then((module) => module.LocalKeyMissingError)
+        .catch(() => null)
+
+      if (LocalKeyMissingError !== null && error instanceof LocalKeyMissingError) {
         state.value = { ...emptyState('locked'), userId: auth.session.value?.user.id ?? null }
         return null
       }

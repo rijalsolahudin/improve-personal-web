@@ -1,6 +1,6 @@
-import { mountSuspended } from '@nuxt/test-utils/runtime'
+import { mockNuxtImport, mountSuspended } from '@nuxt/test-utils/runtime'
 import { flushPromises, type VueWrapper } from '@vue/test-utils'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { LocalDataState } from '~/composables/useLocalData'
 
@@ -17,6 +17,11 @@ import DashboardLayout from './dashboard.vue'
  *
  * Karena itu yang diuji di sini bukan "komponennya benar", tapi "layout benar-benar memunculkannya".
  */
+const { useAppearancePrefsMock } = vi.hoisted(() => ({ useAppearancePrefsMock: vi.fn() }))
+// Preferensi tampilan (F16) dihidrasi oleh layout ini sejak T66; di test ia hanya membuka
+// IndexedDB palsu dan tidak berhubungan dengan komponen yang diperiksa di sini.
+mockNuxtImport('useAppearancePrefs', () => useAppearancePrefsMock)
+
 let mounted: VueWrapper | null = null
 
 async function mount(): Promise<VueWrapper> {
