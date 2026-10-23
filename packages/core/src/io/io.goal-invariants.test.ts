@@ -273,6 +273,19 @@ describe('collectGoalInvariantIssues - invarian lintas-record', () => {
     expect(issues).toEqual([])
   })
 
+  it('tautan hidup ke chapter tombstone bukan pelanggaran (backup app sendiri tetap bisa dipulihkan)', () => {
+    // Skenario nyata: hapus chapter terputus setelah tombstone chapter tetapi sebelum tautannya
+    // dipindah. Berkas hasil export app sendiri masih memuat tautan hidup ke chapter yang sudah
+    // dihapus - menolaknya berarti backup sendiri tidak bisa direstore.
+    const issues = collectGoalInvariantIssues([
+      goalRecord(),
+      { ...chapterRecord(), deleted: true },
+      linkRecord(),
+    ])
+
+    expect(issues).toEqual([])
+  })
+
   it('item berbeda tetap boleh tertaut (bukan duplikat)', () => {
     const issues = collectGoalInvariantIssues([
       goalRecord(),
@@ -397,5 +410,19 @@ describe('import - menolak struktur goal yang melanggar tanpa mengubah data', ()
     const result = await importInto(storage, validation.document)
     expect(result.written).toBe(4)
     expect((await storage.getRecord(OTHER_LINK_ID))?.deleted).toBe(true)
+  })
+
+  it('tautan hidup ke chapter tombstone tidak menggagalkan restore', async () => {
+    const storage = createStorage()
+    const document = documentOf([goalRecord(), { ...chapterRecord(), deleted: true }, linkRecord()])
+
+    const validation = validateBackupText(serializeBackup(document))
+    expect(validation.ok).toBe(true)
+    if (!validation.ok) return
+
+    const result = await importInto(storage, validation.document)
+    expect(result.written).toBe(3)
+    expect((await storage.getRecord(CHAPTER_ID))?.deleted).toBe(true)
+    expect((await storage.getRecord(LINK_ID))?.deleted).toBe(false)
   })
 })
