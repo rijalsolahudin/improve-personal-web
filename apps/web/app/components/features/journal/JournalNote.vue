@@ -1,11 +1,38 @@
 <script setup lang="ts">
 import { JOURNAL_NOTE_MAX } from '~/utils/journal'
+import { goalMentionQuery, insertGoalMention, splitMentions } from '~/utils/memo'
 
 /** Afirmasi (kutipan di kertas lembut + selotip) atau Refleksi diri (kertas bergaris). */
 const { day, kind } = defineProps<{ day: string; kind: 'affirm' | 'reflect' }>()
 
 const journal = useJournalDay(() => day)
 const isAffirm = computed(() => kind === 'affirm')
+
+/**
+ * Mention `#goal` di teks jurnal tampil sebagai chip navigasi (PRD F13 "Integrasi Journal").
+ * Token `#[id]` yang goal-nya sudah dihapus tetap aman (chip redup, tanpa navigasi).
+ */
+const goalMentions = computed(() =>
+  splitMentions(journal.day.value[kind])
+    .filter((segment) => segment.kind === 'goal-mention')
+    .map((segment) => (segment.kind === 'goal-mention' ? segment.goalId : '')),
+)
+
+/** Autocomplete `#`: goal aktif yang judulnya cocok dengan kata setelah `#` terakhir. */
+const { goals } = useGoals()
+const goalQuery = computed(() => goalMentionQuery(journal.day.value[kind]))
+const goalSuggestions = computed(() => {
+  const query = goalQuery.value
+  if (query === null) return []
+  const needle = query.toLowerCase()
+  return goals.value
+    .filter((goal) => goal.status === 'aktif' && goal.title.toLowerCase().includes(needle))
+    .slice(0, 4)
+})
+
+function insertGoal(goalId: string): void {
+  journal.setNote(kind, insertGoalMention(journal.day.value[kind], goalId))
+}
 </script>
 
 <template>
@@ -32,6 +59,31 @@ const isAffirm = computed(() => kind === 'affirm')
         @update:model-value="(text) => journal.setNote(kind, String(text))"
       />
     </div>
+    <div
+      v-if="goalSuggestions.length"
+      class="suggest"
+      role="listbox"
+      :aria-label="$t('memo.goalMentionTitle')"
+    >
+      <button
+        v-for="goal in goalSuggestions"
+        :key="goal.id"
+        type="button"
+        role="option"
+        class="suggest-item"
+        :aria-selected="false"
+        @click="insertGoal(goal.id)"
+      >
+        #{{ goal.title }}
+      </button>
+    </div>
+    <p v-if="goalMentions.length" class="mentions">
+      <MemoGoalMention
+        v-for="(goalId, index) in goalMentions"
+        :key="`${goalId}-${index}`"
+        :goal-id="goalId"
+      />
+    </p>
   </JournalCard>
 </template>
 
@@ -80,5 +132,29 @@ const isAffirm = computed(() => kind === 'affirm')
   --line-h: 33px;
 
   font-size: 19px;
+}
+
+.mentions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  font-size: 14px;
+}
+
+.suggest {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.suggest-item {
+  padding: 4px 10px;
+  border: var(--border-thin) dashed var(--line);
+  border-radius: var(--radius-pill);
+  background: var(--paper);
+  color: var(--mute);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
 }
 </style>

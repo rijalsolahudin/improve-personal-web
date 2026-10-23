@@ -45,6 +45,9 @@ const style = computed(() => ({
           v-if="segment.kind === 'mention'"
           :schedule-id="segment.scheduleId"
           :day="memo.date"
+        /><MemoGoalMention
+          v-else-if="segment.kind === 'goal-mention'"
+          :goal-id="segment.goalId"
         /><span v-else class="seg">{{ segment.text }}</span></template
       >
     </p>

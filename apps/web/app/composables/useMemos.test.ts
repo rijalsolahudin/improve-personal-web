@@ -9,17 +9,57 @@ const INPUT: Omit<MemoInput, 'date'> = {
   paper: 'krem',
 }
 
+/** Tanggal yang tidak dipakai memo contoh (relatif ke hari ini) supaya hitungannya bersih. */
+const DAY = '2019-12-31'
+const OTHER_DAY = '2020-01-01'
+
 describe('useMemos', () => {
   beforeEach(() => {
     clearNuxtState(['memos'])
   })
 
-  it('isi kosong ditolak; entri dirapikan & masuk paling atas', () => {
-    const { memos, add } = useMemos()
-    expect(add({ ...INPUT, date: '2026-10-01', text: '  ' })).toBe(false)
-    expect(add({ ...INPUT, date: '2026-10-01' })).toBe(true)
-    expect(memos.value[0]).toMatchObject({ title: 'Judul', text: 'Isi', date: '2026-10-01' })
+  it('isi kosong ditolak; entri baru dirapikan & masuk paling atas', () => {
+    const { memos, save } = useMemos()
+    expect(save({ ...INPUT, date: DAY, text: '  ' })).toBeNull()
+    const saved = save({ ...INPUT, date: DAY })
+    expect(saved).not.toBeNull()
+    expect(memos.value[0]).toMatchObject({ title: 'Judul', text: 'Isi', date: DAY })
     expect(new Date(memos.value[0]?.createdAt ?? 0).getHours()).toBe(20)
+  })
+
+  it('simpan ulang di tanggal yang sama memperbarui halaman itu, bukan menambah halaman', () => {
+    const { memos, save, memoOn } = useMemos()
+    const first = save({ ...INPUT, date: DAY })
+    if (!first) throw new Error('simpan pertama gagal')
+
+    const second = save({
+      ...INPUT,
+      date: DAY,
+      title: '  Judul baru  ',
+      text: ' Isi baru ',
+      feelings: ['tenang'],
+    })
+
+    const pages = memos.value.filter((memo) => memo.date === DAY)
+    expect(pages).toHaveLength(1)
+    expect(second?.id).toBe(first.id)
+    expect(pages[0]).toMatchObject({
+      id: first.id,
+      createdAt: first.createdAt,
+      title: 'Judul baru',
+      text: 'Isi baru',
+      feelings: ['tenang'],
+    })
+    expect(memoOn(DAY)?.id).toBe(first.id)
+  })
+
+  it('tanggal berbeda tetap jadi halaman terpisah', () => {
+    const { memos, save } = useMemos()
+    save({ ...INPUT, date: DAY })
+    save({ ...INPUT, date: OTHER_DAY })
+    expect(memos.value.filter((memo) => memo.date === DAY || memo.date === OTHER_DAY)).toHaveLength(
+      2,
+    )
   })
 
   it('mood satu per hari: ganti & hapus', () => {

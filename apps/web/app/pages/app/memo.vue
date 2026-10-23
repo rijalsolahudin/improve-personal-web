@@ -11,6 +11,7 @@ const now = useNow()
 const today = computed(() => toIsoDate(new Date(now.value)))
 const { memos, moods, moodOn, remove } = useMemos()
 const { findSchedule } = useSchedules()
+const { findGoal } = useGoals()
 
 const SEARCH_MAX = 80
 const query = ref('')
@@ -18,7 +19,13 @@ const query = ref('')
 const selected = useState<string>('memo-selected', () => toIsoDate(new Date()))
 
 const plain = (text: string): string =>
-  plainText(text, (id) => findSchedule(id)?.title ?? null, t('memo.deletedSchedule'))
+  plainText(
+    text,
+    (id) => findSchedule(id)?.title ?? null,
+    t('memo.deletedSchedule'),
+    (id) => findGoal(id)?.title ?? null,
+    t('memo.deletedGoal'),
+  )
 const matching = computed(() =>
   memos.value.filter((memo) => matchesQuery(memo, query.value, plain)),
 )

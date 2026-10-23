@@ -1,7 +1,15 @@
 <script setup lang="ts">
 import { memoPapers } from '@improve-personal/tokens'
 
-import { MEMO_TEXT_MAX, MEMO_TITLE_MAX, insertMention, mentionQuery, wordCount } from '~/utils/memo'
+import {
+  MEMO_TEXT_MAX,
+  MEMO_TITLE_MAX,
+  goalMentionQuery,
+  insertGoalMention,
+  insertMention,
+  mentionQuery,
+  wordCount,
+} from '~/utils/memo'
 import { SCHEDULE_COLORS, occurrencesOn } from '~/utils/schedule'
 import { addDays, fromIsoDate } from '~/utils/time'
 
@@ -16,9 +24,10 @@ const PROMPT_KEYS = ['smile', 'mind', 'proud', 'tomorrow'] as const
 const { t } = useI18n()
 const memos = useMemos()
 const { schedules } = useSchedules()
+const { goals } = useGoals()
 const { longDate, shortDate } = useDateFormat()
 
-const { draft, clear } = useMemoDraft()
+const { draft, load, showDay } = useMemoDraft()
 const paper = computed({
   get: () => memos.paper.value,
   set: (value) => memos.setPaper(value),
@@ -57,15 +66,46 @@ const suggestions = computed(() => {
   return result.slice(0, SUGGEST_LIMIT)
 })
 
+/** Autocomplete `#`: goal aktif + chapter-nya (PRD F13 "Journal"). */
+const goalQuery = computed(() => goalMentionQuery(draft.value.text))
+const goalSuggestions = computed(() => {
+  const q = goalQuery.value
+  if (q === null) return []
+  const needle = q.toLowerCase()
+  return goals.value
+    .filter((goal) => goal.status === 'aktif')
+    .flatMap((goal) => [
+      { id: goal.id, title: goal.title, detail: t('goals.along') },
+      ...goal.chapters.map((chapter) => ({
+        id: goal.id,
+        title: chapter.title,
+        detail: goal.title,
+      })),
+    ])
+    .filter((item) => item.title.toLowerCase().includes(needle))
+    .slice(0, SUGGEST_LIMIT)
+})
+
 function addPrompt(key: (typeof PROMPT_KEYS)[number]): void {
   const prompt = t(`memo.prompt.${key}`).replace('…', ' ')
   const current = draft.value.text.trimEnd()
   draft.value.text = current ? `${current}\n\n${prompt}` : prompt
 }
 
+/**
+ * Satu halaman per tanggal (PRD F8): saat tanggal berganti, editor menampilkan isi halaman tanggal
+ * itu supaya "simpan" = perbarui halaman yang sama, bukan menimpa tulisan lama dengan draf kosong.
+ */
+watch(
+  () => day,
+  (next) => showDay(next, memos.memoOn(next)),
+  { immediate: true },
+)
+
 function save(): void {
-  const saved = memos.add({ date: day, ...draft.value, paper: paper.value })
-  if (saved) clear()
+  const saved = memos.save({ date: day, ...draft.value, paper: paper.value })
+  // Halaman yang baru disimpan tetap terbuka supaya bisa dikoreksi (id tetap, bukan halaman baru).
+  if (saved) load(saved)
 }
 </script>
 
@@ -134,6 +174,28 @@ function save(): void {
         <span class="suggest-when">{{ item.when }}</span>
       </button>
     </div>
+    <div
+      v-if="goalSuggestions.length"
+      class="suggest"
+      role="listbox"
+      :aria-label="$t('memo.goalMentionTitle')"
+    >
+      <p class="eyebrow suggest-title">{{ $t('memo.goalMentionTitle') }}</p>
+      <button
+        v-for="(item, index) in goalSuggestions"
+        :key="`${item.id}-${index}`"
+        type="button"
+        role="option"
+        class="suggest-item"
+        :aria-selected="false"
+        @click="draft.text = insertGoalMention(draft.text, item.id)"
+      >
+        <span class="dot" aria-hidden="true" />
+        <span class="suggest-name">{{ item.title }}</span>
+        <span class="suggest-when">{{ item.detail }}</span>
+      </button>
+    </div>
+
     <div class="prompts">
       <span class="prompts-label">{{ $t('memo.promptsLabel') }}</span>
       <button

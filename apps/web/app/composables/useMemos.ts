@@ -1,6 +1,13 @@
 import { MEMO_PAPER_NAMES, type MemoPaperName } from '@improve-personal/tokens'
 
-import { MEMO_TEXT_MAX, MEMO_TITLE_MAX, isMood, type Memo, type MemoFeeling } from '~/utils/memo'
+import {
+  MEMO_TEXT_MAX,
+  MEMO_TITLE_MAX,
+  isMood,
+  memoOn,
+  type Memo,
+  type MemoFeeling,
+} from '~/utils/memo'
 import { fromIsoDate, toIsoDate } from '~/utils/time'
 
 import { createMemosMock } from './memos/mock'
@@ -49,25 +56,65 @@ export function useMemos() {
     }
   }
 
-  /** Simpan entri; `false` kalau isi kosong. Judul & isi dipotong ke batas maksimal. */
-  function add(input: MemoInput): boolean {
+  /**
+   * Simpan halaman jurnal tanggal `date`. PRD F8: satu halaman per tanggal, jadi halaman yang
+   * sudah ada **diperbarui** (id & waktu tulis pertama tetap, posisi di daftar tidak berubah);
+   * hanya tanggal yang belum punya halaman yang membuat entri baru. `null` kalau isi kosong.
+   * Judul & isi dipotong ke batas maksimal.
+   */
+  function save(input: MemoInput): Memo | null {
     const text = input.text.trim().slice(0, MEMO_TEXT_MAX)
-    if (!text) return false
-    const isToday = input.date === toIsoDate(new Date())
-    const createdAt = isToday
-      ? Date.now()
-      : new Date(fromIsoDate(input.date).setHours(PAST_ENTRY_HOUR)).getTime()
-    const memo: Memo = {
-      id: crypto.randomUUID(),
-      date: input.date,
-      createdAt,
+    if (!text) return null
+    const fields = {
       title: input.title.trim().slice(0, MEMO_TITLE_MAX),
       text,
       feelings: [...input.feelings],
       paper: input.paper,
     }
-    store.value = { ...store.value, memos: [memo, ...store.value.memos] }
-    return true
+
+    const existing = memoOn(store.value.memos, input.date)
+    if (existing) {
+      const updated: Memo = { ...existing, ...fields }
+      store.value = {
+        ...store.value,
+        memos: store.value.memos.map((memo) => (memo.id === existing.id ? updated : memo)),
+      }
+      return updated
+    }
+
+    const isToday = input.date === toIsoDate(new Date())
+    const createdAt = isToday
+      ? Date.now()
+      : new Date(fromIsoDate(input.date).setHours(PAST_ENTRY_HOUR)).getTime()
+    const created: Memo = { id: crypto.randomUUID(), date: input.date, createdAt, ...fields }
+    store.value = { ...store.value, memos: [created, ...store.value.memos] }
+    return created
+  }
+
+  /**
+   * Tambahkan paragraf ke halaman jurnal tanggal `day` (dipakai kartu review goal).
+   *
+   * Isi lama dipertahankan - review adalah tambahan, bukan pengganti tulisan user. Halaman baru
+   * memakai preferensi kertas saat ini dan tanpa perasaan; user bisa mengeditnya seperti biasa.
+   */
+  function append(day: string, text: string): Memo | null {
+    const clean = text.trim().slice(0, MEMO_TEXT_MAX)
+    if (!clean) return null
+
+    const existing = memoOn(store.value.memos, day)
+    if (existing !== null) {
+      const updated: Memo = {
+        ...existing,
+        text: `${existing.text.trimEnd()}\n\n${clean}`.trim().slice(0, MEMO_TEXT_MAX),
+      }
+      store.value = {
+        ...store.value,
+        memos: store.value.memos.map((memo) => (memo.id === existing.id ? updated : memo)),
+      }
+      return updated
+    }
+
+    return save({ date: day, title: '', text: clean, feelings: [], paper: paper.value })
   }
 
   function remove(id: string): void {
@@ -87,9 +134,12 @@ export function useMemos() {
     memos: computed(() => store.value.memos),
     moods: computed(() => store.value.moods),
     moodOn: (day: string): number | null => store.value.moods[day] ?? null,
+    /** Halaman jurnal tanggal `day`, `null` kalau belum ditulis. */
+    memoOn: (day: string): Memo | null => memoOn(store.value.memos, day),
     paper: readonly(paper),
     setPaper,
-    add,
+    save,
+    append,
     remove,
     setMood,
   }

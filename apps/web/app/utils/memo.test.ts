@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  goalMentionQuery,
+  insertGoalMention,
   insertMention,
   journalDates,
   matchesQuery,
+  memoOn,
   memosOn,
   mentionQuery,
   plainText,
@@ -42,6 +45,24 @@ describe('mention jadwal', () => {
     )
   })
 
+  it('mention goal (#) jadi segmen sendiri & aman saat goal dihapus', () => {
+    expect(splitMentions('Progress #[goal-1] bagus')).toEqual([
+      { kind: 'text', text: 'Progress ' },
+      { kind: 'goal-mention', goalId: 'goal-1' },
+      { kind: 'text', text: ' bagus' },
+    ])
+    const goalTitleOf = (id: string): string | null => (id === 'goal-1' ? 'Lari 10K' : null)
+    expect(
+      plainText('lihat #[goal-1] dan #[gone]', titleOf, 'jadwal', goalTitleOf, 'goal dihapus'),
+    ).toBe('lihat #Lari 10K dan #goal dihapus')
+  })
+
+  it('autocomplete goal: deteksi #kata di akhir & sisipkan token', () => {
+    expect(goalMentionQuery('Progress #la')).toBe('la')
+    expect(goalMentionQuery('tag #bukan mention di tengah #la')).toBe('la')
+    expect(insertGoalMention('Progress #la', 'goal-1')).toBe('Progress #[goal-1] ')
+  })
+
   it('autocomplete: deteksi @kata di akhir & sisipkan token', () => {
     expect(mentionQuery('Tadi ikut @ke')).toBe('ke')
     expect(mentionQuery('Tadi ikut @')).toBe('')
@@ -78,5 +99,11 @@ describe('daftar & cari', () => {
     expect(memosOn(list, '2026-10-09').map((item) => item.id)).toEqual(['b', 'a'])
     expect(wordCount('  dua  kata ')).toBe(2)
     expect(wordCount('')).toBe(0)
+  })
+
+  it('halaman jurnal satu tanggal: yang pertama ketemu, null kalau belum ada', () => {
+    const list = [memo({ id: 'a', date: '2026-10-05' }), memo({ id: 'b', date: '2026-10-09' })]
+    expect(memoOn(list, '2026-10-09')?.id).toBe('b')
+    expect(memoOn(list, '2026-10-06')).toBeNull()
   })
 })
