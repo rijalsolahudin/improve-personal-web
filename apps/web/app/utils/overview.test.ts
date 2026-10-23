@@ -9,11 +9,16 @@ import {
   activeGoals,
   bestDayStreak,
   currentDayStreak,
+  earliestActivityStart,
+  earliestCheckInStart,
   eisenhowerCounts,
   focusBuckets,
   habitHeatmap,
   habitRate,
+  habitStreaks,
   moodCorrelation,
+  moodSeries,
+  onTimeRate,
   scheduledMinutes,
   taskTotals,
   windowFor,
@@ -54,15 +59,23 @@ describe('windowFor', () => {
   it('keseluruhan tidak bisa dinavigasi', () => {
     expect(windowFor('keseluruhan', 0, now).canNext).toBe(false)
   })
+
+  it('keseluruhan mencakup seluruh data, bukan 1 Jan tahun berjalan', () => {
+    const defaultStart = windowFor('keseluruhan', 0, now).start
+    expect(defaultStart).toBeLessThanOrEqual(day(2024, 5, 10))
+    // Data terlama dari app dipakai kalau dikirim pemanggil.
+    const win = windowFor('keseluruhan', 0, now, day(2024, 5, 10, 9))
+    expect(iso(win.start)).toBe('2024-05-10')
+  })
 })
 
 describe('focusBuckets', () => {
-  it('harian: 18 slot jam, menit masuk ke slot jam `endedAt`', () => {
+  it('harian: 24 slot jam (0:00–23:00), menit masuk ke slot jam `endedAt`', () => {
     const now = day(2026, 10, 14, 15)
     const sessions = [session(day(2026, 10, 14, 10, 25), 25), session(day(2026, 10, 13, 10, 0), 25)]
     const { unit, buckets } = focusBuckets('harian', 0, now, sessions)
     expect(unit).toBe('jam')
-    expect(buckets).toHaveLength(18)
+    expect(buckets).toHaveLength(24)
     const hour10 = buckets.find((b) => new Date(b.start).getHours() === 10)
     expect(hour10).toMatchObject({ minutes: 25, count: 1 })
     // Sesi hari kemarin tidak ikut terhitung hari ini.
@@ -75,6 +88,27 @@ describe('focusBuckets', () => {
       session(day(2026, 10, 14, 9, 0), 25, 'dilewati'),
     ])
     expect(buckets.reduce((acc, b) => acc + b.minutes, 0)).toBe(0)
+  })
+
+  it('harian: sesi 00:00–05:59 masuk slotnya sendiri', () => {
+    const now = day(2026, 10, 14, 15)
+    const { buckets } = focusBuckets('harian', 0, now, [session(day(2026, 10, 14, 5, 30), 25)])
+    expect(buckets.reduce((acc, b) => acc + b.minutes, 0)).toBe(25)
+    expect(buckets[5]).toMatchObject({ minutes: 25, count: 1 })
+  })
+
+  it('keseluruhan: slot bulanan mulai dari data terlama', () => {
+    const now = day(2026, 10, 14, 15)
+    const { unit, buckets } = focusBuckets(
+      'keseluruhan',
+      0,
+      now,
+      [session(day(2024, 5, 10, 9), 25)],
+      day(2024, 5, 1),
+    )
+    expect(unit).toBe('bulan')
+    expect(iso(buckets[0]?.start ?? 0)).toBe('2024-05-01')
+    expect(buckets.reduce((acc, b) => acc + b.minutes, 0)).toBe(25)
   })
 })
 
@@ -217,6 +251,163 @@ describe('task & goal', () => {
     ]
     expect(activeGoals(goals, '2026-10-14')).toEqual([
       { id: 'g1', title: 'Lulus', category: 'karier', pct: 0, chapter: 'Bab 1' },
+    ])
+  })
+
+  it('activeGoals difilter rentang: chapter 2024 tidak tampil di rentang 2026', () => {
+    const goals = [
+      {
+        id: 'g-old',
+        title: 'Goal lama',
+        why: '',
+        category: 'karier' as const,
+        status: 'aktif' as const,
+        start: '2024-01-01',
+        end: '2024-03-31',
+        cover: null,
+        along: [],
+        chapters: [
+          {
+            id: 'c1',
+            title: 'Bab 2024',
+            start: '2024-01-01',
+            end: '2024-03-31',
+            isManualDone: false,
+            isClosed: true,
+            items: [],
+          },
+        ],
+      },
+    ]
+    expect(
+      activeGoals(goals, '2026-10-14', { start: day(2026, 10, 14), end: day(2026, 10, 15) }),
+    ).toEqual([])
+    expect(
+      activeGoals(goals, '2026-10-14', { start: day(2024, 1, 1), end: day(2024, 4, 1) }),
+    ).toHaveLength(1)
+  })
+
+  it('taskTotals dengan rentang menghitung task yang selesai di rentang itu', () => {
+    const ranged: Task[] = [
+      { ...tasks[0]!, id: 'old', completedAt: day(2024, 5, 10) },
+      { ...tasks[0]!, id: 'new', completedAt: day(2026, 10, 14) },
+    ]
+    const window = { start: day(2026, 10, 14), end: day(2026, 10, 15) }
+    expect(taskTotals(ranged, day(2026, 10, 14), window).done).toBe(1)
+    expect(
+      taskTotals(ranged, day(2026, 10, 14), {
+        start: day(2024, 1, 1),
+        end: day(2025, 1, 1),
+      }).done,
+    ).toBe(1)
+  })
+
+  it('onTimeRate: selesai sebelum deadline, tanpa deadline tidak dihitung', () => {
+    const ranged: Task[] = [
+      {
+        ...tasks[0]!,
+        id: 'ontime',
+        deadline: day(2026, 10, 14, 12),
+        completedAt: day(2026, 10, 14, 11),
+      },
+      {
+        ...tasks[0]!,
+        id: 'late',
+        deadline: day(2026, 10, 14, 9),
+        completedAt: day(2026, 10, 14, 11),
+      },
+      { ...tasks[0]!, id: 'nodeadline', deadline: null, completedAt: day(2026, 10, 14, 11) },
+      { ...tasks[0]!, id: 'outside', deadline: day(2024, 5, 9), completedAt: day(2024, 5, 10) },
+    ]
+    const window = { start: day(2026, 10, 14), end: day(2026, 10, 15) }
+    expect(onTimeRate(ranged, window)).toBe(50)
+    expect(onTimeRate([], window)).toBe(0)
+  })
+})
+
+describe('streak & riwayat sepanjang masa', () => {
+  const today = '2026-10-14'
+
+  it('bestDayStreak tidak dipotong 365 hari', () => {
+    const days = new Set(Array.from({ length: 5 }, (_, i) => addDays(today, -(400 + i))))
+    expect(bestDayStreak(days, today)).toBe(5)
+  })
+
+  it('habitStreaks tidak dipotong 120 hari', () => {
+    const habit: Habit = {
+      id: 'h1',
+      name: 'Belajar',
+      icon: 'book-open',
+      sticker: null,
+      color: 0,
+      days: null,
+      target: 1,
+      goalId: null,
+      isArchived: false,
+    }
+    const checkIns: CheckIns = {
+      h1: Object.fromEntries(Array.from({ length: 5 }, (_, i) => [addDays(today, -(200 + i)), 1])),
+    }
+    const [row] = habitStreaks([habit], checkIns, today)
+    expect(row?.best).toBe(5)
+    expect(row?.current).toBe(0)
+  })
+})
+
+describe('earliestActivityStart', () => {
+  it('ambil timestamp data terlama dari semua sumber', () => {
+    expect(
+      earliestActivityStart({
+        sessions: [
+          {
+            id: 's',
+            startedAt: day(2025, 1, 1),
+            endedAt: day(2025, 1, 1) + 25 * 60_000,
+            target: 'Fokus',
+            status: 'selesai',
+          },
+        ],
+        memos: [],
+        moods: {},
+        tasks: [],
+        goals: [],
+        schedules: [],
+        checkIns: { h1: { '2024-05-10': 1 } },
+      }),
+    ).toBe(day(2024, 5, 10))
+  })
+
+  it('null kalau belum ada data', () => {
+    expect(
+      earliestActivityStart({
+        sessions: [],
+        memos: [],
+        moods: {},
+        tasks: [],
+        goals: [],
+        schedules: [],
+        checkIns: {},
+      }),
+    ).toBeNull()
+  })
+
+  it('earliestCheckInStart mengambil check-in paling awal', () => {
+    expect(earliestCheckInStart({ h1: { '2026-10-13': 1 }, h2: { '2026-10-11': 1 } })).toBe(
+      day(2026, 10, 11),
+    )
+    expect(earliestCheckInStart({})).toBeNull()
+  })
+})
+
+describe('moodSeries', () => {
+  it('hanya hari yang punya mood, urut naik, dibatasi rentang', () => {
+    const moods = { '2026-10-13': 2, '2024-05-10': 4, '2026-10-14': 1 }
+    expect(moodSeries(moods, day(2024, 1, 1), day(2026, 1, 1))).toEqual([
+      { day: '2024-05-10', mood: 4 },
+    ])
+    expect(moodSeries(moods, day(2026, 10, 1), day(2026, 10, 15))).toEqual([
+      { day: '2026-10-13', mood: 2 },
+      { day: '2026-10-14', mood: 1 },
     ])
   })
 })

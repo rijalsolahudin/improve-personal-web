@@ -5,6 +5,7 @@ import type { Countdown, CountdownView } from './countdown'
 import { groupCountdowns } from './countdown'
 import { chapterStatus, goalProgress, type Goal, type GoalCategory } from './goals'
 import {
+  HABIT_COLORS,
   completionRate,
   currentStreak,
   isMet,
@@ -14,9 +15,17 @@ import {
 } from './habits'
 import type { Memo, MoodByDate } from './memo'
 import { sessionMinutes, type FocusSession } from './pomodoro'
-import { SCHEDULE_COLORS, occursOn, type Schedule } from './schedule'
+import { SCHEDULE_COLORS, occurrencesBetween, type Schedule } from './schedule'
 import { isOverdue, QUADRANTS, type Quadrant, type Task } from './tasks'
-import { MS_PER_DAY, MS_PER_HOUR, addDays, fromIsoDate, toIsoDate } from './time'
+import {
+  MS_PER_DAY,
+  MS_PER_HOUR,
+  addDays,
+  deviceTimeZone,
+  fromIsoDate,
+  isIsoDate,
+  toIsoDate,
+} from './time'
 
 export type OverviewRange = 'keseluruhan' | 'harian' | 'pekanan' | 'bulanan' | 'tahunan'
 export const OVERVIEW_RANGES: readonly OverviewRange[] = [
@@ -44,7 +53,27 @@ export interface OverviewWindow {
   canNext: boolean
 }
 
-export function windowFor(range: OverviewRange, off: number, now: number): OverviewWindow {
+/** Rentang [start, end) yang dipakai filter task/goal. */
+export interface OverviewRangeWindow {
+  readonly start: number
+  readonly end: number
+}
+
+/**
+ * Batas bawah "Keseluruhan" untuk pemanggil yang tidak punya data.
+ *
+ * `windowFor` sengaja fungsi murni tanpa akses store. Di app, pemanggil mengirim timestamp data
+ * terlama (`earliestActivityStart`); nilai ini hanya jaring pengaman supaya "Keseluruhan" tidak
+ * pernah kembali ke 1 Januari tahun berjalan walau data belum termuat.
+ */
+export const ALL_TIME_FLOOR = new Date(2000, 0, 1).getTime()
+
+export function windowFor(
+  range: OverviewRange,
+  off: number,
+  now: number,
+  allTimeStart?: number,
+): OverviewWindow {
   const today = startOfDay(now)
   const date = new Date(today)
   switch (range) {
@@ -71,7 +100,7 @@ export function windowFor(range: OverviewRange, off: number, now: number): Overv
     }
     case 'keseluruhan':
       return {
-        start: new Date(date.getFullYear(), 0, 1).getTime(),
+        start: startOfDay(allTimeStart ?? ALL_TIME_FLOOR),
         end: today + MS_PER_DAY,
         canNext: false,
       }
@@ -93,15 +122,18 @@ export function focusBuckets(
   off: number,
   now: number,
   sessions: readonly FocusSession[],
+  allTimeStart?: number,
 ): { unit: BucketUnit; buckets: Bucket[] } {
   const today = startOfDay(now)
   const date = new Date(today)
+  const win = windowFor(range, off, now, allTimeStart)
   let slots: { start: number; end: number }[] = []
   let unit: BucketUnit = 'hari'
   if (range === 'harian') {
     unit = 'jam'
     const base = new Date(date.getFullYear(), date.getMonth(), date.getDate() + off)
-    for (let hour = 6; hour <= 23; hour += 1) {
+    // PRD F11 "Harian: per jam (0:00–23:00)" - sesi dini hari ikut terhitung.
+    for (let hour = 0; hour < 24; hour += 1) {
       const start = new Date(base).setHours(hour, 0, 0, 0)
       slots.push({ start, end: start + MS_PER_HOUR })
     }
@@ -126,15 +158,21 @@ export function focusBuckets(
       end: new Date(year, month + 1, 1).getTime(),
     }))
   } else {
+    // Keseluruhan: satu slot per bulan, dari bulan data terlama sampai bulan berjalan.
     unit = 'bulan'
-    const year = date.getFullYear()
-    slots = Array.from({ length: date.getMonth() + 1 }, (_, month) => ({
-      start: new Date(year, month, 1).getTime(),
-      end: new Date(year, month + 1, 1).getTime(),
-    }))
+    const first = new Date(win.start)
+    const last = new Date(win.end - 1)
+    const lastMonth = new Date(last.getFullYear(), last.getMonth(), 1).getTime()
+    for (
+      let cursor = new Date(first.getFullYear(), first.getMonth(), 1);
+      cursor.getTime() <= lastMonth;
+      cursor = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1)
+    ) {
+      const start = cursor.getTime()
+      slots.push({ start, end: new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1).getTime() })
+    }
   }
 
-  const win = windowFor(range, off, now)
   const buckets: Bucket[] = slots.map((slot) => ({ ...slot, minutes: 0, count: 0 }))
   for (const session of sessions) {
     if (session.status !== 'selesai') continue
@@ -173,12 +211,48 @@ export interface TaskTotals {
   total: number
 }
 
-export function taskTotals(tasks: readonly Task[], now: number): TaskTotals {
+/**
+ * Ringkasan task. `window` (opsional) membuat `done` mengikuti rentang: hanya task yang
+ * `completedAt`-nya jatuh di [start, end). Tanpa `window`, perilaku lama dipertahankan (semua task
+ * selesai) supaya pemanggil non-rentang tidak berubah.
+ */
+export function taskTotals(
+  tasks: readonly Task[],
+  now: number,
+  window?: OverviewRangeWindow,
+): TaskTotals {
   return {
-    done: tasks.filter((task) => task.done).length,
+    done: window
+      ? tasks.filter((task) => isCompletedWithin(task, window)).length
+      : tasks.filter((task) => task.done).length,
     overdue: tasks.filter((task) => isOverdue(task, now)).length,
     total: tasks.length,
   }
+}
+
+/** Task punya `completedAt` yang jatuh di rentang (inklusif awal, eksklusif akhir). */
+function isCompletedWithin(task: Task, window: OverviewRangeWindow): boolean {
+  const completedAt = task.completedAt ?? null
+  return (
+    task.done && completedAt !== null && completedAt >= window.start && completedAt < window.end
+  )
+}
+
+/**
+ * Persentase task selesai tepat waktu di rentang: selesai sebelum/tepat deadline.
+ * Task tanpa deadline tidak dihitung (tidak bisa disebut tepat waktu maupun terlambat).
+ */
+export function onTimeRate(tasks: readonly Task[], window: OverviewRangeWindow): number {
+  let withDeadline = 0
+  let onTime = 0
+  for (const task of tasks) {
+    if (!isCompletedWithin(task, window)) continue
+    const completedAt = task.completedAt ?? 0
+    if (task.deadline === null) continue
+    withDeadline += 1
+    if (completedAt <= task.deadline) onTime += 1
+  }
+  return withDeadline ? Math.round((onTime / withDeadline) * 100) : 0
 }
 
 export function eisenhowerCounts(tasks: readonly Task[]): Record<Quadrant, number> {
@@ -211,19 +285,31 @@ export function currentDayStreak(days: ReadonlySet<string>, today: string): numb
   return streak
 }
 
-/** Rekor hari berturut-turut dalam rentang `count` hari terakhir. */
-export function bestDayStreak(days: ReadonlySet<string>, today: string, count = 365): number {
+/** Rekor hari berturut-turut. Default: sepanjang data yang ada (Keseluruhan = all-time). */
+export function bestDayStreak(days: ReadonlySet<string>, today: string, count?: number): number {
+  if (!days.size) return 0
+  const start = count === undefined ? earliestDay(days) : addDays(today, -(count - 1))
+  if (start > today) return 0
   let best = 0
   let run = 0
-  for (let offset = count - 1; offset >= 0; offset -= 1) {
-    if (days.has(addDays(today, -offset))) {
+  for (let day = start; day <= today; day = addDays(day, 1)) {
+    if (days.has(day)) {
       run += 1
       best = Math.max(best, run)
-    } else if (offset > 0) {
+    } else {
       run = 0
     }
   }
   return best
+}
+
+/** Tanggal ISO paling awal di himpunan. */
+function earliestDay(days: ReadonlySet<string>): string {
+  let earliest: string | null = null
+  for (const day of days) {
+    if (earliest === null || day < earliest) earliest = day
+  }
+  return earliest ?? ''
 }
 
 export interface HabitStreak {
@@ -234,33 +320,46 @@ export interface HabitStreak {
   best: number
 }
 
+/** Streak habit aktif + rekor. Default rekor: sepanjang check-in yang ada (bukan 120 hari). */
 export function habitStreaks(
   habits: readonly Habit[],
   checkIns: CheckIns,
   today: string,
-  count = 120,
+  count?: number,
 ): HabitStreak[] {
   return habits.map((habit) => {
+    const entries = checkIns[habit.id] ?? {}
+    const start =
+      count === undefined ? earliestCheckedDay(entries, today) : addDays(today, -(count - 1))
     let best = 0
     let run = 0
-    for (let offset = count - 1; offset >= 0; offset -= 1) {
-      const day = addDays(today, -offset)
+    for (let day = start; day <= today; day = addDays(day, 1)) {
       if (!isScheduled(habit, day)) continue
       if (isMet(habit, checkIns, day)) {
         run += 1
         best = Math.max(best, run)
-      } else if (offset > 0) {
+      } else {
         run = 0
       }
     }
+    const current = currentStreak(habit, checkIns, today)
     return {
       id: habit.id,
       name: habit.name,
       color: (HABIT_COLORS[habit.color] ?? HABIT_COLORS[0])[0],
-      current: currentStreak(habit, checkIns, today),
-      best: Math.max(best, currentStreak(habit, checkIns, today)),
+      current,
+      best: Math.max(best, current),
     }
   })
+}
+
+/** Hari check-in paling awal milik satu habit; `today` kalau belum ada riwayat. */
+function earliestCheckedDay(entries: Readonly<Record<string, number>>, today: string): string {
+  let earliest: string | null = null
+  for (const day of Object.keys(entries)) {
+    if (earliest === null || day < earliest) earliest = day
+  }
+  return earliest ?? today
 }
 
 export interface HeatmapCell {
@@ -320,13 +419,16 @@ export interface MoodPoint {
 
 /** Titik mood (0–4) per hari di rentang [start, end) yang punya nilai. */
 export function moodSeries(moods: MoodByDate, start: number, end: number): MoodPoint[] {
-  const points: MoodPoint[] = []
-  for (let ms = startOfDay(start); ms < end; ms += MS_PER_DAY) {
-    const day = toIsoDate(new Date(ms))
-    const mood = moods[day]
-    if (mood !== undefined) points.push({ day, mood })
-  }
-  return points
+  return moodsWithin(moods, start, end).map(([day, mood]) => ({ day, mood }))
+}
+
+/** Entri mood di [start, end), urut tanggal. Iterasi hanya hari yang punya mood (bukan semua hari). */
+function moodsWithin(moods: MoodByDate, start: number, end: number): [string, number][] {
+  const from = toIsoDate(new Date(startOfDay(start)))
+  const to = toIsoDate(new Date(end - 1))
+  return Object.entries(moods)
+    .filter(([day, mood]) => mood !== undefined && day >= from && day <= to)
+    .sort(([a], [b]) => a.localeCompare(b))
 }
 
 /** Rata-rata mood di hari fokus tinggi vs rendah (median split). Null kalau data kurang. */
@@ -337,10 +439,8 @@ export function moodCorrelation(
   end: number,
 ): { high: number | null; low: number | null } {
   const samples: { mood: number; focus: number }[] = []
-  for (let ms = startOfDay(start); ms < end; ms += MS_PER_DAY) {
-    const day = toIsoDate(new Date(ms))
-    const mood = moods[day]
-    if (mood !== undefined) samples.push({ mood, focus: focusByDay.get(day) ?? 0 })
+  for (const [day, mood] of moodsWithin(moods, start, end)) {
+    samples.push({ mood, focus: focusByDay.get(day) ?? 0 })
   }
   if (samples.length < 2) return { high: null, low: null }
   const sorted = [...samples].map((s) => s.focus).sort((a, b) => a - b)
@@ -359,29 +459,52 @@ export interface ScheduledSlice {
   minutes: number
 }
 
-/** Total menit jadwal (bukan all-day) per jadwal di rentang [start, end). */
+/**
+ * Total menit jadwal (bukan all-day) per jadwal di rentang [start, end).
+ *
+ * Ekspansi dilakukan SEKALI untuk seluruh rentang lewat cache `occurrencesBetween` - bukan
+ * `occursOn` per hari × jadwal. Versi lama memanggil `deviceTimeZone()` (membuat
+ * `Intl.DateTimeFormat` baru) dan mengekspansi grid bulan untuk setiap hari, sehingga satu pass
+ * tahunan dengan 20 jadwal memakan ratusan milidetik.
+ */
 export function scheduledMinutes(
   schedules: readonly Schedule[],
   start: number,
   end: number,
+  tz = deviceTimeZone(),
 ): ScheduledSlice[] {
-  const slices = new Map<string, ScheduledSlice>()
-  for (const schedule of schedules) {
-    if (schedule.allDay) continue
-    let minutes = 0
-    for (let ms = startOfDay(start); ms < end; ms += MS_PER_DAY) {
-      if (occursOn(schedule, toIsoDate(new Date(ms)))) minutes += schedule.dur
-    }
-    if (minutes > 0) {
-      slices.set(schedule.id, {
-        id: schedule.id,
-        title: schedule.title,
-        color: (SCHEDULE_COLORS[schedule.color] ?? SCHEDULE_COLORS[0])[0],
-        minutes,
-      })
-    }
+  if (end <= start) return []
+  const from = toIsoDate(new Date(startOfDay(start)))
+  const to = toIsoDate(new Date(end - 1))
+  if (to < from) return []
+
+  const active = schedules.filter((schedule) => {
+    if (schedule.allDay) return false
+    if (schedule.start > to) return false
+    if (schedule.ends.type === 'until' && schedule.ends.date < from) return false
+    return true
+  })
+  if (!active.length) return []
+
+  const minutes = new Map<string, number>()
+  for (const occurrence of occurrencesBetween(active, from, to, tz)) {
+    const id = occurrence.schedule.id
+    minutes.set(id, (minutes.get(id) ?? 0) + occurrence.schedule.dur)
   }
-  return [...slices.values()].sort((a, b) => b.minutes - a.minutes)
+
+  const byId = new Map(active.map((schedule) => [schedule.id, schedule]))
+
+  return [...minutes.entries()]
+    .map(([id, total]) => {
+      const schedule = byId.get(id)
+      return {
+        id,
+        title: schedule?.title ?? '',
+        color: (SCHEDULE_COLORS[schedule?.color ?? 0] ?? SCHEDULE_COLORS[0])[0],
+        minutes: total,
+      }
+    })
+    .sort((a, b) => b.minutes - a.minutes)
 }
 
 /** Task terlambat (deadline lewat, belum selesai), terdekat dulu. */
@@ -410,9 +533,25 @@ export interface GoalOverviewItem {
   chapter: string | null
 }
 
-export function activeGoals(goals: readonly Goal[], today: string): GoalOverviewItem[] {
+/**
+ * Goal aktif yang punya chapter beririsan dengan rentang.
+ *
+ * `window` opsional: tanpa window (pemanggil lama) semua goal aktif tampil. Goal tanpa chapter
+ * tetap tampil karena tidak punya tanggal untuk difilter.
+ */
+export function activeGoals(
+  goals: readonly Goal[],
+  today: string,
+  window?: OverviewRangeWindow,
+): GoalOverviewItem[] {
+  const from = window === undefined ? null : toIsoDate(new Date(startOfDay(window.start)))
+  const to = window === undefined ? null : toIsoDate(new Date(window.end - 1))
   return goals
     .filter((goal) => goal.status === 'aktif')
+    .filter((goal) => {
+      if (from === null || to === null || goal.chapters.length === 0) return true
+      return goal.chapters.some((chapter) => chapter.start <= to && chapter.end >= from)
+    })
     .map((goal) => {
       const running = goal.chapters.find((chapter) => chapterStatus(chapter, today) === 'berjalan')
       return {
@@ -423,4 +562,59 @@ export function activeGoals(goals: readonly Goal[], today: string): GoalOverview
         chapter: running ? running.title : null,
       }
     })
+}
+
+/** Awal hari dari check-in paling awal di semua habit, atau `null` kalau belum ada check-in. */
+export function earliestCheckInStart(checkIns: CheckIns): number | null {
+  let earliest: string | null = null
+  for (const entries of Object.values(checkIns)) {
+    for (const day of Object.keys(entries)) {
+      if (!isIsoDate(day)) continue
+      if (earliest === null || day < earliest) earliest = day
+    }
+  }
+  return earliest === null ? null : startOfDay(fromIsoDate(earliest).getTime())
+}
+
+/** Semua sumber yang menentukan seberapa jauh "Keseluruhan" harus mundur. */
+export interface OverviewActivity {
+  readonly sessions: readonly FocusSession[]
+  readonly memos: readonly Memo[]
+  readonly moods: MoodByDate
+  readonly tasks: readonly Task[]
+  readonly goals: readonly Goal[]
+  readonly schedules: readonly Schedule[]
+  readonly checkIns: CheckIns
+}
+
+/**
+ * Timestamp data terlama yang dimuat (awal hari), atau `null` kalau belum ada data.
+ *
+ * Dipakai `windowFor('keseluruhan', ...)` supaya "semua data" benar-benar mencakup data lama -
+ * bukan dipotong ke 1 Januari tahun berjalan.
+ */
+export function earliestActivityStart(input: OverviewActivity): number | null {
+  let earliest: number | null = null
+  const consider = (value: number | null | undefined): void => {
+    if (value === null || value === undefined || !Number.isFinite(value)) return
+    if (earliest === null || value < earliest) earliest = value
+  }
+  const considerDay = (day: string): void => {
+    if (isIsoDate(day)) consider(fromIsoDate(day).getTime())
+  }
+
+  for (const session of input.sessions) consider(session.endedAt)
+  for (const memo of input.memos) considerDay(memo.date)
+  for (const day of Object.keys(input.moods)) considerDay(day)
+  for (const task of input.tasks) {
+    consider(task.completedAt ?? null)
+    consider(task.deadline)
+  }
+  for (const goal of input.goals) considerDay(goal.start)
+  for (const schedule of input.schedules) considerDay(schedule.start)
+  for (const entries of Object.values(input.checkIns)) {
+    for (const day of Object.keys(entries)) considerDay(day)
+  }
+
+  return earliest === null ? null : startOfDay(earliest)
 }

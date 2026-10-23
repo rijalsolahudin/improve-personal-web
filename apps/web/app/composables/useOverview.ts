@@ -3,6 +3,8 @@ import {
   activeGoals,
   bestDayStreak,
   currentDayStreak,
+  earliestActivityStart,
+  earliestCheckInStart,
   eisenhowerCounts,
   focusBuckets,
   focusDaySet,
@@ -14,6 +16,7 @@ import {
   memoDaySet,
   moodCorrelation,
   moodSeries,
+  onTimeRate,
   scheduledMinutes,
   taskTotals,
   upcomingCountdowns,
@@ -22,14 +25,38 @@ import {
   type OverviewRange,
 } from '~/utils/overview'
 import { HABIT_COLORS } from '~/utils/habits'
-import { addDays, fromIsoDate, MS_PER_DAY } from '~/utils/time'
+import { fromIsoDate, MS_PER_DAY } from '~/utils/time'
 
-const HABIT_HISTORY_DAYS = 120
 const QUADRANT_ORDER: readonly Quadrant[] = ['do', 'plan', 'delegate', 'drop']
 
+interface MoodPointLike {
+  day: string
+  mood: number
+}
+
+/** Rentang tahunan/keseluruhan menampilkan tren mood per bulan, bukan per hari. */
+function groupMoodByMonth(points: readonly MoodPointLike[]): MoodPointLike[] {
+  const buckets = new Map<string, number[]>()
+  for (const point of points) {
+    const key = point.day.slice(0, 7)
+    const list = buckets.get(key)
+    if (list === undefined) buckets.set(key, [point.mood])
+    else list.push(point.mood)
+  }
+  return [...buckets.entries()].map(([key, list]) => ({
+    day: `${key}-01`,
+    mood: list.reduce((a, b) => a + b, 0) / list.length,
+  }))
+}
+
 /**
- * Data halaman Overview (PRD F11): agregasi lokal dari semua store, dihitung
- * per ganti rentang. Fase 1 in-memory; akan pindah ke packages/core.
+ * Data halaman Overview (PRD F11): agregasi lokal dari semua store.
+ *
+ * Prinsip AC "kalkulasi sekali per ganti rentang":
+ * - Semua sumber dipindai di SATU computed `aggregate`, bukan satu pemindaian per widget.
+ * - `aggregate` hanya bergantung pada `range`, `off`, perubahan data, dan AWAL HARI - bukan pada
+ *   `now` yang berdetak tiap detik. Nilai "berjalan" (task terlambat, countdown) dihitung terpisah
+ *   supaya tick jam tidak memicu agregasi ulang.
  */
 export function useOverview() {
   const { t } = useI18n()
@@ -50,7 +77,24 @@ export function useOverview() {
   const off = useState<number>('overview-off', () => 0)
   const habitIndex = useState<number>('overview-habit', () => 0)
 
-  const win = computed(() => windowFor(range.value, off.value, now.value))
+  /** Awal hari ini: `now` berdetak tiap detik, nilai ini berubah sekali sehari. */
+  const dayStart = computed(() => new Date(now.value).setHours(0, 0, 0, 0))
+
+  /** Awal "Keseluruhan" = data terlama yang dimuat; belum ada data → 1 Januari tahun berjalan. */
+  const allTimeStart = computed(() => {
+    const earliest = earliestActivityStart({
+      sessions: pomodoro.history.value,
+      memos: memosStore.memos.value,
+      moods: memosStore.moods.value,
+      tasks: tasks.value,
+      goals: goals.value,
+      schedules: schedules.value,
+      checkIns: habitsStore.checkIns.value,
+    })
+    return earliest ?? new Date(new Date(dayStart.value).getFullYear(), 0, 1).getTime()
+  })
+
+  const win = computed(() => windowFor(range.value, off.value, dayStart.value, allTimeStart.value))
   const canNav = computed(() => range.value !== 'keseluruhan')
 
   function labelFor(): string {
@@ -70,29 +114,73 @@ export function useOverview() {
   }
   const label = computed(labelFor)
 
+  /**
+   * Satu pass agregasi untuk seluruh widget. Tidak ada `now` per detik di sini - lihat komentar
+   * di atas `useOverview`.
+   */
+  const aggregate = computed(() => {
+    const window = win.value
+    const history = pomodoro.history.value
+    const moods = memosStore.moods.value
+    const focus = focusBuckets(range.value, off.value, dayStart.value, history, allTimeStart.value)
+    const focusByDay = focusMinutesByDay(history)
+    const moodPoints = moodSeries(moods, window.start, window.end)
+
+    return {
+      focus,
+      focusDays: focusDaySet(history),
+      memoDays: memoDaySet(memosStore.memos.value),
+      focusByDay,
+      totals: taskTotals(tasks.value, dayStart.value, window),
+      onTime: onTimeRate(tasks.value, window),
+      habitRate: habitRate(
+        habitsStore.habits.value,
+        habitsStore.checkIns.value,
+        // Data check-in yang dimuat terbatas (HABIT_LOOKBACK_DAYS); jangan hitung hari tanpa
+        // riwayat sebagai "tidak tercapai". Untuk Keseluruhan ini menggantikan floor 120 hari.
+        Math.max(window.start, earliestCheckInStart(habitsStore.checkIns.value) ?? window.start),
+        window.end,
+      ),
+      habitRows: habitStreaks(habitsStore.habits.value, habitsStore.checkIns.value, today.value),
+      scheduled: scheduledMinutes(schedules.value, window.start, window.end),
+      moodPoints:
+        range.value === 'tahunan' || range.value === 'keseluruhan'
+          ? groupMoodByMonth(moodPoints)
+          : moodPoints,
+      correlation: moodCorrelation(moods, focusByDay, window.start, window.end),
+      goals: activeGoals(goals.value, today.value, window),
+      eisenhower: eisenhowerCounts(tasks.value),
+    }
+  })
+
   // ---- Grafik menit fokus -------------------------------------------------------------
-  const focus = computed(() =>
-    focusBuckets(range.value, off.value, now.value, pomodoro.history.value),
-  )
+  const focus = computed(() => aggregate.value.focus)
   const focusTotal = computed(() => focus.value.buckets.reduce((acc, b) => acc + b.minutes, 0))
   const focusSessions = computed(() => focus.value.buckets.reduce((acc, b) => acc + b.count, 0))
   const focusMax = computed(() => Math.max(1, ...focus.value.buckets.map((b) => b.minutes)))
 
   const bars = computed(() => {
     const max = Math.max(0, ...focus.value.buckets.map((bucket) => bucket.minutes))
+    const multiYear = range.value === 'keseluruhan' && focus.value.buckets.length > 12
     return focus.value.buckets.map((bucket, index) => {
       const ms = bucket.start
       const minutes = bucket.minutes
       let tick = ''
       if (focus.value.unit === 'jam')
         tick = index % 3 === 0 ? String(new Date(ms).getHours()).padStart(2, '0') : ''
-      else if (focus.value.unit === 'bulan') tick = monthShort(ms)
+      else if (focus.value.unit === 'bulan')
+        // Multi-tahun: label bulan akan berulang, jadi tandai pergantian tahun saja.
+        tick = multiYear
+          ? new Date(ms).getMonth() === 0
+            ? String(new Date(ms).getFullYear())
+            : ''
+          : monthShort(ms)
       else if (range.value === 'pekanan') tick = weekdayShort(ms)
       else if (index % 5 === 0) tick = String(new Date(ms).getDate())
       const tip =
         focus.value.unit === 'jam'
           ? `${String(new Date(ms).getHours()).padStart(2, '0')}:00 · ${t('overview.minutesShort', { n: minutes })}`
-          : `${dayMonth(ms)} · ${t('overview.minutesShort', { n: minutes })}`
+          : `${multiYear ? monthYear(ms) : dayMonth(ms)} · ${t('overview.minutesShort', { n: minutes })}`
       return {
         key: index,
         label: tick,
@@ -124,16 +212,6 @@ export function useOverview() {
   const barGap = computed(() => (bars.value.length > 20 ? 3 : 8))
 
   // ---- Statistik ----------------------------------------------------------------------
-  const totals = computed(() => taskTotals(tasks.value, now.value))
-  const rate = computed(() => {
-    const floor = fromIsoDate(addDays(today.value, -HABIT_HISTORY_DAYS)).getTime()
-    return habitRate(
-      habitsStore.habits.value,
-      habitsStore.checkIns.value,
-      Math.max(win.value.start, floor),
-      win.value.end,
-    )
-  })
   const fmtMinutes = (m: number): string =>
     m >= 60 ? `${Math.floor(m / 60)}j${m % 60 ? ` ${m % 60}m` : ''}` : `${m}m`
   const stats = computed(() => [
@@ -156,7 +234,7 @@ export function useOverview() {
     {
       key: 'habit',
       label: t('overview.stat.habit'),
-      value: `${rate.value}%`,
+      value: `${aggregate.value.habitRate}%`,
       sub: t('overview.stat.habitSub'),
       bg: '#C7E3EE',
       fg: '#1E5D78',
@@ -164,33 +242,31 @@ export function useOverview() {
     {
       key: 'done',
       label: t('overview.stat.done'),
-      value: String(totals.value.done),
+      value: String(aggregate.value.totals.done),
       sub: t('overview.stat.doneSub'),
       bg: '#CDE8C6',
       fg: '#2E6A26',
     },
     {
-      key: 'late',
-      label: t('overview.stat.late'),
-      value: String(totals.value.overdue),
-      sub: t('overview.stat.lateSub'),
-      bg: '#FFE1DA',
-      fg: '#B0283E',
+      key: 'onTime',
+      label: t('overview.stat.onTime'),
+      value: `${aggregate.value.onTime}%`,
+      sub: t('overview.stat.onTimeSub'),
+      bg: '#F3E7B8',
+      fg: '#6B5300',
     },
   ])
 
   // ---- Streak -------------------------------------------------------------------------
-  const focusDays = computed(() => focusDaySet(pomodoro.history.value))
-  const memoDays = computed(() => memoDaySet(memosStore.memos.value))
   const productiveStreak = computed(() =>
     range.value === 'keseluruhan'
-      ? bestDayStreak(focusDays.value, today.value)
-      : currentDayStreak(focusDays.value, today.value),
+      ? bestDayStreak(aggregate.value.focusDays, today.value)
+      : currentDayStreak(aggregate.value.focusDays, today.value),
   )
   const memoSame = computed(() =>
     range.value === 'keseluruhan'
-      ? bestDayStreak(memoDays.value, today.value)
-      : currentDayStreak(memoDays.value, today.value),
+      ? bestDayStreak(aggregate.value.memoDays, today.value)
+      : currentDayStreak(aggregate.value.memoDays, today.value),
   )
   const bigStreaks = computed(() => [
     {
@@ -212,9 +288,7 @@ export function useOverview() {
       fg: '#1E5D78',
     },
   ])
-  const habitRows = computed(() =>
-    habitStreaks(habitsStore.habits.value, habitsStore.checkIns.value, today.value),
-  )
+  const habitRows = computed(() => aggregate.value.habitRows)
   const streakNote = computed(() =>
     t(range.value === 'keseluruhan' ? 'overview.streak.noteBest' : 'overview.streak.note'),
   )
@@ -255,22 +329,7 @@ export function useOverview() {
   })
 
   // ---- Tren mood ----------------------------------------------------------------------
-  const focusByDay = computed(() => focusMinutesByDay(pomodoro.history.value))
-  const moodPoints = computed(() => {
-    const { start, end } = win.value
-    if (range.value === 'tahunan' || range.value === 'keseluruhan') {
-      const byMonth = new Map<string, number[]>()
-      for (const point of moodSeries(memosStore.moods.value, start, end)) {
-        const key = point.day.slice(0, 7)
-        byMonth.set(key, [...(byMonth.get(key) ?? []), point.mood])
-      }
-      return [...byMonth.entries()].map(([key, list]) => ({
-        day: `${key}-01`,
-        mood: list.reduce((a, b) => a + b, 0) / list.length,
-      }))
-    }
-    return moodSeries(memosStore.moods.value, start, end)
-  })
+  const moodPoints = computed(() => aggregate.value.moodPoints)
   const moodLine = computed(() =>
     moodPoints.value.length < 2
       ? ''
@@ -284,13 +343,11 @@ export function useOverview() {
   const moodArea = computed(() =>
     moodLine.value ? `M0,110 L${moodLine.value.split(' ').join(' L')} L300,110 Z` : '',
   )
-  const correlation = computed(() =>
-    moodCorrelation(memosStore.moods.value, focusByDay.value, win.value.start, win.value.end),
-  )
+  const correlation = computed(() => aggregate.value.correlation)
 
   // ---- Distribusi Eisenhower ----------------------------------------------------------
   const eisenhower = computed(() => {
-    const counts = eisenhowerCounts(tasks.value)
+    const counts = aggregate.value.eisenhower
     const total = Math.max(
       1,
       QUADRANT_ORDER.reduce((acc, q) => acc + counts[q], 0),
@@ -310,16 +367,14 @@ export function useOverview() {
   })
 
   // ---- Waktu terjadwal ----------------------------------------------------------------
-  const scheduled = computed(() =>
-    scheduledMinutes(schedules.value, win.value.start, win.value.end),
-  )
+  const scheduled = computed(() => aggregate.value.scheduled)
   const scheduledMax = computed(() => Math.max(1, ...scheduled.value.map((s) => s.minutes)))
   const scheduledTotal = computed(() =>
     fmtMinutes(scheduled.value.reduce((acc, s) => acc + s.minutes, 0)),
   )
 
   // ---- Goal, task terlambat, countdown ------------------------------------------------
-  const goalRows = computed(() => activeGoals(goals.value, today.value))
+  const goalRows = computed(() => aggregate.value.goals)
   const late = computed(() =>
     lateTasks(tasks.value, now.value).map((task) => ({
       id: task.id,
