@@ -109,8 +109,11 @@ const today = computed(() => {
   font-size: 12px;
 }
 
+/* Sesi yang dilewati: latar `--chip` (permukaan), bukan `--dash` (token GARIS). `--ink-2` di atas
+   `--dash` gagal di kertas (4,14:1) karena `--dash` memang tidak pernah dimaksudkan sebagai latar teks
+   (QA T16 MAYOR-2). */
 .skipped .badge {
-  background: var(--dash);
+  background: var(--chip);
   color: var(--ink-2);
 }
 

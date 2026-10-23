@@ -17,6 +17,12 @@ body {
   font-weight: var(--fw-body);
   color: var(--ink);
   -webkit-font-smoothing: antialiased;
+  /* Tiap gaya memakai keluarga font berbeda dengan x-height berbeda; tanpa ini, ganti gaya mengubah
+     tinggi tiap baris teks dan mendorong seluruh halaman (QA T25 B6: Cute → Elegan bergeser 195 px).
+     Menyamakan x-height memangkas pergeseran itu ke ±0 px di landing, dengan trade-off teks gaya
+     Elegan ~7% lebih besar dari desain aslinya (gaya default hanya +1,2%). Browser yang belum
+     mendukung properti ini mengabaikannya dan kembali ke perilaku lama - bukan error. */
+  font-size-adjust: 0.51;
 }
 
 a {

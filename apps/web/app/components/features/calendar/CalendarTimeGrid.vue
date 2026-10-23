@@ -35,10 +35,12 @@ const emit = defineEmits<{
 /** Penanda all-day memakai pink lembut, sama seperti design. */
 const MARKER_BG = '#fce0f2'
 
-const { occurrences, markersOn, toggleAttendance, toggleTask } = useCalendarData()
+const { occurrencesByDay, markersOn, toggleAttendance, toggleTask } = useCalendarData()
 const { weekdayShort, longDate } = useDateFormat()
 const isCompact = computed(() => days.length > 1)
 const grid = useTimeGrid({ days: () => days, isCompact: () => isCompact.value, now: () => now })
+/** Satu ekspansi untuk seluruh kolom yang tampil, dipakai juga oleh timeline di bawah. */
+const byDay = computed(() => occurrencesByDay(days))
 
 const heads = computed(() =>
   days.map((day) => {
@@ -49,7 +51,7 @@ const heads = computed(() =>
       date: date.getDate(),
       label: longDate(date.getTime()),
       allDay: [
-        ...occurrences(day)
+        ...(byDay.value.get(day) ?? [])
           .filter((occurrence) => occurrence.schedule.allDay)
           .map((occurrence) => {
             const [solid, tint] = SCHEDULE_COLORS[occurrence.schedule.color] ?? SCHEDULE_COLORS[0]
@@ -218,6 +220,13 @@ function resize(item: GridEvent, edge: ResizeEdge, event: PointerEvent): void {
   color: var(--mute-3);
 }
 
+/* Kepala hari terpilih punya latar `--soft`; caption 12px di atasnya memakai `--mute-2` (terendah
+   5,33:1) supaya kontrasnya tidak bergantung pada sisa ruang token redup di permukaan state
+   (QA T16 MAYOR-2). */
+.head.selected .dow {
+  color: var(--mute-2);
+}
+
 .num {
   font-family: var(--font-display);
   font-weight: var(--fw-display);
@@ -225,8 +234,11 @@ function resize(item: GridEvent, edge: ResizeEdge, event: PointerEvent): void {
   line-height: 1.1;
 }
 
+/* Aksen di atas `--soft` memakai `--deep` (terendah 4,89:1), bukan `--accent`: bobot angka 22px ini
+   < 700 sehingga ambang "large text" 3:1 tidak berlaku, dan `--accent` di `--soft` hanya menyisakan
+   ~0,08 di atas ambang AA. */
 .head.today .num {
-  color: var(--accent);
+  color: var(--deep);
 }
 
 .all-day {
@@ -352,7 +364,8 @@ function resize(item: GridEvent, edge: ResizeEdge, event: PointerEvent): void {
 
 .slot:hover {
   background: var(--hover);
-  color: var(--mute);
+  /* `--mute` di atas `--hover` dulu gagal 4/21 (terendah 4,29:1); `--mute-2` terendah 5,73:1. */
+  color: var(--mute-2);
 }
 
 .now {

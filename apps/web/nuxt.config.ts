@@ -2,6 +2,7 @@ import { STYLE_FONT_FAMILIES, themes } from '@improve-personal/tokens'
 
 import { REQUEST_SIZE_LIMIT_BYTES } from './server/utils/request-size'
 import { BRAND } from './shared/brand'
+import { EARLY_APPEARANCE_SCRIPT } from './shared/appearance'
 
 // Rendering (apps/web/ARCHITECTURE.md §2, ADR #6): data user cuma ada di perangkat, jadi halaman app
 // dirender di client (`ssr: false` per route). Hanya landing publik yang di-prerender.
@@ -106,6 +107,10 @@ export default defineNuxtConfig({
     head: {
       htmlAttrs: { lang: 'id' },
       meta: [{ name: 'theme-color', content: PWA_SHELL_COLOR }],
+      // Tema & gaya dipasang SEBELUM paint pertama (AC T25/F16). Skrip ini statis (tanpa data
+      // per-request), jadi aman untuk CSP: halaman SSR mendapat nonce dari `nuxt-security`, halaman
+      // hasil prerender mendapat hash dari `ssg.hashScripts`. Lihat `shared/appearance.ts`.
+      script: [{ innerHTML: EARLY_APPEARANCE_SCRIPT, tagPosition: 'head' }],
       link: [
         { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' },
         // Wajib ditulis di sini: `@vite-pwa/nuxt` hanya menyuntik tautan manifest lewat
@@ -303,6 +308,12 @@ export default defineNuxtConfig({
     // Preset server Node, bukan `static`: API `/v1/**` dilayani app ini sendiri (ADR 7 revisi).
     preset: 'node-server',
     prerender: { crawlLinks: false, routes: ['/'] },
+    // Kompresi aset statis (performance.md §Caching Nitro). Tanpa ini `/_nuxt/*.js` dikirim MENTAH:
+    // artefak build memuat 483 KB JS di `/app`, dan itu yang diukur QA T16 MAYOR-1 (tidak ada
+    // `Content-Encoding` sama sekali). Nitro mem-prekompres `.gz` + `.br` SAAT BUILD (bukan per
+    // request), lalu handler statis memilih encoding sesuai `Accept-Encoding`. Biayanya ukuran
+    // `.output` (~+1 MB berkas turunan) - ditukar dengan ~60-75% byte JS/CSS di jaringan.
+    compressPublicAssets: true,
     // Nitro hanya memindai `server/tasks/**` kalau flag ini menyala (nitropack:
     // `if (nitro.options.experimental.tasks)`). Ini yang mendaftarkan task `purge-tombstones` &
     // `cleanup-ephemeral`. Aman di production: endpoint `/_nitro/tasks/<nama>` cuma ada di preset dev
