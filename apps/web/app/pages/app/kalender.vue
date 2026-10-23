@@ -44,6 +44,16 @@ function goToday(): void {
   selected.value = today.value
 }
 
+/**
+ * Geser rentang (‹/›). `anchor` dan `selected` bergerak bersama seperti tombol "Hari ini" supaya
+ * papan dan panel detail selalu menunjuk tanggal yang sama.
+ */
+function shift(direction: -1 | 1): void {
+  const next = shiftAnchor(view.value, anchor.value, direction)
+  anchor.value = next
+  selected.value = next
+}
+
 function onSaved(date: string): void {
   form.value = null
   selected.value = date
@@ -68,8 +78,8 @@ function editTask(taskId: string): void {
     <CalendarToolbar
       v-model:view="view"
       :range-label="rangeLabel"
-      @prev="anchor = shiftAnchor(view, anchor, -1)"
-      @next="anchor = shiftAnchor(view, anchor, 1)"
+      @prev="shift(-1)"
+      @next="shift(1)"
       @today="goToday"
       @create="form = { mode: 'new', date: selected }"
     />

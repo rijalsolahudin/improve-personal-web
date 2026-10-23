@@ -1,5 +1,5 @@
 import { memosOn, plainText } from '~/utils/memo'
-import { occurrencesOn, type Occurrence } from '~/utils/schedule'
+import { occurrencesBetween, occurrencesOn, type Occurrence } from '~/utils/schedule'
 import { toIsoDate } from '~/utils/time'
 
 export interface CalendarMarker {
@@ -33,6 +33,28 @@ export function useCalendarData() {
 
   function occurrences(day: string): Occurrence[] {
     return occurrencesOn(schedules.value, day)
+  }
+
+  /**
+   * Kejadian per tanggal untuk daftar hari berurutan, diekspansi SATU kali untuk seluruh rentang.
+   * Dipakai view bulan & timeline pekan/hari supaya tidak mengulang ekspansi untuk tiap kolom.
+   */
+  function occurrencesByDay(days: readonly string[]): Map<string, Occurrence[]> {
+    const byDay = new Map<string, Occurrence[]>()
+    const [head] = days
+    if (head === undefined) return byDay
+
+    let first = head
+    let last = head
+    for (const day of days) {
+      byDay.set(day, [])
+      if (day < first) first = day
+      if (day > last) last = day
+    }
+    for (const occurrence of occurrencesBetween(schedules.value, first, last)) {
+      byDay.get(occurrence.day)?.push(occurrence)
+    }
+    return byDay
   }
 
   function tasksOn(day: string) {
@@ -95,6 +117,7 @@ export function useCalendarData() {
   return {
     attendance,
     occurrences,
+    occurrencesByDay,
     tasksOn,
     markersOn,
     memoOn,

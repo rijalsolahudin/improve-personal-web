@@ -95,13 +95,22 @@ export function addMonths(iso: string, months: number): string {
   return toIsoDate(date)
 }
 
-/** Zona waktu perangkat (IANA), fallback `UTC` kalau `Intl` tidak tersedia. */
+/**
+ * Zona waktu perangkat (IANA), fallback `UTC` kalau `Intl` tidak tersedia.
+ *
+ * Hasilnya di-cache di level modul: `Intl.DateTimeFormat().resolvedOptions()` membuat formatter baru
+ * setiap panggilan (~30 µs), dan ekspansi jadwal memanggil ini ribuan kali per pass Overview.
+ */
+let cachedTimeZone: string | null = null
+
 export function deviceTimeZone(): string {
+  if (cachedTimeZone !== null) return cachedTimeZone
   try {
-    return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
+    cachedTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
   } catch {
-    return 'UTC'
+    cachedTimeZone = 'UTC'
   }
+  return cachedTimeZone
 }
 
 /** Senin di minggu yang sama (minggu mulai Senin). */

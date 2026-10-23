@@ -19,15 +19,21 @@ const { anchor, selected, today } = defineProps<{
 }>()
 defineEmits<{ select: [day: string] }>()
 
-const { occurrences, tasksOn, markersOn } = useCalendarData()
+const { occurrencesByDay, tasksOn, markersOn } = useCalendarData()
 const { weekdayShort, longDate } = useDateFormat()
 
 const month = computed(() => fromIsoDate(anchor).getMonth())
+/**
+ * Satu ekspansi recurring untuk seluruh grid bulan (bukan satu per sel). `days` dipakai ulang
+ * sebagai kunci urutan tanggal, jadi hasilnya tetap sama tapi biayanya tidak lagi O(jadwal x sel).
+ */
+const days = computed(() => monthDays(anchor))
+const byDay = computed(() => occurrencesByDay(days.value))
 const cells = computed(() =>
-  monthDays(anchor).map((day) => {
+  days.value.map((day) => {
     const date = fromIsoDate(day)
     const chips: MonthChip[] = [
-      ...occurrences(day).map((occurrence) => {
+      ...(byDay.value.get(day) ?? []).map((occurrence) => {
         const [solid, tint] = SCHEDULE_COLORS[occurrence.schedule.color] ?? SCHEDULE_COLORS[0]
         return { key: occurrence.key, label: occurrence.schedule.title, dot: solid, bg: tint }
       }),

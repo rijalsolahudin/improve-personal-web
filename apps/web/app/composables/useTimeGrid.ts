@@ -78,7 +78,7 @@ export function useTimeGrid(options: {
   isCompact: () => boolean
   now: () => number
 }) {
-  const { occurrences } = useCalendarData()
+  const { occurrencesByDay } = useCalendarData()
   const { tasks } = useTasks()
   const { attendance, retime } = useSchedules()
 
@@ -91,9 +91,9 @@ export function useTimeGrid(options: {
     return tasks.value.filter((task) => task.scheduleId === scheduleId)
   }
 
-  function entriesOf(day: string) {
+  function entriesOf(day: string, dayOccurrences: readonly Occurrence[]) {
     const compact = options.isCompact()
-    const events = occurrences(day)
+    const events = dayOccurrences
       .filter((occurrence) => !occurrence.schedule.allDay)
       .map((occurrence) => {
         const preview =
@@ -136,7 +136,11 @@ export function useTimeGrid(options: {
 
   const layout = computed(() => {
     const compact = options.isCompact()
-    const perDay = options.days().map((day) => ({ day, entries: entriesOf(day) }))
+    // Satu ekspansi untuk semua kolom yang tampil, bukan satu per hari.
+    const byDay = occurrencesByDay(options.days())
+    const perDay = options
+      .days()
+      .map((day) => ({ day, entries: entriesOf(day, byDay.get(day) ?? []) }))
     const scale = gridScale(slotHeights(perDay.map(({ entries }) => entries)))
     const now = new Date(options.now())
     const today = toIsoDate(now)

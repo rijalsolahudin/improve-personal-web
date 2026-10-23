@@ -30,6 +30,15 @@ export function useDateFormat() {
     monthYear: (ms: number) => format(ms, { month: 'long', year: 'numeric' }),
     /** "9 Okt" */
     dayMonth: (ms: number) => format(ms, { day: 'numeric', month: 'short' }),
+    /** "22 Okt 2026, 16.15" - waktu lokal user, bukan ISO UTC. */
+    dateTime: (ms: number) =>
+      format(ms, {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      }),
     /** "Sen, 9 Oktober 2026" */
     shortDateYear: (ms: number) =>
       format(ms, { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' }),
