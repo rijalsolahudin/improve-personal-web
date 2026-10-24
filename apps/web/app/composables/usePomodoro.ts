@@ -1,4 +1,4 @@
-import { createSystemClock } from '@improve-personal/core'
+import type { Clock } from '@improve-personal/core'
 
 import {
   DEFAULT_POMODORO_CONFIG,
@@ -24,7 +24,6 @@ import {
   type PomodoroTargetKind,
   type PomodoroTargetMode,
 } from '~/utils/pomodoro'
-import { loadFocusSessions, persistFocusSession } from '~/utils/pomodoro/persistence'
 import type { LocalDataSession } from '~/utils/storage/session'
 import {
   isReloadSessionActive,
@@ -43,6 +42,33 @@ export const POMODORO_SOUND_KEY = 'ip-pomo-sound'
 export const POMODORO_TARGET_MAX = 120
 const DEFAULT_TARGET = 'Fokus'
 const PHASES: readonly PomodoroPhase[] = ['focus', 'short', 'long']
+
+/**
+ * Jam untuk generator UUIDv7.
+ *
+ * Ditulis lokal, bukan `createSystemClock()` dari core: `usePomodoro` dipanggil plugin yang jalan di
+ * SETIAP rute (termasuk landing yang tidak punya timer), dan mengimpor barrel core hanya untuk
+ * `Date.now()` menyeret skema zod + repository ke JS awal - 11 KB gzip untuk fitur yang tidak dipakai
+ * di sana. Pola yang sama ada di `utils/device-installation.ts`.
+ */
+const SYSTEM_CLOCK: Clock = {
+  nowMs: () => Date.now(),
+  monotonicMs: () => Date.now(),
+}
+
+type PomodoroPersistence = typeof import('~/utils/pomodoro/persistence')
+
+/**
+ * Persistensi riwayat dimuat malas, alasannya sama dengan jam di atas: modul itu menarik skema
+ * `pomodoro_session` + `createRepository` dari core, sedangkan riwayat baru dibaca/ditulis setelah
+ * dashboard terbuka. Kedua pemanggilnya sudah async, jadi tidak ada perubahan perilaku.
+ */
+let persistenceModule: Promise<PomodoroPersistence> | null = null
+
+function loadPersistence(): Promise<PomodoroPersistence> {
+  persistenceModule ??= import('~/utils/pomodoro/persistence')
+  return persistenceModule
+}
 
 export type PomodoroNotice = 'focusDone' | 'focusSkipped' | 'breakDone' | null
 
@@ -194,7 +220,7 @@ export function usePomodoro(options: UsePomodoroOptions = {}) {
   )
   const notice = useState<PomodoroNotice>('pomodoro-notice', () => null)
 
-  const newSessionId = createUuidV7Generator({ clock: createSystemClock() })
+  const newSessionId = createUuidV7Generator({ clock: SYSTEM_CLOCK })
 
   /**
    * Majukan jam global ke waktu aksi. `now` hanya di-tick tiap detik, jadi tanpa ini sisa waktu
@@ -232,6 +258,7 @@ export function usePomodoro(options: UsePomodoroOptions = {}) {
    * memori yang menang untuk id yang sama.
    */
   async function read(session: LocalDataSession): Promise<FocusSession[]> {
+    const { loadFocusSessions } = await loadPersistence()
     const loaded = await loadFocusSessions(session, Date.now())
     const byId = new Map<string, FocusSession>()
     for (const item of [...loaded, ...history.value]) byId.set(item.id, item)
@@ -320,6 +347,7 @@ export function usePomodoro(options: UsePomodoroOptions = {}) {
         const local = await getSession()
         if (local === null) return
 
+        const { persistFocusSession } = await loadPersistence()
         await persistFocusSession(local, session)
         historyError.value = null
       } catch (cause) {

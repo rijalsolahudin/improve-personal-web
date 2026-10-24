@@ -41,8 +41,11 @@ describe('useAuthSession', () => {
     const first = ensureLoaded()
     const second = ensureLoaded()
 
-    expect(fetchSpy).toHaveBeenCalledTimes(1)
     expect(pending.value).toBe(true)
+
+    // Gateway HTTP dimuat lewat `import()` (lihat `useAuthSession`), jadi request pertama baru
+    // terlihat setelah modulnya selesai dimuat - bukan seketika seperti saat impor statis.
+    await vi.waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(1))
 
     resolveFetch({ data: SESSION })
 
