@@ -7,11 +7,7 @@ import {
 } from '@improve-personal/core'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import {
-  adoptQuarantineAccount,
-  clearQuarantineForTest,
-  quarantineRecord,
-} from '~/utils/sync/quarantine'
+import { clearQuarantineForTest, quarantineRecord } from '~/utils/sync/quarantine'
 
 import { useSyncStatus } from './useSyncStatus'
 /**
@@ -37,8 +33,12 @@ async function queue(storage: StorageAdapter, id: string): Promise<void> {
   })
 }
 
-function read(storage: StorageAdapter | null, online: boolean) {
-  return useSyncStatus({ getStorage: () => storage, isOnline: () => online })
+function read(storage: StorageAdapter | null, online: boolean, ownerId: string | null = null) {
+  return useSyncStatus({
+    getStorage: () => storage,
+    isOnline: () => online,
+    getOwnerId: () => ownerId,
+  })
 }
 
 describe('status sinkronisasi', () => {
@@ -124,6 +124,7 @@ describe('status sinkronisasi', () => {
  */
 describe('record terkarantina', () => {
   const USER = '018f2c4e-0000-7000-8000-00000000000a'
+  const OTHER = '018f2c4e-0000-7000-8000-00000000000b'
 
   /** Node tidak punya `localStorage`; composable ini hanya membacanya, jadi stub tipis cukup. */
   function fakeLocalStorage(): Storage {
@@ -148,7 +149,6 @@ describe('record terkarantina', () => {
   beforeEach(() => {
     vi.stubGlobal('localStorage', fakeLocalStorage())
     clearQuarantineForTest()
-    adoptQuarantineAccount(USER)
   })
 
   afterEach(() => {
@@ -157,14 +157,14 @@ describe('record terkarantina', () => {
   })
 
   it('jumlahnya ikut hasil refresh dan kembali nol setelah karantina dibersihkan', async () => {
-    const sync = read(storage(), true)
+    const sync = read(storage(), true, USER)
 
     await sync.refresh()
     expect(sync.blockedCount.value).toBe(0)
     expect(sync.status.value).toBe('synced')
 
-    quarantineRecord('018f2c4e-0000-7000-8000-0000000000c1')
-    quarantineRecord('018f2c4e-0000-7000-8000-0000000000c2')
+    quarantineRecord(USER, '018f2c4e-0000-7000-8000-0000000000c1')
+    quarantineRecord(USER, '018f2c4e-0000-7000-8000-0000000000c2')
 
     await sync.refresh()
     expect(sync.blockedCount.value).toBe(2)
@@ -177,12 +177,26 @@ describe('record terkarantina', () => {
   })
 
   it('tetap melaporkan jumlahnya saat penyimpanan lokal belum terbuka', async () => {
-    quarantineRecord('018f2c4e-0000-7000-8000-0000000000c3')
-    const sync = read(null, true)
+    quarantineRecord(USER, '018f2c4e-0000-7000-8000-0000000000c3')
+    const sync = read(null, true, USER)
 
     await sync.refresh()
 
     expect(sync.status.value).toBeNull()
     expect(sync.blockedCount.value).toBe(1)
+  })
+
+  it('hanya menghitung milik akun aktif', async () => {
+    quarantineRecord(USER, '018f2c4e-0000-7000-8000-0000000000c4')
+    quarantineRecord(OTHER, '018f2c4e-0000-7000-8000-0000000000c5')
+
+    const active = read(storage(), true, USER)
+    await active.refresh()
+    expect(active.blockedCount.value).toBe(1)
+
+    // Belum login / belum tahu akunnya: jangan menampilkan angka milik akun mana pun.
+    const anonymous = read(storage(), true, null)
+    await anonymous.refresh()
+    expect(anonymous.blockedCount.value).toBe(0)
   })
 })

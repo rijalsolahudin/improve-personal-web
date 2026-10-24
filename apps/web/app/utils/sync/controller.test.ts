@@ -492,7 +492,7 @@ describe('sync controller: karantina record gagal didekripsi', () => {
         status: 'error',
       })
       expect(writes).toEqual([])
-      expect(isQuarantined(BAD_ID)).toBe(false)
+      expect(isQuarantined(USER_A, BAD_ID)).toBe(false)
     }
 
     // Siklus ketiga: record dinyatakan rusak, lalu siklus susulan langsung dijalankan.
@@ -505,8 +505,8 @@ describe('sync controller: karantina record gagal didekripsi', () => {
       })
     })
 
-    expect(isQuarantined(BAD_ID)).toBe(true)
-    expect(quarantinedCount()).toBe(1)
+    expect(isQuarantined(USER_A, BAD_ID)).toBe(true)
+    expect(quarantinedCount(USER_A)).toBe(1)
 
     // Blob record rusak TETAP ditulis (tidak ada data yang dibuang), index lamanya tidak disentuh.
     const bad = writes.find((write) => write.sealed.id === BAD_ID)
@@ -545,9 +545,9 @@ describe('sync controller: karantina record gagal didekripsi', () => {
     }
 
     expect(writes).toEqual([])
-    expect(quarantinedCount()).toBe(0)
-    expect(isQuarantined(BAD_ID)).toBe(false)
-    expect(isQuarantined(GOOD_ID)).toBe(false)
+    expect(quarantinedCount(USER_A)).toBe(0)
+    expect(isQuarantined(USER_A, BAD_ID)).toBe(false)
+    expect(isQuarantined(USER_A, GOOD_ID)).toBe(false)
   })
 
   it('record berhasil setelah gagal: penghitung berturut-turut direset', async () => {
@@ -566,23 +566,23 @@ describe('sync controller: karantina record gagal didekripsi', () => {
 
     // Gagal #1.
     await runSync({ pull: true })
-    expect(isQuarantined(BAD_ID)).toBe(false)
+    expect(isQuarantined(USER_A, BAD_ID)).toBe(false)
 
     // Berhasil: rangkaian putus, jadi kegagalan berikutnya mulai dari nol lagi.
     badShouldFail = false
     await runSync({ pull: true })
-    expect(isQuarantined(BAD_ID)).toBe(false)
+    expect(isQuarantined(USER_A, BAD_ID)).toBe(false)
 
     // Gagal #1 dan #2 SETELAH reset. Kalau penghitung lama tidak direset, ini sudah cukup untuk
     // mengarantina.
     badShouldFail = true
     await runSync({ pull: true })
     await runSync({ pull: true })
-    expect(isQuarantined(BAD_ID)).toBe(false)
+    expect(isQuarantined(USER_A, BAD_ID)).toBe(false)
 
     // Gagal #3 berturut-turut setelah reset.
     await runSync({ pull: true })
-    expect(isQuarantined(BAD_ID)).toBe(true)
+    expect(isQuarantined(USER_A, BAD_ID)).toBe(true)
   })
 
   it('ganti sesi: karantina & penghitung akun lama tidak bocor ke akun berikutnya', async () => {
@@ -609,8 +609,8 @@ describe('sync controller: karantina record gagal didekripsi', () => {
     })
 
     for (let cycle = 0; cycle < 3; cycle += 1) await runSync({ pull: true })
-    expect(isQuarantined(BAD_ID)).toBe(true)
-    expect(quarantinedCount()).toBe(1)
+    expect(isQuarantined(USER_A, BAD_ID)).toBe(true)
+    expect(quarantinedCount(USER_A)).toBe(1)
 
     // Tunggu siklus susulan akun A selesai supaya pergantian sesi terjadi di titik yang pasti.
     await vi.waitFor(async () => {
@@ -633,7 +633,9 @@ describe('sync controller: karantina record gagal didekripsi', () => {
 
     expect(attemptsOnB).toContain(BAD_ID)
     expect(outcome).toMatchObject({ pulled: 0, status: 'error' })
-    expect(isQuarantined(BAD_ID)).toBe(false)
-    expect(quarantinedCount()).toBe(0)
+    // Daftar akun A tetap utuh (tidak dihapus saat akun B membuka sesi), tetapi akun B tidak mewarisinya.
+    expect(isQuarantined(USER_B, BAD_ID)).toBe(false)
+    expect(quarantinedCount(USER_B)).toBe(0)
+    expect(quarantinedCount(USER_A)).toBe(1)
   })
 })

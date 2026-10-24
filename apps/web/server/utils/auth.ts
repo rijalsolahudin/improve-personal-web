@@ -1,7 +1,7 @@
 import { serviceContext } from '../services/context'
 import { findSessionByToken, type AuthenticatedSession } from '../services/session'
 import { apiProblem } from './api-error'
-import { readSessionToken } from './session-cookie'
+import { readSessionToken, SESSION_COOKIE_NAME } from './session-cookie'
 
 /**
  * Autentikasi request.
@@ -34,24 +34,19 @@ export async function requireSession(event: H3Event): Promise<AuthenticatedSessi
 }
 
 /**
- * Penanda request yang datang dari browser. Salah satu header ini ada = browser.
+ * Apakah request ini membawa kredensial ambient (cookie sesi)?
  *
- * Kenapa penanda ini yang dipakai, bukan mis. `User-Agent`:
- * - `Sec-Fetch-*` diset browser sendiri dan TIDAK bisa dipalsukan JavaScript situs lain; `Origin`
- *   juga diset browser untuk request lintas origin (dan oleh `fetch` same-origin modern). Ketiganya
- *   tidak dikirim klien native/CLI.
- * - Klien mobile memakai `Authorization: Bearer` tanpa cookie jar, jadi tidak punya kredensial
- *   ambient yang bisa "dipinjam" tab lain - ia memang tidak perlu header ini (lihat `requireExpectedUserId`).
+ * Inilah satu-satunya penentu "request ini bisa berbagi sesi dengan tab lain". Cookie kosong
+ * dianggap tidak ada - sama seperti middleware CSRF (`10-csrf.ts`) membaca cookie ini: `Set-Cookie`
+ * pembersihan (`Max-Age=0`) tidak meninggalkan kredensial apa pun untuk dipinjam.
  */
-const BROWSER_REQUEST_HEADERS = ['origin', 'sec-fetch-site', 'sec-fetch-mode'] as const
-
-function isBrowserRequest(event: H3Event): boolean {
-  return BROWSER_REQUEST_HEADERS.some((name) => getHeader(event, name) !== undefined)
+function carriesSessionCookie(event: H3Event): boolean {
+  return Boolean(getCookie(event, SESSION_COOKIE_NAME))
 }
 
 /**
- * Header penanda pemilik request - WAJIB untuk klien browser, opsional untuk klien native
- * (temuan H1 security review).
+ * Header penanda pemilik request - WAJIB bagi request yang membawa cookie sesi, opsional bagi klien
+ * yang murni memakai `Authorization: Bearer` (temuan H1 + L1 security review).
  *
  * Kenapa perlu: auth klien web berbasis cookie, dan cookie itu ambient - SATU cookie untuk semua tab
  * di origin ini. User yang logout di tab A lalu login sebagai akun lain di tab B membuat request dari
@@ -59,32 +54,38 @@ function isBrowserRequest(event: H3Event): boolean {
  * memori, dan belum sempat reload) akan menulis ke akun B lewat `push`, dan `pull`-nya menyerahkan
  * data akun B ke tab A - alias kebocoran lintas akun yang tidak terlihat sebagai error.
  *
+ * Kenapa penentunya KEBERADAAN COOKIE SESI, bukan `Origin`/`Sec-Fetch-*` (L1): Fetch Metadata tidak
+ * dikirim semua browser - Safari < 16.4 dan WebView turunannya tidak mengirim `Origin` pada `GET`
+ * same-origin. Heuristik header membuat browser seperti itu diklasifikasikan "klien native" sehingga
+ * justru lolos dari kewajiban ini, padahal cookie ambient-nya tetap ikut terkirim: kontrolnya bolong
+ * tepat di klien yang paling membutuhkannya. Cookie sesi tidak bisa "tidak ada" pada klien yang
+ * memang memakai cookie - ia terlihat langsung di request, tanpa bergantung pada metadata browser.
+ * `auth.client` juga tidak dipakai: yang berbahaya adalah TRANSPORT-nya (cookie ikut terkirim ke
+ * setiap request tab ini), bukan kanal tempat token itu dulu diterbitkan.
+ *
+ * Kenapa klien native tidak perlu: mobile/native memakai `Authorization: Bearer` tanpa cookie jar,
+ * jadi tidak ada kredensial ambient yang bisa dipinjam tab lain - tidak ada yang perlu dijaga di sini
+ * dan klien yang belum mengirim header ini tidak mendadak mati.
+ *
  * Kontraknya:
- * - Request dari BROWSER (membawa `Origin`, `Sec-Fetch-Site`, atau `Sec-Fetch-Mode`) WAJIB membawa
- *   header ini dan nilainya harus sama dengan `auth.userId`. Tidak ada header = `FORBIDDEN`
- *   (fail-closed): tab basi yang belum reload memang tidak akan mengirim header ini, dan justru
- *   request itulah yang harus ditolak.
- * - Request TANPA penanda browser (native/mobile, CLI) boleh tanpa header - perilaku lama tetap
- *   berlaku, jadi klien yang belum mengirim header ini tidak mendadak mati.
- * - Header ADA dan sama dengan `auth.userId` = lanjut.
- * - Header ADA dan berbeda (termasuk kosong) = `FORBIDDEN` SEBELUM rate limit, parsing body, atau
- *   query DB apa pun: request yang jelas bukan untuk sesi ini tidak boleh menghabiskan jatah atau
- *   menyentuh data.
+ * - Ada cookie sesi + header sama dengan `auth.userId` = lanjut.
+ * - Ada cookie sesi + header TIDAK ADA = `FORBIDDEN` (fail-closed): tab basi yang belum reload memang
+ *   tidak akan mengirim header ini, dan justru request itulah yang harus ditolak.
+ * - Ada cookie sesi + header ADA tapi berbeda (termasuk kosong) = `FORBIDDEN`.
+ * - TIDAK ada cookie sesi (jalur bearer) = header opsional, perilaku lama tetap berlaku.
+ * - Semua penolakan terjadi SEBELUM rate limit, parsing body/query, dan query DB apa pun: request
+ *   yang jelas bukan untuk sesi ini tidak boleh menghabiskan jatah atau menyentuh data.
  *
  * Nilai header tidak pernah dicatat ke log dan tidak dipantulkan kembali ke klien.
  */
 export function requireExpectedUserId(event: H3Event, auth: AuthenticatedSession): void {
   const expected = getHeader(event, EXPECTED_USER_ID_HEADER)
 
-  if (expected === undefined) {
-    // Fail-closed khusus browser: penanda browser membuktikan ada cookie ambient yang mungkin milik
-    // sesi lain. Klien native tidak punya cookie jar, jadi tidak ada yang perlu dijaga di sini.
-    if (isBrowserRequest(event)) throw apiProblem('FORBIDDEN')
-    return
-  }
-
   // `''` = header dikirim kosong, dan itu tidak mungkin id user yang sah - tidak cocok (fail-closed).
   if (expected === auth.userId) return
+
+  // Tanpa cookie sesi tidak ada kredensial ambient: hanya klien bearer yang boleh melewati header.
+  if (expected === undefined && !carriesSessionCookie(event)) return
 
   throw apiProblem('FORBIDDEN')
 }

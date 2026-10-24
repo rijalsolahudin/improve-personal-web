@@ -25,6 +25,12 @@ export type SyncStatusSource = {
   readonly getStorage: () => StorageAdapter | null
   /** Keadaan jaringan saat ini. Dibaca ulang setiap `refresh()`, bukan disimpan di sini. */
   readonly isOnline: () => boolean
+  /**
+   * Akun yang sedang aktif, atau `null` kalau belum login. Daftar karantina disimpan per pemilik
+   * (`utils/sync/quarantine.ts`), jadi angka "tidak bisa dibuka" hanya boleh berasal dari akun ini -
+   * bukan dari akun yang barusan logout di tab lain.
+   */
+  readonly getOwnerId: () => string | null
 }
 
 export type UseSyncStatusResult = {
@@ -49,7 +55,8 @@ export function useSyncStatus(source: SyncStatusSource): UseSyncStatusResult {
   async function refresh(): Promise<void> {
     // Dibaca lebih dulu dan tanpa menunggu storage IndexedDB: daftar karantina ada di `localStorage`
     // perangkat, jadi keterangannya tetap bisa tampil walau penyimpanan akun belum terbuka.
-    blockedCount.value = quarantinedCount()
+    const ownerId = source.getOwnerId()
+    blockedCount.value = ownerId === null ? 0 : quarantinedCount(ownerId)
 
     const storage = source.getStorage()
     if (storage === null) {

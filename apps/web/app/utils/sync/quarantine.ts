@@ -15,6 +15,12 @@ import { TECH_IDENTITY } from '#shared/tech-identity'
  * gagal lagi (~15 menit pada interval 5 menit) sebelum pull jalan lagi - user melihat "Gagal sinkron"
  * berulang tanpa sebab yang bisa ia mengerti.
  *
+ * Kenapa per PEMILIK (`userId`), bukan satu daftar bersama: `localStorage` dipakai bersama semua tab.
+ * Dulu tab akun B yang membuka sesi mengosongkan daftar tab akun A yang masih sync, sehingga A harus
+ * mengulang tiga siklus (pull-nya berhenti selama itu), dan `blockedCount()` tanpa pemilik bisa
+ * menampilkan angka akun sebelumnya sesaat setelah ganti akun. Sekarang tiap akun punya daftarnya
+ * sendiri; satu tab tidak pernah menghapus milik tab lain.
+ *
  * Isinya HANYA id record (UUID) - tidak ada blob, plaintext, atau potongan kunci. Id record boleh
  * disimpan di perangkat (tidak pernah dikirim ke server), jadi ini tetap dalam aturan
  * `shared-security.md`.
@@ -27,11 +33,9 @@ import { TECH_IDENTITY } from '#shared/tech-identity'
 
 /** Awalan key `ip-` (sama dengan `clearAppStorage` saat logout, jadi ikut tersapu). */
 export const QUARANTINE_STORAGE_KEY = `${TECH_IDENTITY.storagePrefix}sync-quarantine`
-/** Pemilik daftar di atas. Berganti akun = daftar lama tidak relevan dan dibuang. */
-export const QUARANTINE_OWNER_KEY = `${TECH_IDENTITY.storagePrefix}sync-quarantine-owner`
 
 /**
- * Batas jumlah id yang disimpan. Id yang paling lama dibuang lebih dulu.
+ * Batas jumlah id PER PEMILIK. Id yang paling lama dibuang lebih dulu.
  *
  * Angkanya sengaja jauh di atas jumlah record rusak yang realistis; tujuannya menjaga `localStorage`
  * tidak tumbuh tanpa batas kalau ada bug yang mengarantinakan banyak record.
@@ -39,11 +43,19 @@ export const QUARANTINE_OWNER_KEY = `${TECH_IDENTITY.storagePrefix}sync-quaranti
 export const QUARANTINE_MAX_RECORDS = 200
 
 /**
- * Pemilik daftar yang sedang aktif. `null` = belum ada sesi data lokal, sehingga tidak ada id yang
- * boleh DITAMBAHKAN (tidak bisa diatribusikan ke akun mana pun). Pembacaan tetap boleh: daftar yang
- * tersimpan memang milik akun terakhir yang membuka data di perangkat ini.
+ * Batas jumlah pemilik yang disimpan. Nomor 3 cukup untuk "akun ini, akun sebelumnya, dan satu lagi
+ * yang mungkin masih dipakai di tab lain"; lebih dari itu hanya menambah `localStorage` tanpa guna.
+ * Pemilik yang paling lama TIDAK menulis dibuang lebih dulu.
  */
-let activeOwnerId: string | null = null
+export const QUARANTINE_MAX_OWNERS = 3
+
+/** Bentuk data di `localStorage`. `version` memberi jalan keluar kalau bentuknya perlu berubah lagi. */
+const QUARANTINE_VERSION = 1
+
+type StoredQuarantine = {
+  readonly version: number
+  readonly owners: Record<string, readonly string[]>
+}
 
 /** `localStorage` kalau ada dan bisa diakses; `null` saat SSR atau storage diblokir. */
 function storageOrNull(): Storage | null {
@@ -56,110 +68,137 @@ function storageOrNull(): Storage | null {
   }
 }
 
-function readOwner(store: Storage): string | null {
-  try {
-    return store.getItem(QUARANTINE_OWNER_KEY)
-  } catch {
-    return null
-  }
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
-function readIds(store: Storage): string[] {
+function cleanIds(value: unknown): string[] {
+  if (!Array.isArray(value)) return []
+
+  const ids = value.filter(
+    (entry): entry is string => typeof entry === 'string' && entry.length > 0,
+  )
+
+  // Duplikat dari tulisan versi lain tidak boleh membuat penghitung lebih besar dari jumlah record.
+  return [...new Set(ids)].slice(-QUARANTINE_MAX_RECORDS)
+}
+
+/**
+ * Baca daftar per pemilik. Nilai rusak (JSON lama, editor dev, versi lain) dibaca sebagai kosong -
+ * karantina hanya mempercepat pemulihan, bukan penjaga data, jadi lebih baik mulai dari nol daripada
+ * melempar dan menghentikan sync.
+ */
+function readOwners(store: Storage): Map<string, string[]> {
   let raw: string | null
   try {
     raw = store.getItem(QUARANTINE_STORAGE_KEY)
   } catch {
-    return []
+    return new Map()
   }
 
-  if (raw === null) return []
+  if (raw === null) return new Map()
 
+  let parsed: unknown
   try {
-    const parsed: unknown = JSON.parse(raw)
-    if (!Array.isArray(parsed)) return []
-    return parsed.filter((value): value is string => typeof value === 'string' && value.length > 0)
+    parsed = JSON.parse(raw)
   } catch {
-    // Nilai rusak (pernah ditulis versi lain / editor dev): anggap kosong, jangan melempar.
-    return []
+    return new Map()
+  }
+
+  if (!isRecord(parsed) || parsed.version !== QUARANTINE_VERSION || !isRecord(parsed.owners)) {
+    return new Map()
+  }
+
+  const owners = new Map<string, string[]>()
+  for (const [ownerId, ids] of Object.entries(parsed.owners)) {
+    if (ownerId.length === 0) continue
+    owners.set(ownerId, cleanIds(ids))
+  }
+
+  trimOwners(owners)
+  return owners
+}
+
+/** Buang pemilik yang paling lama tidak menulis sampai jumlahnya di bawah batas. */
+function trimOwners(owners: Map<string, string[]>): void {
+  while (owners.size > QUARANTINE_MAX_OWNERS) {
+    const oldest = owners.keys().next().value
+    if (oldest === undefined) return
+    owners.delete(oldest)
   }
 }
 
-function writeIds(store: Storage, ids: readonly string[]): void {
+function writeOwners(store: Storage, owners: Map<string, string[]>): void {
+  const snapshot: StoredQuarantine = {
+    version: QUARANTINE_VERSION,
+    owners: Object.fromEntries(owners),
+  }
+
   try {
-    store.setItem(QUARANTINE_STORAGE_KEY, JSON.stringify(ids))
+    store.setItem(QUARANTINE_STORAGE_KEY, JSON.stringify(snapshot))
   } catch {
     // Kuota penuh/mode privat: karantina tidak bertahan. `isQuarantined()` sesudahnya akan bilang
     // "belum berlaku", jadi controller tidak berpura-pura pull sudah pulih.
   }
 }
 
-/**
- * Tetapkan daftar karantina milik akun ini.
- *
- * Dipanggil controller setiap sesi data lokal dibuka. Kalau pemilik yang tersimpan berbeda, daftar
- * lama DIBUANG: id record akun lain tidak ada artinya di sini, dan membiarkannya berarti record akun
- * baru bisa terlewat hanya karena kebetulan id-nya sama.
- */
-export function adoptQuarantineAccount(userId: string): void {
-  activeOwnerId = userId
+/** True kalau record ini sudah dinyatakan tidak bisa dibuka oleh pemilik `ownerId`. */
+export function isQuarantined(ownerId: string, recordId: string): boolean {
+  if (ownerId.length === 0 || recordId.length === 0) return false
 
-  const store = storageOrNull()
-  if (store === null) return
-  if (readOwner(store) === userId) return
-
-  writeIds(store, [])
-  try {
-    store.setItem(QUARANTINE_OWNER_KEY, userId)
-  } catch {
-    // Tidak ada yang bisa disimpan; keputusan untuk sesi berjalan tetap dipegang controller.
-  }
-}
-
-/** True kalau record ini sudah dinyatakan tidak bisa dibuka. */
-export function isQuarantined(recordId: string): boolean {
   const store = storageOrNull()
   if (store === null) return false
 
-  return readIds(store).includes(recordId)
+  return readOwners(store).get(ownerId)?.includes(recordId) ?? false
 }
 
 /**
- * Catat record sebagai tidak bisa dibuka. Idempoten: id yang sudah ada tidak digeser urutannya.
+ * Catat record sebagai tidak bisa dibuka untuk pemilik `ownerId`. Idempoten: id yang sudah ada tidak
+ * digeser urutannya.
  *
- * No-op kalau belum ada akun aktif atau storage tidak bisa ditulis - id tanpa pemilik tidak boleh
- * masuk daftar, dan daftar yang tidak bisa dibaca ulang tidak boleh diklaim berlaku.
+ * No-op kalau pemilik/id kosong atau storage tidak bisa ditulis - daftar yang tidak bisa dibaca ulang
+ * tidak boleh diklaim berlaku.
  */
-export function quarantineRecord(recordId: string): void {
-  if (activeOwnerId === null) return
+export function quarantineRecord(ownerId: string, recordId: string): void {
+  if (ownerId.length === 0 || recordId.length === 0) return
 
   const store = storageOrNull()
   if (store === null) return
 
-  const ids = readIds(store)
+  const owners = readOwners(store)
+  const ids = owners.get(ownerId) ?? []
   if (ids.includes(recordId)) return
 
+  // Pemilik ditulis ulang di urutan TERAKHIR: urutan peta = bukti terakhir menulis, jadi pemilik yang
+  // paling lama tidak menulis yang dibuang saat `QUARANTINE_MAX_OWNERS` tercapai (lihat `trimOwners`).
+  owners.delete(ownerId)
   // `slice(-MAX)` membuang id yang paling lama masuk lebih dulu.
-  writeIds(store, [...ids, recordId].slice(-QUARANTINE_MAX_RECORDS))
+  owners.set(ownerId, [...ids, recordId].slice(-QUARANTINE_MAX_RECORDS))
+  trimOwners(owners)
+
+  writeOwners(store, owners)
 }
 
-/** Jumlah record terkarantina - dipakai indikator status agar user tahu ada data yang tidak tampil. */
-export function quarantinedCount(): number {
+/**
+ * Jumlah record terkarantina milik satu pemilik - dipakai indikator status agar user tahu ada data
+ * yang tidak tampil. Angka akun lain tidak pernah ikut dihitung.
+ */
+export function quarantinedCount(ownerId: string): number {
+  if (ownerId.length === 0) return 0
+
   const store = storageOrNull()
   if (store === null) return 0
 
-  return readIds(store).length
+  return readOwners(store).get(ownerId)?.length ?? 0
 }
 
-/** Dipakai test: daftar & pemilik tidak boleh diwarisi antar kasus. */
+/** Dipakai test: daftar tidak boleh diwarisi antar kasus. */
 export function clearQuarantineForTest(): void {
-  activeOwnerId = null
-
   const store = storageOrNull()
   if (store === null) return
 
   try {
     store.removeItem(QUARANTINE_STORAGE_KEY)
-    store.removeItem(QUARANTINE_OWNER_KEY)
   } catch {
     // Storage diblokir: tidak ada yang bisa dibersihkan.
   }

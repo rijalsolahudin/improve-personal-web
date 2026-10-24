@@ -30,6 +30,7 @@ const isOnline = ref(true)
 const sync = useSyncStatus({
   getStorage: () => storage.value,
   isOnline: () => isOnline.value,
+  getOwnerId: () => localData.state.value.userId,
 })
 
 const label = computed(() => {

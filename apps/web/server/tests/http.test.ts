@@ -58,8 +58,9 @@ type ApiRequest = {
   readonly token?: string
   readonly headers?: Record<string, string>
   /**
-   * Nilai header `x-expected-user-id`. `undefined` = header tidak dikirim - sah untuk klien
-   * native/CLI, dan justru itulah yang harus ditolak untuk request dari browser.
+   * Nilai header `x-expected-user-id`. `undefined` = header tidak dikirim - sah untuk klien bearer
+   * yang tidak punya cookie jar, dan justru itulah yang harus ditolak bila request membawa cookie
+   * sesi.
    */
   readonly expectedUserId?: string
   /**
@@ -71,9 +72,9 @@ type ApiRequest = {
    * Transport yang dipakai.
    *
    * `fetch` Node SELALU menambahkan `Sec-Fetch-Mode: cors`, jadi lewat `fetch` semua request terlihat
-   * seperti request browser - dan itu memang benar untuk klien web. Untuk menguji klien native/CLI
-   * (yang tidak mengirim satu pun penanda browser), pakai `'node'`: `node:http` hanya mengirim header
-   * yang kita minta.
+   * seperti request browser. Untuk request yang benar-benar tanpa satu pun Fetch Metadata - klien
+   * bearer tanpa cookie, atau browser lama yang tidak mengirim `Origin`/`Sec-Fetch-*` (temuan L1) -
+   * pakai `'node'`: `node:http` hanya mengirim header yang kita minta.
    */
   readonly transport?: 'fetch' | 'node'
 }
@@ -96,8 +97,8 @@ const MUTATING_METHODS = ['POST', 'PUT', 'PATCH', 'DELETE']
 /**
  * Request lewat `node:http` - TANPA header tambahan dari runtime.
  *
- * Ini satu-satunya cara menguji jalur "klien tanpa penanda browser": `fetch` Node menyisipkan
- * `Sec-Fetch-Mode` sendiri, dan header itu tidak bisa dihapus lewat `HeadersInit`.
+ * Ini satu-satunya cara menguji jalur "request tanpa Fetch Metadata sama sekali": `fetch` Node
+ * menyisipkan `Sec-Fetch-Mode` sendiri, dan header itu tidak bisa dihapus lewat `HeadersInit`.
  */
 async function nodeRequest(
   target: string,
@@ -925,7 +926,7 @@ describe('sync lewat HTTP (T21)', () => {
   })
 })
 
-describe('sync: penanda pemilik request `x-expected-user-id` (H1)', () => {
+describe('sync: penanda pemilik request `x-expected-user-id` (H1 + L1)', () => {
   const HEADER = 'x-expected-user-id'
 
   /** Sesi milik user fixture ini, siap dipakai lewat cookie (HTTP nyata). */
@@ -933,7 +934,7 @@ describe('sync: penanda pemilik request `x-expected-user-id` (H1)', () => {
     return await seedSession(liveCtx(fixture), { email: fixture.email })
   }
 
-  it('header cocok + penanda browser (Origin) -> push & pull diproses seperti biasa', async () => {
+  it('cookie sesi + header cocok -> push & pull diproses seperti biasa', async () => {
     const fixture = scope.fixture({ prefix: 'http-sync-owner' })
     const session = await sessionOf(fixture)
     const cookie = cookieFor(session.token)
@@ -943,8 +944,6 @@ describe('sync: penanda pemilik request `x-expected-user-id` (H1)', () => {
       method: 'POST',
       cookie,
       expectedUserId: session.userId,
-      // Browser asli selalu mengirim salah satu penanda ini; aturan H1 bergantung padanya.
-      headers: { origin: serverOrigin() },
       body: { records: [{ id, hlc: '1000-0-a', deleted: false, blob: blobOf('milik-sendiri') }] },
     })
     expect(pushed.status).toBe(200)
@@ -952,7 +951,6 @@ describe('sync: penanda pemilik request `x-expected-user-id` (H1)', () => {
     const pulled = await api('/v1/sync/pull?cursor=0&limit=10', {
       cookie,
       expectedUserId: session.userId,
-      headers: { origin: serverOrigin() },
     })
     expect(pulled.status).toBe(200)
     expect(
@@ -962,17 +960,18 @@ describe('sync: penanda pemilik request `x-expected-user-id` (H1)', () => {
     ).toEqual([id])
   })
 
-  it('browser tanpa header -> 403, tanpa membaca/menulis data dan tanpa memakai jatah rate limit', async () => {
-    const fixture = scope.fixture({ prefix: 'http-sync-browser-no-header' })
+  it('cookie sesi tanpa header -> 403, tanpa membaca/menulis data dan tanpa memakai jatah rate limit', async () => {
+    const fixture = scope.fixture({ prefix: 'http-sync-cookie-no-header' })
     const session = await sessionOf(fixture)
     const cookie = cookieFor(session.token)
     const id = randomUUID()
 
-    // `Origin` cukup untuk membuktikan request ini dari browser - dan browser WAJIB mengirim header.
+    // Cookie sesi SENDIRI sudah cukup untuk mewajibkan header: satu cookie dipakai semua tab, jadi
+    // request ini bisa menulis ke akun yang sedang login di tab lain. `Origin` di bawah hanya
+    // menirukan browser asli - ada atau tidaknya tidak lagi menentukan apa pun.
     const push = await api('/v1/sync/push', {
       method: 'POST',
       cookie,
-      headers: { origin: serverOrigin() },
       body: { records: [{ id, hlc: '1000-0-a', deleted: false, blob: blobOf('tab-basi') }] },
     })
     expect(push.status).toBe(403)
@@ -1001,11 +1000,11 @@ describe('sync: penanda pemilik request `x-expected-user-id` (H1)', () => {
     ).not.toContain(id)
   })
 
-  it('klien tanpa penanda browser (native, bearer) tanpa header -> tetap dilayani', async () => {
-    const fixture = scope.fixture({ prefix: 'http-sync-legacy' })
-    // Native memakai bearer tanpa cookie jar: tidak ada kredensial ambient yang bisa dipinjam tab
-    // lain, jadi header ini memang tidak diwajibkan untuknya. `transport: 'node'` mengirim request
-    // tanpa Fetch Metadata sama sekali - persis seperti klien native.
+  it('tanpa cookie sesi (bearer) tanpa header -> push & pull tetap dilayani', async () => {
+    const fixture = scope.fixture({ prefix: 'http-sync-bearer' })
+    // Klien bearer tidak punya cookie jar: tidak ada kredensial ambient yang bisa dipinjam tab lain,
+    // jadi header ini memang tidak diwajibkan untuknya. `transport: 'node'` mengirim request tanpa
+    // Fetch Metadata sama sekali - membuktikan penentunya cookie, bukan penanda browser.
     const session = await seedSession(liveCtx(fixture), { email: fixture.email, client: 'mobile' })
     const id = randomUUID()
 
@@ -1029,7 +1028,34 @@ describe('sync: penanda pemilik request `x-expected-user-id` (H1)', () => {
     ).toEqual([id])
   })
 
-  it('header user lain + penanda browser -> 403 FORBIDDEN sebelum menyentuh data/jatah, nilai header tidak dipantulkan', async () => {
+  it('sesi `client: web` yang dipakai lewat bearer (tanpa cookie) juga bebas header - penentunya cookie, bukan `client`', async () => {
+    const fixture = scope.fixture({ prefix: 'http-sync-bearer-web' })
+    // `sessions.client` mencatat kanal LOGIN, sedangkan yang berbahaya adalah kanal TRANSPORT request
+    // ini: selama tidak ada cookie yang ikut terkirim, tidak ada sesi tab-shared untuk dilindungi.
+    const session = await seedSession(liveCtx(fixture), { email: fixture.email, client: 'web' })
+    const id = randomUUID()
+
+    const pushed = await api('/v1/sync/push', {
+      method: 'POST',
+      token: session.token,
+      transport: 'node',
+      body: { records: [{ id, hlc: '1000-0-a', deleted: false, blob: blobOf('x') }] },
+    })
+    expect(pushed.status).toBe(200)
+
+    const pulled = await api('/v1/sync/pull?cursor=0&limit=10', {
+      token: session.token,
+      transport: 'node',
+    })
+    expect(pulled.status).toBe(200)
+    expect(
+      apiDataEnvelopeSchema(syncPullResultSchema)
+        .parse(pulled.body)
+        .data.records.map((record) => record.id),
+    ).toEqual([id])
+  })
+
+  it('cookie sesi + header user lain -> 403 FORBIDDEN sebelum menyentuh data/jatah, nilai header tidak dipantulkan', async () => {
     const alice = scope.fixture({ prefix: 'http-sync-owner-alice' })
     const bob = scope.fixture({ prefix: 'http-sync-owner-bob' })
     const session = await sessionOf(alice)
@@ -1040,7 +1066,7 @@ describe('sync: penanda pemilik request `x-expected-user-id` (H1)', () => {
     const push = await api('/v1/sync/push', {
       method: 'POST',
       cookie,
-      headers: { [HEADER]: bobUserId, origin: serverOrigin() },
+      headers: { [HEADER]: bobUserId },
       body: { records: [{ id, hlc: '1000-0-a', deleted: false, blob: blobOf('bukan-miliknya') }] },
     })
     expect(push.status).toBe(403)
@@ -1049,7 +1075,7 @@ describe('sync: penanda pemilik request `x-expected-user-id` (H1)', () => {
 
     const pull = await api('/v1/sync/pull?cursor=0&limit=10', {
       cookie,
-      headers: { [HEADER]: bobUserId, origin: serverOrigin() },
+      headers: { [HEADER]: bobUserId },
     })
     expect(pull.status).toBe(403)
     expect(problemOf(pull).error.code).toBe('FORBIDDEN')
@@ -1071,7 +1097,7 @@ describe('sync: penanda pemilik request `x-expected-user-id` (H1)', () => {
     ).not.toContain(id)
   })
 
-  it('header kosong -> 403 (fail-closed), bukan dianggap "tanpa header"', async () => {
+  it('cookie sesi + header kosong -> 403 (fail-closed), bukan dianggap "tanpa header"', async () => {
     const fixture = scope.fixture({ prefix: 'http-sync-owner-empty' })
     const session = await sessionOf(fixture)
 
@@ -1082,6 +1108,33 @@ describe('sync: penanda pemilik request `x-expected-user-id` (H1)', () => {
 
     expect(response.status).toBe(403)
     expect(problemOf(response).error.code).toBe('FORBIDDEN')
+  })
+
+  it('regresi L1: cookie sesi TANPA `Origin`/`Sec-Fetch-*` + tanpa header -> tetap 403', async () => {
+    const fixture = scope.fixture({ prefix: 'http-sync-no-fetch-metadata' })
+    const session = await sessionOf(fixture)
+    const cookie = cookieFor(session.token)
+
+    // Persis browser yang tidak mengirim Fetch Metadata (Safari < 16.4 dan WebView turunannya) pada
+    // `GET` same-origin. `node:http` hanya mengirim header yang kita minta, jadi `Origin` dan
+    // `Sec-Fetch-*` benar-benar tidak ada - dulu request inilah yang lolos sebagai "klien native".
+    const withoutHeader = await api('/v1/sync/pull?cursor=0&limit=10', {
+      cookie,
+      transport: 'node',
+    })
+    expect(withoutHeader.status).toBe(403)
+    expect(problemOf(withoutHeader).error.code).toBe('FORBIDDEN')
+    // Ditolak sebelum rate limit: bukan sekadar "pull kosong".
+    expect(await rateLimitCount(fixture.env, session.userId)).toBe(0)
+
+    // Bukti 403 di atas datang dari aturan header, bukan dari lapisan lain: request yang SAMA (masih
+    // tanpa Fetch Metadata) dengan header pemilik dilayani.
+    const withHeader = await api('/v1/sync/pull?cursor=0&limit=10', {
+      cookie,
+      expectedUserId: session.userId,
+      transport: 'node',
+    })
+    expect(withHeader.status).toBe(200)
   })
 })
 

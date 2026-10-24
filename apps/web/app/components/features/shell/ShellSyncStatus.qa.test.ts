@@ -4,11 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { LocalDataState } from '~/composables/useLocalData'
 import { SYNC_REMOTE_APPLIED_EVENT, SYNC_STATE_EVENT } from '~/utils/sync/events'
-import {
-  adoptQuarantineAccount,
-  clearQuarantineForTest,
-  quarantineRecord,
-} from '~/utils/sync/quarantine'
+import { clearQuarantineForTest, quarantineRecord } from '~/utils/sync/quarantine'
 import { registerSyncReloader, resetSyncReloadersForTest } from '~/utils/sync/refresh'
 
 import ShellSyncStatus from './ShellSyncStatus.vue'
@@ -121,10 +117,15 @@ describe('muat ulang store setelah pull (AC T77)', () => {
 describe('keterangan record terkarantina', () => {
   const USER = '018f2c4e-0000-7000-8000-00000000000a'
 
+  /**
+   * Akun aktif tapi penyimpanan lokalnya belum terbuka: keterangan karantina tetap boleh tampil
+   * (sumbernya `localStorage`, bukan IndexedDB), sedangkan badge status tetap "menunggu".
+   */
+  const UNOPENED_STATE: LocalDataState = { ...IDLE_STATE, userId: USER }
+
   beforeEach(() => {
     localStorage.clear()
     clearQuarantineForTest()
-    adoptQuarantineAccount(USER)
   })
 
   afterEach(() => {
@@ -133,9 +134,9 @@ describe('keterangan record terkarantina', () => {
   })
 
   it('muncul saat ada record yang tidak bisa dibuka, tanpa mengubah arti badge status', async () => {
-    useState<LocalDataState>('localData').value = IDLE_STATE
-    quarantineRecord('018f2c4e-0000-7000-8000-0000000000c1')
-    quarantineRecord('018f2c4e-0000-7000-8000-0000000000c2')
+    useState<LocalDataState>('localData').value = UNOPENED_STATE
+    quarantineRecord(USER, '018f2c4e-0000-7000-8000-0000000000c1')
+    quarantineRecord(USER, '018f2c4e-0000-7000-8000-0000000000c2')
 
     const wrapper = await mountSuspended(ShellSyncStatus)
     await flushPromises()
@@ -155,8 +156,8 @@ describe('keterangan record terkarantina', () => {
   })
 
   it('hilang setelah karantina dibersihkan', async () => {
-    useState<LocalDataState>('localData').value = IDLE_STATE
-    quarantineRecord('018f2c4e-0000-7000-8000-0000000000c3')
+    useState<LocalDataState>('localData').value = UNOPENED_STATE
+    quarantineRecord(USER, '018f2c4e-0000-7000-8000-0000000000c3')
 
     const wrapper = await mountSuspended(ShellSyncStatus)
     await flushPromises()

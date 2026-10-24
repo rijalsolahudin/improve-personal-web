@@ -70,7 +70,7 @@ async function api(
     readonly body?: unknown
     readonly cookie?: string
     readonly redirect?: RequestRedirect
-    /** Nilai `x-expected-user-id`. Endpoint sync mewajibkannya untuk klien browser. */
+    /** Nilai `x-expected-user-id`. Endpoint sync mewajibkannya bila request membawa cookie sesi. */
     readonly expectedUserId?: string
   } = {},
 ): Promise<ApiResponse> {

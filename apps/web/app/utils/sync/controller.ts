@@ -14,7 +14,7 @@ import { RECORD_INDEX_KEEP, type RecordIndexDecision } from '../storage/index-de
 import { indexEntryForRecord } from '../io/index-entry'
 import { createSyncHttpClient } from './client'
 import { LOCAL_WRITE_EVENT, notifyRemoteApplied, notifySyncState } from './events'
-import { adoptQuarantineAccount, isQuarantined, quarantineRecord } from './quarantine'
+import { isQuarantined, quarantineRecord } from './quarantine'
 
 /**
  * Pengendali sync di sisi web: kapan push/pull dijalankan, dan bagaimana kegagalannya terlihat.
@@ -37,10 +37,11 @@ import { adoptQuarantineAccount, isQuarantined, quarantineRecord } from './quara
  *
  * Record hasil pull yang gagal didekripsi TIDAK pernah dilewati diam-diam: pull berhenti sebelum
  * cursor maju. Satu-satunya pengecualian adalah record yang sudah terbukti rusak - tiga siklus gagal
- * berturut-turut sementara record lain di siklus yang sama berhasil dibuka. Record itu dikarantina
- * (`./quarantine.ts`), lalu siklus berikutnya memakai index `RECORD_INDEX_KEEP` sehingga pull bisa
- * maju tanpa menghapus index lama dan tanpa kehilangan blob. Kunci yang salah membuat SEMUA record
- * gagal; itu bukan "record rusak" dan tidak pernah dikarantina.
+ * berturut-turut SETELAH kunci terbukti bisa membuka sesuatu di sesi ini (`keyProvenForSession`).
+ * Record itu dikarantina (`./quarantine.ts`), lalu siklus berikutnya memakai index `RECORD_INDEX_KEEP`
+ * sehingga pull bisa maju tanpa menghapus index lama dan tanpa kehilangan blob. Kunci yang salah
+ * membuat SEMUA record gagal; selama belum ada satu pun record yang berhasil dibuka di sesi ini, kita
+ * tidak pernah menyimpulkan record tertentu rusak.
  */
 
 const FOREGROUND_INTERVAL_MS = 5 * 60 * 1_000
@@ -102,10 +103,27 @@ let pendingRun = false
  */
 const consecutiveKeyFailures = new Map<string, number>()
 
+/**
+ * Apakah kunci sesi ini TERBUKTI bisa membuka sesuatu?
+ *
+ * Dasar keputusan "kunci salah vs satu record rusak" tidak boleh hanya record yang berhasil dibuka di
+ * siklus/halaman yang sedang berjalan. Penghitung per siklus akan selalu 0 begitu cursor parkir di
+ * halaman yang hanya berisi record rusak - record sehat di halaman sebelumnya sudah diterapkan dan tidak
+ * lagi jadi kandidat - sehingga record rusak yang sendirian TIDAK PERNAH dikarantina dan pull berhenti
+ * selamanya (QA T78 B1).
+ *
+ * Kunci salah membuat SEMUA record gagal, termasuk record pertama yang dicoba di sesi itu. Jadi kalau
+ * belum pernah ada satu pun record yang berhasil dibuka, tidak ada bukti apa pun untuk menyimpulkan
+ * satu record tertentu rusak. Flag ini mencatat bukti itu di level sesi: `true` setelah `buildIndex`
+ * berhasil mendekripsi record mana pun, direset tiap `startSync` (generasi/sesi/akun baru) supaya
+ * perangkat yang belum pernah membuka apa pun tetap fail-closed.
+ */
+let keyProvenForSession = false
+
 /** Apa yang diketahui satu siklus pull tentang record yang gagal dibuka. */
 type PullKeyFailures = {
-  /** Berapa record di siklus ini yang BERHASIL didekripsi. */
-  decoded: number
+  /** Pemilik data (akun) yang sedang sync; daftar karantina disimpan per pemilik. */
+  readonly ownerId: string
   /** Record yang gagal dibuka, beserta error aslinya (id = kunci peta). */
   readonly failures: Map<string, RecordKeyError>
   /** Keputusan sudah diambil; mencegah penghitung naik dua kali kalau transaksi diulang adapter. */
@@ -114,8 +132,8 @@ type PullKeyFailures = {
   quarantined: boolean
 }
 
-function newPullKeyFailures(): PullKeyFailures {
-  return { decoded: 0, failures: new Map(), abortedWith: null, quarantined: false }
+function newPullKeyFailures(ownerId: string): PullKeyFailures {
+  return { ownerId, failures: new Map(), abortedWith: null, quarantined: false }
 }
 
 /** Mulai (atau ganti) pengendali untuk sesi data lokal yang sudah terbuka. */
@@ -130,10 +148,11 @@ export function startSync(
   const generation = generationCounter
   const abort = new AbortController()
 
-  // Bukti "record rusak" dan daftar karantina terikat ke AKUN yang membuka data: akun berikutnya
-  // tidak boleh mewarisi penghitung (bisa langsung mengarantina record pertamanya) atau id akun lama.
+  // Bukti "record rusak" terikat ke AKUN yang membuka data: akun berikutnya tidak boleh mewarisi
+  // penghitung (bisa langsung mengarantina record pertamanya). Daftar karantina sendiri disimpan per
+  // pemilik (`./quarantine.ts`), jadi akun lain tidak menghapus milik akun ini.
   consecutiveKeyFailures.clear()
-  adoptQuarantineAccount(session.userId)
+  keyProvenForSession = false
 
   // Client bawaan selalu membawa identitas pemilik sesi. `http` yang disuntik (test/tool) memikul
   // tanggung jawab yang sama, tetapi tidak dipaksa di sini supaya controller tetap bisa diuji tanpa
@@ -276,7 +295,7 @@ async function execute(current: ActiveSync): Promise<SyncOutcome | null> {
   let pushed = 0
   let pulled = 0
   /** Diisi selama pull; dipakai `catch` untuk tahu apakah karantina baru saja terjadi. */
-  const keyFailures = newPullKeyFailures()
+  const keyFailures = newPullKeyFailures(mySession.userId)
 
   try {
     // Push berulang: satu panggilan hanya mengirim maksimal satu batch. Import besar bisa
@@ -384,10 +403,10 @@ async function markError(storage: StorageAdapter): Promise<SyncStatus> {
  * berbeda - dan bedanya menjaga data:
  *
  * - **Kunci/kripto gagal (`RecordKeyError`)**: dicatat di `keyFailures` lalu `'keep'` dikembalikan
- *   BUKAN dilempar. Core perlu terus mendekripsi record lain di halaman yang sama supaya kita bisa
- *   membedakan "kunci salah" (semua gagal) dari "satu record rusak" (yang lain berhasil). Keputusan
- *   dan penghentian pull terjadi sebelum halaman ditulis - lihat `decidePullKeyFailures`. Kalau
- *   `'keep'` dibiarkan lolos sampai transaksi, cursor akan maju di atas record yang belum tentu
+ *   BUKAN dilempar. Core perlu terus mendekripsi record lain supaya kita bisa membedakan "kunci salah"
+ *   (semua gagal) dari "satu record rusak" (kunci sudah terbukti bisa membuka record lain di sesi ini).
+ *   Keputusan dan penghentian pull terjadi sebelum halaman ditulis - lihat `decidePullKeyFailures`.
+ *   Kalau `'keep'` dibiarkan lolos sampai transaksi, cursor akan maju di atas record yang belum tentu
  *   terbaca; itu yang dilarang.
  * - **Payload/skema tidak dikenal**: hanya index record itu yang tidak bisa dibangun. Record tetap
  *   disimpan dan baris index lama DIBIARKAN (`'keep'`) - `null` akan MENGHAPUS-nya dan membuat record
@@ -406,7 +425,7 @@ async function buildIndex(
   },
   keyFailures: PullKeyFailures,
 ): Promise<RecordIndexDecision> {
-  if (isQuarantined(remote.id)) return RECORD_INDEX_KEEP
+  if (isQuarantined(session.userId, remote.id)) return RECORD_INDEX_KEEP
 
   const now = session.clock.nowMs()
 
@@ -424,7 +443,9 @@ async function buildIndex(
     return RECORD_INDEX_KEEP
   }
 
-  keyFailures.decoded += 1
+  // Kunci sesi ini terbukti bisa membuka record: mulai sekarang kegagalan record LAIN bisa dinilai
+  // sebagai "record itu rusak", bukan "kunci salah" (lihat `decidePullKeyFailures`).
+  keyProvenForSession = true
   // Record yang sama berhasil dibuka = rangkaian kegagalannya putus. Tanpa ini, "3 kali gagal" berarti
   // "3 kali seumur hidup", bukan berturut-turut.
   consecutiveKeyFailures.delete(remote.id)
@@ -459,10 +480,16 @@ function guardPullMerge(storage: StorageAdapter, keyFailures: PullKeyFailures): 
  * Putuskan apa arti kegagalan kunci di satu siklus pull, lalu kembalikan error untuk membatalkan merge.
  *
  * Aturannya:
- * - **Tidak ada satu pun record yang berhasil dibuka** = masalah kunci/sesi, bukan record rusak.
- *   Pull berhenti, `status = 'error'`, tidak ada karantina. Mengarantina di sini akan menyembunyikan
- *   kunci yang salah sebagai "data rusak" dan membiarkan pull melewati SEMUA data yang tak terbaca.
- * - **Ada record lain yang berhasil** = record yang gagal memang rusak. Penghitungnya naik; setelah
+ * - **Kunci belum terbukti bisa membuka apa pun di sesi ini** (`keyProvenForSession === false`) =
+ *   masalah kunci/sesi, bukan record rusak. Pull berhenti, `status = 'error'`, tidak ada karantina.
+ *   Mengarantina di sini akan menyembunyikan kunci yang salah sebagai "data rusak" dan membiarkan pull
+ *   melewati SEMUA data yang tak terbaca.
+ *
+ *   Yang diuji adalah bukti di level SESI, bukan "ada record lain yang berhasil di halaman/siklus ini".
+ *   Penghitung per siklus selalu 0 begitu cursor parkir di halaman yang hanya berisi record rusak,
+ *   sehingga kasus paling penting (record rusak = record terbaru di halaman terakhir) tidak pernah
+ *   pulih (QA T78 B1). Kunci salah tetap tertangkap karena ia membuat record PERTAMA di sesi pun gagal.
+ * - **Kunci sudah terbukti** = record yang gagal memang rusak. Penghitungnya naik; setelah
  *   `QUARANTINE_AFTER_KEY_FAILURES` siklus berturut-turut record itu dikarantina supaya siklus
  *   berikutnya bisa maju dengan index `'keep'`.
  */
@@ -473,7 +500,7 @@ function decidePullKeyFailures(keyFailures: PullKeyFailures): RecordKeyError | n
   const firstFailure = keyFailures.failures.values().next().value
   if (firstFailure === undefined) return null
 
-  if (keyFailures.decoded === 0) {
+  if (!keyProvenForSession) {
     keyFailures.abortedWith = firstFailure
     return firstFailure
   }
@@ -486,13 +513,13 @@ function decidePullKeyFailures(keyFailures: PullKeyFailures): RecordKeyError | n
       continue
     }
 
-    quarantineRecord(recordId)
+    quarantineRecord(keyFailures.ownerId, recordId)
     consecutiveKeyFailures.delete(recordId)
 
     // Storage bisa menolak tulisan (mode privat/penuh). Jangan menjanjikan pemulihan yang tidak
     // terjadi: kalau karantina tidak benar-benar berlaku, siklus berikutnya tetap akan gagal dan
     // status `error` memang jawaban yang jujur.
-    if (isQuarantined(recordId)) keyFailures.quarantined = true
+    if (isQuarantined(keyFailures.ownerId, recordId)) keyFailures.quarantined = true
   }
 
   keyFailures.abortedWith = firstFailure
