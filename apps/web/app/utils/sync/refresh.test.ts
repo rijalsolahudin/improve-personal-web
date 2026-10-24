@@ -1,4 +1,3 @@
-import { effectScope } from 'vue'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { SYNC_REMOTE_APPLIED_EVENT, notifyRemoteApplied } from './events'
@@ -105,33 +104,6 @@ describe('registry reload store setelah pull', () => {
     await runSyncReloaders()
 
     expect(reload).not.toHaveBeenCalled()
-  })
-
-  it('melepas reloader saat scope pemiliknya hilang (halaman lama tidak ikut dibaca ulang)', async () => {
-    const reload = vi.fn(async () => undefined)
-    const scope = effectScope()
-    scope.run(() => registerSyncReloader('tasks', reload))
-
-    scope.stop()
-    await runSyncReloaders()
-
-    expect(reload).not.toHaveBeenCalled()
-  })
-
-  it('pendaftaran yang lebih baru tidak ikut tercabut saat scope lama hilang', async () => {
-    const older = vi.fn(async () => undefined)
-    const newer = vi.fn(async () => undefined)
-
-    const scope = effectScope()
-    scope.run(() => registerSyncReloader('tasks', older))
-    // Halaman lain yang masih terbuka mendaftar belakangan (tanpa scope, seperti pemanggilan biasa).
-    registerSyncReloader('tasks', newer)
-
-    scope.stop()
-    await runSyncReloaders()
-
-    expect(newer).toHaveBeenCalledTimes(1)
-    expect(older).not.toHaveBeenCalled()
   })
 })
 

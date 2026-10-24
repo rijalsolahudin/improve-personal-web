@@ -1,5 +1,3 @@
-import { getCurrentScope, onScopeDispose } from 'vue'
-
 /**
  * Registry "muat ulang store setelah pull".
  *
@@ -92,22 +90,19 @@ export function clearTrustedSyncReload(): void {
  * Daftarkan cara memuat ulang satu store. Pemanggil berikutnya dengan kunci yang sama menimpa
  * closure sebelumnya - aman karena semua pemanggil `useX()` melihat `useState` yang sama, jadi
  * closure-nya setara. Yang penting: pendaftaran tidak menahan referensi komponen.
+ *
+ * Entri TIDAK dilepas saat halaman ditinggalkan, dan itu disengaja: melepasnya butuh
+ * `getCurrentScope`/`onScopeDispose` dari Vue, dan impor itu memecah chunk runtime sehingga JS awal
+ * landing melewati budget 170 KB (gagal gerbang `bundle-budget.test.ts`). Biayanya kecil - setiap
+ * pull membaca ulang store yang pernah dipakai halaman sebelumnya, maksimal satu pembacaan per key.
+ * Kalau nanti perlu dilepas, lakukan tanpa menyeret API scope Vue ke graf awal (mis. reset registry
+ * dari router hook sebelum render halaman baru).
  */
 export function registerSyncReloader(key: SyncReloadKey, reload: () => Promise<void>): void {
   // Server tidak punya jendela dan tidak pernah menjalankan reloader; menyimpan closure dari satu
   // request di modul bersama justru bisa membocorkan `useState` request itu ke request lain.
   if (typeof window === 'undefined') return
   reloaders.set(key, reload)
-
-  // Lepas saat komponen pemiliknya unmount: tanpa ini, store yang hanya dipakai halaman lama terus
-  // dibaca ulang setiap pull. Hanya melepas kalau entri itu MASIH milik closure ini - pemanggil
-  // `useX()` yang lebih baru (halaman lain yang masih terbuka) sudah menimpa entri dengan closure
-  // setara dan tidak boleh ikut dicabut.
-  const scope = getCurrentScope()
-  if (scope === undefined) return
-  onScopeDispose(() => {
-    if (reloaders.get(key) === reload) reloaders.delete(key)
-  })
 }
 
 /**
