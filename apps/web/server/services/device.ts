@@ -4,7 +4,7 @@ import {
   type DeviceDto,
   type DeviceInfo,
 } from '@improve-personal/contracts'
-import { and, count, desc, eq, isNull } from 'drizzle-orm'
+import { and, count, desc, eq, isNull, sql } from 'drizzle-orm'
 
 import { devices, sessions } from '../db/schema'
 import { apiProblem } from '../utils/api-error'
@@ -20,6 +20,46 @@ import type { ServiceContext } from './context'
  */
 
 const MAX_ACTIVE_DEVICES = MAX_ACTIVE_DEVICES_PER_USER
+
+/** SQLSTATE Postgres untuk unique violation (`23505`). */
+const PG_UNIQUE_VIOLATION = '23505'
+
+/** Index penjaga invarian "satu instalasi = satu baris AKTIF per user" (`db/schema.ts`). */
+const ACTIVE_INSTALLATION_INDEX = 'uq_devices_user_installation_active'
+
+/**
+ * Percobaan penyelesaian perangkat sebelum menyerah. Dua cukup: kalah balapan INSERT hanya bisa
+ * berarti "baris pemenang sudah ada", dan satu pengulangan menutup kasus baris itu di-revoke tepat
+ * setelah menang.
+ */
+const RESOLVE_ATTEMPTS = 2
+
+/**
+ * Apakah error ini unique violation dari index instalasi aktif?
+ *
+ * Dicek PERSIS (kode + nama index) supaya error lain - termasuk unique violation dari index lain -
+ * tetap dilempar: menelannya akan menyembunyikan bug yang sebenarnya. Drizzle membungkus error driver
+ * (`DrizzleQueryError`), jadi `cause` ikut ditelusuri.
+ */
+function isActiveInstallationConflict(error: unknown): boolean {
+  let current: unknown = error
+
+  for (let depth = 0; depth < 3; depth += 1) {
+    if (typeof current !== 'object' || current === null) return false
+
+    const candidate = current as { code?: unknown; constraint?: unknown; cause?: unknown }
+    if (
+      candidate.code === PG_UNIQUE_VIOLATION &&
+      candidate.constraint === ACTIVE_INSTALLATION_INDEX
+    ) {
+      return true
+    }
+
+    current = candidate.cause
+  }
+
+  return false
+}
 
 function toDeviceDto(row: {
   id: string
@@ -66,8 +106,8 @@ async function findActiveDeviceIdByInstallation(
         isNull(devices.revokedAt),
       ),
     )
-    // Nilai yang sama bisa menempel di beberapa baris (lihat catatan kolomnya), jadi pilih yang
-    // paling baru - sama seperti heuristik nama+platform yang lama.
+    // Nilai yang sama bisa menempel di beberapa baris REVOKED (index uniknya partial), jadi pilih
+    // yang paling baru - sama seperti heuristik nama+platform yang lama.
     .orderBy(desc(devices.createdAt))
     .limit(1)
 
@@ -109,6 +149,13 @@ async function findActiveDeviceIdByNamePlatform(
  * `WHERE installation_id IS NULL` di UPDATE, bukan cuma di SELECT: kalau dua instalasi login hampir
  * bersamaan, hanya satu yang boleh mengklaim baris lama; yang kalah (0 baris ter-update) membuat baris
  * sendiri, karena baris itu sekarang jelas milik instalasi lain.
+ *
+ * `WHERE revoked_at IS NULL` juga ada di UPDATE, bukan cuma di SELECT (bug TOCTOU review #80): kalau
+ * perangkat lama di-revoke tepat di antara SELECT dan UPDATE (mis. user menekan "keluarkan perangkat"
+ * di tab lain), UPDATE yang hanya menyaring `installation_id` tetap mengisi baris yang sudah mati.
+ * Login lalu menjawab sukses padahal `findSessionByToken` menolak perangkat revoked - "berhasil login
+ * tapi tidak bisa masuk". Dengan filter itu, `RETURNING` kosong dan pemanggil jatuh ke pembuatan baris
+ * baru (perilaku yang memang diinginkan: instalasi ini perangkat yang hidup lagi).
  */
 async function adoptLegacyDeviceForInstallation(
   ctx: ServiceContext,
@@ -133,13 +180,24 @@ async function adoptLegacyDeviceForInstallation(
   const legacy = candidates[0]
   if (!legacy) return null
 
-  const adopted = await ctx.db
-    .update(devices)
-    .set({ installationId: info.installationId })
-    .where(and(eq(devices.id, legacy.id), isNull(devices.installationId)))
-    .returning({ id: devices.id })
+  try {
+    const adopted = await ctx.db
+      .update(devices)
+      .set({ installationId: info.installationId })
+      .where(
+        and(eq(devices.id, legacy.id), isNull(devices.installationId), isNull(devices.revokedAt)),
+      )
+      .returning({ id: devices.id })
 
-  return adopted[0]?.id ?? null
+    return adopted[0]?.id ?? null
+  } catch (error) {
+    if (!isActiveInstallationConflict(error)) throw error
+
+    // Instalasi yang SAMA menang lebih dulu pada baris lama yang lain (dua login paralel, user punya
+    // lebih dari satu baris legacy). Baris aktif yang memegang nilai itu sudah ada - pakai baris itu;
+    // melempar 500 di sini akan menggagalkan login yang sebenarnya sudah "selesai" di request lain.
+    return await findActiveDeviceIdByInstallation(ctx, userId, info.installationId)
+  }
 }
 
 /**
@@ -165,12 +223,34 @@ async function adoptLegacyDeviceForInstallation(
  * mesin) dan kegagalannya memakai kode `DEVICE_LIMIT_REACHED` (`409`, kontrak). Kode khusus ini
  * penting supaya client bisa menyuruh user menghapus salah satu perangkat - `FORBIDDEN` hanya bilang
  * "tidak boleh" tanpa jalan keluar.
+ *
+ * Balapan dua login dengan `installationId` yang SAMA dijaga dua lapis: unique partial index
+ * `uq_devices_user_installation_active` di DB dan `ON CONFLICT DO NOTHING` saat INSERT. Yang kalah
+ * tidak melempar 500 dan tidak membuat baris kembar - ia memakai baris yang menang (idempoten), dan
+ * itulah yang membuat gejala task #80 tidak bisa muncul lagi untuk pasangan baris kembar.
  */
 export async function resolveDeviceForLogin(
   ctx: ServiceContext,
   userId: string,
   info: DeviceInfo,
 ): Promise<string> {
+  for (let attempt = 0; attempt < RESOLVE_ATTEMPTS; attempt += 1) {
+    const resolved = await resolveDeviceOnce(ctx, userId, info)
+    if (resolved) return resolved
+  }
+
+  // Tidak tercapai dalam praktik: `null` hanya berarti "kalah balapan, lalu baris pemenang di-revoke
+  // sebelum sempat dibaca". Dua percobaan menutup jendela itu; kalau masih gagal, lebih baik 500
+  // (client boleh coba lagi) daripada mengembalikan id perangkat yang tidak ada.
+  throw apiProblem('INTERNAL')
+}
+
+/** Satu putaran penyelesaian perangkat. `null` = kalah balapan, pemanggil boleh mengulang. */
+async function resolveDeviceOnce(
+  ctx: ServiceContext,
+  userId: string,
+  info: DeviceInfo,
+): Promise<string | null> {
   const installationId = info.installationId
 
   const reused = installationId
@@ -178,25 +258,47 @@ export async function resolveDeviceForLogin(
       (await adoptLegacyDeviceForInstallation(ctx, userId, { ...info, installationId })))
     : await findActiveDeviceIdByNamePlatform(ctx, userId, info)
 
-  if (reused) {
-    await ctx.db.update(devices).set({ lastSeenAt: ctx.now }).where(eq(devices.id, reused))
-
-    return reused
-  }
+  if (reused) return touchDevice(ctx, reused)
 
   const active = await countActiveDevices(ctx, userId)
   if (active >= MAX_ACTIVE_DEVICES) throw apiProblem('DEVICE_LIMIT_REACHED')
 
   const deviceId = uuidv7(ctx.now.getTime())
-  await ctx.db.insert(devices).values({
-    id: deviceId,
-    userId,
-    name: info.name,
-    platform: info.platform,
-    installationId: installationId ?? null,
-    createdAt: ctx.now,
-    lastSeenAt: ctx.now,
-  })
+  const inserted = await ctx.db
+    .insert(devices)
+    .values({
+      id: deviceId,
+      userId,
+      name: info.name,
+      platform: info.platform,
+      installationId: installationId ?? null,
+      createdAt: ctx.now,
+      lastSeenAt: ctx.now,
+    })
+    // Target + predikat sama dengan index partial-nya: `DO NOTHING` HANYA meredam konflik index itu.
+    // Konflik lain (mis. tabrakan primary key) tetap dilempar - bukan sesuatu yang boleh ditelan.
+    // Klien lama (`installationId` NULL) tidak pernah cocok dengan predikat ini, jadi tetap INSERT.
+    .onConflictDoNothing({
+      target: [devices.userId, devices.installationId],
+      where: sql`${devices.installationId} is not null and ${devices.revokedAt} is null`,
+    })
+    .returning({ id: devices.id })
+
+  const insertedId = inserted[0]?.id
+  if (insertedId) return insertedId
+
+  // Kalah balapan: baris aktif dengan instalasi yang sama sudah dibuat request lain. Pakai baris itu
+  // (idempoten), jangan buat baris kedua dan jangan melempar - kedua login memang berhasil.
+  const winner = installationId
+    ? await findActiveDeviceIdByInstallation(ctx, userId, installationId)
+    : null
+
+  return winner ? touchDevice(ctx, winner) : null
+}
+
+/** Catat aktivitas terakhir lalu kembalikan id-nya. */
+async function touchDevice(ctx: ServiceContext, deviceId: string): Promise<string> {
+  await ctx.db.update(devices).set({ lastSeenAt: ctx.now }).where(eq(devices.id, deviceId))
 
   return deviceId
 }

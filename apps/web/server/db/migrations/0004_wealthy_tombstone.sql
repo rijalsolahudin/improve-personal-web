@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "uq_devices_user_installation_active" ON "devices" USING btree ("user_id","installation_id") WHERE "devices"."installation_id" is not null and "devices"."revoked_at" is null;

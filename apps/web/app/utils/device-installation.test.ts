@@ -59,23 +59,63 @@ describe('currentInstallationId', () => {
   })
 
   it('storage melempar (mode privat): tetap menghasilkan id, bukan error', () => {
-    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+    const blocked = (): never => {
       throw new Error('storage diblokir')
-    })
-    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
-      throw new Error('storage diblokir')
-    })
+    }
+    vi.spyOn(window, 'localStorage', 'get').mockReturnValue({
+      getItem: blocked,
+      setItem: blocked,
+    } as unknown as Storage)
 
     expect(() => currentInstallationId()).not.toThrow()
     expect(uuidSchema.safeParse(currentInstallationId()).success).toBe(true)
   })
 
-  it('SSR (tanpa window): tidak menyentuh storage', () => {
+  it('storage getter melempar (WebView/mode privat lama): id stabil dalam satu halaman', () => {
+    // Bukan `getItem` yang melempar, tapi akses properti `window.localStorage` itu sendiri - kondisi
+    // asli Safari private-mode lama dan WebView yang mematikan DOM storage.
+    vi.spyOn(window, 'localStorage', 'get').mockImplementation(() => {
+      throw new Error('DOM storage dimatikan')
+    })
+
+    const first = currentInstallationId()
+    const second = currentInstallationId()
+
+    expect(uuidSchema.safeParse(first).success).toBe(true)
+    // Regresi BUG-1 QA #80: dulu tiap panggilan menghasilkan id baru, sehingga OTP request dan
+    // verify mengaku dua instalasi dan menghabiskan dua slot perangkat untuk satu login.
+    expect(second).toBe(first)
+  })
+
+  it('penulisan gagal (setter melempar): id tetap stabil untuk halaman ini', () => {
+    const setItem = vi.fn(() => {
+      throw new Error('kuota penuh')
+    })
+    vi.spyOn(window, 'localStorage', 'get').mockReturnValue({
+      getItem: () => null,
+      setItem,
+    } as unknown as Storage)
+
+    const first = currentInstallationId()
+    const second = currentInstallationId()
+
+    expect(uuidSchema.safeParse(first).success).toBe(true)
+    expect(second).toBe(first)
+    // Hanya dicoba sekali (saat id dibuat), tidak diulang tiap panggilan.
+    expect(setItem).toHaveBeenCalledTimes(1)
+  })
+
+  it('SSR (tanpa window): tidak menyentuh storage dan tidak memakai cache lintas request', () => {
     vi.stubGlobal('window', undefined)
 
-    const id = currentInstallationId()
+    const first = currentInstallationId()
+    const second = currentInstallationId()
 
-    expect(uuidSchema.safeParse(id).success).toBe(true)
+    expect(uuidSchema.safeParse(first).success).toBe(true)
+    // Sengaja TIDAK stabil: modul ini hidup di proses server yang dipakai banyak request, jadi cache
+    // level modul di sana akan membagikan satu id ke semua user. Login berjalan di client dan hanya
+    // client yang mengirim id ini, jadi server tidak butuh id yang sama antar panggilan.
+    expect(second).not.toBe(first)
     expect(localStorage.getItem(INSTALLATION_ID_STORAGE_KEY)).toBeNull()
   })
 

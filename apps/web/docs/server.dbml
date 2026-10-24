@@ -112,8 +112,11 @@ Table devices {
     // PARTIAL (DBML belum bisa menulis WHERE): create index where revoked_at is null
     (user_id, revoked_at) [name: 'idx_devices_user_active']
     (user_id, created_at) [name: 'idx_devices_user_created']
-    // Jalur login: cari perangkat aktif user ini untuk satu nilai instalasi. BUKAN unique - lihat Note.
+    // Jalur login: cari perangkat aktif user ini untuk satu nilai instalasi. Index biasa ini tetap
+    // ada (melayani pencarian tanpa melihat revoked_at); unique-nya dijaga index di bawah.
     (user_id, installation_id) [name: 'idx_devices_user_installation']
+    // PARTIAL + UNIQUE: WHERE installation_id IS NOT NULL AND revoked_at IS NULL
+    (user_id, installation_id) [unique, name: 'uq_devices_user_installation_active']
   }
 
   Note: '''
@@ -124,8 +127,19 @@ Table devices {
   di satu mesin, sama-sama menghasilkan "Chrome di Linux". Tanpa kolom ini server menganggapnya
   satu perangkat, lalu rotasi sesi saat login mematikan sesi instalasi lain. Nilainya dibuat
   client sekali per instalasi (bukan kredensial, cuma penanda baris), nullable supaya baris lama
-  tetap sah dan diisi saat login berikutnya (adopsi). TIDAK unique: dua akun di instalasi yang
-  sama boleh berbagi nilai ini.
+  tetap sah dan diisi saat login berikutnya (adopsi).
+
+  Unik-nya PARTIAL dan per user (uq_devices_user_installation_active):
+  - WHERE installation_id IS NOT NULL - baris lama tanpa nilai tidak ikut serta.
+  - WHERE revoked_at IS NULL - baris yang sudah di-revoke boleh berbagi nilai yang sama; login
+    ulang setelah revoke memang membuat baris baru, dan riwayatnya tetap tersimpan.
+  - Per user_id, bukan global: dua akun di instalasi yang sama tetap boleh login.
+  Alasan ia ada: tanpa invarian di level DB, dua login PARALEL dengan installation_id sama
+  sama-sama lolos SELECT lalu sama-sama INSERT (dua baris kembar, sesi baris lama tidak pernah
+  di-rotate lagi - gejala #80 kembali - dan jatah 10 terpakai dua). Kode di services/device.ts
+  memakai ON CONFLICT DO NOTHING pada index ini lalu memakai baris yang menang, jadi yang kalah
+  tidak pernah mendapat 500. Migrasinya dihasilkan drizzle-kit (0004), additive: index pada
+  tabel kecil sehingga pembuatannya tidak terasa di produksi.
   '''
 }
 

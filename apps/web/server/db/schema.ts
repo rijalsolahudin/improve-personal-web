@@ -38,9 +38,11 @@ import {
  *   `hlc` mentah SALAH begitu panjang digitnya beda. Perbandingannya ada di
  *   `@improve-personal/contracts` (`compareHlc`); kolom turunan di sini yang menyimpannya.
  * - Index partial (`WHERE revoked_at IS NULL`, `WHERE consumed_at IS NULL`, `WHERE deleted`)
- *   ditulis di migrasi SQL tangan, bukan di skema ini, supaya bentuk SQL-nya persis seperti dbml
- *   dan tidak bergantung pada dukungan `where()` drizzle-kit. Lihat
- *   `server/db/migrations/0001_partial_indexes.sql`.
+ *   umumnya ditulis di migrasi SQL tangan, bukan di skema ini, supaya bentuk SQL-nya persis seperti
+ *   dbml dan tidak bergantung pada dukungan `where()` drizzle-kit. Lihat
+ *   `server/db/migrations/0001_partial_indexes.sql`. Pengecualian: index partial yang WAJIB diketahui
+ *   drizzle-kit karena mengikat perilaku kode (`uq_devices_user_installation_active` - target
+ *   `ON CONFLICT` di `services/device.ts`) ditulis di sini supaya ikut terbawa `drizzle-kit generate`.
  */
 
 /** `bytea` Postgres - selalu dibaca/ditulis sebagai `Uint8Array`, tidak pernah sebagai string. */
@@ -101,9 +103,11 @@ export const devices = pgTable(
      * yang sama, menghasilkan `"Chrome di Linux"` yang identik. Tanpa kolom ini server menganggapnya
      * satu perangkat dan rotasi sesi saat login mematikan sesi instalasi lain (task #80).
      *
-     * NULLABLE dan sengaja tanpa unique: baris lama belum punya nilainya (diisi saat login berikutnya
-     * lewat jalur adopsi di `resolveDeviceForLogin`), dan dua AKUN di instalasi yang sama boleh
-     * berbagi nilai ini - unique global akan menolak login akun kedua di browser yang sama.
+     * NULLABLE: baris lama belum punya nilainya (diisi saat login berikutnya lewat jalur adopsi di
+     * `resolveDeviceForLogin`). Unik-nya PARTIAL (`uq_devices_user_installation_active`, di index di
+     * bawah): satu instalasi = satu baris AKTIF per user, sementara baris yang sudah di-revoke boleh
+     * berbagi nilai yang sama (login ulang setelah revoke membuat baris baru) dan dua AKUN di
+     * instalasi yang sama tetap boleh - unique global akan menolak login akun kedua di browser itu.
      */
     installationId: uuid('installation_id'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -117,8 +121,26 @@ export const devices = pgTable(
   (table) => [
     index('idx_devices_user_created').on(table.userId, table.createdAt),
     // Jalur login mencari perangkat AKTIF user ini berdasarkan nilai instalasi yang dikirim client.
-    // Index biasa (bukan unique): lihat catatan `installation_id` di atas.
+    // Index biasa ini tetap dipertahankan: ia melayani pencarian tanpa melihat `revoked_at`, dan
+    // menghapusnya bukan perubahan additive di migrasi produksi.
     index('idx_devices_user_installation').on(table.userId, table.installationId),
+    /**
+     * Invarian "satu instalasi = satu baris AKTIF per user" (temuan L2 security review #80).
+     *
+     * Tanpa ini, dua login PARALEL dengan `installationId` yang sama sama-sama lolos SELECT lalu
+     * sama-sama INSERT: dua baris kembar, sesi baris lama tidak pernah di-rotate lagi (gejala #80
+     * kembali), dan jatah 10 perangkat terpakai dua kali. Kode di `services/device.ts` menangani
+     * konfliknya jadi "pakai baris yang menang", bukan 500.
+     *
+     * PARTIAL, bukan unique global:
+     * - `installation_id IS NOT NULL` - baris lama (klien yang belum mengirim nilai) tidak ikut serta.
+     * - `revoked_at IS NULL` - baris yang sudah di-revoke boleh berbagi nilai yang sama; login ulang
+     *   setelah revoke memang membuat baris baru, dan riwayatnya tetap tersimpan untuk audit.
+     * Unik per `user_id` (bukan lintas akun): dua akun di instalasi yang sama tetap boleh login.
+     */
+    uniqueIndex('uq_devices_user_installation_active')
+      .on(table.userId, table.installationId)
+      .where(sql`${table.installationId} is not null and ${table.revokedAt} is null`),
     // `idx_devices_user_active` = PARTIAL (WHERE revoked_at IS NULL) -> migrasi SQL tangan.
   ],
 )

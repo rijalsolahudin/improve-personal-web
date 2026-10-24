@@ -45,12 +45,16 @@ const SYSTEM_CLOCK: Clock = {
 const generateInstallationId = createUuidV7Generator({ clock: SYSTEM_CLOCK })
 
 /**
- * Id yang sudah ditetapkan pada sesi halaman ini.
+ * Id yang sudah ditetapkan pada sesi halaman ini - APA PUN asal-usulnya.
  *
- * Perlu karena nilai yang RUSAK sengaja tidak ditimpa (lihat `currentInstallationId`): tanpa cache,
- * dua panggilan dalam satu halaman akan menghasilkan dua id berbeda, dan `requestEmailOtp` +
- * `verifyEmailOtp` bisa mengaku sebagai dua instalasi. Tidak diisi saat SSR - modul ini hidup di
- * proses server yang dipakai banyak request, jadi cache di sana akan membagikan satu id ke semua user.
+ * `requestEmailOtp` dan `verifyEmailOtp` harus mengaku sebagai satu instalasi. Tanpa cache, kondisi
+ * yang membuat id tidak bisa disimpan (storage melempar, nilai rusak) menghasilkan id berbeda tiap
+ * panggilan: server membuat baris perangkat di request OTP lalu baris kedua saat verify, satu login
+ * memakai dua slot perangkat dan lama-lama kena `DEVICE_LIMIT_REACHED`.
+ *
+ * Tidak diisi saat SSR: modul ini hidup di proses server yang dipakai banyak request, jadi cache di
+ * sana akan membagikan satu id ke semua user. Login berjalan di client, jadi server tidak butuh id
+ * yang stabil antar panggilan.
  */
 let sessionInstallationId: string | null = null
 
@@ -59,10 +63,15 @@ type StoredValue =
   | { readonly kind: 'valid'; readonly value: string }
   | { readonly kind: 'unusable' }
 
+/** `true` saat kode berjalan di browser; `false` saat SSR (tidak ada `window`). */
+function isBrowser(): boolean {
+  return typeof window !== 'undefined'
+}
+
 /** `localStorage` kalau ada dan bisa diakses; `null` saat SSR atau storage diblokir. */
 function openStorage(): Storage | null {
   try {
-    if (typeof window === 'undefined') return null
+    if (!isBrowser()) return null
     return window.localStorage
   } catch {
     // Safari/Chrome mode privat bisa melempar saat properti diakses, bukan hanya saat ditulis.
@@ -96,17 +105,26 @@ function readStored(storage: Storage): StoredValue {
 /**
  * Id instalasi untuk pemanggil sekarang.
  *
- * Idempoten: nilai yang sah dipakai ulang, dan id yang baru dibuat di-cache untuk sisa sesi halaman.
- * Saat SSR, saat storage diblokir, atau saat isinya rusak, hasilnya id baru untuk SESI INI saja -
- * tidak disimpan dan tidak pernah melempar.
+ * Idempoten: nilai yang sah dipakai ulang, dan id yang baru dibuat di-cache untuk sisa sesi halaman -
+ * termasuk saat storage melempar atau isinya rusak, karena kondisi itu tidak boleh membuat request OTP
+ * dan verify mengaku sebagai dua instalasi. Saat SSR hasilnya id baru per panggilan (lihat komentar
+ * `sessionInstallationId`). Fungsi ini tidak pernah melempar.
  */
 export function currentInstallationId(): string {
   if (sessionInstallationId !== null) return sessionInstallationId
 
+  // SSR: jangan sentuh storage dan jangan cache (cache modul di server lintas request).
+  if (!isBrowser()) return generateInstallationId()
+
   const storage = openStorage()
 
-  // SSR / storage tidak bisa diakses: jangan sentuh storage sama sekali.
-  if (storage === null) return generateInstallationId()
+  // Browser tapi `window.localStorage` melempar saat properti diakses (mode privat lama, WebView
+  // dengan DOM storage dimatikan): tetap cache id untuk halaman ini supaya OTP request + verify
+  // memakai instalasi yang sama. Tidak ada yang ditulis - storage-nya memang tidak bisa dipakai.
+  if (storage === null) {
+    sessionInstallationId = generateInstallationId()
+    return sessionInstallationId
+  }
 
   const stored = readStored(storage)
 

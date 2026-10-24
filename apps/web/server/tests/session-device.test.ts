@@ -13,7 +13,8 @@ import {
   deviceListResultSchema,
   sessionDtoSchema,
 } from '@improve-personal/contracts'
-import { eq } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
+import postgres from 'postgres'
 import { afterAll, afterEach, describe, expect, it } from 'vitest'
 
 import {
@@ -25,6 +26,7 @@ import {
 import {
   buildSessionDto,
   findSessionByToken,
+  loginDevice,
   revokeSession,
   sessionResultFrom,
 } from '../services/session'
@@ -32,11 +34,43 @@ import { findOrCreateUserByEmail } from '../services/user'
 import { sha256Hex } from '../utils/crypto'
 import { uuidv7 } from '../utils/uuid'
 import { devices, sessions } from '../db/schema'
-import { closeTestDb, FIXED_NOW, seedSession } from './helpers/harness'
+import { closeTestDb, FIXED_NOW, seedSession, TEST_DATABASE_URL } from './helpers/harness'
 import { captureProblem, testScope } from './helpers/scope'
 
 const scope = testScope()
 const DAY_MS = 86_400_000
+
+/** Batas tunggu "UPDATE adopsi sudah tertahan lock" - jauh di atas latensi lokal. */
+const BLOCKED_QUERY_TIMEOUT_MS = 5_000
+const POLL_INTERVAL_MS = 10
+
+type TestSql = ReturnType<typeof postgres>
+
+/**
+ * Tunggu sampai Postgres benar-benar MENAHAN satu `UPDATE "devices"` (menunggu row lock).
+ *
+ * Ini yang membuat test TOCTOU di bawah deterministik: bukan `sleep` yang menebak-nebak, tapi bukti
+ * dari `pg_stat_activity` bahwa UPDATE adopsi memang sudah dikirim dan sedang menunggu - jadi revoke
+ * yang dilakukan sesudahnya pasti jatuh di antara SELECT dan UPDATE.
+ */
+async function waitForBlockedDeviceUpdate(sql: TestSql): Promise<void> {
+  const deadline = Date.now() + BLOCKED_QUERY_TIMEOUT_MS
+
+  while (Date.now() < deadline) {
+    const rows = await sql<{ waiting: number }[]>`
+      select count(*)::int as waiting
+      from pg_stat_activity
+      where datname = current_database()
+        and wait_event_type = 'Lock'
+        and query like '%update "devices"%'
+    `
+    if ((rows[0]?.waiting ?? 0) > 0) return
+
+    await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS))
+  }
+
+  throw new Error('UPDATE adopsi tidak pernah menunggu lock: interleaving TOCTOU tidak terbentuk')
+}
 
 afterEach(async () => {
   await scope.dispose()
@@ -524,5 +558,135 @@ describe('perangkat: identitas instalasi', () => {
     )
     expect(overflow).toMatchObject({ code: 'DEVICE_LIMIT_REACHED', statusCode: 409 })
     expect(await countActiveDevices(ctx, user.id)).toBe(MAX_ACTIVE_DEVICES_PER_USER)
+  })
+
+  /**
+   * Konsekuensi lain dari index unik yang PARTIAL: baris yang sudah di-revoke tetap memegang nilai
+   * instalasinya, dan login berikutnya dari instalasi yang SAMA harus tetap bisa membuat baris baru.
+   * Kalau predikat `revoked_at IS NULL` hilang dari index, login setelah "keluarkan perangkat" gagal
+   * dengan unique violation - test ini yang menahannya.
+   */
+  it('login ulang dengan installationId sama SETELAH perangkat di-revoke -> baris baru, sesi hidup', async () => {
+    const fixture = scope.fixture({ prefix: 'device-install-after-revoke' })
+    const ctx = fixture.ctx()
+    const installationId = randomUUID()
+
+    const first = await seedSession(ctx, {
+      email: fixture.email,
+      deviceName: SAME_NAME,
+      installationId,
+    })
+    await revokeDevice(ctx, first.userId, first.deviceId)
+
+    const second = await seedSession(ctx, {
+      email: fixture.email,
+      deviceName: SAME_NAME,
+      installationId,
+    })
+
+    expect(second.deviceId).not.toBe(first.deviceId)
+    expect(await countActiveDevices(ctx, first.userId)).toBe(1)
+    await expect(findSessionByToken(ctx, first.token)).resolves.toBeNull()
+    await expect(findSessionByToken(ctx, second.token)).resolves.toMatchObject({
+      deviceId: second.deviceId,
+    })
+
+    // Dua baris memakai nilai instalasi yang sama: satu revoked (riwayat), satu aktif.
+    const rows = await ctx.db
+      .select({ id: devices.id, revokedAt: devices.revokedAt })
+      .from(devices)
+      .where(and(eq(devices.userId, first.userId), eq(devices.installationId, installationId)))
+    expect(rows).toHaveLength(2)
+    expect(rows.filter((row) => row.revokedAt === null)).toHaveLength(1)
+  })
+
+  /**
+   * BUG-2 review #80: `UPDATE` adopsi dulu hanya menyaring `installation_id`, padahal SELECT-nya juga
+   * menyaring `revoked_at`. Kalau perangkat di-revoke tepat di antara keduanya, baris mati tetap
+   * diadopsi - login 200, lalu sesinya ditolak `findSessionByToken`. Test ini memaksa jendela itu.
+   */
+  it('adopsi: baris lama yang di-revoke di antara SELECT dan UPDATE tidak dipakai, sesi login tetap sah', async () => {
+    const fixture = scope.fixture({ prefix: 'device-install-adopt-revoked' })
+    const ctx = fixture.ctx()
+    const user = await findOrCreateUserByEmail(ctx, fixture.email)
+    const installationId = randomUUID()
+
+    // Baris lama: dibuat build sebelum kolom `installation_id` ada.
+    const legacyId = await resolveDeviceForLogin(ctx, user.id, { name: SAME_NAME, platform: 'web' })
+
+    // Koneksi terpisah mengunci baris lama, sehingga UPDATE adopsi tertahan TEPAT setelah SELECT-nya
+    // (SELECT biasa tidak ikut terblokir - ia membaca versi committed, barisnya masih aktif).
+    const racingSql = postgres(TEST_DATABASE_URL, { max: 2 })
+    const tx = await racingSql.reserve()
+
+    try {
+      await tx`begin`
+      await tx`select id from devices where id = ${legacyId} for update`
+
+      const pending = loginDevice(ctx, {
+        userId: user.id,
+        email: fixture.email,
+        client: 'web',
+        device: { name: SAME_NAME, platform: 'web', installationId },
+      })
+      await waitForBlockedDeviceUpdate(racingSql)
+
+      // "Keluarkan perangkat" dari tab lain, persis di jendela antara SELECT dan UPDATE adopsi.
+      await tx`update devices set revoked_at = now() where id = ${legacyId}`
+      await tx`commit`
+
+      const loggedIn = await pending
+
+      // Baris mati TIDAK boleh diadopsi; instalasi ini mendapat baris baru.
+      expect(loggedIn.dto.device.id).not.toBe(legacyId)
+      expect(await countActiveDevices(ctx, user.id)).toBe(1)
+
+      const legacyRow = await ctx.db
+        .select({ installationId: devices.installationId, revokedAt: devices.revokedAt })
+        .from(devices)
+        .where(eq(devices.id, legacyId))
+      expect(legacyRow.at(0)?.revokedAt).not.toBeNull()
+      expect(legacyRow.at(0)?.installationId).toBeNull()
+
+      // Inti BUG-2: login sukses DAN sesinya benar-benar lolos autentikasi.
+      await expect(findSessionByToken(ctx, loggedIn.token)).resolves.toMatchObject({
+        deviceId: loggedIn.dto.device.id,
+      })
+    } finally {
+      await tx.release()
+      await racingSql.end({ timeout: 5 })
+    }
+  })
+
+  /**
+   * L2 security review #80: dua login PARALEL dengan `installationId` yang sama bisa sama-sama lolos
+   * SELECT lalu sama-sama INSERT. Unique partial index `uq_devices_user_installation_active` menjaga
+   * invariannya di DB, dan `ON CONFLICT DO NOTHING` membuat yang kalah memakai baris yang menang
+   * (idempoten) - bukan 500.
+   */
+  it('dua login PARALEL dengan installationId sama -> satu baris, tidak ada 500, device sama', async () => {
+    const fixture = scope.fixture({ prefix: 'device-install-parallel' })
+    const ctx = fixture.ctx()
+    const user = await findOrCreateUserByEmail(ctx, fixture.email)
+    const installationId = randomUUID()
+    const device = { name: SAME_NAME, platform: 'web' as const, installationId }
+
+    // Kedua pencarian dijalankan sebelum salah satu INSERT (itu urutan alaminya: keduanya butuh hasil
+    // SELECT-nya dulu), jadi keduanya pasti melihat "belum ada perangkat" - inilah balapan yang dulu
+    // melahirkan dua baris kembar.
+    const [firstId, secondId] = await Promise.all([
+      resolveDeviceForLogin(ctx, user.id, device),
+      resolveDeviceForLogin(ctx, user.id, device),
+    ])
+
+    expect(secondId).toBe(firstId)
+    expect(await countActiveDevices(ctx, user.id)).toBe(1)
+
+    const rows = await ctx.db
+      .select({ id: devices.id, installationId: devices.installationId })
+      .from(devices)
+      .where(eq(devices.userId, user.id))
+    expect(rows).toHaveLength(1)
+    expect(rows[0]?.installationId).toBe(installationId)
   })
 })
