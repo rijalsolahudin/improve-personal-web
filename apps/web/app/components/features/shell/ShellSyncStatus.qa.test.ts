@@ -3,7 +3,12 @@ import { flushPromises, type VueWrapper } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { LocalDataState } from '~/composables/useLocalData'
-import { SYNC_REMOTE_APPLIED_EVENT } from '~/utils/sync/events'
+import { SYNC_REMOTE_APPLIED_EVENT, SYNC_STATE_EVENT } from '~/utils/sync/events'
+import {
+  adoptQuarantineAccount,
+  clearQuarantineForTest,
+  quarantineRecord,
+} from '~/utils/sync/quarantine'
 import { registerSyncReloader, resetSyncReloadersForTest } from '~/utils/sync/refresh'
 
 import ShellSyncStatus from './ShellSyncStatus.vue'
@@ -105,5 +110,67 @@ describe('muat ulang store setelah pull (AC T77)', () => {
     await flushPromises()
 
     expect(reload).not.toHaveBeenCalled()
+  })
+})
+
+/**
+ * Keterangan "N data tidak bisa dibuka" (T78): record yang gagal didekripsi berulang dikarantina
+ * supaya pull bisa jalan lagi. Datanya tetap tersimpan di perangkat - yang hilang hanya tampilannya,
+ * jadi UI menampilkan keterangan terpisah dan TIDAK mengubah arti badge status.
+ */
+describe('keterangan record terkarantina', () => {
+  const USER = '018f2c4e-0000-7000-8000-00000000000a'
+
+  beforeEach(() => {
+    localStorage.clear()
+    clearQuarantineForTest()
+    adoptQuarantineAccount(USER)
+  })
+
+  afterEach(() => {
+    clearQuarantineForTest()
+    localStorage.clear()
+  })
+
+  it('muncul saat ada record yang tidak bisa dibuka, tanpa mengubah arti badge status', async () => {
+    useState<LocalDataState>('localData').value = IDLE_STATE
+    quarantineRecord('018f2c4e-0000-7000-8000-0000000000c1')
+    quarantineRecord('018f2c4e-0000-7000-8000-0000000000c2')
+
+    const wrapper = await mountSuspended(ShellSyncStatus)
+    await flushPromises()
+
+    try {
+      const text = wrapper.text()
+      expect(text).toContain(
+        '2 data tidak bisa dibuka dan tidak ditampilkan, tetapi tetap tersimpan di perangkat ini.',
+      )
+      // Badge statusnya tetap apa adanya (belum terbuka), bukan berubah jadi status karantina.
+      expect(text).toContain('Menunggu status sinkronisasi')
+      // Yang tampil hanya jumlah; id record tidak pernah bocor ke UI.
+      expect(text).not.toContain('018f2c4e-0000-7000-8000-0000000000c1')
+    } finally {
+      wrapper.unmount()
+    }
+  })
+
+  it('hilang setelah karantina dibersihkan', async () => {
+    useState<LocalDataState>('localData').value = IDLE_STATE
+    quarantineRecord('018f2c4e-0000-7000-8000-0000000000c3')
+
+    const wrapper = await mountSuspended(ShellSyncStatus)
+    await flushPromises()
+
+    try {
+      expect(wrapper.text()).toContain('1 data tidak bisa dibuka')
+
+      clearQuarantineForTest()
+      window.dispatchEvent(new Event(SYNC_STATE_EVENT))
+      await flushPromises()
+
+      expect(wrapper.text()).not.toContain('tidak bisa dibuka')
+    } finally {
+      wrapper.unmount()
+    }
   })
 })

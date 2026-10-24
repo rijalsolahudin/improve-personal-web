@@ -85,7 +85,8 @@
       "error": "Gagal sinkron"
     },
     "lastSync": "terakhir {time}",
-    "retry": "Coba lagi"
+    "retry": "Coba lagi",
+    "blocked": "{n} data tidak bisa dibuka dan tidak ditampilkan, tetapi tetap tersimpan di perangkat ini."
   },
   "placeholder": {
     "note": "Halaman ini belum didesain · {code}",

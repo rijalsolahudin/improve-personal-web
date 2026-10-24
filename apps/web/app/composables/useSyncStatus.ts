@@ -1,6 +1,8 @@
 import { readSyncStatus, type StorageAdapter, type SyncStatus } from '@improve-personal/core'
 import type { ComputedRef } from 'vue'
 
+import { quarantinedCount } from '~/utils/sync/quarantine'
+
 /**
  * Status sinkronisasi yang ditampilkan shell (PRD F15 "Status Sync Terlihat").
  *
@@ -29,6 +31,12 @@ export type UseSyncStatusResult = {
   readonly status: ComputedRef<SyncStatus | null>
   readonly pendingCount: ComputedRef<number>
   readonly lastSyncAtMs: ComputedRef<number | null>
+  /**
+   * Jumlah record yang tidak bisa dibuka dan sudah dikarantina (lihat `utils/sync/quarantine.ts`).
+   * Ini BUKAN status sync: data tetap tersimpan di perangkat dan pull berjalan lagi; yang hilang
+   * hanya tampilannya. Karena itu UI menampilkannya sebagai keterangan terpisah.
+   */
+  readonly blockedCount: ComputedRef<number>
   readonly refresh: () => Promise<void>
 }
 
@@ -36,8 +44,13 @@ export function useSyncStatus(source: SyncStatusSource): UseSyncStatusResult {
   const status = ref<SyncStatus | null>(null)
   const pendingCount = ref(0)
   const lastSyncAtMs = ref<number | null>(null)
+  const blockedCount = ref(0)
 
   async function refresh(): Promise<void> {
+    // Dibaca lebih dulu dan tanpa menunggu storage IndexedDB: daftar karantina ada di `localStorage`
+    // perangkat, jadi keterangannya tetap bisa tampil walau penyimpanan akun belum terbuka.
+    blockedCount.value = quarantinedCount()
+
     const storage = source.getStorage()
     if (storage === null) {
       status.value = null
@@ -73,6 +86,7 @@ export function useSyncStatus(source: SyncStatusSource): UseSyncStatusResult {
     status: computed(() => status.value),
     pendingCount: computed(() => pendingCount.value),
     lastSyncAtMs: computed(() => lastSyncAtMs.value),
+    blockedCount: computed(() => blockedCount.value),
     refresh,
   }
 }

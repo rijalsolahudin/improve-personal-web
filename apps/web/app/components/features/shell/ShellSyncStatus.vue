@@ -107,29 +107,45 @@ watch(
 
 <template>
   <div class="sync-wrap">
-    <p
-      class="sync"
-      :class="`sync--${sync.status.value ?? 'unknown'}`"
-      role="status"
-      aria-live="polite"
-      :title="lastSync ?? undefined"
-    >
-      <span class="dot" aria-hidden="true" />
-      <span class="text">{{ label }}</span>
-      <span v-if="lastSync" class="last">{{ lastSync }}</span>
+    <div class="sync-row">
+      <p
+        class="sync"
+        :class="`sync--${sync.status.value ?? 'unknown'}`"
+        role="status"
+        aria-live="polite"
+        :title="lastSync ?? undefined"
+      >
+        <span class="dot" aria-hidden="true" />
+        <span class="text">{{ label }}</span>
+        <span v-if="lastSync" class="last">{{ lastSync }}</span>
+      </p>
+      <button v-if="sync.status.value === 'error'" type="button" class="retry" @click="retry">
+        {{ t('sync.retry') }}
+      </button>
+    </div>
+    <!--
+      Keterangan, bukan status baru: record yang tidak bisa dibuka tetap tersimpan di perangkat dan
+      tidak menghalangi sync lagi. Id record sengaja tidak ditampilkan (tidak berguna bagi user).
+    -->
+    <p v-if="sync.blockedCount.value > 0" class="blocked">
+      {{ t('sync.blocked', { n: sync.blockedCount.value }) }}
     </p>
-    <button v-if="sync.status.value === 'error'" type="button" class="retry" @click="retry">
-      {{ t('sync.retry') }}
-    </button>
   </div>
 </template>
 
 <style scoped>
 .sync-wrap {
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  align-items: flex-start;
   gap: var(--space-4, 0.25rem);
   margin: 0 0 var(--space-6, 0.5rem);
+}
+
+.sync-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4, 0.25rem);
 }
 
 .sync {
@@ -188,5 +204,12 @@ watch(
 .last::before {
   content: '·';
   margin-right: var(--space-3, 0.2rem);
+}
+
+.blocked {
+  margin: 0;
+  color: var(--text-muted, #6b5e4b);
+  font-size: var(--fs-caption, 0.75rem);
+  line-height: 1.4;
 }
 </style>

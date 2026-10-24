@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { LOCAL_WRITE_EVENT, SYNC_REMOTE_APPLIED_EVENT } from './events'
 import { runSync, startSync, stopSync } from './controller'
+import { clearQuarantineForTest, isQuarantined, quarantinedCount } from './quarantine'
 
 import type { LocalDataSession } from '../storage/session'
 
@@ -113,6 +114,7 @@ function within<T>(promise: Promise<T>, label: string): Promise<T> {
 
 afterEach(() => {
   stopSync()
+  clearQuarantineForTest()
   vi.useRealTimers()
   vi.unstubAllGlobals()
 })
@@ -399,5 +401,239 @@ describe('sync controller: pull menerapkan data perangkat lain (AC T77)', () => 
     } finally {
       listener.stop()
     }
+  })
+})
+
+/**
+ * Satu record yang gagal didekripsi tidak boleh menghentikan pull SELAMANYA.
+ *
+ * Aturan yang dijaga ketat: cursor tidak pernah maju di atas record yang belum tentu terbaca, KECUALI
+ * record itu sudah dinyatakan rusak (3 siklus gagal berturut-turut dengan record lain berhasil). Kunci
+ * yang salah tidak pernah dikarantina - itu akan menyembunyikan seluruh data sebagai "satu record
+ * rusak".
+ */
+describe('sync controller: karantina record gagal didekripsi', () => {
+  const BAD_ID = '018f2c4e-0000-7000-8000-0000000000b1'
+  const GOOD_ID = '018f2c4e-0000-7000-8000-0000000000b2'
+
+  /** Payload `todo` yang SAH - harus benar-benar terdekripsi, bukan cuma gagal dengan rapi. */
+  function todoPayload(id: string): string {
+    return JSON.stringify({
+      type: 'todo',
+      schemaVersion: 1,
+      data: {
+        id,
+        title: 'Tugas dari perangkat lain',
+        note: null,
+        deadlineAt: null,
+        priority: 'medium',
+        isDone: false,
+        completedAt: null,
+        scheduleId: null,
+        scheduleOccurrenceAt: null,
+        createdAt: 1_000,
+        updatedAt: 1_000,
+      },
+    })
+  }
+
+  const GOOD_PAYLOAD = todoPayload(GOOD_ID)
+
+  /** Satu halaman berisi record rusak + record sehat, dengan cursor berikutnya tetap. */
+  function page(): {
+    readonly records: readonly {
+      readonly id: string
+      readonly hlc: string
+      readonly deleted: boolean
+      readonly blob: string
+      readonly serverSeq: number
+    }[]
+    readonly nextCursor: number
+  } {
+    return {
+      records: [BAD_ID, GOOD_ID].map((id, index) => ({
+        id,
+        hlc: `${1_000 + index}-0-deviceb`,
+        deleted: false,
+        blob: 'AAAA',
+        serverSeq: index + 1,
+      })),
+      nextCursor: 9,
+    }
+  }
+
+  type PulledWrite = {
+    readonly sealed: { readonly id: string; readonly blob: string }
+    readonly index: unknown
+  }
+
+  it('satu record rusak + record lain sukses: setelah 3 siklus dikarantina dan pull mau maju', async () => {
+    const writes: PulledWrite[] = []
+    const session = fakeSession({
+      openRecord: async ({ recordId }) => {
+        if (recordId === BAD_ID) throw new Error('blob rusak')
+        return GOOD_PAYLOAD
+      },
+      onWrite: (write) => writes.push(write as PulledWrite),
+    })
+    const http = httpOf({
+      getJson: vi.fn(async () => page()) as unknown as HttpClient['getJson'],
+    })
+
+    startSync(session, 'https://app.test', { http, autoStart: false })
+
+    // Dua siklus pertama: belum cukup bukti, pull berhenti dan TIDAK menulis apa pun.
+    for (let cycle = 0; cycle < 2; cycle += 1) {
+      const outcome = await runSync({ pull: true })
+
+      expect(outcome).toMatchObject({ pulled: 0, status: 'error' })
+      await expect(session.storage.getSyncState()).resolves.toMatchObject({
+        cursor: 0,
+        status: 'error',
+      })
+      expect(writes).toEqual([])
+      expect(isQuarantined(BAD_ID)).toBe(false)
+    }
+
+    // Siklus ketiga: record dinyatakan rusak, lalu siklus susulan langsung dijalankan.
+    await runSync({ pull: true })
+
+    await vi.waitFor(async () => {
+      await expect(session.storage.getSyncState()).resolves.toMatchObject({
+        cursor: 9,
+        status: 'synced',
+      })
+    })
+
+    expect(isQuarantined(BAD_ID)).toBe(true)
+    expect(quarantinedCount()).toBe(1)
+
+    // Blob record rusak TETAP ditulis (tidak ada data yang dibuang), index lamanya tidak disentuh.
+    const bad = writes.find((write) => write.sealed.id === BAD_ID)
+    expect(bad?.sealed.blob).toBe('AAAA')
+    expect(bad?.index).toBe('keep')
+
+    const good = writes.find((write) => write.sealed.id === GOOD_ID)
+    expect(good).toBeDefined()
+    expect(good?.index).not.toBe('keep')
+  })
+
+  it('SEMUA record gagal (kunci salah): tanpa karantina, status error, cursor tetap', async () => {
+    const writes: unknown[] = []
+    const session = fakeSession({
+      openRecord: async () => {
+        throw new Error('kunci tidak cocok')
+      },
+      onWrite: (write) => writes.push(write),
+    })
+    const http = httpOf({
+      getJson: vi.fn(async () => page()) as unknown as HttpClient['getJson'],
+    })
+
+    startSync(session, 'https://app.test', { http, autoStart: false })
+
+    // Lebih dari ambang karantina: kalau penghitung jalan tanpa melihat record yang sukses, record ini
+    // akan salah dinyatakan rusak dan pull melewati data yang cuma tidak terbaca karena kunci salah.
+    for (let cycle = 0; cycle < 4; cycle += 1) {
+      const outcome = await runSync({ pull: true })
+
+      expect(outcome).toMatchObject({ pulled: 0, status: 'error' })
+      await expect(session.storage.getSyncState()).resolves.toMatchObject({
+        cursor: 0,
+        status: 'error',
+      })
+    }
+
+    expect(writes).toEqual([])
+    expect(quarantinedCount()).toBe(0)
+    expect(isQuarantined(BAD_ID)).toBe(false)
+    expect(isQuarantined(GOOD_ID)).toBe(false)
+  })
+
+  it('record berhasil setelah gagal: penghitung berturut-turut direset', async () => {
+    let badShouldFail = true
+    const session = fakeSession({
+      openRecord: async ({ recordId }) => {
+        if (recordId === BAD_ID && badShouldFail) throw new Error('blob rusak')
+        return GOOD_PAYLOAD
+      },
+    })
+    const http = httpOf({
+      getJson: vi.fn(async () => page()) as unknown as HttpClient['getJson'],
+    })
+
+    startSync(session, 'https://app.test', { http, autoStart: false })
+
+    // Gagal #1.
+    await runSync({ pull: true })
+    expect(isQuarantined(BAD_ID)).toBe(false)
+
+    // Berhasil: rangkaian putus, jadi kegagalan berikutnya mulai dari nol lagi.
+    badShouldFail = false
+    await runSync({ pull: true })
+    expect(isQuarantined(BAD_ID)).toBe(false)
+
+    // Gagal #1 dan #2 SETELAH reset. Kalau penghitung lama tidak direset, ini sudah cukup untuk
+    // mengarantina.
+    badShouldFail = true
+    await runSync({ pull: true })
+    await runSync({ pull: true })
+    expect(isQuarantined(BAD_ID)).toBe(false)
+
+    // Gagal #3 berturut-turut setelah reset.
+    await runSync({ pull: true })
+    expect(isQuarantined(BAD_ID)).toBe(true)
+  })
+
+  it('ganti sesi: karantina & penghitung akun lama tidak bocor ke akun berikutnya', async () => {
+    function failingSession(userId: string, attempts: string[]): LocalDataSession {
+      return fakeSession({
+        userId,
+        openRecord: async ({ recordId }) => {
+          attempts.push(recordId)
+          if (recordId === BAD_ID) throw new Error('blob rusak')
+          return GOOD_PAYLOAD
+        },
+      })
+    }
+
+    const attemptsOnA: string[] = []
+    const sessionA = failingSession(USER_A, attemptsOnA)
+    const httpA = httpOf({
+      getJson: vi.fn(async () => page()) as unknown as HttpClient['getJson'],
+    })
+
+    startSync(sessionA, 'https://app.test', {
+      http: httpA,
+      autoStart: false,
+    })
+
+    for (let cycle = 0; cycle < 3; cycle += 1) await runSync({ pull: true })
+    expect(isQuarantined(BAD_ID)).toBe(true)
+    expect(quarantinedCount()).toBe(1)
+
+    // Tunggu siklus susulan akun A selesai supaya pergantian sesi terjadi di titik yang pasti.
+    await vi.waitFor(async () => {
+      await expect(sessionA.storage.getSyncState()).resolves.toMatchObject({ cursor: 9 })
+    })
+
+    // Akun B menerima record dengan id YANG SAMA. Kalau daftar/penghitung akun A bocor, record ini
+    // dilewati tanpa dicoba atau langsung dikarantina pada siklus pertama.
+    const attemptsOnB: string[] = []
+    const httpB = httpOf({
+      getJson: vi.fn(async () => page()) as unknown as HttpClient['getJson'],
+    })
+
+    startSync(failingSession(USER_B, attemptsOnB), 'https://app.test', {
+      http: httpB,
+      autoStart: false,
+    })
+
+    const outcome = await runSync({ pull: true })
+
+    expect(attemptsOnB).toContain(BAD_ID)
+    expect(outcome).toMatchObject({ pulled: 0, status: 'error' })
+    expect(isQuarantined(BAD_ID)).toBe(false)
+    expect(quarantinedCount()).toBe(0)
   })
 })

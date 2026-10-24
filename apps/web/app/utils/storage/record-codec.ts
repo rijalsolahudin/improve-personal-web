@@ -52,11 +52,18 @@ export type DecodeOptions = {
  * - isi tidak dikenal = satu record saja yang tidak bisa di-index; record lain tetap boleh masuk.
  *
  * Pesannya sengaja tidak memuat blob/kunci: hanya id record (`shared-security.md`).
+ *
+ * `recordId` ikut dibawa sebagai properti (bukan cuma di pesan) karena pemanggil sync butuh id yang
+ * PASTI untuk menghitung kegagalan berturut-turut per record dan mengarantinanya. Pesan error manusia
+ * tidak boleh dipakai sebagai kunci data.
  */
 export class RecordKeyError extends Error {
-  constructor(message: string, options?: { cause?: unknown }) {
+  readonly recordId: string
+
+  constructor(recordId: string, message: string, options?: { cause?: unknown }) {
     super(message, options)
     this.name = 'RecordKeyError'
+    this.recordId = recordId
   }
 }
 
@@ -147,6 +154,7 @@ async function openPlaintext(
     return await provider.openRecord({ recordId: stored.id, dataKey, blob: stored.blob })
   } catch (error) {
     throw new RecordKeyError(
+      stored.id,
       `record ${stored.id} tidak bisa dibuka: kunci data tidak cocok atau isinya rusak`,
       { cause: error },
     )

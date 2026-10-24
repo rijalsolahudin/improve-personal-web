@@ -14,6 +14,7 @@ import { RECORD_INDEX_KEEP, type RecordIndexDecision } from '../storage/index-de
 import { indexEntryForRecord } from '../io/index-entry'
 import { createSyncHttpClient } from './client'
 import { LOCAL_WRITE_EVENT, notifyRemoteApplied, notifySyncState } from './events'
+import { adoptQuarantineAccount, isQuarantined, quarantineRecord } from './quarantine'
 
 /**
  * Pengendali sync di sisi web: kapan push/pull dijalankan, dan bagaimana kegagalannya terlihat.
@@ -33,11 +34,26 @@ import { LOCAL_WRITE_EVENT, notifyRemoteApplied, notifySyncState } from './event
  * Satu proses sync pada satu waktu. Pemicu yang datang saat proses berjalan tidak memulai proses
  * kedua; mereka menandai `pendingRun` supaya siklus berikutnya menyusul. Tanpa itu, dua push
  * bersamaan bisa mengirim batch yang sama dan dua pull bisa saling menimpa cursor.
+ *
+ * Record hasil pull yang gagal didekripsi TIDAK pernah dilewati diam-diam: pull berhenti sebelum
+ * cursor maju. Satu-satunya pengecualian adalah record yang sudah terbukti rusak - tiga siklus gagal
+ * berturut-turut sementara record lain di siklus yang sama berhasil dibuka. Record itu dikarantina
+ * (`./quarantine.ts`), lalu siklus berikutnya memakai index `RECORD_INDEX_KEEP` sehingga pull bisa
+ * maju tanpa menghapus index lama dan tanpa kehilangan blob. Kunci yang salah membuat SEMUA record
+ * gagal; itu bukan "record rusak" dan tidak pernah dikarantina.
  */
 
 const FOREGROUND_INTERVAL_MS = 5 * 60 * 1_000
 /** Pagar anti-loop kalau outbox terus bertambah saat sync berjalan. */
 const MAX_PUSH_BATCHES = 100
+
+/**
+ * Berapa siklus pull BERTURUT-TURUT satu record boleh gagal dibuka sebelum dinyatakan rusak.
+ *
+ * Tiga cukup untuk membedakannya dari kegagalan sesaat (kunci baru dipulihkan di tengah, storage
+ * sedang sibuk) tanpa membuat user menunggu 5 menit x 3 sebelum datanya bisa masuk.
+ */
+const QUARANTINE_AFTER_KEY_FAILURES = 3
 
 export type SyncOutcome = {
   readonly pushed: number
@@ -77,6 +93,31 @@ let inFlight: InFlight | null = null
 let pendingPull = false
 let pendingRun = false
 
+/**
+ * Kegagalan kunci BERTURUT-TURUT per id record, lintas siklus pull.
+ *
+ * Module-level (bukan per `execute`) karena bukti "record ini rusak" butuh tiga siklus. Direset saat
+ * sesi baru dipasang (`startSync`) dan saat record yang sama berhasil dibuka lagi - kalau tidak,
+ * kegagalan lama akan ikut menghukum pemulihan kunci yang berhasil.
+ */
+const consecutiveKeyFailures = new Map<string, number>()
+
+/** Apa yang diketahui satu siklus pull tentang record yang gagal dibuka. */
+type PullKeyFailures = {
+  /** Berapa record di siklus ini yang BERHASIL didekripsi. */
+  decoded: number
+  /** Record yang gagal dibuka, beserta error aslinya (id = kunci peta). */
+  readonly failures: Map<string, RecordKeyError>
+  /** Keputusan sudah diambil; mencegah penghitung naik dua kali kalau transaksi diulang adapter. */
+  abortedWith: RecordKeyError | null
+  /** Karantina baru terjadi di siklus ini, jadi status `error` tidak boleh ditinggalkan. */
+  quarantined: boolean
+}
+
+function newPullKeyFailures(): PullKeyFailures {
+  return { decoded: 0, failures: new Map(), abortedWith: null, quarantined: false }
+}
+
 /** Mulai (atau ganti) pengendali untuk sesi data lokal yang sudah terbuka. */
 export function startSync(
   session: LocalDataSession,
@@ -88,6 +129,11 @@ export function startSync(
   generationCounter += 1
   const generation = generationCounter
   const abort = new AbortController()
+
+  // Bukti "record rusak" dan daftar karantina terikat ke AKUN yang membuka data: akun berikutnya
+  // tidak boleh mewarisi penghitung (bisa langsung mengarantina record pertamanya) atau id akun lama.
+  consecutiveKeyFailures.clear()
+  adoptQuarantineAccount(session.userId)
 
   // Client bawaan selalu membawa identitas pemilik sesi. `http` yang disuntik (test/tool) memikul
   // tanggung jawab yang sama, tetapi tidak dipaksa di sini supaya controller tetap bisa diuji tanpa
@@ -229,6 +275,8 @@ async function execute(current: ActiveSync): Promise<SyncOutcome | null> {
 
   let pushed = 0
   let pulled = 0
+  /** Diisi selama pull; dipakai `catch` untuk tahu apakah karantina baru saja terjadi. */
+  const keyFailures = newPullKeyFailures()
 
   try {
     // Push berulang: satu panggilan hanya mengirim maksimal satu batch. Import besar bisa
@@ -261,13 +309,13 @@ async function execute(current: ActiveSync): Promise<SyncOutcome | null> {
 
     if (shouldPull && navigator.onLine) {
       const summary = await pullDelta({
-        storage: mySession.storage,
+        storage: guardPullMerge(mySession.storage, keyFailures),
         http,
         url: `${baseUrl}/v1/sync/pull`,
         nowMs: nowMs(),
         hlc: mySession.hlc,
         signal: abort.signal,
-        indexFor: (remote) => buildIndex(mySession, remote),
+        indexFor: (remote) => buildIndex(mySession, remote, keyFailures),
       })
 
       if (isStale()) return null
@@ -287,6 +335,22 @@ async function execute(current: ActiveSync): Promise<SyncOutcome | null> {
     return { pushed, pulled, status }
   } catch {
     if (isStale()) return null
+
+    // Karantina baru = siklus ini "gagal" hanya karena record yang sudah dinyatakan rusak belum
+    // dilewati. Jangan tinggalkan status `error` (user tidak punya aksi yang bisa memperbaikinya) dan
+    // jadwalkan SATU siklus susulan lewat mekanisme `pendingRun` yang sudah ada: siklus itu memakai
+    // `RECORD_INDEX_KEEP` untuk record karantina, jadi pull bisa maju sekarang - bukan 5 menit lagi.
+    if (keyFailures.quarantined) {
+      pendingRun = true
+      pendingPull = true
+
+      const status = await readSyncStatus({
+        storage: mySession.storage,
+        online: navigator.onLine,
+      }).catch(() => 'error' as const)
+
+      return { pushed, pulled, status }
+    }
 
     // Kegagalan yang tidak ditangani core (mis. `RecordKeyError`: kunci tidak bisa membuka record,
     // atau adapter storage gagal) berarti siklus berhenti di TENGAH. Statusnya ditandai `error`
@@ -319,12 +383,18 @@ async function markError(storage: StorageAdapter): Promise<SyncStatus> {
  * Tipe dan rentang ada DI DALAM blob, jadi harus didekripsi dulu. Dua kelas kegagalan diperlakukan
  * berbeda - dan bedanya menjaga data:
  *
- * - **Kunci/kripto gagal (`RecordKeyError`)**: TIDAK ADA record di halaman itu yang bisa dibaca dengan
- *   kunci ini. Pull dihentikan (cursor tidak maju di atas data yang tidak bisa dibuka) dan error
- *   dilaporkan ke status. Melempar di sini memang tujuannya.
+ * - **Kunci/kripto gagal (`RecordKeyError`)**: dicatat di `keyFailures` lalu `'keep'` dikembalikan
+ *   BUKAN dilempar. Core perlu terus mendekripsi record lain di halaman yang sama supaya kita bisa
+ *   membedakan "kunci salah" (semua gagal) dari "satu record rusak" (yang lain berhasil). Keputusan
+ *   dan penghentian pull terjadi sebelum halaman ditulis - lihat `decidePullKeyFailures`. Kalau
+ *   `'keep'` dibiarkan lolos sampai transaksi, cursor akan maju di atas record yang belum tentu
+ *   terbaca; itu yang dilarang.
  * - **Payload/skema tidak dikenal**: hanya index record itu yang tidak bisa dibangun. Record tetap
  *   disimpan dan baris index lama DIBIARKAN (`'keep'`) - `null` akan MENGHAPUS-nya dan membuat record
  *   hilang dari UI/export selamanya.
+ *
+ * Record yang sudah dikarantina tidak dicoba dibuka lagi: kegagalannya deterministik, dan mencoba
+ * ulang tiap siklus berarti pull berhenti selamanya.
  */
 async function buildIndex(
   session: LocalDataSession,
@@ -334,7 +404,10 @@ async function buildIndex(
     readonly deleted: boolean
     readonly blob: string
   },
+  keyFailures: PullKeyFailures,
 ): Promise<RecordIndexDecision> {
+  if (isQuarantined(remote.id)) return RECORD_INDEX_KEEP
+
   const now = session.clock.nowMs()
 
   let record
@@ -345,10 +418,83 @@ async function buildIndex(
       updatedAtMs: now,
     })
   } catch (error) {
-    if (error instanceof RecordKeyError) throw error
+    if (!(error instanceof RecordKeyError)) return RECORD_INDEX_KEEP
 
+    keyFailures.failures.set(error.recordId, error)
     return RECORD_INDEX_KEEP
   }
 
+  keyFailures.decoded += 1
+  // Record yang sama berhasil dibuka = rangkaian kegagalannya putus. Tanpa ini, "3 kali gagal" berarti
+  // "3 kali seumur hidup", bukan berturut-turut.
+  consecutiveKeyFailures.delete(remote.id)
+
   return indexEntryForRecord(record, now)
+}
+
+/**
+ * Bungkus storage untuk satu siklus pull: tolak transaksi merge kalau masih ada record yang gagal
+ * dibuka dan belum dinyatakan rusak.
+ *
+ * Kenapa di transaksi, bukan langsung di `indexFor`: keputusan "kunci salah vs satu record rusak"
+ * butuh hasil dekripsi SELURUH halaman. Melempar di record pertama membuat record lain tidak pernah
+ * dicoba, sehingga kunci yang salah dan record rusak terlihat sama. Merge adalah titik terakhir sebelum
+ * record ditulis dan cursor maju - di situlah penolakan harus terjadi.
+ */
+function guardPullMerge(storage: StorageAdapter, keyFailures: PullKeyFailures): StorageAdapter {
+  const guarded: StorageAdapter = {
+    ...storage,
+    runTransaction: (label, fn) => {
+      const abort = label === 'sync.pull.merge' ? decidePullKeyFailures(keyFailures) : null
+      if (abort !== null) return Promise.reject(abort)
+
+      return storage.runTransaction(label, fn)
+    },
+  }
+
+  return guarded
+}
+
+/**
+ * Putuskan apa arti kegagalan kunci di satu siklus pull, lalu kembalikan error untuk membatalkan merge.
+ *
+ * Aturannya:
+ * - **Tidak ada satu pun record yang berhasil dibuka** = masalah kunci/sesi, bukan record rusak.
+ *   Pull berhenti, `status = 'error'`, tidak ada karantina. Mengarantina di sini akan menyembunyikan
+ *   kunci yang salah sebagai "data rusak" dan membiarkan pull melewati SEMUA data yang tak terbaca.
+ * - **Ada record lain yang berhasil** = record yang gagal memang rusak. Penghitungnya naik; setelah
+ *   `QUARANTINE_AFTER_KEY_FAILURES` siklus berturut-turut record itu dikarantina supaya siklus
+ *   berikutnya bisa maju dengan index `'keep'`.
+ */
+function decidePullKeyFailures(keyFailures: PullKeyFailures): RecordKeyError | null {
+  if (keyFailures.failures.size === 0) return null
+  if (keyFailures.abortedWith !== null) return keyFailures.abortedWith
+
+  const firstFailure = keyFailures.failures.values().next().value
+  if (firstFailure === undefined) return null
+
+  if (keyFailures.decoded === 0) {
+    keyFailures.abortedWith = firstFailure
+    return firstFailure
+  }
+
+  for (const recordId of keyFailures.failures.keys()) {
+    const failures = (consecutiveKeyFailures.get(recordId) ?? 0) + 1
+
+    if (failures < QUARANTINE_AFTER_KEY_FAILURES) {
+      consecutiveKeyFailures.set(recordId, failures)
+      continue
+    }
+
+    quarantineRecord(recordId)
+    consecutiveKeyFailures.delete(recordId)
+
+    // Storage bisa menolak tulisan (mode privat/penuh). Jangan menjanjikan pemulihan yang tidak
+    // terjadi: kalau karantina tidak benar-benar berlaku, siklus berikutnya tetap akan gagal dan
+    // status `error` memang jawaban yang jujur.
+    if (isQuarantined(recordId)) keyFailures.quarantined = true
+  }
+
+  keyFailures.abortedWith = firstFailure
+  return firstFailure
 }

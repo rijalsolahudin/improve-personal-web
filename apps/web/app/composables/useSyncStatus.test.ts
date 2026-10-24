@@ -5,10 +5,15 @@ import {
   pointIndex,
   type StorageAdapter,
 } from '@improve-personal/core'
-import { describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
+import {
+  adoptQuarantineAccount,
+  clearQuarantineForTest,
+  quarantineRecord,
+} from '~/utils/sync/quarantine'
 
 import { useSyncStatus } from './useSyncStatus'
-
 /**
  * Indikator status sync: nilainya HARUS berasal dari `readSyncStatus` core (outbox + keadaan jaringan),
  * bukan kesimpulan komponen. Test ini memakai adapter memori - implementasi `StorageAdapter` yang sama
@@ -109,5 +114,75 @@ describe('status sinkronisasi', () => {
     await sync.refresh()
 
     expect(sync.lastSyncAtMs.value).toBe(NOW)
+  })
+})
+
+/**
+ * Record yang tidak bisa dibuka tetap tersimpan di perangkat; yang hilang hanya tampilannya. Karena itu
+ * jumlahnya muncul sebagai keterangan terpisah dan TIDAK mengubah arti `status` (yang tetap berasal
+ * dari outbox + jaringan).
+ */
+describe('record terkarantina', () => {
+  const USER = '018f2c4e-0000-7000-8000-00000000000a'
+
+  /** Node tidak punya `localStorage`; composable ini hanya membacanya, jadi stub tipis cukup. */
+  function fakeLocalStorage(): Storage {
+    const values = new Map<string, string>()
+
+    return {
+      get length() {
+        return values.size
+      },
+      clear: () => values.clear(),
+      getItem: (key: string) => values.get(key) ?? null,
+      key: (index: number) => [...values.keys()][index] ?? null,
+      removeItem: (key: string) => {
+        values.delete(key)
+      },
+      setItem: (key: string, value: string) => {
+        values.set(key, value)
+      },
+    } as Storage
+  }
+
+  beforeEach(() => {
+    vi.stubGlobal('localStorage', fakeLocalStorage())
+    clearQuarantineForTest()
+    adoptQuarantineAccount(USER)
+  })
+
+  afterEach(() => {
+    clearQuarantineForTest()
+    vi.unstubAllGlobals()
+  })
+
+  it('jumlahnya ikut hasil refresh dan kembali nol setelah karantina dibersihkan', async () => {
+    const sync = read(storage(), true)
+
+    await sync.refresh()
+    expect(sync.blockedCount.value).toBe(0)
+    expect(sync.status.value).toBe('synced')
+
+    quarantineRecord('018f2c4e-0000-7000-8000-0000000000c1')
+    quarantineRecord('018f2c4e-0000-7000-8000-0000000000c2')
+
+    await sync.refresh()
+    expect(sync.blockedCount.value).toBe(2)
+    // Keterangan ini bukan status baru: data lain tetap tersinkron.
+    expect(sync.status.value).toBe('synced')
+
+    clearQuarantineForTest()
+    await sync.refresh()
+    expect(sync.blockedCount.value).toBe(0)
+  })
+
+  it('tetap melaporkan jumlahnya saat penyimpanan lokal belum terbuka', async () => {
+    quarantineRecord('018f2c4e-0000-7000-8000-0000000000c3')
+    const sync = read(null, true)
+
+    await sync.refresh()
+
+    expect(sync.status.value).toBeNull()
+    expect(sync.blockedCount.value).toBe(1)
   })
 })
