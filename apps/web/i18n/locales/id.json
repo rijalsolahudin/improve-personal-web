@@ -86,7 +86,8 @@
     },
     "lastSync": "terakhir {time}",
     "retry": "Coba lagi",
-    "blocked": "{n} data tidak bisa dibuka dan tidak ditampilkan, tetapi tetap tersimpan di perangkat ini."
+    "blocked": "{n} data tidak bisa dibuka dan tidak ditampilkan, tetapi tetap tersimpan di perangkat ini.",
+    "blockedRetry": "Coba buka ulang"
   },
   "placeholder": {
     "note": "Halaman ini belum didesain · {code}",

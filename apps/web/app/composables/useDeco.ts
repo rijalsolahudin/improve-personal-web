@@ -16,7 +16,7 @@ export const STICKER_RECENT_STORAGE_KEY = 'ip-stk-recent'
 
 /**
  * Hiasan halaman TIDAK record-backed: semuanya di `localStorage`, bukan record `decoration` yang ikut
- * sync. Karena itu tidak ada `reload()` di sini dan `deco` sengaja tidak didaftarkan ke registry
+ * sync. Karena itu tidak ada `reload()` di sini dan tidak ada kunci `deco` di registry
  * `utils/sync/refresh.ts` - pull tidak mengubah apa pun yang dibaca komposabel ini.
  */
 

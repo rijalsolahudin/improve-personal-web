@@ -326,6 +326,31 @@ async function putRecordRow(tx: WriteTx, write: RecordWrite, clock: Clock): Prom
   })
 }
 
+/**
+ * Bangun ulang satu baris `record_index` (`TransactionContext.putRecordIndex`).
+ *
+ * Hanya menyentuh `record_index`: `record`/`sync_outbox`/`sync_state` tidak ikut ditulis, karena
+ * index yang belum terbangun bukan perubahan data dan server tidak butuh kabar apa pun. Cek
+ * keberadaan record memakai `count` (bukan `get`) - transaksi ini tidak butuh isinya, dan id yang
+ * tidak ada tidak boleh meninggalkan baris index yatim.
+ */
+async function putRecordIndexRow(
+  tx: WriteTx,
+  recordId: string,
+  index: RecordIndexEntry | null,
+): Promise<void> {
+  const records = tx.objectStore(STORAGE_TABLES.record)
+  if ((await records.count(recordId)) === 0) return
+
+  const indexes = tx.objectStore(STORAGE_TABLES.recordIndex)
+  if (index === null) {
+    await indexes.delete(recordId)
+    return
+  }
+
+  await indexes.put({ ...index, recordId })
+}
+
 async function patchSyncStateRow(tx: WriteTx, patch: SyncStatePatch): Promise<void> {
   const store = tx.objectStore(STORAGE_TABLES.syncState)
   const current = await store.get(CURRENT_STATE_KEY)
@@ -381,6 +406,8 @@ export function createIndexedDbStorage(options: IndexedDbStorageOptions): Storag
         const context: TransactionContext = {
           label,
           putRecord: (write: RecordWrite) => putRecordRow(tx, write, options.clock),
+          putRecordIndex: (recordId: string, index: RecordIndexEntry | null) =>
+            putRecordIndexRow(tx, recordId, index),
           deleteOutboxRows: async (outboxIds: readonly string[]) => {
             const store = tx.objectStore(STORAGE_TABLES.syncOutbox)
             for (const id of outboxIds) await store.delete(id)

@@ -1,3 +1,5 @@
+import { getCurrentScope, onScopeDispose } from 'vue'
+
 /**
  * Registry "muat ulang store setelah pull".
  *
@@ -25,12 +27,10 @@ export type SyncReloadKey =
   | 'memos'
   | 'pomodoro'
   | 'appearance'
-  | 'deco'
 
 /**
- * `deco` sengaja ada di daftar walau tidak ada yang mendaftarkannya: hiasan halaman disimpan di
- * `localStorage` (bukan record `decoration`), jadi muat ulang setelah pull tidak berlaku untuknya.
- * Kuncinya dipertahankan supaya urutan antar store tetap satu daftar yang bisa dibaca.
+ * Urutan muat ulang. Hiasan halaman (`useDeco`) sengaja TIDAK ada di sini: itemnya disimpan di
+ * `localStorage`, bukan record synced, jadi tidak ada yang perlu dibaca ulang setelah pull.
  */
 export const RELOAD_ORDER: readonly SyncReloadKey[] = [
   'goalLinks',
@@ -42,7 +42,6 @@ export const RELOAD_ORDER: readonly SyncReloadKey[] = [
   'memos',
   'pomodoro',
   'appearance',
-  'deco',
 ]
 
 const reloaders = new Map<SyncReloadKey, () => Promise<void>>()
@@ -99,6 +98,16 @@ export function registerSyncReloader(key: SyncReloadKey, reload: () => Promise<v
   // request di modul bersama justru bisa membocorkan `useState` request itu ke request lain.
   if (typeof window === 'undefined') return
   reloaders.set(key, reload)
+
+  // Lepas saat komponen pemiliknya unmount: tanpa ini, store yang hanya dipakai halaman lama terus
+  // dibaca ulang setiap pull. Hanya melepas kalau entri itu MASIH milik closure ini - pemanggil
+  // `useX()` yang lebih baru (halaman lain yang masih terbuka) sudah menimpa entri dengan closure
+  // setara dan tidak boleh ikut dicabut.
+  const scope = getCurrentScope()
+  if (scope === undefined) return
+  onScopeDispose(() => {
+    if (reloaders.get(key) === reload) reloaders.delete(key)
+  })
 }
 
 /**

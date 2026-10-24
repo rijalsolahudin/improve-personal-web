@@ -47,12 +47,82 @@ const lastSync = computed(() =>
 )
 
 let timer: ReturnType<typeof setInterval> | null = null
+/** Sekali per mount: `refresh()` dipanggil berkali-kali (event sync, interval, visibility). */
+let autoReindexDone = false
 
 /** Ambil penyimpanan akun yang memang sudah terbuka, lalu baca status dari sana. */
-function refresh(): void {
+async function refresh(): Promise<void> {
   isOnline.value = navigator.onLine
   storage.value = localData.current()?.storage ?? null
-  void sync.refresh()
+  await sync.refresh()
+
+  // Dibaca SESUDAH status: gerbangnya `blockedCount`, yang baru terisi oleh `sync.refresh()`.
+  void autoReindexQuarantined()
+}
+
+/**
+ * Percobaan ulang OTOMATIS untuk record yang karantinanya sudah kedaluwarsa.
+ *
+ * Hanya entri "due" (`dueOnly: true`): record yang masih baru sengaja tidak disentuh, karena
+ * kegagalannya belum tentu berubah sebab. Sekali per mount - penanda `autoReindexDone` mencegah
+ * `refresh()` berikutnya (event sync, interval 60 detik, visibility) mengulang pekerjaan yang sama.
+ *
+ * Tidak memblokir render: dipanggil sebagai efek samping `refresh()`, hasilnya hanya dipakai untuk
+ * menyegarkan angka karantina. `reindexQuarantined()` sendiri tidak memicu event yang memanggil
+ * dirinya lagi, jadi tidak ada putaran.
+ */
+async function autoReindexQuarantined(): Promise<void> {
+  if (autoReindexDone) return
+  if (sync.blockedCount.value === 0) return
+
+  // Sesi belum terbuka (idle/locked): biarkan `watch` status `ready` yang memicunya nanti.
+  const session = localData.current()
+  if (session === null) return
+
+  autoReindexDone = true
+
+  try {
+    const { reindexQuarantined } = await import('~/utils/sync/reindex')
+    const { recovered } = await reindexQuarantined(session, { dueOnly: true })
+    if (recovered > 0) await refresh()
+  } catch {
+    // Percobaan otomatis yang gagal (mis. cuplikan modul tidak termuat) tidak boleh merusak indikator:
+    // karantina tetap ada, dan jalan manual "Coba buka ulang" masih tersedia.
+  }
+}
+
+async function requestCycle(): Promise<void> {
+  // Controller dimuat malas: indikator status tampil di setiap halaman shell, sedangkan kode sync
+  // hanya dibutuhkan setelah user menekan tombol.
+  const { requestSyncNow } = await import('~/utils/sync/controller')
+  requestSyncNow()
+}
+
+async function retry(): Promise<void> {
+  await requestCycle()
+}
+
+/**
+ * "Coba buka ulang" untuk record terkarantina.
+ *
+ * Yang dibangun ulang adalah `record_index` dari blob LOKAL (`utils/sync/reindex.ts`), bukan dengan
+ * meminta server mengirim ulang: record itu sudah tersimpan di perangkat dengan index `keep`, dan
+ * cursor pull sudah melewatinya. Index lama tidak dihapus untuk record yang tetap tidak bisa dibuka.
+ *
+ * Tidak ada dialog konfirmasi: operasi ini tidak menghapus data apa pun (blob tetap tersimpan). Paling
+ * buruk record kembali terkarantina. Siklus sync tetap diminta sesudahnya - record lain mungkin
+ * menunggu terkirim/tertarik.
+ */
+async function reopenQuarantined(): Promise<void> {
+  const session = localData.current()
+
+  if (session !== null) {
+    const { reindexQuarantined } = await import('~/utils/sync/reindex')
+    await reindexQuarantined(session, { dueOnly: false })
+  }
+
+  await refresh()
+  await requestCycle()
 }
 
 function onVisibility(): void {
@@ -73,25 +143,29 @@ function onRemoteApplied(): void {
   void runSyncReloaders({ fromWindowEvent: true })
 }
 
-async function retry(): Promise<void> {
-  const { requestSyncNow } = await import('~/utils/sync/controller')
-  requestSyncNow()
+/** Jaringan berubah / siklus sync selesai: status dan angka karantina dibaca ulang. */
+function onSyncState(): void {
+  void refresh()
+}
+
+function onConnectivityChange(): void {
+  void refresh()
 }
 
 onMounted(() => {
-  refresh()
-  window.addEventListener('online', refresh)
-  window.addEventListener('offline', refresh)
-  window.addEventListener(SYNC_STATE_EVENT, refresh)
+  void refresh()
+  window.addEventListener('online', onConnectivityChange)
+  window.addEventListener('offline', onConnectivityChange)
+  window.addEventListener(SYNC_STATE_EVENT, onSyncState)
   window.addEventListener(SYNC_REMOTE_APPLIED_EVENT, onRemoteApplied)
   document.addEventListener('visibilitychange', onVisibility)
-  timer = setInterval(refresh, SYNC_REFRESH_MS)
+  timer = setInterval(onSyncState, SYNC_REFRESH_MS)
 })
 
 onBeforeUnmount(() => {
-  window.removeEventListener('online', refresh)
-  window.removeEventListener('offline', refresh)
-  window.removeEventListener(SYNC_STATE_EVENT, refresh)
+  window.removeEventListener('online', onConnectivityChange)
+  window.removeEventListener('offline', onConnectivityChange)
+  window.removeEventListener(SYNC_STATE_EVENT, onSyncState)
   window.removeEventListener(SYNC_REMOTE_APPLIED_EVENT, onRemoteApplied)
   document.removeEventListener('visibilitychange', onVisibility)
   if (timer !== null) clearInterval(timer)
@@ -101,7 +175,7 @@ onBeforeUnmount(() => {
 watch(
   () => localData.state.value.status,
   (status) => {
-    if (status === 'ready') refresh()
+    if (status === 'ready') void refresh()
   },
 )
 </script>
@@ -127,9 +201,15 @@ watch(
     <!--
       Keterangan, bukan status baru: record yang tidak bisa dibuka tetap tersimpan di perangkat dan
       tidak menghalangi sync lagi. Id record sengaja tidak ditampilkan (tidak berguna bagi user).
+
+      Tombol tetap tampil walau badge `synced`: karantina tidak mengubah status sync, tetapi user
+      butuh jalan untuk memaksa record dicoba lagi (mis. setelah kunci dipulihkan).
     -->
     <p v-if="sync.blockedCount.value > 0" class="blocked">
       {{ t('sync.blocked', { n: sync.blockedCount.value }) }}
+      <button type="button" class="retry blocked-retry" @click="reopenQuarantined">
+        {{ t('sync.blockedRetry') }}
+      </button>
     </p>
   </div>
 </template>
@@ -212,5 +292,10 @@ watch(
   color: var(--text-muted, #6b5e4b);
   font-size: var(--fs-caption, 0.75rem);
   line-height: 1.4;
+}
+
+.blocked-retry {
+  margin-inline-start: var(--space-4, 0.25rem);
+  vertical-align: baseline;
 }
 </style>

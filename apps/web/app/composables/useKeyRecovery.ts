@@ -18,6 +18,7 @@ import {
   isWebAuthnAvailable,
 } from '~/utils/crypto/webauthn'
 import { keyDatabaseName } from '~/utils/storage/database-names'
+import type { LocalDataSession } from '~/utils/storage/session'
 
 /** Kunci pesan di `account.unlock.errors.*`: UI tidak pernah menampilkan pesan mentah dari kripto/server. */
 export type KeyRecoveryError =
@@ -63,9 +64,47 @@ export function useKeyRecovery() {
   }
 
   /** Kunci sudah terpasang di perangkat: buka sesi lokal seperti biasa, lalu segarkan status akun. */
-  async function reopen(): Promise<void> {
-    await localData.ensure()
+  async function reopen(): Promise<LocalDataSession | null> {
+    const opened = await localData.ensure()
     await account.load()
+    return opened ?? null
+  }
+
+  /**
+   * Kunci yang benar sudah dipasang, jadi record yang dulu gagal dibuka bisa saja sekarang terbaca.
+   *
+   * Urutannya mengikat: index dibangun ulang DULU dari blob lokal (`reindexQuarantined`), baru karantina
+   * sisanya dibersihkan dan satu siklus diminta. Tanpa langkah pertama, record yang dulu dikarantina
+   * tetap tidak tampil: blob-nya sudah tersimpan dengan `index: 'keep'` dan cursor pull sudah
+   * melewatinya, jadi server tidak akan mengirimnya lagi. Membersihkan karantina saja (perilaku lama)
+   * hanya membuat pull mencoba record yang tidak pernah datang.
+   *
+   * Kegagalan pembersihan TIDAK boleh mengubah hasil pemulihan: kalau storage diblokir, karantina
+   * hanya bertahan sampai kedaluwarsa dan siklus normal tetap berjalan.
+   */
+  async function releaseQuarantine(opened: LocalDataSession | null): Promise<void> {
+    try {
+      if (opened !== null) {
+        const { reindexQuarantined } = await import('~/utils/sync/reindex')
+        await reindexQuarantined(opened, { dueOnly: false })
+      }
+    } catch {
+      // Bukan kegagalan pemulihan - hanya penundaan percobaan ulang record.
+    }
+
+    const id = session.value?.user.id
+    if (id === undefined) return
+
+    try {
+      // Id yang masih tidak bisa dibuka sengaja TETAP terkarantina: `reindexQuarantined` hanya
+      // melepas record yang pulih atau sudah tidak ada di storage. Menghapus sisanya di sini akan
+      // membuat hitungan "data tidak bisa dibuka" hilang padahal record-nya tetap belum tampil -
+      // user kehilangan satu-satunya tanda bahwa ada data yang belum bisa dipakai build ini.
+      const { requestSyncNow } = await import('~/utils/sync/controller')
+      requestSyncNow()
+    } catch {
+      // Idem: karantina hanya bertahan sampai kedaluwarsa.
+    }
   }
 
   async function run(work: () => Promise<void>): Promise<void> {
@@ -74,7 +113,8 @@ export function useKeyRecovery() {
 
     try {
       await work()
-      await reopen()
+      const opened = await reopen()
+      await releaseQuarantine(opened)
     } catch (cause) {
       error.value = errorFrom(cause)
       if (cause instanceof RecoveryCodeRejectedError)

@@ -148,7 +148,7 @@ describe('satu event reload tidak memicu siklus sync tambahan (M1)', () => {
     // Reloader penanda: `deco` tidak dipakai store mana pun dan berjalan TERAKHIR, jadi nilainya
     // menandakan putaran selesai.
     let roundFinished = false
-    registerSyncReloader('deco', async () => {
+    registerSyncReloader('appearance', async () => {
       roundFinished = true
     })
 

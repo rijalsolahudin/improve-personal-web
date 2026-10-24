@@ -1,6 +1,11 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 
-import { pointIndex, spanIndex, type EntityType } from '../domain/envelope.ts'
+import {
+  pointIndex,
+  spanIndex,
+  type EntityType,
+  type RecordIndexEntry,
+} from '../domain/envelope.ts'
 import type { RecordWrite, StorageAdapter, StoredSyncState } from '../ports.ts'
 import { RECORD_INDEX_KEEP } from '../ports.ts'
 import { createManualClock, type ManualClock } from './clock.ts'
@@ -65,7 +70,7 @@ function rangeIndex(
   type: EntityType,
   fromMs: number,
   toMs: number | null,
-): RecordWrite['index'] {
+): RecordIndexEntry {
   return toMs === null
     ? pointIndex(recordId, type, fromMs, START_MS)
     : spanIndex(recordId, type, fromMs, toMs, START_MS)
@@ -263,6 +268,128 @@ export function runStorageAdapterContractTests(
         expect((await storage.getRecord(id(25)))?.blob).toBe(`blob-${id(25)}`)
         expect(await storage.listIndexByType('todo')).toEqual([])
         expect(await storage.listIndexByType('schedule')).toEqual([])
+      })
+    })
+
+    describe('index saja (bangun ulang index record lokal)', () => {
+      it('menulis index untuk record yang sudah ada tanpa menulis ulang record maupun outbox', async () => {
+        await storage.runTransaction('contract.seed', async (tx) => {
+          await tx.putRecord(write({ id: id(26), hlc: hlcOf(26), blob: 'blob-lama' }))
+        })
+
+        const recordBefore = await storage.getRecord(id(26))
+        const outboxBefore = await storage.listOutbox(10)
+        expect(await storage.listIndexByType('todo')).toEqual([])
+
+        await storage.runTransaction('contract.reindex', async (tx) => {
+          await tx.putRecordIndex(
+            id(26),
+            pointIndex(id(26), 'todo', START_MS + 3_000, START_MS + 7_000),
+          )
+        })
+
+        // Baris index terbentuk dan langsung dipakai jalur panas (bukan cuma tersimpan).
+        expect(await storage.listIndexByType('todo')).toEqual([
+          {
+            recordId: id(26),
+            entityType: 'todo',
+            rangeStartMs: START_MS + 3_000,
+            rangeEndMs: null,
+            updatedAtMs: START_MS + 7_000,
+          },
+        ])
+        const found = await storage.queryByRange({
+          entityTypes: ['todo'],
+          fromMs: START_MS + 3_000,
+          toMs: START_MS + 3_000,
+        })
+        expect(found.map((record) => record.id)).toEqual([id(26)])
+
+        // Record TIDAK ditulis ulang: blob, hlc, dan pembukuan waktu lokalnya tetap.
+        expect(await storage.getRecord(id(26))).toEqual(recordBefore)
+        // Inti perbaikan: rebuild index tidak mengantre apa pun ke server.
+        expect(await storage.listOutbox(10)).toEqual(outboxBefore)
+        expect(await storage.countOutbox()).toBe(1)
+      })
+
+      it('upsert: mengganti baris index lama, bukan menambah baris kedua', async () => {
+        await storage.runTransaction('contract.seed', async (tx) => {
+          await tx.putRecord(
+            write({
+              id: id(27),
+              hlc: hlcOf(27),
+              index: rangeIndex(id(27), 'todo', START_MS + 1_000, null),
+            }),
+          )
+        })
+
+        await storage.runTransaction('contract.reindex', async (tx) => {
+          await tx.putRecordIndex(
+            id(27),
+            spanIndex(id(27), 'todo', START_MS, START_MS + 5_000, START_MS + 9_000),
+          )
+        })
+
+        const entries = await storage.listIndexByType('todo')
+        expect(entries).toHaveLength(1)
+        expect(entries[0]).toEqual({
+          recordId: id(27),
+          entityType: 'todo',
+          rangeStartMs: START_MS,
+          rangeEndMs: START_MS + 5_000,
+          updatedAtMs: START_MS + 9_000,
+        })
+        expect(await storage.countOutbox()).toBe(1)
+      })
+
+      it('null membuang baris index record itu, record & outbox dibiarkan', async () => {
+        await storage.runTransaction('contract.seed', async (tx) => {
+          await tx.putRecord(
+            write({
+              id: id(28),
+              hlc: hlcOf(28),
+              index: rangeIndex(id(28), 'schedule', START_MS, START_MS + 60_000),
+            }),
+          )
+        })
+
+        const recordBefore = await storage.getRecord(id(28))
+        expect(await storage.listIndexByType('schedule')).toHaveLength(1)
+
+        await storage.runTransaction('contract.reindex', async (tx) => {
+          await tx.putRecordIndex(id(28), null)
+        })
+
+        expect(await storage.listIndexByType('schedule')).toEqual([])
+        expect(await storage.getRecord(id(28))).toEqual(recordBefore)
+        expect(await storage.countOutbox()).toBe(1)
+      })
+
+      it('record yang tidak ada = no-op: tanpa baris index yatim dan tanpa baris outbox', async () => {
+        await storage.runTransaction('contract.reindex', async (tx) => {
+          await tx.putRecordIndex(id(29), rangeIndex(id(29), 'todo', START_MS, null))
+          await tx.putRecordIndex(id(29), null)
+        })
+
+        expect(await storage.getRecord(id(29))).toBeNull()
+        expect(await storage.listIndexByType('todo')).toEqual([])
+        expect(await storage.countOutbox()).toBe(0)
+      })
+
+      it('perubahan index ikut rollback kalau transaksi gagal', async () => {
+        await storage.runTransaction('contract.seed', async (tx) => {
+          await tx.putRecord(write({ id: id(33), hlc: hlcOf(33) }))
+        })
+
+        await expect(
+          storage.runTransaction('contract.fail', async (tx) => {
+            await tx.putRecordIndex(id(33), rangeIndex(id(33), 'todo', START_MS, null))
+            throw new Error('gagal setelah reindex')
+          }),
+        ).rejects.toThrow('gagal setelah reindex')
+
+        expect(await storage.listIndexByType('todo')).toEqual([])
+        expect(await storage.countOutbox()).toBe(1)
       })
     })
 

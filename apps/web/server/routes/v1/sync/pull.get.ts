@@ -30,9 +30,10 @@ import { pullRecords } from '../../../services/sync'
  *
  * `requireExpectedUserId` jalan SEBELUM query diparse dan sebelum rate limit (temuan H1): cookie
  * sesi ambient bisa membuat tab yang login sebagai akun lain menarik data akun tersebut. Klien yang
- * membawa COOKIE sesi WAJIB mengirim `x-expected-user-id`; klien yang murni memakai
- * `Authorization: Bearer` (tanpa cookie jar) masih boleh tanpa header. Request yang bukan milik sesi
- * ini ditolak `FORBIDDEN` tanpa membaca data dan tanpa menghabiskan jatah.
+ * tokennya BENAR-BENAR diambil dari COOKIE sesi WAJIB mengirim `x-expected-user-id`; klien yang
+ * tokennya datang dari `Authorization: Bearer` masih boleh tanpa header - termasuk bila ia kebetulan
+ * mengirim cookie `ip_session` pendek/asing yang tidak dipakai sebagai token (temuan A2). Request
+ * yang bukan milik sesi ini ditolak `FORBIDDEN` tanpa membaca data dan tanpa menghabiskan jatah.
  */
 export default defineApiHandler(async (event) => {
   const auth = await requireSession(event)

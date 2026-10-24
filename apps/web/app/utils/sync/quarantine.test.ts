@@ -64,8 +64,8 @@ describe('karantina record', () => {
     expect(quarantine.isQuarantined(USER_A, 'record-2')).toBe(false)
     expect(quarantine.quarantinedCount(USER_A)).toBe(1)
     expect(JSON.parse(store.getItem(quarantine.QUARANTINE_STORAGE_KEY) ?? 'null')).toEqual({
-      version: 1,
-      owners: { [USER_A]: ['record-1'] },
+      version: 2,
+      owners: { [USER_A]: [{ atMs: expect.any(Number), ids: ['record-1'] }] },
     })
   })
 
@@ -129,7 +129,7 @@ describe('karantina record', () => {
     }
 
     const stored = JSON.parse(store.getItem(quarantine.QUARANTINE_STORAGE_KEY) ?? 'null') as {
-      owners: Record<string, string[]>
+      owners: Record<string, unknown>
     }
     expect(Object.keys(stored.owners)).toEqual(['user-3', 'user-4', 'user-5'])
   })
@@ -164,6 +164,62 @@ describe('karantina record', () => {
     expect(quarantine.isQuarantined(USER_A, 'record-1')).toBe(false)
   })
 
+  it('entri lebih tua dari 7 hari dibuang saat dibaca, sehingga record dicoba lagi', async () => {
+    const quarantine = await load()
+    const now = Date.now()
+
+    store.setItem(
+      quarantine.QUARANTINE_STORAGE_KEY,
+      JSON.stringify({
+        version: 2,
+        owners: {
+          [USER_A]: [
+            { atMs: now - quarantine.QUARANTINE_TTL_MS - 1_000, ids: ['record-basi'] },
+            { atMs: now - 1_000, ids: ['record-baru'] },
+          ],
+        },
+      }),
+    )
+
+    expect(quarantine.isQuarantined(USER_A, 'record-basi')).toBe(false)
+    expect(quarantine.isQuarantined(USER_A, 'record-baru')).toBe(true)
+    expect(quarantine.quarantinedCount(USER_A)).toBe(1)
+
+    // Entri basi benar-benar hilang dari penyimpanan saat dibaca, bukan cuma diabaikan.
+    const stored = JSON.parse(store.getItem(quarantine.QUARANTINE_STORAGE_KEY) ?? 'null') as {
+      owners: Record<string, { atMs: number; ids: string[] }[]>
+    }
+    expect(stored.owners[USER_A]?.map((entry) => entry.ids)).toEqual([['record-baru']])
+  })
+
+  it('bentuk version: 1 lama dibuang tanpa crash dan tidak menghalangi tulisan baru', async () => {
+    const quarantine = await load()
+    store.setItem(
+      quarantine.QUARANTINE_STORAGE_KEY,
+      JSON.stringify({ version: 1, owners: { [USER_A]: ['record-1'] } }),
+    )
+
+    expect(quarantine.isQuarantined(USER_A, 'record-1')).toBe(false)
+    expect(quarantine.quarantinedCount(USER_A)).toBe(0)
+
+    quarantine.quarantineRecord(USER_A, 'record-2')
+    expect(quarantine.isQuarantined(USER_A, 'record-2')).toBe(true)
+  })
+
+  it('clearQuarantine hanya menghapus milik akun yang diminta', async () => {
+    const quarantine = await load()
+
+    quarantine.quarantineRecord(USER_A, 'record-a')
+    quarantine.quarantineRecord(USER_B, 'record-b')
+
+    quarantine.clearQuarantine(USER_A)
+
+    expect(quarantine.quarantinedCount(USER_A)).toBe(0)
+    expect(quarantine.isQuarantined(USER_A, 'record-a')).toBe(false)
+    expect(quarantine.quarantinedCount(USER_B)).toBe(1)
+    expect(quarantine.isQuarantined(USER_B, 'record-b')).toBe(true)
+  })
+
   it('owner/id kosong tidak pernah menulis apa pun', async () => {
     const quarantine = await load()
 
@@ -193,6 +249,7 @@ describe('karantina record', () => {
     expect(() => quarantine.quarantineRecord(USER_A, 'record-1')).not.toThrow()
     expect(quarantine.isQuarantined(USER_A, 'record-1')).toBe(false)
     expect(quarantine.quarantinedCount(USER_A)).toBe(0)
+    expect(() => quarantine.clearQuarantine(USER_A)).not.toThrow()
     expect(() => quarantine.clearQuarantineForTest()).not.toThrow()
   })
 })

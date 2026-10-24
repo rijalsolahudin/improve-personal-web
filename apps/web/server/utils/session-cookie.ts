@@ -60,23 +60,39 @@ export function clearSessionCookie(event: H3Event, env: ServerEnv): void {
   })
 }
 
+/** Kanal yang BENAR-BENAR dipakai request ini untuk membawa token sesi. */
+export type SessionTokenSource = 'cookie' | 'bearer'
+
+export type RequestSessionToken = {
+  readonly token: string
+  readonly source: SessionTokenSource
+}
+
 /**
- * Token dari request ini, atau `null`.
+ * Token dari request ini beserta asalnya, atau `null`.
  *
- * Cookie diprioritaskan; kalau tidak ada, header `Authorization: Bearer` dipakai (mobile). Header
- * dengan skema lain (mis. `Basic`) diabaikan - bukan galat, tapi juga tidak pernah diperlakukan
- * sebagai token.
+ * Cookie diprioritaskan; kalau tidak ada (atau isinya tidak mungkin token sah karena lebih pendek
+ * dari `SESSION_TOKEN_MIN_LENGTH`), header `Authorization: Bearer` dipakai (mobile). Header dengan
+ * skema lain (mis. `Basic`) diabaikan - bukan galat, tapi juga tidak pernah diperlakukan sebagai
+ * token.
+ *
+ * `source` adalah kanal yang token itu benar-benar diambil darinya, BUKAN "apakah ada cookie di
+ * request ini". Bedanya penting: klien bearer yang sah bisa kebetulan mengirim cookie `ip_session`
+ * pendek/asing (sisa domain lain, cookie rusak). Token yang dipakai request itu tetap bearer, jadi
+ * tidak ada kredensial ambient yang perlu dijaga di sana.
  */
-export function readSessionToken(event: H3Event): string | null {
+export function readSessionToken(event: H3Event): RequestSessionToken | null {
   const fromCookie = getCookie(event, SESSION_COOKIE_NAME)
-  if (fromCookie && fromCookie.length >= SESSION_TOKEN_MIN_LENGTH) return fromCookie
+  if (fromCookie && fromCookie.length >= SESSION_TOKEN_MIN_LENGTH) {
+    return { token: fromCookie, source: 'cookie' }
+  }
 
   const header = getHeader(event, 'authorization')
   if (!header) return null
 
   if (header.toLowerCase().startsWith(BEARER_PREFIX)) {
     const token = header.slice(BEARER_PREFIX.length).trim()
-    if (token.length >= SESSION_TOKEN_MIN_LENGTH) return token
+    if (token.length >= SESSION_TOKEN_MIN_LENGTH) return { token, source: 'bearer' }
   }
 
   return null

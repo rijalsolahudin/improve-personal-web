@@ -23,8 +23,8 @@ import type { RecordIndexEntry, SyncOp, SyncStatus } from './domain/storage.ts'
  * 3. **Dilarang `await` non-storage di dalam transaksi** (fetch, timer, crypto, apa pun). Transaksi
  *    IndexedDB auto-commit begitu tidak ada request pending, jadi sisa tulisan hilang tanpa error.
  *    Callback transaksi di sini menerima `TransactionContext` yang operasinya sinkron-per-panggilan
- *    (`putRecord`, `putIndex`, `enqueueOutbox`) dan mengembalikan promise - adapter yang menjaga agar
- *    tidak ada pekerjaan lain diselipkan di antaranya.
+ *    (`putRecord`, `putRecordIndex`, `deleteOutboxRows`, `patchSyncState`) dan mengembalikan
+ *    promise - adapter yang menjaga agar tidak ada pekerjaan lain diselipkan di antaranya.
  * 4. **Durability transaksi tulis: `strict`** (web). Default Chrome sekarang `relaxed`; commit
  *    terakhir bisa hilang saat mati listrik, OS crash, atau disk penuh.
  * 5. **Mobile: `synchronous = FULL`** untuk transaksi record + outbox. WAL dengan `NORMAL` masih bisa
@@ -100,6 +100,27 @@ export type TransactionContext = {
    * `op: 'delete'` menandai record sebagai tombstone (tetap ditulis, bukan dihapus fisik).
    */
   putRecord: (write: RecordWrite) => Promise<void>
+  /**
+   * Bangun ulang satu baris `record_index` untuk record yang SUDAH ada - tanpa menulis record,
+   * tanpa baris outbox, dan tanpa menyentuh `sync_state`.
+   *
+   * Kenapa operasi ini terpisah dari `putRecord`:
+   * - **Bukan tulisan user.** Blob-nya sudah ada di perangkat (mis. record hasil pull yang dulu
+   *   disimpan dengan `index: 'keep'` karena kuncinya belum cocok). Yang belum ada cuma baris
+   *   index-nya, jadi memakai `putRecord` berarti menulis ulang record tanpa data baru - dan
+   *   `createdAtMs`/`updatedAtMs` ikut bergeser padahal isinya tidak berubah.
+   * - **Tidak boleh membuat baris outbox.** Server sudah punya record ini dan tidak akan mengirim
+   *   ulang (hlc sama); tidak ada yang perlu dikabari. Baris outbox di sini hanya menghasilkan push
+   *   yang dijawab `stale` - kerja sia-sia sekaligus menaikkan badge "menunggu" di UI.
+   * - **Tidak perlu memutuskan `'keep'` vs `null`.** `putRecord` selalu memaksa satu keputusan index
+   *   yang benar untuk tulisan user; rebuild hanya dipanggil saat index memang mau ditulis ulang,
+   *   jadi `null` di sini berarti "record ini tidak punya dimensi waktu", bukan "jangan sentuh".
+   *
+   * `index === null` menghapus baris index record itu. Kalau `recordId` tidak ada di tabel `record`,
+   * TIDAK ada yang ditulis: baris index yatim membuat query mengembalikan id yang `getRecord`-nya
+   * kosong - lebih buruk daripada index yang belum dibangun.
+   */
+  putRecordIndex: (recordId: string, index: RecordIndexEntry | null) => Promise<void>
   /**
    * Buang baris outbox setelah server membalas `applied`/`stale` untuk record itu.
    *

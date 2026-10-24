@@ -1,7 +1,7 @@
 import { readSyncStatus, type StorageAdapter, type SyncStatus } from '@improve-personal/core'
 import type { ComputedRef } from 'vue'
 
-import { quarantinedCount } from '~/utils/sync/quarantine'
+import { listQuarantined } from '~/utils/sync/quarantine'
 
 /**
  * Status sinkronisasi yang ditampilkan shell (PRD F15 "Status Sync Terlihat").
@@ -38,7 +38,14 @@ export type UseSyncStatusResult = {
   readonly pendingCount: ComputedRef<number>
   readonly lastSyncAtMs: ComputedRef<number | null>
   /**
-   * Jumlah record yang tidak bisa dibuka dan sudah dikarantina (lihat `utils/sync/quarantine.ts`).
+   * Jumlah record yang tidak bisa dibuka (lihat `utils/sync/quarantine.ts`): yang masih terkarantina
+   * DAN yang karantinanya sudah kedaluwarsa dan menunggu index-nya dibangun ulang
+   * (`utils/sync/reindex.ts`).
+   *
+   * Keduanya sama-sama tidak tampil di UI, jadi keduanya dihitung - angka ini yang dipakai tombol
+   * "Coba buka ulang" sebagai gerbang, dan dengan begitu record yang karantinanya sudah lewat 7 hari
+   * tetap punya jalan pulih tanpa user harus menebak.
+   *
    * Ini BUKAN status sync: data tetap tersimpan di perangkat dan pull berjalan lagi; yang hilang
    * hanya tampilannya. Karena itu UI menampilkannya sebagai keterangan terpisah.
    */
@@ -55,8 +62,12 @@ export function useSyncStatus(source: SyncStatusSource): UseSyncStatusResult {
   async function refresh(): Promise<void> {
     // Dibaca lebih dulu dan tanpa menunggu storage IndexedDB: daftar karantina ada di `localStorage`
     // perangkat, jadi keterangannya tetap bisa tampil walau penyimpanan akun belum terbuka.
+    //
+    // Termasuk entri yang sudah kedaluwarsa ("due"): record itu juga belum tampil, dan angka inilah
+    // gerbang percobaan ulang otomatis saat halaman dibuka. Membacanya di sini sekaligus membuat
+    // pemindahan entri basi ke antrean "due" terjadi sebelum reindex berjalan.
     const ownerId = source.getOwnerId()
-    blockedCount.value = ownerId === null ? 0 : quarantinedCount(ownerId)
+    blockedCount.value = ownerId === null ? 0 : listQuarantined(ownerId).length
 
     const storage = source.getStorage()
     if (storage === null) {

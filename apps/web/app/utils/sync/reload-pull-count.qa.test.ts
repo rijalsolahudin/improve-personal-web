@@ -93,7 +93,7 @@ describe('event pull nyata tidak menambah siklus sync', () => {
     await vi.waitFor(() => expect(tasks.status.value).toBe('ready'))
 
     let roundFinished = false
-    registerSyncReloader('deco', async () => {
+    registerSyncReloader('appearance', async () => {
       roundFinished = true
     })
 

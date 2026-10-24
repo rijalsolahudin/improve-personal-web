@@ -1055,6 +1055,93 @@ describe('sync: penanda pemilik request `x-expected-user-id` (H1 + L1)', () => {
     ).toEqual([id])
   })
 
+  it('bearer sah + cookie `ip_session` pendek/asing -> tetap dilayani tanpa header (A2)', async () => {
+    const fixture = scope.fixture({ prefix: 'http-sync-bearer-stray-cookie' })
+    const session = await seedSession(liveCtx(fixture), { email: fixture.email, client: 'mobile' })
+    const id = randomUUID()
+    // Cookie asing yang TIDAK mungkin token sah (3 < `SESSION_TOKEN_MIN_LENGTH` = 32): sisa domain
+    // lain, cookie rusak, atau sisa `Set-Cookie` pembersihan. `readSessionToken` melewatinya dan
+    // memakai bearer, jadi token request ini bukan kredensial ambient - mewajibkan header di sini
+    // hanya menolak klien bearer yang sah tanpa alasan yang berlaku untuknya (temuan A2).
+    const strayCookie = 'ip_session=abc'
+
+    const pushed = await api('/v1/sync/push', {
+      method: 'POST',
+      cookie: strayCookie,
+      token: session.token,
+      body: { records: [{ id, hlc: '1000-0-a', deleted: false, blob: blobOf('x') }] },
+    })
+    expect(pushed.status, JSON.stringify(pushed.body)).toBe(200)
+
+    const pulled = await api('/v1/sync/pull?cursor=0&limit=10', {
+      cookie: strayCookie,
+      token: session.token,
+    })
+    expect(pulled.status, JSON.stringify(pulled.body)).toBe(200)
+    expect(
+      apiDataEnvelopeSchema(syncPullResultSchema)
+        .parse(pulled.body)
+        .data.records.map((record) => record.id),
+    ).toEqual([id])
+  })
+
+  it('bearer sah + cookie VALID milik user lain -> cookie menang, tanpa header 403 (A2)', async () => {
+    const alice = scope.fixture({ prefix: 'http-sync-cookie-wins-alice' })
+    const bob = scope.fixture({ prefix: 'http-sync-cookie-wins-bob' })
+    const aliceSession = await seedSession(liveCtx(alice), { email: alice.email, client: 'web' })
+    const bobSession = await seedSession(liveCtx(bob), { email: bob.email, client: 'mobile' })
+    const cookie = cookieFor(aliceSession.token)
+    const id = randomUUID()
+
+    // Cookie VALID (panjangnya cukup) diprioritaskan `readSessionToken`, jadi sesi request ini milik
+    // ALICE walaupun bearer milik Bob ikut terkirim - perilaku ini disengaja, bukan kecelakaan:
+    // kredensial ambient yang benar-benar dipakai adalah cookie, dan itulah yang dilindungi header.
+    const withoutHeader = await api('/v1/sync/push', {
+      method: 'POST',
+      cookie,
+      token: bobSession.token,
+      body: { records: [{ id, hlc: '1000-0-a', deleted: false, blob: blobOf('bukan-miliknya') }] },
+    })
+    expect(withoutHeader.status).toBe(403)
+    expect(problemOf(withoutHeader).error.code).toBe('FORBIDDEN')
+
+    // Header identitas BEARER (Bob) tetap 403: request diautentikasi sebagai Alice, jadi header itu
+    // memang bukan pemilik sesi ini. Tidak ada tebakan kanal yang dilakukan server.
+    const bearerIdentity = await api('/v1/sync/pull?cursor=0&limit=10', {
+      cookie,
+      token: bobSession.token,
+      headers: { [HEADER]: bobSession.userId },
+    })
+    expect(bearerIdentity.status).toBe(403)
+    expect(problemOf(bearerIdentity).error.code).toBe('FORBIDDEN')
+
+    // Keduanya ditolak SEBELUM rate limit - bukan sekadar "pull kosong".
+    expect(await rateLimitCount(alice.env, aliceSession.userId)).toBe(0)
+    expect(await rateLimitCount(bob.env, bobSession.userId)).toBe(0)
+
+    // Bukti sesinya memang milik Alice: header identitas COOKIE dilayani, dan record yang ditulis
+    // lewat request itu masuk ke akun Alice.
+    const asAlice = await api('/v1/sync/push', {
+      method: 'POST',
+      cookie,
+      token: bobSession.token,
+      expectedUserId: aliceSession.userId,
+      body: { records: [{ id, hlc: '1000-0-a', deleted: false, blob: blobOf('milik-alice') }] },
+    })
+    expect(asAlice.status, JSON.stringify(asAlice.body)).toBe(200)
+
+    const alicePulled = await api('/v1/sync/pull?cursor=0&limit=10', {
+      cookie,
+      expectedUserId: aliceSession.userId,
+    })
+    expect(alicePulled.status).toBe(200)
+    expect(
+      apiDataEnvelopeSchema(syncPullResultSchema)
+        .parse(alicePulled.body)
+        .data.records.map((record) => record.id),
+    ).toEqual([id])
+  })
+
   it('cookie sesi + header user lain -> 403 FORBIDDEN sebelum menyentuh data/jatah, nilai header tidak dipantulkan', async () => {
     const alice = scope.fixture({ prefix: 'http-sync-owner-alice' })
     const bob = scope.fixture({ prefix: 'http-sync-owner-bob' })

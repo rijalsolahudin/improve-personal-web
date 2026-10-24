@@ -39,6 +39,11 @@ export function notifySyncState(): void {
 /**
  * Dipanggil controller setelah pull menerapkan record; store yang ter-hydrate memuat ulang.
  *
+ * Arti event ini adalah **"data lokal berubah, muat ulang"**, bukan hanya "pull menerapkan sesuatu":
+ * jalur lain yang mengubah isi penyimpanan tanpa lewat pull juga memakainya - mis. record yang pulih
+ * setelah `reindexQuarantined()` membangun ulang `record_index` dari blob lokal. Store yang sudah
+ * ter-hydrate tidak akan melihat data itu sampai ia membaca ulang.
+ *
  * Penanda `markTrustedSyncReload()` hanya hidup selama dispatch: listener dipanggil sinkron, dan
  * `runSyncReloaders()` mengonsumsinya untuk melewati throttle anti-event-palsu. Event yang dikirim
  * script lain tidak pernah membawa tanda ini.

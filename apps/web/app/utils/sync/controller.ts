@@ -14,7 +14,12 @@ import { RECORD_INDEX_KEEP, type RecordIndexDecision } from '../storage/index-de
 import { indexEntryForRecord } from '../io/index-entry'
 import { createSyncHttpClient } from './client'
 import { LOCAL_WRITE_EVENT, notifyRemoteApplied, notifySyncState } from './events'
-import { isQuarantined, quarantineRecord } from './quarantine'
+import {
+  QUARANTINE_MAX_RECORDS,
+  isQuarantined,
+  quarantineRecord,
+  quarantinedCount,
+} from './quarantine'
 
 /**
  * Pengendali sync di sisi web: kapan push/pull dijalankan, dan bagaimana kegagalannya terlihat.
@@ -137,6 +142,11 @@ type PullKeyFailures = {
   /** Karantina baru terjadi di siklus ini, jadi status `error` tidak boleh ditinggalkan. */
   quarantined: boolean
   /**
+   * Karantina baru terjadi saat daftar pemilik SUDAH penuh (`QUARANTINE_MAX_RECORDS`), jadi record
+   * yang dibuang untuk memberi tempat akan gagal lagi di siklus berikutnya.
+   */
+  quarantineFull: boolean
+  /**
    * Apakah kunci sesi ini terbukti bisa membuka record akun ini.
    *
    * Milik SATU SIKLUS (objek ini dibuat per `execute`), bukan flag modul: siklus basi yang selesai
@@ -148,7 +158,14 @@ type PullKeyFailures = {
 }
 
 function newPullKeyFailures(ownerId: string, keyProven: boolean): PullKeyFailures {
-  return { ownerId, failures: new Map(), abortedWith: null, quarantined: false, keyProven }
+  return {
+    ownerId,
+    failures: new Map(),
+    abortedWith: null,
+    quarantined: false,
+    quarantineFull: false,
+    keyProven,
+  }
 }
 
 /**
@@ -389,14 +406,27 @@ async function execute(current: ActiveSync): Promise<SyncOutcome | null> {
     // dilewati. Jangan tinggalkan status `error` (user tidak punya aksi yang bisa memperbaikinya) dan
     // jadwalkan SATU siklus susulan lewat mekanisme `pendingRun` yang sudah ada: siklus itu memakai
     // `RECORD_INDEX_KEEP` untuk record karantina, jadi pull bisa maju sekarang - bukan 5 menit lagi.
+    //
+    // Pengecualian L2: kalau daftar karantina pemilik ini SUDAH penuh sebelum record baru ditambahkan,
+    // id tertua terbuang dan akan gagal lagi di siklus susulan. Menjadwalkan siklus itu hanya membuat
+    // putaran tanpa jeda yang saling mengejar. Biarkan siklus normal (interval/reconnect) yang
+    // menanganinya, dan tetap tandai `error` supaya user melihat ada yang butuh perhatian.
     if (keyFailures.quarantined) {
-      pendingRun = true
-      pendingPull = true
+      if (!keyFailures.quarantineFull) {
+        pendingRun = true
+        pendingPull = true
+      }
 
-      const status = await readSyncStatus({
-        storage: mySession.storage,
-        online: navigator.onLine,
-      }).catch(() => 'error' as const)
+      const status = keyFailures.quarantineFull
+        ? await markError(mySession.storage).catch(() =>
+            readSyncStatus({ storage: mySession.storage, online: navigator.onLine }).catch(
+              () => 'error' as const,
+            ),
+          )
+        : await readSyncStatus({
+            storage: mySession.storage,
+            online: navigator.onLine,
+          }).catch(() => 'error' as const)
 
       return { pushed, pulled, status }
     }
@@ -442,8 +472,10 @@ async function markError(storage: StorageAdapter): Promise<SyncStatus> {
  *   disimpan dan baris index lama DIBIARKAN (`'keep'`) - `null` akan MENGHAPUS-nya dan membuat record
  *   hilang dari UI/export selamanya.
  *
- * Record yang sudah dikarantina tidak dicoba dibuka lagi: kegagalannya deterministik, dan mencoba
- * ulang tiap siklus berarti pull berhenti selamanya.
+ * Record yang masih terkarantina tidak dicoba dibuka lagi pada siklus itu: kegagalannya deterministik
+ * dan mencoba ulang tiap siklus berarti pull berhenti selamanya. Karantina punya kedaluwarsa
+ * (`QUARANTINE_TTL_MS`) dan bisa dibersihkan setelah pemulihan kunci, jadi record yang dulu gagal
+ * karena kunci salah tetap punya jalan untuk dicoba lagi.
  */
 async function buildIndex(
   current: ActiveSync,
@@ -559,13 +591,20 @@ function decidePullKeyFailures(keyFailures: PullKeyFailures): RecordKeyError | n
       continue
     }
 
+    // Dibaca SEBELUM menulis: `quarantineRecord` membuang id tertua saat penuh, jadi jumlah sesudah
+    // menulis selalu <= batas dan tidak bisa dipakai membedakan "pas penuh" dari "baru penuh".
+    const wasFull = quarantinedCount(keyFailures.ownerId) >= QUARANTINE_MAX_RECORDS
+
     quarantineRecord(keyFailures.ownerId, recordId)
     consecutiveKeyFailures.delete(recordId)
 
     // Storage bisa menolak tulisan (mode privat/penuh). Jangan menjanjikan pemulihan yang tidak
     // terjadi: kalau karantina tidak benar-benar berlaku, siklus berikutnya tetap akan gagal dan
     // status `error` memang jawaban yang jujur.
-    if (isQuarantined(keyFailures.ownerId, recordId)) keyFailures.quarantined = true
+    if (isQuarantined(keyFailures.ownerId, recordId)) {
+      keyFailures.quarantined = true
+      if (wasFull) keyFailures.quarantineFull = true
+    }
   }
 
   keyFailures.abortedWith = firstFailure

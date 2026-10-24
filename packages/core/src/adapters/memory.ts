@@ -132,6 +132,29 @@ function applyPutRecord(tables: MemoryTables, write: RecordWrite, clock: Clock):
   })
 }
 
+/**
+ * Bangun ulang satu baris `record_index` (`TransactionContext.putRecordIndex`).
+ *
+ * Sengaja tidak menulis record dan tidak mengantre baris outbox: index yang belum terbangun tidak
+ * berarti datanya berubah, dan hlc record tidak berubah - jadi server tidak butuh kabar apa pun.
+ * `recordId` yang tidak ada dilewati supaya index tidak pernah menunjuk record yang tidak bisa dibaca.
+ */
+function applyPutRecordIndex(
+  tables: MemoryTables,
+  recordId: string,
+  index: RecordIndexEntry | null,
+): void {
+  if (!tables.records.has(recordId)) return
+
+  if (index === null) {
+    tables.indexes.delete(recordId)
+    return
+  }
+
+  // `recordId` dari argumen yang menang: index harus menunjuk record yang barusan diperiksa ada.
+  tables.indexes.set(recordId, { ...index, recordId })
+}
+
 function applySyncStatePatch(
   current: StoredSyncState | null,
   patch: SyncStatePatch,
@@ -178,6 +201,9 @@ export function createMemoryStorage(options: MemoryStorageOptions): StorageAdapt
           label,
           putRecord: async (write: RecordWrite) => {
             applyPutRecord(draft, write, options.clock)
+          },
+          putRecordIndex: async (recordId: string, index: RecordIndexEntry | null) => {
+            applyPutRecordIndex(draft, recordId, index)
           },
           deleteOutboxRows: async (outboxIds: readonly string[]) => {
             for (const id of outboxIds) draft.outbox.delete(id)
