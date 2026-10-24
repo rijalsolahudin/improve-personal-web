@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { flushPromises } from '@vue/test-utils'
 
 import {
   createHlcGenerator,
@@ -12,6 +13,7 @@ import { createRecordWriter } from '~/utils/storage/record-writer'
 import { createRepositorySet } from '~/utils/storage/repository'
 import { createUuidV7Generator } from '~/utils/storage/uuid'
 import { loadTasks, persistTask } from '~/utils/tasks/persistence'
+import { resetSyncReloadersForTest } from '~/utils/sync/refresh'
 import type { Task } from '~/utils/tasks'
 import { emptyTaskDraft } from '~/utils/tasks'
 import type { LocalDataSession } from '~/utils/storage/session'
@@ -74,6 +76,37 @@ function taskOf(session: LocalDataSession, id: string, title: string): Task {
     scheduleId: null,
     quadrant: null,
     position: 0,
+  }
+}
+
+/**
+ * Sesi yang tulisannya ditahan sampai `release()` dipanggil.
+ *
+ * Mensimulasikan antrean tulis yang belum mendarat: reload yang tidak menunggu antrean akan membaca
+ * penyimpanan lebih dulu dan mengembalikan UI ke nilai lama.
+ */
+function withWriteGate(session: LocalDataSession): {
+  readonly session: LocalDataSession
+  readonly release: () => void
+} {
+  let release!: () => void
+  const gate = new Promise<void>((resolve) => {
+    release = resolve
+  })
+  const writer = session.writer
+
+  return {
+    release,
+    session: {
+      ...session,
+      writer: {
+        ...writer,
+        write: async (input) => {
+          await gate
+          return writer.write(input)
+        },
+      },
+    },
   }
 }
 
@@ -200,5 +233,74 @@ describe('useTasks', () => {
 
     expect(tasks.value).toEqual([])
     expect(status.value).toBe('idle')
+  })
+})
+
+describe('useTasks: muat ulang setelah pull (AC T77)', () => {
+  beforeEach(() => {
+    clearNuxtState(['tasks', 'tasksStatus', 'tasksError', 'localData'])
+    resetTasksHydrationForTest()
+    resetSyncReloadersForTest()
+  })
+
+  it('reload memuat task dari perangkat lain tanpa pernah berstatus loading', async () => {
+    const session = memorySession()
+    await persistTask(session, taskOf(session, session.newId(), 'Lokal'))
+
+    const { tasks, hydrate, reload, status } = useTasks({ session: async () => session })
+    await hydrate()
+    expect(tasks.value.map((task) => task.title)).toEqual(['Lokal'])
+
+    await persistTask(session, taskOf(session, session.newId(), 'Dari perangkat lain'))
+
+    const pending = reload()
+    // Skeleton hanya untuk hydrate pertama; reload menukar daftar di belakang layar.
+    expect(status.value).toBe('ready')
+    await pending
+
+    expect(tasks.value.map((task) => task.title).sort()).toEqual(['Dari perangkat lain', 'Lokal'])
+    expect(status.value).toBe('ready')
+  })
+
+  it('reload menunggu tulisan lokal yang belum mendarat', async () => {
+    const gated = withWriteGate(memorySession())
+    const { tasks, add, hydrate, reload } = useTasks({ session: async () => gated.session })
+    await hydrate()
+
+    add('Baru diklik', 'urgent', null)
+    expect(tasks.value.map((task) => task.title)).toEqual(['Baru diklik'])
+
+    const pending = reload()
+    await flushPromises()
+    // Kalau reload membaca sebelum antrean tulis selesai, task ini sudah hilang di titik ini.
+    expect(tasks.value.map((task) => task.title)).toEqual(['Baru diklik'])
+
+    gated.release()
+    await pending
+    expect(tasks.value.map((task) => task.title)).toEqual(['Baru diklik'])
+  })
+
+  it('store yang belum pernah di-hydrate tidak memuat apa pun', async () => {
+    const getSession = vi.fn(async () => null)
+    const { status, reload } = useTasks({ session: getSession })
+    await vi.waitFor(() => expect(status.value).toBe('idle'))
+    getSession.mockClear()
+
+    await reload()
+
+    expect(getSession).not.toHaveBeenCalled()
+    expect(status.value).toBe('idle')
+  })
+
+  it('reload yang gagal menandai status error beserta pesannya', async () => {
+    const session = memorySession()
+    const { hydrate, reload, status, error } = useTasks({ session: async () => session })
+    await hydrate()
+
+    vi.spyOn(session.repos.todo, 'listAll').mockRejectedValue(new Error('storage rusak'))
+    await reload()
+
+    expect(status.value).toBe('error')
+    expect(error.value).toBe('storage rusak')
   })
 })

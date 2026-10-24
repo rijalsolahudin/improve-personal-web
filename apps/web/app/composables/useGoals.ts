@@ -24,6 +24,12 @@ import {
   type GoalRecords,
 } from '~/utils/goals/persistence'
 import type { LocalDataSession } from '~/utils/storage/session'
+import {
+  isReloadSessionActive,
+  readAfterWrites,
+  registerSyncReloader,
+  reloadSession,
+} from '~/utils/sync/refresh'
 import { createUuidV7Generator } from '~/utils/storage/uuid'
 import { toIsoDate } from '~/utils/time'
 
@@ -50,11 +56,14 @@ export type UseGoalsOptions = {
 /** Cermin sesi untuk `clearNuxtState` (simulasi reload) & test composable. */
 let cachedGoals: Goal[] | null = null
 let hydrateInFlight: Promise<void> | null = null
+/** Reload setelah pull; satu pun untuk seluruh komponen. */
+let reloadInFlight: Promise<void> | null = null
 let writeQueue: Promise<void> = Promise.resolve()
 
 export function resetGoalsHydrationForTest(): void {
   cachedGoals = null
   hydrateInFlight = null
+  reloadInFlight = null
   writeQueue = Promise.resolve()
 }
 
@@ -152,6 +161,45 @@ export function useGoals(options: UseGoalsOptions = {}) {
 
   function findGoal(id: string | null | undefined): Goal | undefined {
     return id ? goals.value.find((goal) => goal.id === id) : undefined
+  }
+
+  /**
+   * Muat ulang setelah pull menerapkan record perangkat lain.
+   *
+   * Yang dibaca ulang hanya record goal-nya: sumber progress (task/habit/jadwal) punya reloader dan
+   * urutannya sendiri di registry. Karena `goals` berjalan SEBELUM ketiganya, `rebuild()` di sini
+   * masih memakai angka lama - watcher di bawah yang menghitung ulang begitu sumbernya selesai
+   * dimuat, jadi hasil akhirnya tetap dari data terbaru (bukan presentation basi).
+   */
+  function reload(): Promise<void> {
+    if (status.value === 'idle') return Promise.resolve()
+
+    reloadInFlight ??= (async () => {
+      try {
+        const target = await reloadSession(localData.current, getSession)
+        if (target === null) return
+
+        const loaded = await readAfterWrites(
+          () => writeQueue,
+          () => loadGoalRecords(target.session),
+        )
+
+        // Sesi bisa berganti pemilik selama pembacaan (lihat `isReloadSessionActive`).
+        if (!isReloadSessionActive(target, localData.current)) return
+
+        records.value = loaded
+        rebuild()
+        status.value = 'ready'
+        error.value = null
+      } catch (cause) {
+        status.value = 'error'
+        error.value = cause instanceof Error ? cause.message : 'goal tidak bisa dimuat'
+      } finally {
+        reloadInFlight = null
+      }
+    })()
+
+    return reloadInFlight
   }
 
   function applyToRecords(goal: Goal): void {
@@ -320,12 +368,16 @@ export function useGoals(options: UseGoalsOptions = {}) {
   // Di server ini tidak melakukan apa pun (sesi `null`), dan `status` tetap `idle`.
   void hydrate()
 
+  // Halaman yang memakai goal ikut memuat ulang saat pull menerapkan data perangkat lain.
+  registerSyncReloader('goals', reload)
+
   return {
     goals: computed(() => goals.value),
     today,
     status: computed(() => status.value),
     error: computed(() => error.value),
     hydrate,
+    reload,
     findGoal,
     save,
     remove,

@@ -14,6 +14,12 @@ export const DECO_STORAGE_KEY = 'ip-deco'
 export const DECO_HIDDEN_STORAGE_KEY = 'ip-deco-hidden'
 export const STICKER_RECENT_STORAGE_KEY = 'ip-stk-recent'
 
+/**
+ * Hiasan halaman TIDAK record-backed: semuanya di `localStorage`, bukan record `decoration` yang ikut
+ * sync. Karena itu tidak ada `reload()` di sini dan `deco` sengaja tidak didaftarkan ke registry
+ * `utils/sync/refresh.ts` - pull tidak mengubah apa pun yang dibaca komposabel ini.
+ */
+
 function readJson(key: string): unknown {
   if (!import.meta.client) return null
   try {

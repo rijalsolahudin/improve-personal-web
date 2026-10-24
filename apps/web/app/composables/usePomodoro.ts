@@ -26,6 +26,12 @@ import {
 } from '~/utils/pomodoro'
 import { loadFocusSessions, persistFocusSession } from '~/utils/pomodoro/persistence'
 import type { LocalDataSession } from '~/utils/storage/session'
+import {
+  isReloadSessionActive,
+  readAfterWrites,
+  registerSyncReloader,
+  reloadSession,
+} from '~/utils/sync/refresh'
 import { createUuidV7Generator } from '~/utils/storage/uuid'
 
 import { useLocalData } from './useLocalData'
@@ -46,10 +52,16 @@ export type UsePomodoroOptions = {
 }
 
 let historyInFlight: Promise<void> | null = null
+/** Reload setelah pull; satu pun untuk seluruh komponen. */
+let reloadInFlight: Promise<void> | null = null
+/** Antrean tulis riwayat: sesi yang selesai berurutan, dan reload menunggu antrean ini kosong. */
+let historyQueue: Promise<void> = Promise.resolve()
 
 /** Dipakai test supaya hydrate riwayat antar kasus tidak saling mewarisi. */
 export function resetPomodoroHistoryForTest(): void {
   historyInFlight = null
+  reloadInFlight = null
+  historyQueue = Promise.resolve()
 }
 
 function readStorage(key: string): string | null {
@@ -214,6 +226,27 @@ export function usePomodoro(options: UsePomodoroOptions = {}) {
   }
 
   /**
+   * Baca riwayat lalu gabungkan dengan sesi yang sudah ada di memori, TANPA menulis state.
+   *
+   * Riwayat bersifat append-only dan sesi lokal yang belum tersimpan tidak boleh hilang, jadi versi
+   * memori yang menang untuk id yang sama.
+   */
+  async function read(session: LocalDataSession): Promise<FocusSession[]> {
+    const loaded = await loadFocusSessions(session, Date.now())
+    const byId = new Map<string, FocusSession>()
+    for (const item of [...loaded, ...history.value]) byId.set(item.id, item)
+    return [...byId.values()].sort((a, b) => b.startedAt - a.startedAt)
+  }
+
+  function apply(loaded: FocusSession[]): void {
+    history.value = loaded
+  }
+
+  async function load(session: LocalDataSession): Promise<void> {
+    apply(await read(session))
+  }
+
+  /**
    * Muat riwayat sekali per muat halaman. Hasil yang sudah ada di memori ikut dipertahankan supaya
    * sesi yang baru selesai sebelum hydrate tidak hilang.
    */
@@ -229,10 +262,7 @@ export function usePomodoro(options: UsePomodoroOptions = {}) {
           return
         }
 
-        const loaded = await loadFocusSessions(session, Date.now())
-        const byId = new Map<string, FocusSession>()
-        for (const item of [...loaded, ...history.value]) byId.set(item.id, item)
-        history.value = [...byId.values()].sort((a, b) => b.startedAt - a.startedAt)
+        await load(session)
         historyStatus.value = 'ready'
         historyError.value = null
       } catch (cause) {
@@ -246,8 +276,46 @@ export function usePomodoro(options: UsePomodoroOptions = {}) {
     return historyInFlight
   }
 
+  /**
+   * Muat ulang riwayat setelah pull menerapkan sesi dari perangkat lain.
+   *
+   * Hanya riwayat yang record-backed; timer & preferensi tetap di `localStorage` (state perangkat,
+   * bukan data yang disinkronkan). `historyStatus` tidak diubah ke `loading` supaya daftar tidak
+   * berkedip, dan antrean tulis ditunggu supaya sesi yang baru selesai tidak tertimpa.
+   */
+  function reload(): Promise<void> {
+    if (historyStatus.value === 'idle') return Promise.resolve()
+
+    reloadInFlight ??= (async () => {
+      try {
+        const target = await reloadSession(localData.current, getSession)
+        if (target === null) return
+
+        const loaded = await readAfterWrites(
+          () => historyQueue,
+          () => read(target.session),
+        )
+
+        // Sesi bisa berganti pemilik selama pembacaan (lihat `isReloadSessionActive`).
+        if (!isReloadSessionActive(target, localData.current)) return
+
+        apply(loaded)
+        historyStatus.value = 'ready'
+        historyError.value = null
+      } catch (cause) {
+        historyStatus.value = 'error'
+        historyError.value =
+          cause instanceof Error ? cause.message : 'riwayat pomodoro tidak bisa dimuat'
+      } finally {
+        reloadInFlight = null
+      }
+    })()
+
+    return reloadInFlight
+  }
+
   function persistHistory(session: FocusSession): void {
-    void (async () => {
+    historyQueue = historyQueue.then(async () => {
       try {
         const local = await getSession()
         if (local === null) return
@@ -259,7 +327,8 @@ export function usePomodoro(options: UsePomodoroOptions = {}) {
         historyError.value =
           cause instanceof Error ? cause.message : 'riwayat pomodoro tidak bisa disimpan'
       }
-    })()
+    })
+    void historyQueue
   }
 
   /**
@@ -306,6 +375,9 @@ export function usePomodoro(options: UsePomodoroOptions = {}) {
   // Di server ini tidak melakukan apa pun (sesi `null`), dan status tetap `idle`.
   void hydrate()
 
+  // Halaman yang memakai riwayat pomodoro ikut memuat ulang saat pull menerapkan data perangkat lain.
+  registerSyncReloader('pomodoro', reload)
+
   return {
     config: readonly(config),
     phase: computed(() => state.value.phase),
@@ -324,6 +396,7 @@ export function usePomodoro(options: UsePomodoroOptions = {}) {
     historyStatus: readonly(historyStatus),
     historyError: readonly(historyError),
     hydrate,
+    reload,
     focusMinutesToday: computed(() => focusMinutesOn(history.value, now.value)),
     /**
      * Satu sesi fokus = satu target (metode Pomodoro). Setelah dimulai, target dikunci sampai

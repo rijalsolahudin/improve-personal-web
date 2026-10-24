@@ -18,6 +18,12 @@ import {
   type MemoRecords,
 } from '~/utils/memo/persistence'
 import type { LocalDataSession } from '~/utils/storage/session'
+import {
+  isReloadSessionActive,
+  readAfterWrites,
+  registerSyncReloader,
+  reloadSession,
+} from '~/utils/sync/refresh'
 import { createUuidV7Generator } from '~/utils/storage/uuid'
 import { fromIsoDate, toIsoDate } from '~/utils/time'
 
@@ -75,6 +81,8 @@ export interface MemoStore {
 }
 
 let hydrateInFlight: Promise<void> | null = null
+/** Reload setelah pull; satu pun untuk seluruh komponen. */
+let reloadInFlight: Promise<void> | null = null
 let writeQueue: Promise<void> = Promise.resolve()
 
 /**
@@ -101,9 +109,20 @@ const writePromises = new Map<string, Promise<boolean>>()
 /** Dipakai test supaya hydrate/antrean antar kasus tidak saling mewarisi. */
 export function resetMemosHydrationForTest(): void {
   hydrateInFlight = null
+  reloadInFlight = null
   writeQueue = Promise.resolve()
   pendingWrites.clear()
   writePromises.clear()
+}
+
+/**
+ * Dipakai test: tunggu tulisan yang masih di antrean sebelum `useState`-nya dibuang.
+ *
+ * Menghapus state di tengah tulisan membuat jalur kegagalan (`failWrite`) membaca state yang sudah
+ * tidak ada - kegagalan yang tidak mungkin terjadi di aplikasi, tetapi membuat test lain gagal.
+ */
+export function waitForMemosWritesForTest(): Promise<void> {
+  return writeQueue
 }
 
 /**
@@ -240,6 +259,29 @@ export function useMemos(options: UseMemosOptions = {}) {
   }
 
   /**
+   * Baca penyimpanan lalu gabungkan dengan tulisan lokal yang terjadi sejak `before` diambil, TANPA
+   * menulis state.
+   *
+   * Satu tempat untuk `hydrate` dan `reload`: aturan "tulisan lokal menang" tidak boleh bercabang.
+   */
+  async function read(session: LocalDataSession, before: MemoStore): Promise<MemoStore> {
+    const loaded: MemoRecords = await loadMemoRecords(session, paper.value)
+    const keep = new Set(unsaved.value)
+    return {
+      memos: mergeMemos(loaded.entries, before.memos, store.value.memos, keep),
+      moods: mergeMoods(loaded.moods, before.moods, store.value.moods, keep),
+    }
+  }
+
+  function apply(next: MemoStore): void {
+    store.value = next
+  }
+
+  async function load(session: LocalDataSession, before: MemoStore): Promise<void> {
+    apply(await read(session, before))
+  }
+
+  /**
    * Muat jurnal sekali per muat halaman. Tulisan yang terjadi selama hydrate (mis. user menekan
    * simpan sebelum dekripsi selesai) digabung, bukan ditimpa snapshot storage.
    */
@@ -259,12 +301,7 @@ export function useMemos(options: UseMemosOptions = {}) {
           return
         }
 
-        const loaded: MemoRecords = await loadMemoRecords(session, paper.value)
-        const keep = new Set(unsaved.value)
-        store.value = {
-          memos: mergeMemos(loaded.entries, before.memos, store.value.memos, keep),
-          moods: mergeMoods(loaded.moods, before.moods, store.value.moods, keep),
-        }
+        await load(session, before)
         status.value = 'ready'
         // Kegagalan tulis yang belum terselesaikan BUKAN error hydrate: jangan sembunyikan banner-nya.
         if (unsaved.value.length === 0) error.value = null
@@ -277,6 +314,46 @@ export function useMemos(options: UseMemosOptions = {}) {
     })()
 
     return hydrateInFlight
+  }
+
+  /**
+   * Muat ulang setelah pull menerapkan record perangkat lain.
+   *
+   * `status` tetap seperti sekarang (tidak `loading`) supaya daftar tidak berkedip; halaman yang
+   * belum pernah dimuat tidak ikut memuat apa pun. Tulisan lokal yang belum mendarat ditunggu lebih
+   * dulu, dan `unsaved` (tulisan yang gagal) tetap dipertahankan lewat `mergeMemos`.
+   */
+  function reload(): Promise<void> {
+    if (status.value === 'idle') return Promise.resolve()
+
+    reloadInFlight ??= (async () => {
+      // Snapshot untuk merge diambil sebelum menunggu antrean: tulisan yang selesai saat reload
+      // berjalan tetap terlihat sebagai perubahan lokal.
+      const before = store.value
+      try {
+        const target = await reloadSession(localData.current, getSession)
+        if (target === null) return
+
+        const loaded = await readAfterWrites(
+          () => writeQueue,
+          () => read(target.session, before),
+        )
+
+        // Sesi bisa berganti pemilik selama pembacaan (lihat `isReloadSessionActive`).
+        if (!isReloadSessionActive(target, localData.current)) return
+
+        apply(loaded)
+        status.value = 'ready'
+        if (unsaved.value.length === 0) error.value = null
+      } catch (cause) {
+        status.value = 'error'
+        error.value = cause instanceof Error ? cause.message : 'jurnal tidak bisa dimuat'
+      } finally {
+        reloadInFlight = null
+      }
+    })()
+
+    return reloadInFlight
   }
 
   /** Ganti/letakkan halaman hasil tulisan tanpa memecah invariant "satu halaman per tanggal". */
@@ -586,6 +663,9 @@ export function useMemos(options: UseMemosOptions = {}) {
   // Di server tidak melakukan apa pun (sesi `null`), dan status tetap `idle`.
   void hydrate()
 
+  // Halaman yang memakai jurnal ikut memuat ulang saat pull menerapkan data perangkat lain.
+  registerSyncReloader('memos', reload)
+
   return {
     memos,
     moods: computed(() => store.value.moods),
@@ -599,6 +679,7 @@ export function useMemos(options: UseMemosOptions = {}) {
     hasUnsaved,
     setPaper,
     hydrate,
+    reload,
     save,
     /**
      * Tunggu tulisan halaman `id` benar-benar selesai. `false` = gagal; pemanggil wajib mempertahankan

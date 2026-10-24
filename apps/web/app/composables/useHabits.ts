@@ -17,6 +17,12 @@ import {
 import { removeItemGoalLinks, syncItemGoalLink } from '~/utils/goals/links'
 import { loadHabits, persistCheckin, persistHabit, removeHabit } from '~/utils/habits/persistence'
 import type { LocalDataSession } from '~/utils/storage/session'
+import {
+  isReloadSessionActive,
+  readAfterWrites,
+  registerSyncReloader,
+  reloadSession,
+} from '~/utils/sync/refresh'
 import { createUuidV7Generator } from '~/utils/storage/uuid'
 import { toIsoDate } from '~/utils/time'
 
@@ -63,6 +69,9 @@ export type HabitSaveResult =
  */
 let hydrateInFlight: Promise<void> | null = null
 
+/** Reload setelah pull; satu pun untuk seluruh komponen. */
+let reloadInFlight: Promise<void> | null = null
+
 /**
  * Antrean tulis GLOBAL (satu untuk seluruh app).
  *
@@ -89,6 +98,7 @@ function nextRevision(id: string): number {
 /** Dipakai test supaya hydrate/antrean antar kasus tidak saling mewarisi. */
 export function resetHabitsHydrationForTest(): void {
   hydrateInFlight = null
+  reloadInFlight = null
   writeQueue = Promise.resolve()
   writeRevision.clear()
 }
@@ -200,6 +210,47 @@ export function useHabits(options: UseHabitsOptions = {}) {
   const archivedHabits = computed(() => habits.value.filter((habit) => habit.isArchived))
 
   /**
+   * Baca penyimpanan lalu gabungkan dengan tulisan yang terjadi sejak `before*` diambil, TANPA
+   * menulis state. Dipakai `load` (hydrate) dan `reload` supaya aturan "tulisan lokal menang" tidak
+   * bercabang dua.
+   */
+  async function read(
+    session: LocalDataSession,
+    beforeHabits: readonly Habit[],
+    beforeCheckIns: CheckIns,
+  ): Promise<{ habits: Habit[]; checkIns: CheckIns }> {
+    await goalLinks.hydrate(session)
+    const loaded = await loadHabits(
+      session,
+      new Map(
+        goalLinks.links.value
+          .filter((link) => link.itemType === 'habit')
+          .map((link) => [link.itemId, link] as const),
+      ),
+    )
+
+    const mergedHabits = mergeHabits(loaded.habits, beforeHabits, habits.value)
+
+    return {
+      habits: mergedHabits,
+      checkIns: mergeCheckIns(loaded.checkIns, beforeCheckIns, checkIns.value, mergedHabits),
+    }
+  }
+
+  function apply(loaded: { habits: Habit[]; checkIns: CheckIns }): void {
+    habits.value = loaded.habits
+    checkIns.value = loaded.checkIns
+  }
+
+  async function load(
+    session: LocalDataSession,
+    beforeHabits: readonly Habit[],
+    beforeCheckIns: CheckIns,
+  ): Promise<void> {
+    apply(await read(session, beforeHabits, beforeCheckIns))
+  }
+
+  /**
    * Muat sekali per muat halaman; panggilan kedua menunggu hydrate yang sedang jalan.
    *
    * Hasil hydrate TIDAK menimpa tulisan yang terjadi selama pemuatan; keduanya digabung supaya habit
@@ -223,23 +274,7 @@ export function useHabits(options: UseHabitsOptions = {}) {
             return
           }
 
-          await goalLinks.hydrate()
-          const loaded = await loadHabits(
-            session,
-            new Map(
-              goalLinks.links.value
-                .filter((link) => link.itemType === 'habit')
-                .map((link) => [link.itemId, link] as const),
-            ),
-          )
-          const mergedHabits = mergeHabits(loaded.habits, beforeHabits, habits.value)
-          habits.value = mergedHabits
-          checkIns.value = mergeCheckIns(
-            loaded.checkIns,
-            beforeCheckIns,
-            checkIns.value,
-            mergedHabits,
-          )
+          await load(session, beforeHabits, beforeCheckIns)
           status.value = 'ready'
           error.value = null
         } catch (cause) {
@@ -252,6 +287,49 @@ export function useHabits(options: UseHabitsOptions = {}) {
     }
 
     return hydrateInFlight
+  }
+
+  /**
+   * Muat ulang setelah pull menerapkan record perangkat lain.
+   *
+   * Sama seperti task/jadwal: `status` tidak diubah ke `loading`, antrean tulis ditunggu lebih dulu,
+   * dan tulisan yang terjadi selama pembacaan digabung (bukan ditimpa snapshot storage).
+   */
+  function reload(): Promise<void> {
+    if (status.value === 'idle') return Promise.resolve()
+
+    if (reloadInFlight === null) {
+      // Snapshot diambil sebelum menunggu antrean: tulisan yang selesai saat reload berjalan tetap
+      // terdeteksi sebagai perubahan lokal oleh `mergeHabits`/`mergeCheckIns`.
+      const beforeHabits = habits.value
+      const beforeCheckIns = checkIns.value
+
+      reloadInFlight = (async () => {
+        try {
+          const target = await reloadSession(localData.current, getSession)
+          if (target === null) return
+
+          const loaded = await readAfterWrites(
+            () => writeQueue,
+            () => read(target.session, beforeHabits, beforeCheckIns),
+          )
+
+          // Sesi bisa berganti pemilik selama pembacaan (lihat `isReloadSessionActive`).
+          if (!isReloadSessionActive(target, localData.current)) return
+
+          apply(loaded)
+          status.value = 'ready'
+          error.value = null
+        } catch (cause) {
+          status.value = 'error'
+          error.value = cause instanceof Error ? cause.message : 'habit tidak bisa dimuat'
+        } finally {
+          reloadInFlight = null
+        }
+      })()
+    }
+
+    return reloadInFlight
   }
 
   /**
@@ -428,6 +506,9 @@ export function useHabits(options: UseHabitsOptions = {}) {
   // Di server ini tidak melakukan apa pun (sesi `null`), dan `status` tetap `idle`.
   void hydrate()
 
+  // Halaman yang memakai habit ikut memuat ulang saat pull menerapkan data perangkat lain.
+  registerSyncReloader('habits', reload)
+
   return {
     /**
      * Habit AKTIF saja - habit terarsip tidak ikut (lihat `activeHabits`).
@@ -445,6 +526,7 @@ export function useHabits(options: UseHabitsOptions = {}) {
     status: computed(() => status.value),
     error: computed(() => error.value),
     hydrate,
+    reload,
     findHabit,
     isMetToday: (habit: Habit) => isMet(habit, checkIns.value, today.value),
     streakOf: (habit: Habit) => currentStreak(habit, checkIns.value, today.value),

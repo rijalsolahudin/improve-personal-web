@@ -15,6 +15,12 @@ import {
 } from '@improve-personal/tokens'
 
 import type { LocalDataSession } from '~/utils/storage/session'
+import {
+  isReloadSessionActive,
+  readAfterWrites,
+  registerSyncReloader,
+  reloadSession,
+} from '~/utils/sync/refresh'
 
 /**
  * Penyimpanan preferensi tampilan ke `user_prefs` (PRD F16): PER AKUN dan ikut sync antar perangkat.
@@ -46,6 +52,9 @@ export type AppearancePrefsStatus = 'idle' | 'loading' | 'ready' | 'error'
 
 /** Antrean tulis di level modul: dua instance composable (mis. remount layout) tetap satu urutan. */
 let writeQueue: Promise<void> = Promise.resolve()
+
+/** Reload setelah pull; satu pun untuk seluruh komponen. */
+let reloadInFlight: Promise<void> | null = null
 
 /** `StyleName` (CSS) → `AppStyle` (`user_prefs`); keduanya kanonik, alias ikut dinormalkan core. */
 export function toPrefStyle(style: StyleName): AppStyle {
@@ -133,10 +142,43 @@ export function useAppearancePrefs(options: UseAppearancePrefsOptions = {}) {
   }
 
   /**
+   * Terapkan record terbaru ke store tampilan. `recordId`/`persisted` ikut disamakan supaya watcher
+   * di bawah tidak menulis balik nilai yang baru saja dibaca dari penyimpanan.
+   */
+  function applyRecord(
+    record: { readonly id: string; readonly data: unknown },
+    userId: string,
+  ): void {
+    const prefs = normalizeUserPrefs(record.data)
+    const next: AppearancePrefs = {
+      theme: prefs.themeColor,
+      style: fromPrefStyle(prefs.style) ?? DEFAULT_STYLE,
+    }
+    appearance.applyPrefs(next, userId)
+    recordId = record.id
+    persisted = next
+  }
+
+  /**
    * Baca record `user_prefs` akun yang sedang terbuka, lalu jadikan pilihan aktif.
    * Akun tanpa record mulai dari default dan langsung di-seed, supaya perangkat lain menerima
    * pilihannya lewat sync walaupun user tidak pernah mengubah apa pun.
    */
+  async function load(session: AppearancePrefsSession): Promise<void> {
+    appearance.adopt(session.userId)
+    const newest = newestRecord(await session.repos.userPrefs.listAll())
+
+    if (newest === null) {
+      const next: AppearancePrefs = { theme: DEFAULT_THEME, style: DEFAULT_STYLE }
+      appearance.applyPrefs(next, session.userId)
+      await write(session, next, session.newId())
+      return
+    }
+
+    applyRecord(newest, session.userId)
+  }
+
+  /** Muat sekali per sesi; panggilan kedua menunggu hydrate yang sedang berjalan. */
   function hydrate(): Promise<void> {
     if (hydrateInFlight) return hydrateInFlight
     if (status.value === 'ready') return Promise.resolve()
@@ -151,24 +193,7 @@ export function useAppearancePrefs(options: UseAppearancePrefsOptions = {}) {
           return
         }
 
-        appearance.adopt(session.userId)
-        const newest = newestRecord(await session.repos.userPrefs.listAll())
-
-        if (newest === null) {
-          const next: AppearancePrefs = { theme: DEFAULT_THEME, style: DEFAULT_STYLE }
-          appearance.applyPrefs(next, session.userId)
-          await write(session, next, session.newId())
-        } else {
-          const prefs = normalizeUserPrefs(newest.data)
-          const next: AppearancePrefs = {
-            theme: prefs.themeColor,
-            style: fromPrefStyle(prefs.style) ?? DEFAULT_STYLE,
-          }
-          appearance.applyPrefs(next, session.userId)
-          recordId = newest.id
-          persisted = next
-        }
-
+        await load(session)
         status.value = 'ready'
         error.value = null
       } catch (cause) {
@@ -179,6 +204,44 @@ export function useAppearancePrefs(options: UseAppearancePrefsOptions = {}) {
     })()
 
     return hydrateInFlight
+  }
+
+  /**
+   * Muat ulang setelah pull menerapkan preferensi dari perangkat lain.
+   *
+   * `status` tidak diubah ke `loading`. Bedanya dengan hydrate: akun tanpa record TIDAK di-seed di
+   * sini - menulis default saat reload akan menimpa pilihan yang sedang tampil hanya karena record
+   * belum/tidak ada. `hideDecorations` juga bukan milik store ini (dibaca dari `useDeco` saat menulis),
+   * jadi tidak ikut diubah.
+   */
+  function reload(): Promise<void> {
+    if (status.value === 'idle') return Promise.resolve()
+
+    reloadInFlight ??= (async () => {
+      try {
+        const target = await reloadSession(localData.current, getSession)
+        if (target === null) return
+
+        const newest = await readAfterWrites(
+          () => writeQueue,
+          async () => newestRecord(await target.session.repos.userPrefs.listAll()),
+        )
+
+        // Sesi bisa berganti pemilik selama pembacaan (lihat `isReloadSessionActive`).
+        if (!isReloadSessionActive(target, localData.current)) return
+
+        if (newest !== null) applyRecord(newest, target.session.userId)
+        status.value = 'ready'
+        error.value = null
+      } catch (cause) {
+        status.value = 'error'
+        error.value = cause instanceof Error ? cause.message : 'preferensi tampilan gagal dimuat'
+      } finally {
+        reloadInFlight = null
+      }
+    })()
+
+    return reloadInFlight
   }
 
   /** Pilihan berubah dari UI: state sudah berubah, penulisan berjalan di belakang antrean. */
@@ -218,14 +281,20 @@ export function useAppearancePrefs(options: UseAppearancePrefsOptions = {}) {
 
   if (options.session) void hydrate()
 
+  // Preferensi tampilan dipakai layout dashboard, jadi ikut dimuat ulang saat pull menerapkan data
+  // perangkat lain (mis. tema diganti di ponsel).
+  registerSyncReloader('appearance', reload)
+
   return {
     status: computed(() => status.value),
     error: computed(() => error.value),
     hydrate,
+    reload,
   }
 }
 
 /** Dipakai test: tidak ada antrean tulis yang bocor antar kasus. */
 export function resetAppearancePrefsForTest(): void {
   writeQueue = Promise.resolve()
+  reloadInFlight = null
 }

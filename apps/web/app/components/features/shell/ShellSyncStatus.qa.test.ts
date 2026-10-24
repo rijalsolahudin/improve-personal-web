@@ -1,8 +1,10 @@
 import { mountSuspended } from '@nuxt/test-utils/runtime'
 import { flushPromises, type VueWrapper } from '@vue/test-utils'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { LocalDataState } from '~/composables/useLocalData'
+import { SYNC_REMOTE_APPLIED_EVENT } from '~/utils/sync/events'
+import { registerSyncReloader, resetSyncReloadersForTest } from '~/utils/sync/refresh'
 
 import ShellSyncStatus from './ShellSyncStatus.vue'
 
@@ -62,5 +64,46 @@ describe('indikator status sync', () => {
 
     expect(wrapper.text()).toContain('Menunggu status sinkronisasi')
     expect(wrapper.text()).not.toMatch(/tersinkron/i)
+  })
+})
+
+/**
+ * Pull yang menerapkan record perangkat lain harus menyegarkan store yang sedang tampil - tanpa reload
+ * halaman (AC T77). Komponen ini satu-satunya pendengar event-nya, jadi test ini mengunci wiring-nya.
+ */
+describe('muat ulang store setelah pull (AC T77)', () => {
+  beforeEach(() => {
+    resetSyncReloadersForTest()
+  })
+
+  afterEach(() => {
+    resetSyncReloadersForTest()
+  })
+
+  it('event pull menerapkan data menjalankan reloader yang terdaftar', async () => {
+    useState<LocalDataState>('localData').value = IDLE_STATE
+    const reload = vi.fn(async () => undefined)
+    registerSyncReloader('tasks', reload)
+    await mount()
+
+    window.dispatchEvent(new Event(SYNC_REMOTE_APPLIED_EVENT))
+    await flushPromises()
+
+    expect(reload).toHaveBeenCalledTimes(1)
+  })
+
+  it('unmount melepas listener: event berikutnya tidak menjalankan reloader lagi', async () => {
+    useState<LocalDataState>('localData').value = IDLE_STATE
+    const reload = vi.fn(async () => undefined)
+    registerSyncReloader('tasks', reload)
+    const wrapper = await mount()
+
+    wrapper.unmount()
+    mounted = null
+
+    window.dispatchEvent(new Event(SYNC_REMOTE_APPLIED_EVENT))
+    await flushPromises()
+
+    expect(reload).not.toHaveBeenCalled()
   })
 })

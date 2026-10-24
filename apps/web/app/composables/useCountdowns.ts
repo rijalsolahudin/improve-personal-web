@@ -11,6 +11,12 @@ import {
 } from '~/utils/countdown'
 import { loadCountdowns, persistCountdown, removeCountdown } from '~/utils/countdown/persistence'
 import type { LocalDataSession } from '~/utils/storage/session'
+import {
+  isReloadSessionActive,
+  readAfterWrites,
+  registerSyncReloader,
+  reloadSession,
+} from '~/utils/sync/refresh'
 import { createUuidV7Generator } from '~/utils/storage/uuid'
 import { MS_PER_DAY, deviceTimeZone } from '~/utils/time'
 
@@ -28,10 +34,13 @@ export type UseCountdownsOptions = {
 }
 
 let hydrateInFlight: Promise<void> | null = null
+/** Reload setelah pull; satu pun untuk seluruh komponen. */
+let reloadInFlight: Promise<void> | null = null
 let writeQueue: Promise<void> = Promise.resolve()
 
 export function resetCountdownsHydrationForTest(): void {
   hydrateInFlight = null
+  reloadInFlight = null
   writeQueue = Promise.resolve()
 }
 
@@ -61,6 +70,18 @@ export function useCountdowns(options: UseCountdownsOptions = {}) {
       })),
   )
 
+  async function read(session: LocalDataSession): Promise<Countdown[]> {
+    return loadCountdowns(session, tz)
+  }
+
+  function apply(loaded: Countdown[]): void {
+    countdowns.value = loaded
+  }
+
+  async function load(session: LocalDataSession): Promise<void> {
+    apply(await read(session))
+  }
+
   function hydrate(): Promise<void> {
     if (status.value === 'ready') return Promise.resolve()
 
@@ -73,7 +94,7 @@ export function useCountdowns(options: UseCountdownsOptions = {}) {
           return
         }
 
-        countdowns.value = await loadCountdowns(session, tz)
+        await load(session)
         status.value = 'ready'
         error.value = null
       } catch (cause) {
@@ -84,6 +105,40 @@ export function useCountdowns(options: UseCountdownsOptions = {}) {
     })()
 
     return hydrateInFlight
+  }
+
+  /**
+   * Muat ulang setelah pull menerapkan record perangkat lain. `status` tidak diubah ke `loading` dan
+   * antrean tulis ditunggu lebih dulu supaya perubahan lokal yang belum mendarat tidak tertimpa.
+   */
+  function reload(): Promise<void> {
+    if (status.value === 'idle') return Promise.resolve()
+
+    reloadInFlight ??= (async () => {
+      try {
+        const target = await reloadSession(localData.current, getSession)
+        if (target === null) return
+
+        const loaded = await readAfterWrites(
+          () => writeQueue,
+          () => read(target.session),
+        )
+
+        // Sesi bisa berganti pemilik selama pembacaan (lihat `isReloadSessionActive`).
+        if (!isReloadSessionActive(target, localData.current)) return
+
+        apply(loaded)
+        status.value = 'ready'
+        error.value = null
+      } catch (cause) {
+        status.value = 'error'
+        error.value = cause instanceof Error ? cause.message : 'countdown tidak bisa dimuat'
+      } finally {
+        reloadInFlight = null
+      }
+    })()
+
+    return reloadInFlight
   }
 
   function background(work: (session: LocalDataSession) => Promise<void>, failure: string): void {
@@ -146,12 +201,16 @@ export function useCountdowns(options: UseCountdownsOptions = {}) {
   // Di server ini tidak melakukan apa pun (sesi `null`), dan `status` tetap `idle`.
   void hydrate()
 
+  // Halaman yang memakai countdown ikut memuat ulang saat pull menerapkan data perangkat lain.
+  registerSyncReloader('countdowns', reload)
+
   return {
     countdowns: computed(() => countdowns.value),
     upcoming,
     status: computed(() => status.value),
     error: computed(() => error.value),
     hydrate,
+    reload,
     find,
     save,
     remove,

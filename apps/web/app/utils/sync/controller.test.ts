@@ -1,7 +1,7 @@
 import type { HttpClient, StorageAdapter, StoredSyncState } from '@improve-personal/core'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { LOCAL_WRITE_EVENT } from './events'
+import { LOCAL_WRITE_EVENT, SYNC_REMOTE_APPLIED_EVENT } from './events'
 import { runSync, startSync, stopSync } from './controller'
 
 import type { LocalDataSession } from '../storage/session'
@@ -320,5 +320,84 @@ describe('sync controller: push', () => {
 
     expect(signal).toBeInstanceOf(AbortSignal)
     expect(signal?.aborted).toBe(false)
+  })
+})
+
+describe('sync controller: pull menerapkan data perangkat lain (AC T77)', () => {
+  /** Pendengar nyata: yang diuji adalah event yang benar-benar sampai ke jendela. */
+  function listenForRemoteApplied(): { readonly count: () => number; readonly stop: () => void } {
+    const handler = vi.fn()
+    window.addEventListener(SYNC_REMOTE_APPLIED_EVENT, handler)
+    return {
+      count: () => handler.mock.calls.length,
+      stop: () => window.removeEventListener(SYNC_REMOTE_APPLIED_EVENT, handler),
+    }
+  }
+
+  it('pull yang menerapkan record memicu event muat ulang store', async () => {
+    const listener = listenForRemoteApplied()
+    const session = fakeSession({
+      openRecord: async () => JSON.stringify({ type: 'todo', schemaVersion: 1, data: {} }),
+    })
+    const http = httpOf({
+      getJson: vi.fn(async () => ({
+        records: [remoteRecord()],
+        nextCursor: 0,
+      })) as unknown as HttpClient['getJson'],
+    })
+
+    try {
+      startSync(session, 'https://app.test', { http, autoStart: false })
+      const outcome = await runSync({ pull: true })
+
+      expect(outcome).toMatchObject({ pulled: 1 })
+      expect(listener.count()).toBe(1)
+    } finally {
+      listener.stop()
+    }
+  })
+
+  it('pull kosong tidak memicu muat ulang (tidak ada kerja tambahan tiap 5 menit)', async () => {
+    const listener = listenForRemoteApplied()
+
+    try {
+      startSync(fakeSession(), 'https://app.test', { http: httpOf(), autoStart: false })
+      const outcome = await runSync({ pull: true })
+
+      expect(outcome).toMatchObject({ pulled: 0 })
+      expect(listener.count()).toBe(0)
+    } finally {
+      listener.stop()
+    }
+  })
+
+  it('siklus yang sudah basi (stopSync saat pull berjalan) tidak memicu muat ulang', async () => {
+    const listener = listenForRemoteApplied()
+    let signal: AbortSignal | undefined
+
+    const http = httpOf({
+      getJson: vi.fn((_url: string, init?: { readonly signal?: AbortSignal }) => {
+        signal = init?.signal
+        return new Promise<never>((_resolve, reject) => {
+          init?.signal?.addEventListener('abort', () => reject(new Error('aborted')), {
+            once: true,
+          })
+        })
+      }) as unknown as HttpClient['getJson'],
+    })
+
+    try {
+      startSync(fakeSession(), 'https://app.test', { http, autoStart: false })
+      const running = runSync({ pull: true })
+      await vi.waitFor(() => expect(http.getJson).toHaveBeenCalledTimes(1))
+
+      stopSync()
+
+      await expect(running).resolves.toBeNull()
+      expect(signal?.aborted).toBe(true)
+      expect(listener.count()).toBe(0)
+    } finally {
+      listener.stop()
+    }
   })
 })

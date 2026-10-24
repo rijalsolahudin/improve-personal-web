@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import type { StorageAdapter } from '@improve-personal/core'
 
-import { SYNC_STATE_EVENT } from '~/utils/sync/events'
+import { SYNC_REMOTE_APPLIED_EVENT, SYNC_STATE_EVENT } from '~/utils/sync/events'
+import { runSyncReloaders } from '~/utils/sync/refresh'
 
 /**
  * Indikator status sinkronisasi di shell (PRD F15 "Status Sync Terlihat").
@@ -57,6 +58,20 @@ function onVisibility(): void {
   if (document.visibilityState === 'visible') void refresh()
 }
 
+/**
+ * Pull menerapkan record perangkat lain: store yang ter-hydrate di halaman ini memuat ulang datanya.
+ *
+ * Hanya store yang mendaftar (dipakai halaman ini) yang jalan - lihat `utils/sync/refresh.ts`.
+ * Handler-nya fungsi modul yang sama tiap mount, dan listener dilepas saat unmount, jadi tidak ada
+ * listener ganda saat komponen dipasang ulang.
+ *
+ * `fromWindowEvent` wajib: jendela bisa mengirim event ini dari script mana pun, jadi permintaan
+ * beruntun di-throttle. Pull nyata membawa tanda tepercaya dari `notifyRemoteApplied()`.
+ */
+function onRemoteApplied(): void {
+  void runSyncReloaders({ fromWindowEvent: true })
+}
+
 async function retry(): Promise<void> {
   const { requestSyncNow } = await import('~/utils/sync/controller')
   requestSyncNow()
@@ -67,6 +82,7 @@ onMounted(() => {
   window.addEventListener('online', refresh)
   window.addEventListener('offline', refresh)
   window.addEventListener(SYNC_STATE_EVENT, refresh)
+  window.addEventListener(SYNC_REMOTE_APPLIED_EVENT, onRemoteApplied)
   document.addEventListener('visibilitychange', onVisibility)
   timer = setInterval(refresh, SYNC_REFRESH_MS)
 })
@@ -75,6 +91,7 @@ onBeforeUnmount(() => {
   window.removeEventListener('online', refresh)
   window.removeEventListener('offline', refresh)
   window.removeEventListener(SYNC_STATE_EVENT, refresh)
+  window.removeEventListener(SYNC_REMOTE_APPLIED_EVENT, onRemoteApplied)
   document.removeEventListener('visibilitychange', onVisibility)
   if (timer !== null) clearInterval(timer)
 })

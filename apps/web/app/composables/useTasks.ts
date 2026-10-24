@@ -14,6 +14,12 @@ import {
   type TaskDraftError,
 } from '~/utils/tasks'
 import { removeItemGoalLinks, syncItemGoalLink } from '~/utils/goals/links'
+import {
+  isReloadSessionActive,
+  readAfterWrites,
+  registerSyncReloader,
+  reloadSession,
+} from '~/utils/sync/refresh'
 import { loadTasks, persistTask, removeTask } from '~/utils/tasks/persistence'
 import type { LocalDataSession } from '~/utils/storage/session'
 import { createUuidV7Generator } from '~/utils/storage/uuid'
@@ -55,6 +61,9 @@ export type UseTasksOptions = {
  */
 let hydrateInFlight: Promise<void> | null = null
 
+/** Reload setelah pull; satu pun untuk seluruh komponen (klik ganda tidak membaca storage dua kali). */
+let reloadInFlight: Promise<void> | null = null
+
 /** Tautan goal terakhir yang sudah ditulis per task, supaya toggle biasa tidak memuat `goal_link`. */
 const writtenGoalPlace = new Map<string, string>()
 
@@ -78,6 +87,7 @@ let writeQueue: Promise<void> = Promise.resolve()
  */
 export function resetTasksHydrationForTest(): void {
   hydrateInFlight = null
+  reloadInFlight = null
   writeQueue = Promise.resolve()
   writtenGoalPlace.clear()
 }
@@ -101,6 +111,35 @@ export function useTasks(options: UseTasksOptions = {}) {
   const newTaskId = createUuidV7Generator({ clock: createSystemClock() })
 
   /**
+   * Baca task dari penyimpanan tanpa menyentuh state. Dipakai `load` (hydrate) dan `reload` supaya
+   * aturan muatnya satu versi.
+   *
+   * `goalLinks` dimuat lebih dulu: bentuk `Task` membawa `goalId`/`goalChapterId` dari tautan.
+   */
+  async function read(session: LocalDataSession): Promise<Task[]> {
+    await goalLinks.hydrate(session)
+
+    return loadTasks(
+      session,
+      new Map(
+        goalLinks.links.value
+          .filter((link) => link.itemType === 'todo')
+          .map((link) => [link.itemId, link] as const),
+      ),
+    )
+  }
+
+  function apply(loaded: Task[]): void {
+    tasks.value = loaded
+    for (const task of loaded) writtenGoalPlace.set(task.id, goalPlaceKey(task))
+  }
+
+  /** Ambil sesi + muat data + pasang ke state. Satu tempat untuk `hydrate` dan `reload`. */
+  async function load(session: LocalDataSession): Promise<void> {
+    apply(await read(session))
+  }
+
+  /**
    * Muat sekali per muat halaman; dipanggil komponen mana pun yang lebih dulu memakai task.
    *
    * Panggilan kedua MENUNGGU yang sedang jalan (bukan keluar lebih awal): beberapa komponen memakai
@@ -119,16 +158,7 @@ export function useTasks(options: UseTasksOptions = {}) {
           return
         }
 
-        await goalLinks.hydrate()
-        tasks.value = await loadTasks(
-          session,
-          new Map(
-            goalLinks.links.value
-              .filter((link) => link.itemType === 'todo')
-              .map((link) => [link.itemId, link] as const),
-          ),
-        )
-        for (const task of tasks.value) writtenGoalPlace.set(task.id, goalPlaceKey(task))
+        await load(session)
         status.value = 'ready'
         error.value = null
       } catch (cause) {
@@ -140,6 +170,45 @@ export function useTasks(options: UseTasksOptions = {}) {
     })()
 
     return hydrateInFlight
+  }
+
+  /**
+   * Muat ulang setelah pull menerapkan record perangkat lain.
+   *
+   * `status` TIDAK diubah ke `loading`: skeleton/kedipan daftar hanya karena data dari perangkat lain
+   * masuk bukan pengalaman yang benar. Daftar lama tetap tampil sampai versi barunya siap, lalu
+   * ditukar. Tulisan lokal yang belum mendarat ditunggu lebih dulu (`readAfterWrites`), jadi toggle
+   * yang baru ditekan tidak kembali ke nilai lama.
+   */
+  function reload(): Promise<void> {
+    // Belum pernah dimuat (halaman ini tidak memakai task): jangan muat data hanya karena pull.
+    if (status.value === 'idle') return Promise.resolve()
+
+    reloadInFlight ??= (async () => {
+      try {
+        const target = await reloadSession(localData.current, getSession)
+        if (target === null) return
+
+        const loaded = await readAfterWrites(
+          () => writeQueue,
+          () => read(target.session),
+        )
+
+        // Sesi bisa berganti pemilik selama pembacaan (lihat `isReloadSessionActive`).
+        if (!isReloadSessionActive(target, localData.current)) return
+
+        apply(loaded)
+        status.value = 'ready'
+        error.value = null
+      } catch (cause) {
+        status.value = 'error'
+        error.value = cause instanceof Error ? cause.message : 'task tidak bisa dimuat'
+      } finally {
+        reloadInFlight = null
+      }
+    })()
+
+    return reloadInFlight
   }
 
   /**
@@ -289,6 +358,9 @@ export function useTasks(options: UseTasksOptions = {}) {
   // Di server ini tidak melakukan apa pun (sesi `null`), dan `status` tetap `idle`.
   void hydrate()
 
+  // Halaman yang memakai task ikut memuat ulang saat pull menerapkan data perangkat lain.
+  registerSyncReloader('tasks', reload)
+
   return {
     tasks: computed(() => tasks.value),
     status: computed(() => status.value),
@@ -296,6 +368,7 @@ export function useTasks(options: UseTasksOptions = {}) {
     /** Status sesi data lokal (termasuk `isFreshKey` untuk peringatan recovery key). */
     localData: localData.state,
     hydrate,
+    reload,
     findTask,
     toggle,
     add,

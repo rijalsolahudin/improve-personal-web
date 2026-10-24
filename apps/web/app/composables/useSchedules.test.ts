@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { flushPromises } from '@vue/test-utils'
 
 import {
   createHlcGenerator,
@@ -13,6 +14,7 @@ import { attendanceKey, loadScheduleData, persistSchedule } from '~/utils/schedu
 import { createRecordWriter } from '~/utils/storage/record-writer'
 import { createRepositorySet } from '~/utils/storage/repository'
 import type { LocalDataSession } from '~/utils/storage/session'
+import { resetSyncReloadersForTest } from '~/utils/sync/refresh'
 import { createUuidV7Generator } from '~/utils/storage/uuid'
 import { addDays, deviceTimeZone } from '~/utils/time'
 
@@ -202,5 +204,119 @@ describe('useSchedules', () => {
 
     expect(schedules.value).toEqual([])
     expect(status.value).toBe('idle')
+  })
+})
+
+describe('useSchedules: muat ulang setelah pull (AC T77)', () => {
+  beforeEach(() => {
+    clearNuxtState([
+      'schedules',
+      'schedule-attendance',
+      'schedulesStatus',
+      'schedulesError',
+      'localData',
+      'goalLinks',
+    ])
+    resetSchedulesHydrationForTest()
+    resetSyncReloadersForTest()
+  })
+
+  /** Sesi yang tulisannya ditahan sampai `release()` - antrean tulis yang belum mendarat. */
+  function withWriteGate(session: LocalDataSession): {
+    readonly session: LocalDataSession
+    readonly release: () => void
+  } {
+    let release!: () => void
+    const gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    const writer = session.writer
+
+    return {
+      release,
+      session: {
+        ...session,
+        writer: {
+          ...writer,
+          write: async (input) => {
+            await gate
+            return writer.write(input)
+          },
+        },
+      },
+    }
+  }
+
+  it('reload memuat jadwal dari perangkat lain tanpa pernah berstatus loading', async () => {
+    const session = memorySession()
+    const existing = storedSchedule(session, { title: 'Lokal' })
+    await persistSchedule(session, existing, TZ)
+
+    const { schedules, hydrate, reload, status } = useSchedules({ session: async () => session })
+    await hydrate()
+    expect(schedules.value.map((schedule) => schedule.title)).toEqual(['Lokal'])
+
+    const remote = storedSchedule(session, { title: 'Dari perangkat lain', start: '2026-10-06' })
+    await persistSchedule(session, remote, TZ)
+
+    const pending = reload()
+    expect(status.value).toBe('ready')
+    await pending
+
+    expect(schedules.value.map((schedule) => schedule.title).sort()).toEqual([
+      'Dari perangkat lain',
+      'Lokal',
+    ])
+    expect(status.value).toBe('ready')
+  })
+
+  it('reload menunggu tulisan jadwal yang belum mendarat', async () => {
+    const gated = withWriteGate(memorySession())
+    const { schedules, save, hydrate, reload } = useSchedules({
+      session: async () => gated.session,
+    })
+    await hydrate()
+
+    // Spy dipasang setelah hydrate: yang diuji hanya pembacaan milik reload.
+    const listAll = vi.spyOn(gated.session.repos.schedule, 'listAll')
+
+    const result = save({ ...newScheduleDraft('2026-10-10', '09:00'), title: 'Baru' }, null)
+    if ('error' in result) throw new Error('simpan gagal')
+    expect(schedules.value.map((schedule) => schedule.title)).toEqual(['Baru'])
+
+    const pending = reload()
+    await flushPromises()
+    // Belum membaca selama antrean tulis masih ditahan.
+    expect(listAll).not.toHaveBeenCalled()
+    expect(schedules.value.map((schedule) => schedule.id)).toEqual([result.id])
+
+    gated.release()
+    await pending
+    expect(listAll).toHaveBeenCalled()
+    expect(schedules.value.map((schedule) => schedule.id)).toEqual([result.id])
+  })
+
+  it('store yang belum pernah di-hydrate tidak memuat apa pun', async () => {
+    const getSession = vi.fn(async () => null)
+    const { status, reload } = useSchedules({ session: getSession })
+    await vi.waitFor(() => expect(status.value).toBe('idle'))
+    getSession.mockClear()
+
+    await reload()
+
+    expect(getSession).not.toHaveBeenCalled()
+    expect(status.value).toBe('idle')
+  })
+
+  it('reload yang gagal menandai status error beserta pesannya', async () => {
+    const session = memorySession()
+    const { hydrate, reload, status, error } = useSchedules({ session: async () => session })
+    await hydrate()
+
+    vi.spyOn(session.repos.schedule, 'listAll').mockRejectedValue(new Error('storage rusak'))
+    await reload()
+
+    expect(status.value).toBe('error')
+    expect(error.value).toBe('storage rusak')
   })
 })

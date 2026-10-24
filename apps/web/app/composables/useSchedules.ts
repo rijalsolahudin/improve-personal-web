@@ -22,6 +22,12 @@ import {
 import { resizeEntry } from '~/utils/calendarGrid'
 import { removeItemGoalLinks, syncItemGoalLink } from '~/utils/goals/links'
 import type { LocalDataSession } from '~/utils/storage/session'
+import {
+  isReloadSessionActive,
+  readAfterWrites,
+  registerSyncReloader,
+  reloadSession,
+} from '~/utils/sync/refresh'
 import { createUuidV7Generator } from '~/utils/storage/uuid'
 import { deviceTimeZone } from '~/utils/time'
 
@@ -44,10 +50,23 @@ export type UseSchedulesOptions = {
 }
 
 let hydrateInFlight: Promise<void> | null = null
+/** Reload setelah pull; satu pun untuk seluruh komponen. */
+let reloadInFlight: Promise<void> | null = null
+
+/**
+ * Antrean tulis GLOBAL (satu untuk seluruh app).
+ *
+ * Sama seperti task/habit: dua perubahan cepat pada jadwal yang sama (mis. geser jam lalu geser lagi)
+ * harus mendarat berurutan sesuai niat user, bukan menurut siapa yang selesai lebih dulu. Reload
+ * setelah pull juga memakai antrean ini supaya tidak membaca sebelum perubahan lokal tersimpan.
+ */
+let writeQueue: Promise<void> = Promise.resolve()
 
 /** Dipakai test supaya hydrate antar kasus tidak saling mewarisi. */
 export function resetSchedulesHydrationForTest(): void {
   hydrateInFlight = null
+  reloadInFlight = null
+  writeQueue = Promise.resolve()
 }
 
 export function useSchedules(options: UseSchedulesOptions = {}) {
@@ -64,6 +83,37 @@ export function useSchedules(options: UseSchedulesOptions = {}) {
 
   const newScheduleId = createUuidV7Generator({ clock: createSystemClock() })
 
+  /**
+   * Baca data satu sesi tanpa menulis state. Dipakai `hydrate` dan `reload` supaya aturan muatnya
+   * satu versi.
+   *
+   * `goalLinks` lebih dulu: bentuk `Schedule` membawa `goalId`/`goalChapterId` dari tautan.
+   */
+  async function read(
+    session: LocalDataSession,
+  ): Promise<{ schedules: Schedule[]; attendance: Record<string, boolean> }> {
+    await goalLinks.hydrate(session)
+
+    return loadScheduleData(
+      session,
+      tz,
+      new Map(
+        goalLinks.links.value
+          .filter((link) => link.itemType === 'schedule')
+          .map((link) => [link.itemId, link] as const),
+      ),
+    )
+  }
+
+  function apply(data: { schedules: Schedule[]; attendance: Record<string, boolean> }): void {
+    schedules.value = data.schedules
+    attendance.value = data.attendance
+  }
+
+  async function load(session: LocalDataSession): Promise<void> {
+    apply(await read(session))
+  }
+
   function hydrate(): Promise<void> {
     if (status.value === 'ready') return Promise.resolve()
 
@@ -76,18 +126,7 @@ export function useSchedules(options: UseSchedulesOptions = {}) {
           return
         }
 
-        await goalLinks.hydrate()
-        const data = await loadScheduleData(
-          session,
-          tz,
-          new Map(
-            goalLinks.links.value
-              .filter((link) => link.itemType === 'schedule')
-              .map((link) => [link.itemId, link] as const),
-          ),
-        )
-        schedules.value = data.schedules
-        attendance.value = data.attendance
+        await load(session)
         status.value = 'ready'
         error.value = null
       } catch (cause) {
@@ -100,8 +139,43 @@ export function useSchedules(options: UseSchedulesOptions = {}) {
     return hydrateInFlight
   }
 
+  /**
+   * Muat ulang setelah pull menerapkan record perangkat lain. `status` tidak diubah ke `loading`
+   * (daftar lama tetap tampil sampai versi baru siap), dan antrean tulis ditunggu lebih dulu supaya
+   * perubahan lokal yang belum mendarat tidak tertimpa hasil pull.
+   */
+  function reload(): Promise<void> {
+    if (status.value === 'idle') return Promise.resolve()
+
+    reloadInFlight ??= (async () => {
+      try {
+        const target = await reloadSession(localData.current, getSession)
+        if (target === null) return
+
+        const loaded = await readAfterWrites(
+          () => writeQueue,
+          () => read(target.session),
+        )
+
+        // Sesi bisa berganti pemilik selama pembacaan (lihat `isReloadSessionActive`).
+        if (!isReloadSessionActive(target, localData.current)) return
+
+        apply(loaded)
+        status.value = 'ready'
+        error.value = null
+      } catch (cause) {
+        status.value = 'error'
+        error.value = cause instanceof Error ? cause.message : 'jadwal tidak bisa dimuat'
+      } finally {
+        reloadInFlight = null
+      }
+    })()
+
+    return reloadInFlight
+  }
+
   function background(work: (session: LocalDataSession) => Promise<void>, failure: string): void {
-    void (async () => {
+    writeQueue = writeQueue.then(async () => {
       try {
         const session = await getSession()
         if (session === null) return
@@ -112,7 +186,8 @@ export function useSchedules(options: UseSchedulesOptions = {}) {
         status.value = 'error'
         error.value = cause instanceof Error ? cause.message : failure
       }
-    })()
+    })
+    void writeQueue
   }
 
   function findSchedule(id: string): Schedule | undefined {
@@ -237,12 +312,16 @@ export function useSchedules(options: UseSchedulesOptions = {}) {
   // Di server ini tidak melakukan apa pun (sesi `null`), dan `status` tetap `idle`.
   void hydrate()
 
+  // Halaman yang memakai jadwal ikut memuat ulang saat pull menerapkan data perangkat lain.
+  registerSyncReloader('schedules', reload)
+
   return {
     schedules: computed(() => schedules.value),
     attendance: computed(() => attendance.value),
     status: computed(() => status.value),
     error: computed(() => error.value),
     hydrate,
+    reload,
     findSchedule,
     save,
     remove,

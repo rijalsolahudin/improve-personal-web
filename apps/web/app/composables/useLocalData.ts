@@ -62,9 +62,11 @@ function loadSessionModule(): Promise<typeof import('~/utils/storage/session')> 
 /**
  * Sesi yang sudah benar-benar terbuka (hasil `cached`), atau `null`.
  *
- * Dipakai pembaca yang TIDAK boleh membuka penyimpanan sendiri - mis. indikator status sync. Kalau
- * mereka memanggil `ensure()`, `ensure()` menulis state (`loading`) dan pembaca lain melihat status
- * yang berkedip padahal sesinya sudah siap.
+ * Dipakai pembaca yang TIDAK boleh membuka penyimpanan sendiri - mis. indikator status sync dan
+ * reload store setelah pull. `ensure()` memang idempoten untuk sesi yang sudah terbuka (tidak lagi
+ * menulis `loading`), tetapi ia tetap PEMBUKA: saat belum terbuka ia mengubah status bersama dan
+ * memuat modul storage (~49 KB gzip). Pembaca yang hanya butuh sesi yang sudah ada tetap memakai
+ * `current()`.
  */
 let opened: LocalDataSession | null = null
 
@@ -94,12 +96,25 @@ export function useLocalData() {
   /**
    * Buka sesi milik akun yang sedang login, atau `null` kalau tidak bisa / belum login.
    *
+   * Idempoten untuk sesi yang SUDAH terbuka: pemanggil berikutnya (mis. reload setelah pull, atau
+   * tulis lokal susulan) mendapat sesi yang sama tanpa menulis `status` apa pun. Dulu setiap
+   * panggilan menulis `loading`, dan plugin sync memakai status itu sebagai sinyal untuk mematikan
+   * lalu memasang ulang controller - satu reload = satu `GET /v1/sync/pull` tambahan (security review
+   * #77 M1).
+   *
    * Kegagalan TIDAK disembunyikan: statusnya jadi `error` dan pesannya diringkas untuk log - bukan
    * ditelan, karena "data lokal tidak bisa dibuka" berarti user melihat aplikasi kosong, dan sebabnya
    * harus terlihat.
    */
   async function ensure(): Promise<LocalDataSession | null> {
     if (!import.meta.client) return null
+
+    // Jalur cepat: sesi akun yang sedang login sudah terbuka. Dibaca dari `auth.session` (sudah ada
+    // di memori setelah `ensure()` pertama), jadi tidak ada await dan tidak ada perubahan state.
+    const activeUserId = auth.session.value?.user.id
+    if (activeUserId !== undefined && opened !== null && opened.userId === activeUserId) {
+      return opened
+    }
 
     state.value = { ...state.value, status: 'loading' }
 

@@ -13,7 +13,7 @@ import { RecordKeyError, decodeRecord } from '../storage/record-codec'
 import { RECORD_INDEX_KEEP, type RecordIndexDecision } from '../storage/index-decision'
 import { indexEntryForRecord } from '../io/index-entry'
 import { createSyncHttpClient } from './client'
-import { LOCAL_WRITE_EVENT, notifySyncState } from './events'
+import { LOCAL_WRITE_EVENT, notifyRemoteApplied, notifySyncState } from './events'
 
 /**
  * Pengendali sync di sisi web: kapan push/pull dijalankan, dan bagaimana kegagalannya terlihat.
@@ -273,6 +273,10 @@ async function execute(current: ActiveSync): Promise<SyncOutcome | null> {
       if (isStale()) return null
 
       pulled += summary.applied
+
+      // Hanya pull yang BENAR-BENAR menerapkan sesuatu yang memicu muat ulang store: pull kosong
+      // terjadi tiap 5 menit dan tidak boleh membuat halaman membaca ulang penyimpanan.
+      if (summary.applied > 0) notifyRemoteApplied()
     }
 
     const status = await readSyncStatus({

@@ -6,15 +6,23 @@ import {
   type SecureKeyMaterial,
 } from '@improve-personal/core'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { flushPromises } from '@vue/test-utils'
 
 import type { LocalDataSession } from '~/utils/storage/session'
 import { createRecordWriter } from '~/utils/storage/record-writer'
 import { createRepositorySet } from '~/utils/storage/repository'
 import { createUuidV7Generator } from '~/utils/storage/uuid'
 import { MEMO_TEXT_MAX } from '~/utils/memo'
-import { loadMemoRecords } from '~/utils/memo/persistence'
+import type { Memo } from '~/utils/memo'
+import { loadMemoRecords, persistMemo } from '~/utils/memo/persistence'
+import { resetSyncReloadersForTest } from '~/utils/sync/refresh'
 
-import { resetMemosHydrationForTest, useMemos, type MemoInput } from './useMemos'
+import {
+  resetMemosHydrationForTest,
+  useMemos,
+  waitForMemosWritesForTest,
+  type MemoInput,
+} from './useMemos'
 import { useMemoDraft } from './useMemoDraft'
 
 const INPUT: Omit<MemoInput, 'date'> = {
@@ -334,5 +342,120 @@ describe('useMemos', () => {
     const text = memoOn(DAY)?.text ?? ''
     expect(text).toHaveLength(MEMO_TEXT_MAX)
     expect(text).toContain('Catatan review goal')
+  })
+})
+
+describe('useMemos: muat ulang setelah pull (AC T77)', () => {
+  beforeEach(async () => {
+    // Tulisan dari kasus sebelumnya diselesaikan dulu: membuang state di tengah tulisan membuat
+    // jalur kegagalannya membaca `useState` yang sudah tidak ada.
+    await waitForMemosWritesForTest()
+    localStorage.clear()
+    clearNuxtState([...STATE_KEYS, 'goalLinks'])
+    resetMemosHydrationForTest()
+    resetSyncReloadersForTest()
+  })
+
+  function memoOf(session: LocalDataSession, date: string, text: string): Memo {
+    return {
+      id: session.newId(),
+      date,
+      createdAt: NOW_MS,
+      title: '',
+      text,
+      feelings: [],
+      paper: 'krem',
+    }
+  }
+
+  /** Sesi yang tulisannya ditahan sampai `release()` - antrean tulis yang belum mendarat. */
+  function withWriteGate(session: LocalDataSession): {
+    readonly session: LocalDataSession
+    readonly release: () => void
+  } {
+    let release!: () => void
+    const gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    const writer = session.writer
+
+    return {
+      release,
+      session: {
+        ...session,
+        writer: {
+          ...writer,
+          write: async (input) => {
+            await gate
+            return writer.write(input)
+          },
+        },
+      },
+    }
+  }
+
+  it('reload memuat halaman dari perangkat lain tanpa pernah berstatus loading', async () => {
+    const session = memorySession()
+    await persistMemo(session, memoOf(session, DAY, 'Lokal'), null)
+
+    const { memos, hydrate, reload, status } = useMemos({ session: async () => session })
+    await hydrate()
+    expect(memos.value.map((memo) => memo.text)).toEqual(['Lokal'])
+
+    await persistMemo(session, memoOf(session, OTHER_DAY, 'Dari perangkat lain'), null)
+
+    const pending = reload()
+    expect(status.value).toBe('ready')
+    await pending
+
+    expect(memos.value.map((memo) => memo.text).sort()).toEqual(['Dari perangkat lain', 'Lokal'])
+    expect(status.value).toBe('ready')
+  })
+
+  it('reload menunggu tulisan jurnal yang belum mendarat', async () => {
+    const gated = withWriteGate(memorySession())
+    const { memos, save, hydrate, reload } = useMemos({ session: async () => gated.session })
+    await hydrate()
+
+    // Spy dipasang setelah hydrate: yang diuji hanya pembacaan milik reload.
+    const listAll = vi.spyOn(gated.session.repos.journal, 'listAll')
+
+    const saved = save({ ...INPUT, date: DAY })
+    if (!saved) throw new Error('simpan gagal')
+
+    const pending = reload()
+    await flushPromises()
+    // Belum membaca selama antrean tulis masih ditahan: hitungan ini yang menjaga tulisan lokal.
+    expect(listAll).not.toHaveBeenCalled()
+    expect(memos.value.map((memo) => memo.id)).toContain(saved.id)
+
+    gated.release()
+    await pending
+    expect(listAll).toHaveBeenCalled()
+    expect(memos.value.map((memo) => memo.id)).toContain(saved.id)
+  })
+
+  it('store yang belum pernah di-hydrate tidak memuat apa pun', async () => {
+    const getSession = vi.fn(async () => null)
+    const { status, reload } = useMemos({ session: getSession })
+    await vi.waitFor(() => expect(status.value).toBe('idle'))
+    getSession.mockClear()
+
+    await reload()
+
+    expect(getSession).not.toHaveBeenCalled()
+    expect(status.value).toBe('idle')
+  })
+
+  it('reload yang gagal menandai status error beserta pesannya', async () => {
+    const session = memorySession()
+    const { hydrate, reload, status, error } = useMemos({ session: async () => session })
+    await hydrate()
+
+    vi.spyOn(session.repos.journal, 'listAll').mockRejectedValue(new Error('storage rusak'))
+    await reload()
+
+    expect(status.value).toBe('error')
+    expect(error.value).toBe('storage rusak')
   })
 })
