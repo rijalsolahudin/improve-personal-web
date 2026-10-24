@@ -37,11 +37,10 @@ import { isQuarantined, quarantineRecord } from './quarantine'
  *
  * Record hasil pull yang gagal didekripsi TIDAK pernah dilewati diam-diam: pull berhenti sebelum
  * cursor maju. Satu-satunya pengecualian adalah record yang sudah terbukti rusak - tiga siklus gagal
- * berturut-turut SETELAH kunci terbukti bisa membuka sesuatu di sesi ini (`keyProvenForSession`).
- * Record itu dikarantina (`./quarantine.ts`), lalu siklus berikutnya memakai index `RECORD_INDEX_KEEP`
- * sehingga pull bisa maju tanpa menghapus index lama dan tanpa kehilangan blob. Kunci yang salah
- * membuat SEMUA record gagal; selama belum ada satu pun record yang berhasil dibuka di sesi ini, kita
- * tidak pernah menyimpulkan record tertentu rusak.
+ * berturut-turut SETELAH kunci sesi terbukti (`PullKeyFailures.keyProven`). Record itu dikarantina
+ * (`./quarantine.ts`), lalu siklus berikutnya memakai index `RECORD_INDEX_KEEP` sehingga pull bisa
+ * maju tanpa menghapus index lama dan tanpa kehilangan blob. Selama bukti kunci belum ada, SEMUA
+ * kegagalan dibaca sebagai masalah kunci/sesi dan tidak ada record yang disimpulkan rusak.
  */
 
 const FOREGROUND_INTERVAL_MS = 5 * 60 * 1_000
@@ -104,21 +103,28 @@ let pendingRun = false
 const consecutiveKeyFailures = new Map<string, number>()
 
 /**
- * Apakah kunci sesi ini TERBUKTI bisa membuka sesuatu?
+ * Apakah kunci data sesi ini benar-benar kunci AKUN ini - dibuktikan oleh sesinya, bukan oleh record
+ * hasil pull.
  *
- * Dasar keputusan "kunci salah vs satu record rusak" tidak boleh hanya record yang berhasil dibuka di
- * siklus/halaman yang sedang berjalan. Penghitung per siklus akan selalu 0 begitu cursor parkir di
- * halaman yang hanya berisi record rusak - record sehat di halaman sebelumnya sudah diterapkan dan tidak
- * lagi jadi kandidat - sehingga record rusak yang sendirian TIDAK PERNAH dikarantina dan pull berhenti
- * selamanya (QA T78 B1).
+ * Kenapa `isFreshKey === false` adalah bukti yang sah: `openLocalDataSession` hanya berhasil kalau
+ * perangkat punya slot `device` LALU `unwrapMasterKeyWithDevice` membuka bungkus kunci utama. Itu
+ * AES-KW: unwrap-nya terautentikasi (kunci pembuka yang salah atau envelope yang diubah = exception,
+ * bukan byte sampah), dan `openLocalDataSession` melempar sebelum controller dipasang
+ * (`crypto/device-slot.ts`, `storage/session.ts`). Jadi `isFreshKey === false` berarti kunci data
+ * berasal dari envelope akun yang SUDAH ADA di perangkat ini, bukan kunci baru yang dibuat sesi ini.
  *
- * Kunci salah membuat SEMUA record gagal, termasuk record pertama yang dicoba di sesi itu. Jadi kalau
- * belum pernah ada satu pun record yang berhasil dibuka, tidak ada bukti apa pun untuk menyimpulkan
- * satu record tertentu rusak. Flag ini mencatat bukti itu di level sesi: `true` setelah `buildIndex`
- * berhasil mendekripsi record mana pun, direset tiap `startSync` (generasi/sesi/akun baru) supaya
- * perangkat yang belum pernah membuka apa pun tetap fail-closed.
+ * Kenapa bukti ini penting ada di level sesi: kalau bukti hanya berasal dari record yang berhasil
+ * dibuka di proses berjalan, ia hilang setiap reload/keluar-masuk `/app` (QA T78 B3) dan tidak pernah
+ * didapat kalau halaman pertama seluruhnya rusak (QA T78 B4) - dua bentuk yang membuat pull macet
+ * permanen. Bukti ini statis per sesi, jadi tahan reload dan berlaku sejak halaman pertama.
+ *
+ * `isFreshKey === true` (perangkat pertama akun yang baru membuat kunci di sini) sengaja TIDAK
+ * dihitung: di keadaan itu tidak ada envelope akun yang memverifikasi apa pun, sehingga record remote
+ * yang tidak bisa dibuka memang layak dicurigai sebagai masalah kunci - kita tetap fail-closed.
  */
-let keyProvenForSession = false
+function isSessionKeyProven(session: LocalDataSession): boolean {
+  return session.isFreshKey === false
+}
 
 /** Apa yang diketahui satu siklus pull tentang record yang gagal dibuka. */
 type PullKeyFailures = {
@@ -130,10 +136,35 @@ type PullKeyFailures = {
   abortedWith: RecordKeyError | null
   /** Karantina baru terjadi di siklus ini, jadi status `error` tidak boleh ditinggalkan. */
   quarantined: boolean
+  /**
+   * Apakah kunci sesi ini terbukti bisa membuka record akun ini.
+   *
+   * Milik SATU SIKLUS (objek ini dibuat per `execute`), bukan flag modul: siklus basi yang selesai
+   * setelah sesi/akun berganti tidak bisa mewariskan bukti ke generasi berikutnya (A1 review
+   * keamanan). Nilai awalnya dari sesi (`isSessionKeyProven`), lalu dinaikkan oleh dekripsi remote
+   * yang berhasil DI GENERASI INI (`buildIndex`).
+   */
+  keyProven: boolean
 }
 
-function newPullKeyFailures(ownerId: string): PullKeyFailures {
-  return { ownerId, failures: new Map(), abortedWith: null, quarantined: false }
+function newPullKeyFailures(ownerId: string, keyProven: boolean): PullKeyFailures {
+  return { ownerId, failures: new Map(), abortedWith: null, quarantined: false, keyProven }
+}
+
+/**
+ * Apakah siklus `current` sudah bukan milik pengendali aktif? Terjadi saat `stopSync` (logout, pindah
+ * rute, reload), ganti sesi/akun, atau generasi yang lebih baru dipasang.
+ *
+ * Dipakai `execute` sebagai pagar di setiap `await`, dan dipakai `buildIndex` karena `indexFor`
+ * dipanggil core DI LUAR transaksi: hasil dekripsi bisa mendarat setelah sesi berganti, dan hasil itu
+ * tidak boleh menambah bukti (atau apa pun) untuk generasi berikutnya.
+ */
+function isGenerationStale(current: ActiveSync): boolean {
+  return (
+    active === null ||
+    active.generation !== current.generation ||
+    active.session.userId !== current.session.userId
+  )
 }
 
 /** Mulai (atau ganti) pengendali untuk sesi data lokal yang sudah terbuka. */
@@ -151,8 +182,11 @@ export function startSync(
   // Bukti "record rusak" terikat ke AKUN yang membuka data: akun berikutnya tidak boleh mewarisi
   // penghitung (bisa langsung mengarantina record pertamanya). Daftar karantina sendiri disimpan per
   // pemilik (`./quarantine.ts`), jadi akun lain tidak menghapus milik akun ini.
+  //
+  // Bukti kunci tidak direset di sini karena ia bukan state modul: tiap siklus memulainya dari
+  // `isSessionKeyProven(session)` + dekripsi sukses di generasi itu sendiri (`execute`). Tidak ada
+  // yang bisa diwariskan siklus basi ke generasi baru (A1), dan `stopSync` tidak perlu menyapu apa pun.
   consecutiveKeyFailures.clear()
-  keyProvenForSession = false
 
   // Client bawaan selalu membawa identitas pemilik sesi. `http` yang disuntik (test/tool) memikul
   // tanggung jawab yang sama, tetapi tidak dipaksa di sini supaya controller tetap bisa diuji tanpa
@@ -271,17 +305,13 @@ export function runSync(options: { readonly pull: boolean }): Promise<SyncOutcom
 }
 
 async function execute(current: ActiveSync): Promise<SyncOutcome | null> {
-  const myGeneration = current.generation
   const mySession = current.session
 
   /**
    * Siklus ini masih milik sesi yang aktif? Diperiksa SEBELUM dan SESUDAH tiap await besar: `stopSync`
    * (logout, ganti akun, pindah rute) bisa terjadi kapan saja saat request menunggu jaringan.
    */
-  const isStale = (): boolean =>
-    active === null ||
-    active.generation !== myGeneration ||
-    active.session.userId !== mySession.userId
+  const isStale = (): boolean => isGenerationStale(current)
 
   if (isStale()) return null
 
@@ -295,7 +325,7 @@ async function execute(current: ActiveSync): Promise<SyncOutcome | null> {
   let pushed = 0
   let pulled = 0
   /** Diisi selama pull; dipakai `catch` untuk tahu apakah karantina baru saja terjadi. */
-  const keyFailures = newPullKeyFailures(mySession.userId)
+  const keyFailures = newPullKeyFailures(mySession.userId, isSessionKeyProven(mySession))
 
   try {
     // Push berulang: satu panggilan hanya mengirim maksimal satu batch. Import besar bisa
@@ -334,7 +364,7 @@ async function execute(current: ActiveSync): Promise<SyncOutcome | null> {
         nowMs: nowMs(),
         hlc: mySession.hlc,
         signal: abort.signal,
-        indexFor: (remote) => buildIndex(mySession, remote, keyFailures),
+        indexFor: (remote) => buildIndex(current, remote, keyFailures),
       })
 
       if (isStale()) return null
@@ -416,7 +446,7 @@ async function markError(storage: StorageAdapter): Promise<SyncStatus> {
  * ulang tiap siklus berarti pull berhenti selamanya.
  */
 async function buildIndex(
-  session: LocalDataSession,
+  current: ActiveSync,
   remote: {
     readonly id: string
     readonly hlc: string
@@ -425,6 +455,8 @@ async function buildIndex(
   },
   keyFailures: PullKeyFailures,
 ): Promise<RecordIndexDecision> {
+  const session = current.session
+
   if (isQuarantined(session.userId, remote.id)) return RECORD_INDEX_KEEP
 
   const now = session.clock.nowMs()
@@ -443,9 +475,13 @@ async function buildIndex(
     return RECORD_INDEX_KEEP
   }
 
-  // Kunci sesi ini terbukti bisa membuka record: mulai sekarang kegagalan record LAIN bisa dinilai
-  // sebagai "record itu rusak", bukan "kunci salah" (lihat `decidePullKeyFailures`).
-  keyProvenForSession = true
+  // Kunci generasi ini terbukti bisa membuka record: mulai sekarang kegagalan record LAIN boleh
+  // dinilai sebagai "record itu rusak", bukan "kunci salah" (lihat `decidePullKeyFailures`).
+  //
+  // Bukti ditulis ke objek SIKLUS INI (bukan flag modul) dan hanya kalau generasinya masih aktif:
+  // dekripsi ini terjadi di luar transaksi, jadi bisa mendarat setelah sesi/akun berganti. Siklus basi
+  // tidak boleh "meminjamkan" bukti kunci ke generasi berikutnya (A1 review keamanan).
+  if (!isGenerationStale(current)) keyFailures.keyProven = true
   // Record yang sama berhasil dibuka = rangkaian kegagalannya putus. Tanpa ini, "3 kali gagal" berarti
   // "3 kali seumur hidup", bukan berturut-turut.
   consecutiveKeyFailures.delete(remote.id)
@@ -480,15 +516,25 @@ function guardPullMerge(storage: StorageAdapter, keyFailures: PullKeyFailures): 
  * Putuskan apa arti kegagalan kunci di satu siklus pull, lalu kembalikan error untuk membatalkan merge.
  *
  * Aturannya:
- * - **Kunci belum terbukti bisa membuka apa pun di sesi ini** (`keyProvenForSession === false`) =
- *   masalah kunci/sesi, bukan record rusak. Pull berhenti, `status = 'error'`, tidak ada karantina.
- *   Mengarantina di sini akan menyembunyikan kunci yang salah sebagai "data rusak" dan membiarkan pull
- *   melewati SEMUA data yang tak terbaca.
+ * - **Kunci belum terbukti** (`keyFailures.keyProven === false`) = masalah kunci/sesi, bukan record
+ *   rusak. Pull berhenti, `status = 'error'`, tidak ada karantina. Mengarantina di sini akan
+ *   menyembunyikan kunci yang salah sebagai "data rusak" dan membiarkan pull melewati SEMUA data yang
+ *   tak terbaca.
  *
- *   Yang diuji adalah bukti di level SESI, bukan "ada record lain yang berhasil di halaman/siklus ini".
- *   Penghitung per siklus selalu 0 begitu cursor parkir di halaman yang hanya berisi record rusak,
- *   sehingga kasus paling penting (record rusak = record terbaru di halaman terakhir) tidak pernah
- *   pulih (QA T78 B1). Kunci salah tetap tertangkap karena ia membuat record PERTAMA di sesi pun gagal.
+ *   Bukti yang dipakai adalah bukti LEVEL SESI, bukan "ada record lain yang berhasil di halaman/siklus
+ *   ini". Penghitung per halaman selalu 0 begitu cursor parkir di halaman yang hanya berisi record
+ *   rusak, sehingga kasus paling penting (record rusak = record terbaru di halaman terakhir) tidak
+ *   pernah pulih (QA T78 B1). Dua sumber bukti, keduanya tidak bergantung pada halaman yang sedang
+ *   diproses:
+ *   1. sesi dibuka dengan kunci yang sudah ada (`isFreshKey === false`) - lihat
+ *      `isSessionKeyProven`; statis per sesi sehingga tahan reload (B3) dan berlaku di halaman
+ *      pertama (B4);
+ *   2. ada record remote yang berhasil didekripsi di GENERASI ini (`buildIndex`) - bukti tambahan
+ *      untuk sesi dengan kunci baru; disimpan per siklus supaya siklus basi tidak bisa mewariskannya
+ *      (A1).
+ *
+ *   Kunci salah tetap tertangkap karena ia membuat record PERTAMA di sesi pun gagal, dan perangkat
+ *   dengan kunci baru tetap fail-closed sampai ia benar-benar membuka satu record.
  * - **Kunci sudah terbukti** = record yang gagal memang rusak. Penghitungnya naik; setelah
  *   `QUARANTINE_AFTER_KEY_FAILURES` siklus berturut-turut record itu dikarantina supaya siklus
  *   berikutnya bisa maju dengan index `'keep'`.
@@ -500,7 +546,7 @@ function decidePullKeyFailures(keyFailures: PullKeyFailures): RecordKeyError | n
   const firstFailure = keyFailures.failures.values().next().value
   if (firstFailure === undefined) return null
 
-  if (!keyProvenForSession) {
+  if (!keyFailures.keyProven) {
     keyFailures.abortedWith = firstFailure
     return firstFailure
   }

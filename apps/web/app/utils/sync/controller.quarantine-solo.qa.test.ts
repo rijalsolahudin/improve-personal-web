@@ -15,8 +15,9 @@ import type { LocalDataSession } from '../storage/session'
  * di siklus sebelumnya - `decoded` selalu 0, penghitung mentok di 1, record TIDAK PERNAH dikarantina,
  * dan cursor berhenti selamanya.
  *
- * Perbaikannya memakai bukti level SESI (`keyProvenForSession`): kunci dianggap salah hanya selama
- * belum ada satu pun record yang berhasil dibuka di sesi ini. Dua test di bawah mengunci kedua sisi
+ * Perbaikannya memakai bukti level SESI: sesi yang membuka kunci dari envelope perangkat yang sudah
+ * ada (`isFreshKey === false`) sudah membuktikan kunci akunnya, sementara perangkat dengan kunci baru
+ * (`isFreshKey === true`) tetap harus membuka satu record dulu. Dua test di bawah mengunci kedua sisi
  * perilaku itu - pemulihan tetap terjadi, dan pagar "jangan lewati data yang mungkin hanya butuh kunci
  * benar" tidak dilonggarkan.
  */
@@ -80,6 +81,8 @@ type PulledWrite = {
 function fakeSession(
   openRecord: (recordId: string) => Promise<string>,
   onWrite?: (write: PulledWrite) => void,
+  /** `LocalDataSession.isFreshKey`. Default `false`: kunci dibuka dari envelope yang sudah ada. */
+  isFreshKey = false,
 ): LocalDataSession {
   let state: StoredSyncState = {
     deviceId: 'device-a',
@@ -91,6 +94,7 @@ function fakeSession(
 
   return {
     userId: USER_A,
+    isFreshKey,
     storage: {
       listOutbox: vi.fn(async () => []),
       countOutbox: vi.fn(async () => 0),
@@ -165,10 +169,10 @@ describe('QA T78: record rusak tanpa record sehat di halaman yang sama', () => {
   })
 
   it('perangkat baru dengan satu record rusak: kunci belum terbukti, TIDAK dikarantina', async () => {
-    // Akun kecil di perangkat baru: pull pertama = satu halaman berisi satu record, dan record itu
-    // rusak. Bentuk ini tidak bisa dibedakan dari kunci yang salah - kunci salah juga menggagalkan
-    // record PERTAMA - jadi kita tidak boleh menyimpulkan record itu rusak. Pull tetap berhenti dengan
-    // status `error` dan cursor tidak maju; user memulihkan kuncinya dulu.
+    // Perangkat pertama akun yang BARU membuat kunci (`isFreshKey: true`): tidak ada envelope akun
+    // yang memverifikasi apa pun, jadi pull pertama yang seluruhnya gagal tidak bisa dibedakan dari
+    // kunci yang salah. Pull tetap berhenti dengan status `error` dan cursor tidak maju; user
+    // memulihkan/menyiapkan kuncinya dulu. Ini sengaja fail-closed.
     const writes: PulledWrite[] = []
     const http = pagedHttp([pageOf([BAD_ID], 1)])
     const session = fakeSession(
@@ -177,6 +181,7 @@ describe('QA T78: record rusak tanpa record sehat di halaman yang sama', () => {
         return GOOD_PAYLOAD
       },
       (write) => writes.push(write),
+      true,
     )
 
     startSync(session, 'https://app.test', { http, autoStart: false })

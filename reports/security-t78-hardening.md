@@ -6,6 +6,8 @@
 
 **Verdict keamanan: LOLOS** — 0 Critical, 0 High, 2 Medium (satu di antaranya **bukan** temuan keamanan melainkan AC fungsional yang tidak tercapai), 4 Low. Tidak ada jalur lintas-akun/kebocoran data baru; sisa temuan soal daya tahan (data tidak tampil / sync macet) dan cakupan deteksi.
 
+> **Addendum (2026-10-24, commit `9cf6037`):** L1 **tertutup**, L3 **tertutup**, M2 **tertutup sebagian**. Verifikasi ulang + 4 temuan baru (2 Low, 2 informational) ada di **§9**. Verdict tetap **LOLOS**.
+
 > **Catatan tata kelola:** M2 (di bawah) bukan kerentanan, tetapi membuat AC "pemulihan index gagal" tidak tercapai pada kasus yang wajar. Saya sarankan task ini **tidak** dipindahkan ke `done` sebelum M2 diperbaiki — keputusan itu milik QA/PO. Saya tidak memindahkan status Ergonio.
 
 ---
@@ -249,3 +251,144 @@ Perubahan ini menutup sisa H1 dengan cara yang benar untuk sasaran yang benar: *
 **Verdict keamanan: LOLOS.** Tidak ada Critical/High, tidak ada bypass lintas-akun yang bisa direproduksi; M1 dicatat sebagai utang yang harus dibayar sebelum re-key/recovery dirilis.
 
 **Catatan terpisah (bukan keamanan):** M2 membuat janji utama bagian C — "pull terhenti oleh record rusak sekarang bisa pulih" — tidak berlaku bila record rusak sendirian di halamannya (termasuk akun dengan satu record, atau halaman terakhir). Secara keamanan ini "hanya" macet (data tidak hilang, cursor tidak maju), tetapi secara produk itu regresi yang harus diperbaiki sebelum task ditutup. Saya tidak memindahkan status Ergonio; keputusan `review`/`Failed`/`done` ada di QA.
+
+---
+
+## 9. Addendum — verifikasi perbaikan (commit `9cf6037`)
+
+**Tanggal:** 2026-10-24 · **Reviewer:** Arif (Security Engineer) · **Mode:** READ-ONLY (tidak ada kode produk/test yang saya ubah; satu-satunya berkas yang ditulis adalah report ini)
+**Scope commit:** `9cf6037` — `server/utils/auth.ts` (aturan L1), `server/tests/http.test.ts`, `app/utils/sync/{controller,quarantine}.ts` + test, `useSyncStatus`, `ShellSyncStatus`, komentar route sync, `reports/qa-t78-hardening.md`.
+**Rules dibaca ulang:** `CLAUDE.md` (root), `.claude/rules/{shared-security,shared-code-quality,ergonio-status-flow}.md`, `apps/web/AGENTS.md`, `apps/web/CLAUDE.md`, `apps/web/.claude/rules/{security,code-quality}.md`. `apps/mobile` tidak disentuh.
+
+**Verdict commit ini: LOLOS** — 0 Critical, 0 High, **1 Low baru** (A1), 3 informational. L1 dan L3 tertutup; M2 tertutup untuk bentuk yang paling umum, dengan dua bentuk sisa yang **sengaja** fail-closed (bukan regresi).
+
+### 9.1 L1 — TERTUTUP
+
+| Pertanyaan | Jawaban |
+|---|---|
+| Apakah browser tanpa Fetch Metadata kini ditolak? | **Ya.** Penentunya sekarang keberadaan cookie sesi (`server/utils/auth.ts:43-45`), bukan `Origin`/`Sec-Fetch-*`. `BROWSER_REQUEST_HEADERS`/`isBrowserRequest` sudah tidak ada (grep bersih). |
+| Bukti test | `server/tests/http.test.ts:1113-1136` — cookie + `transport: 'node'` (benar-benar tanpa `Origin`/`Sec-Fetch-*`) tanpa header → **403**, `rateLimitCount === 0`; request identik **dengan** header → **200**. |
+| Sisa jalur browser yang tidak membawa cookie? | **Tidak ada yang masih terautentikasi.** Semua jalur yang membuat cookie absen juga membuat request tidak punya kredensial: `credentials:'omit'`, `SameSite=Lax` lintas situs, cookie diblokir (Safari "block all"/third-party), WebView tanpa cookie jar → `requireSession` sudah `401 UNAUTHENTICATED` sebelum aturan ini relevan. Ancaman "tab basi" justru **membutuhkan** cookie ambient, jadi jalur tanpa cookie bukan varian ancaman ini. |
+| Apakah ada klien web yang bisa melewatkan header? | Tidak untuk klien yang sah: satu-satunya pembuat client sync memakai `credentials: 'same-origin'` + header (`app/utils/sync/client.ts:84,89`), dan service worker punya `NetworkOnly` untuk `/v1/**` (`nuxt.config.ts:283-286`) sehingga header asli tidak diubah. |
+| Cakupan nyata sebelum perbaikan | Terbatas pada **GET** (`Origin` tidak dikirim Safari < 16.4 hanya pada GET same-origin); POST selalu membawa `Origin` dan sudah ditolak CSRF. Jadi yang terekspos dulu adalah `pull` (membaca data akun baru), sekarang tertutup. |
+| Efek samping positif | Klien native/CLI di belakang proxy yang menyuntik `Origin` tidak lagi ditolak 403 — L5 (informational) lama otomatis gugur. |
+
+**Catatan batas yang tetap berlaku (bukan temuan baru):** script same-origin (XSS) tetap bisa memanggil endpoint ini dengan `credentials:'same-origin'` dan mengirim header yang benar; kontrol ini memang untuk *kesalahan* tab basi, bukan penyerang. Sudah dicatat di §2 laporan utama.
+
+### 9.2 `cookie kosong` vs `cookie tidak ada` (diverifikasi, bukan asumsi)
+
+`getCookie` (h3 1.15.11 → `cookie-es@1.2.3`) mengembalikan `''` untuk `ip_session=`, `ip_session=""`, dan `a=1; ip_session=` (diverifikasi langsung dengan `parse()`), dan `Boolean('')` = false → `carriesSessionCookie()` menganggapnya **tidak ada**. Itu **konsisten** dengan dua pembaca lain:
+
+- `readSessionToken` (`server/utils/session-cookie.ts:71-72`) juga mengabaikan cookie kosong, jadi cookie kosong tidak pernah menjadi kredensial;
+- middleware CSRF (`server/middleware/10-csrf.ts:63`) memakai tes yang sama (`!getCookie(...)`).
+
+Konsekuensinya: tidak ada asimetri yang bisa dipakai — request dengan cookie kosong **tidak terautentikasi** (401 bila tanpa bearer), sehingga "melewatkan kewajiban header" tidak memberi akses apa pun. Perilaku `parse` juga *first-occurrence-wins*; menaruh `ip_session=` lebih dulu hanya membuat request jadi unauthenticated, bukan bypass (dan JS tidak bisa menimpa cookie `HttpOnly` — RFC 6265bis §5.4, entri dengan nama/domain/path sama dari API non-HTTP diabaikan).
+
+**Yang belum ada test-nya (hardening, bukan blocker):** pin `ip_session=` + bearer → 200 tanpa header, dan `ip_session=` tanpa bearer → **401** (bukan 403/500).
+
+### 9.3 Cek regresi klien sah — tidak ditemukan regresi baru
+
+1. **Cookie kedaluwarsa/tidak valid + bearer valid.** Tidak berubah dan **bukan** akibat commit ini: `readSessionToken` memprioritaskan cookie (`session-cookie.ts:71-72`), jadi cookie basi panjang-valid sudah lebih dulu membuat request `401` sebelum `requireExpectedUserId` dipanggil. Aturan baru tidak menambah penolakan di jalur ini.
+2. **Cookie basi setelah logout.** `clearSessionCookie` mengirim `Max-Age=0` (cookie dihapus browser), `clearAppStorage` menyapu `ip-*` termasuk daftar karantina. Tab yang tertinggal tetap ditolak 403 oleh aturan L1 bila mengirim header akun lama — perilaku yang diinginkan.
+3. **Middleware CSRF.** Tidak berubah; keduanya kini memakai pemicu yang sama ("ada cookie sesi"), sehingga tidak ada kombinasi yang lolos satu lapisan lalu mati di lapisan lain secara tak terduga. POST dari browser lama tetap membawa `Origin` (POST selalu mengirimnya) → CSRF tetap lulus.
+4. **Bearer murni (native/CLI).** Tetap bebas header: `http.test.ts:1002-1030` (sesi `client:'mobile'`) dan `:1031-1059` (sesi `client:'web'` lewat bearer) → 200.
+5. **Satu-satunya bentuk false-block baru:** lihat **A2** (cookie pendek/asing yang tidak dipakai untuk autentikasi, bersama bearer valid).
+
+### 9.4 Temuan baru
+
+#### A1 — `keyProvenForSession` adalah state modul, bukan state sesi → siklus basi bisa "meminjamkan" bukti kunci ke sesi akun berikutnya · **Low**
+
+**Lokasi:** `apps/web/app/utils/sync/controller.ts:121` (module-level), `:155` (satu-satunya reset, di `startSync`), `:448` (`true` di dalam `buildIndex`, **tanpa** cek `isStale()`), `:503` (dipakai `decidePullKeyFailures`).
+
+**Dampak:** `buildIndex` dipanggil dari `indexFor` **di luar transaksi dan setelah HTTP selesai** (`packages/core/src/sync/pull.ts:196-201`), jadi siklus milik akun lama masih bisa menyelesaikan `decodeRecord` setelah `stopSync()` + `startSync(akunBaru)`. `startSync` sudah mereset flag ke `false`, tetapi siklus basi itu menulisnya kembali ke `true` — sesi akun baru lalu **dianggap sudah membuktikan kunci** padahal belum pernah membuka satu record pun. Akibatnya, sesi dengan kunci salah/absen bisa "membakar" 3 siklus lalu mengarantina record yang sebetulnya hanya butuh kunci yang benar (index-nya tidak pernah dibangun → record tidak tampil), yaitu tepat kelas kehilangan-tampilan yang penjagaan ini dimaksudkan mencegah. Tidak ada kebocoran lintas akun: penulisan karantina tetap memakai `keyFailures.ownerId` = `mySession.userId` (`:298`), dan id record tidak bisa dibaca tanpa kunci data.
+
+**Sifat:** race sempit (butuh pull yang sedang berjalan saat akun berganti), **belum saya reproduksi dengan test** — analisis statis, ditandai potensial.
+
+**Perbaikan minimal:** jangan jadikan flag global; ikat ke sesi/generasi:
+```ts
+// ActiveSync / execute
+let keyProven = false            // per siklus-sesi, bukan modul
+// buildIndex: setelah decode sukses
+keyProven = true                 // dan kembalikan lewat objek keyFailures
+// decidePullKeyFailures: if (!keyFailures.keyProven) ...
+```
+Alternatif setara: `if (isStale()) return` sebelum menulis flag, atau `keyProvenByGeneration.set(myGeneration, true)` dan baca dengan generasi aktif. Tambahan pengaman: `stopSync()` juga mereset flag.
+
+**Verifikasi:** test — mulai siklus A yang `indexFor`-nya di-*defer*, `stopSync()` + `startSync(B)`, selesaikan dekripsi A, lalu jalankan 3 siklus B dengan semua record gagal → `quarantinedCount(B) === 0` dan `status: 'error'`.
+
+#### A2 — Kewajiban header dipicu "ada cookie", bukan "cookie itulah yang mengautentikasi" · **Low (potensial, fail-closed)**
+
+**Lokasi:** `apps/web/server/utils/auth.ts:43-45` + `:88`, dibanding `apps/web/server/utils/session-cookie.ts:71-80`.
+
+**Dampak:** `readSessionToken` memakai cookie hanya bila panjangnya `>= SESSION_TOKEN_MIN_LENGTH`; kalau tidak, ia jatuh ke bearer. `carriesSessionCookie` hanya memeriksa *keberadaan* nilai non-kosong. Jadi klien bearer sah yang membawa cookie `ip_session` pendek/asing (mis. artefak aplikasi lain di origin yang sama, WebView hybrid, atau sisa tooling) akan **403** walau sama sekali tidak memakai cookie itu dan tidak punya kredensial ambient. Arahnya fail-closed sehingga bukan celah keamanan, tetapi ini false-block yang tidak perlu dan menyulitkan diagnosis (klien "native" tiba-tiba 403).
+
+**Perbaikan minimal:** bawa sumber token dari `requireSession` (mis. `source: 'cookie' | 'bearer'`), lalu:
+```ts
+if (expected === undefined && auth.source !== 'cookie') return
+```
+Efeknya sama untuk semua klien yang ada sekarang (web selalu cookie, native selalu bearer), tetapi tidak lagi bergantung pada keberadaan cookie yang tidak dipakai.
+
+**Verifikasi:** test — `Cookie: ip_session=abc` + bearer sah tanpa header → **200**; cookie sah + tanpa header → tetap **403**.
+
+#### A3 — Id record milik sampai 3 akun kini bertahan bersamaan di `localStorage` setelah ganti akun tanpa logout · **Informational (tidak blocking)**
+
+**Lokasi:** `apps/web/app/utils/sync/quarantine.ts:50` (`QUARANTINE_MAX_OWNERS = 3`), `:108-120`, `:162-180`; penyapu tetap ada di `app/composables/useLogout.ts:12-17` (+ `useAccountDeletion.ts:162`).
+
+**Dampak:** desain lama menghapus daftar saat pemilik berganti; sekarang daftar per pemilik dipertahankan (memang itu tujuannya, supaya tab A tidak kehilangan daftarnya karena tab B). Konsekuensi: pada perangkat yang dipakai bergantian tanpa logout, `localStorage` memuat `{userId → [recordId…]}` untuk ≤3 akun. Isinya hanya UUID record + id akun, tanpa blob/plaintext/PII, dan penyapu `ip-*` tetap membersihkannya saat logout/hapus akun. Tidak ada jalur lintas-akun baru: `isQuarantined`/`quarantinedCount` selalu dipanggil dengan pemilik sesi aktif (`controller.ts:298,428,516,522`, `useSyncStatus.ts:63-64`), dan tabrakan id UUIDv7 tidak praktis.
+
+**Rekomendasi:** pertahankan, tetapi (a) tulis eksplisit di `shared-security.md`/komentar bahwa daftar karantina boleh memuat id ≤3 akun sampai logout; (b) kalau nanti ada persyaratan "tidak ada jejak akun lain", hapus pemilik lain saat akun aktif diketahui berbeda **dan** tidak ada tab lain (bisa lewat `BroadcastChannel`, bukan timer).
+
+#### A4 — Karantina: dua detail kecil yang memperpanjang waktu pemulihan (bukan kebocoran) · **Informational**
+
+**Lokasi:** `quarantine.ts:168-179` (early-return bila id sudah ada → **recency pemilik tidak diperbarui**), `:108-110` (`parsed.version !== 1` → seluruh daftar dibaca kosong sehingga data bentuk lama dibuang), `controller.ts:362-365` (`pendingRun` langsung, tanpa jeda — L2 lama tetap berlaku per pemilik).
+
+**Dampak:** (a) akun yang daftarnya paling lama bisa tergusur oleh dua akun lain walau masih aktif, lalu harus mengulang 3 siklus (churn hanya kalau >3 akun aktif bersamaan — tidak realistis, tetapi mudah dihindari dengan menyentuh ulang urutan peta saat id sudah ada); (b) upgrade dari bentuk lama membuang daftar → record rusak dicoba ulang 3 siklus lalu dikarantina lagi (self-healing, tanpa kehilangan data), dan key `ip-sync-quarantine-owner` lama tertinggal sampai logout (tidak berbahaya, hanya sampah).
+
+**Rekomendasi:** sentuh urutan pemilik walau id sudah ada (`owners.delete(ownerId); owners.set(ownerId, ids)` tanpa menambah id), dan hapus `QUARANTINE_OWNER_KEY` lama secara eksplisit saat `writeOwners` pertama.
+
+#### A5 — (test, informational) satu kegagalan nondeterministik pada test QA yang belum di-track
+
+`apps/web/app/utils/sync/controller.quarantine-edges.qa.test.ts` (berkas **untracked**, bukan bagian commit, saya hanya menjalankannya) gagal **satu kali** di run gabungan 19 berkas: `expect(quarantinedCount(USER_A)).toBe(200)` menerima **0** (test "201 record rusak + 1 sehat"). Tiga run identik berikutnya (19 berkas yang sama, dan berkas itu sendirian) **lulus**. Tidak deterministik, penyebab belum pasti (kemungkinan interaksi state antar-berkas di environment `nuxt` atau siklus susulan `pendingRun` yang belum selesai saat assertion). Tidak menggugurkan commit — berkas ini artefak QA dan akan di-track terpisah — tetapi kalau muncul lagi, perlu dipin (`expect.poll`/`vi.waitFor` pada `sync_state`, bukan hanya pada jumlah karantina) sebelum dipakai sebagai gerbang.
+
+### 9.5 Status temuan laporan utama setelah commit ini
+
+| # | Status | Catatan |
+|---|---|---|
+| M1 (karantina tanpa jalan keluar) | **Terbuka** (tidak berubah) | Tidak disentuh commit ini. Tetap harus dibayar sebelum jalur pemulihan kunci/re-key hidup. |
+| M2 (record rusak sendirian) | **Tertutup sebagian** | Bentuk "halaman sehat lalu halaman rusak" dan "3 record rusak satu halaman" kini pulih (`keyProvenForSession`). Dua bentuk sisa **sengaja** fail-closed dan dipin: (a) halaman **pertama** seluruhnya rusak, (b) bukti kunci hilang saat reload karena flag hanya di memori — keduanya tidak bisa dibedakan dari kunci salah tanpa kontrol tambahan. Usulan (hardening): simpan bukti "kunci pernah membuka record" per akun di IndexedDB/`sync_state` (bukan `localStorage`, agar tidak bisa dipalsukan untuk memicu karantina) dan reset saat fingerprint kunci berubah. AC #2 sebaiknya ditulis ulang: "pulih untuk halaman selain halaman pertama tanpa bukti kunci sebelumnya". |
+| L1 (deteksi browser dari header) | **Tertutup** | §9.1. |
+| L2 (daftar penuh + retry tanpa jeda) | **Terbuka** (skala per pemilik) | `pendingRun` segera masih ada; batas 200 kini per pemilik sehingga loop hanya untuk satu akun dengan >200 kegagalan/halaman. |
+| L3 (kepemilikan daftar hanya saat menulis) | **Tertutup** | Daftar per pemilik + pembacaan sadar-pemilik (`quarantine.ts:146-193`, `useSyncStatus.ts:63-64` via `localData.state.userId`) → angka akun lama tidak lagi tampil. |
+| L4 (`refresh()` gagal → false logout) | **Terbuka** (tidak berubah) | Tidak disentuh commit ini. |
+| L5 (kontrak native boleh tanpa header) | **Gugur / dibalik** | Penentu sekarang transport (cookie), bukan penanda browser: klien native di belakang proxy yang menyuntik `Origin` tidak lagi 403. Kontrak baru yang perlu didokumentasikan di `packages/contracts`: **"membawa cookie sesi ⇒ WAJIB `x-expected-user-id`"**. |
+
+### 9.6 Acceptance criteria tambahan (untuk commit ini)
+
+1. **Penentu kewajiban header adalah cookie sesi, bukan metadata browser.** `auth.ts:43-45,88`; dua test baru (`http.test.ts:1113-1136`, `:1031-1059`).
+2. **Penolakan tetap sebelum rate limit/body/query.** `pull.get.ts:38-45`, `push.post.ts:33-39`; test `rateLimitCount === 0`.
+3. **Jalur bearer tanpa cookie tetap dilayani.** `http.test.ts:1002-1059`.
+4. **Cookie kosong diperlakukan sama oleh auth, token, dan CSRF.** `auth.ts:43-45` ↔ `session-cookie.ts:71-72` ↔ `10-csrf.ts:63`; (belum ada test — tambahkan).
+5. **State karantina terikat pemilik, tanpa kebocoran lintas akun.** `quarantine.ts:146-193`; test `quarantine.test.ts:84-136`; `quarantinedCount` hanya menerima pemilik aktif.
+6. **Bukti kunci tidak boleh diwarisi antar-sesi.** **BELUM TERPENUHI** untuk jalur siklus basi (A1).
+7. **Tidak ada log/PII baru.** Grep `console.`/analytics pada berkas yang berubah: kosong.
+
+### 9.7 Bukti eksekusi (read-only)
+
+| Perintah | Hasil |
+|---|---|
+| `pnpm --filter @improve-personal/web exec vitest run server/tests` | **12 berkas / 202 test lulus** (Nitro + Postgres nyata) |
+| `pnpm exec vitest run app/utils/sync app/composables/useSyncStatus.test.ts app/components/features/shell` | **19 berkas / 88 test lulus** |
+| `pnpm exec vitest run app/plugins app/utils/auth` | **3 berkas / 24 test lulus** |
+| `pnpm exec vitest run app/utils/sync/controller.quarantine-edges.qa.test.ts` (berkas QA **untracked**, hanya dijalankan) | 5 lulus pada run terisolasi; 1 kegagalan nondeterministik pada satu run gabungan (A5) |
+| Verifikasi `parse()` cookie-es untuk `ip_session=`, `ip_session=""`, dan duplikat | `''` (falsy) — sesuai §9.2 |
+| Grep sisa `BROWSER_REQUEST_HEADERS`, `isBrowserRequest`, `adoptQuarantineAccount`, `QUARANTINE_OWNER_KEY`, `quarantinedCount()` tanpa argumen | **kosong** (tidak ada referensi mati) |
+
+Tidak ada kode produk maupun test yang saya ubah; `git status` hanya memuat berkas report ini (dan berkas QA untracked yang sudah ada sebelumnya).
+
+### 9.8 Kesimpulan addendum
+
+Perbaikan L1 dilakukan dengan **penentu yang benar**: bukan metadata request yang bisa tidak dikirim/diubah proxy, melainkan kredensial ambient yang memang menjadi akar ancamannya. Tidak ada jalur browser terautentikasi yang bisa melewatinya, dan penolakan tetap terjadi sebelum jatah/body/query. Perbaikan karantina per pemilik menutup L3 dan menghapus satu sumber churn antar-tab; harga yang dibayar adalah retensi id ≤3 akun di `localStorage` sampai logout (A3, informational).
+
+Yang perlu dibereskan (tidak blocking): **A1** — jadikan bukti kunci milik sesi/generasi, bukan modul, supaya penjagaan "kunci salah vs record rusak" tidak bisa diwarisi siklus basi; **A2** — picu kewajiban header dari *sumber token* (`cookie` vs `bearer`), bukan dari keberadaan cookie yang mungkin tidak dipakai.
+
+**Verdict addendum: LOLOS** untuk commit `9cf6037`. Status Ergonio tidak saya pindahkan; keputusan `review`/`done`/`Failed` milik QA.
