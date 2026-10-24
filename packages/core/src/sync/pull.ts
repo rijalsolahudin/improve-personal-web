@@ -7,7 +7,13 @@ import {
 } from '@improve-personal/contracts'
 
 import type { RecordIndexEntry, SyncStatus } from '../domain/envelope.ts'
-import { HttpError, type HttpClient, type HttpRequestInit, type StorageAdapter } from '../ports.ts'
+import {
+  HttpError,
+  type HttpClient,
+  type HttpRequestInit,
+  type RECORD_INDEX_KEEP,
+  type StorageAdapter,
+} from '../ports.ts'
 import type { HlcGenerator } from './hlc.ts'
 import { decideMerge } from './merge.ts'
 import { pullOutboxId } from './outbox.ts'
@@ -78,14 +84,18 @@ export type PullDeltaInput = {
    * - `null` - record diterapkan TANPA index; baris index lama dihapus. Hanya benar kalau record-nya
    *   memang tidak punya dimensi waktu. Shell tetap bisa membangun ulang index saat unlock
    *   (`database.dbml` Bagian A: index boleh dibangun ulang di memori).
-   * - `'keep'` - JANGAN sentuh baris index lama. Dipakai saat index tidak bisa dihitung (mis. blob
-   *   gagal didekripsi karena skema lebih baru): record tetap diterapkan, tapi ia tidak boleh hilang
-   *   dari kalender/overview/export hanya karena index-nya tidak sempat dibangun. `null` di kasus itu
-   *   menghapus `record_index` yang masih sah - lihat `ports.ts`.
+   * - `'keep'` (`RECORD_INDEX_KEEP`) - JANGAN sentuh baris index lama. Dipakai saat index tidak bisa
+   *   dihitung (mis. blob gagal didekripsi karena skema lebih baru): record tetap diterapkan, tapi ia
+   *   tidak boleh hilang dari kalender/overview/export hanya karena index-nya tidak sempat dibangun.
+   *   `null` di kasus itu menghapus `record_index` yang masih sah - lihat `ports.ts`.
    */
   readonly indexFor?: (
     record: ServerRecord,
-  ) => RecordIndexEntry | null | 'keep' | Promise<RecordIndexEntry | null | 'keep'>
+  ) =>
+    | RecordIndexEntry
+    | null
+    | typeof RECORD_INDEX_KEEP
+    | Promise<RecordIndexEntry | null | typeof RECORD_INDEX_KEEP>
 }
 
 export type PullSummary = {
@@ -178,7 +188,7 @@ export async function pullDelta(input: PullDeltaInput): Promise<PullSummary> {
     // transaksi IndexedDB auto-commit kalau ada pekerjaan lain diselipkan di antara request-nya.
     // Karena itu snapshot `getRecords` di atas diambil SEBELUM kripto, lalu dibaca ulang tepat
     // sebelum menulis (di bawah) - lihat catatan modul soal jendela balapan.
-    const indexById = new Map<string, RecordIndexEntry | null | 'keep'>()
+    const indexById = new Map<string, RecordIndexEntry | null | typeof RECORD_INDEX_KEEP>()
     if (input.indexFor !== undefined) {
       for (const remote of candidates) {
         indexById.set(remote.id, await input.indexFor(remote))

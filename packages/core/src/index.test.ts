@@ -9,6 +9,7 @@ import {
   ENTITY_TYPES,
   HttpError,
   MS_PER_DAY,
+  RECORD_INDEX_KEEP,
   STORAGE_TABLES,
   SYNC_DEBOUNCE_MS,
   SYNC_OPS,
@@ -85,6 +86,10 @@ describe('barrel @improve-personal/core', () => {
     const error = new HttpError(409, ERROR_CODES[0] ?? null, 'contoh')
     expect(error.status).toBe(409)
     expect(error.name).toBe('HttpError')
+
+    // Nilai sentinel `RecordWrite['index']` ikut barrel: web me-re-export konstanta ini, jadi kalau
+    // namanya hilang dari `index.ts`, build app yang gagal - bukan test ini.
+    expect(RECORD_INDEX_KEEP).toBe('keep')
   })
 
   it('mengekspor sync: HLC, LWW, jadwal, status, push/pull', () => {

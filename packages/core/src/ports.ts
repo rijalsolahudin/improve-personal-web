@@ -43,6 +43,15 @@ import type { RecordIndexEntry, SyncOp, SyncStatus } from './domain/storage.ts'
  * menyelesaikannya secara serial.
  */
 
+/**
+ * Nilai `RecordWrite['index']` untuk "jangan sentuh `record_index`".
+ *
+ * Satu-satunya sumber nilai ini: dipakai union di `ports.ts`, adapter, dan shell web. Shell web
+ * me-re-export konstanta ini (`app/utils/storage/index-decision.ts`) - bukan menyalin literalnya -
+ * supaya tipe dan nilai tidak bisa berbeda diam-diam saat salah satunya diubah.
+ */
+export const RECORD_INDEX_KEEP = 'keep'
+
 /** Satu baris `record` + `record_index` yang ditulis atomik bersama outbox. */
 export type RecordWrite = {
   /** Envelope ter-seal (`ARCHITECTURE.md` §6) - ciphertext + metadata plaintext. */
@@ -59,12 +68,13 @@ export type RecordWrite = {
    * - `null` - HAPUS baris index lama. Benar kalau entitas memang tidak punya dimensi waktu, atau
    *   saat rentangnya hilang. Salah kalau index-nya cuma gagal dihitung: record jadi tidak bisa
    *   ditemukan lewat kalender/overview/export padahal datanya ada di `record`.
-   * - `'keep'` - JANGAN sentuh `record_index` sama sekali: baris index lama (kalau ada) dibiarkan
-   *   apa adanya, dan tidak ada baris baru yang dibuat kalau belum ada. Dipakai saat index tidak bisa
-   *   dihitung ulang (mis. blob hasil pull gagal didekripsi karena skema lebih baru) - memperbaiki
-   *   di masa depan lebih murah daripada menghapus index lalu kehilangan record dari UI.
+   * - `'keep'` (konstanta `RECORD_INDEX_KEEP`) - JANGAN sentuh `record_index` sama sekali: baris
+   *   index lama (kalau ada) dibiarkan apa adanya, dan tidak ada baris baru yang dibuat kalau belum
+   *   ada. Dipakai saat index tidak bisa dihitung ulang (mis. blob hasil pull gagal didekripsi karena
+   *   skema lebih baru) - memperbaiki di masa depan lebih murah daripada menghapus index lalu
+   *   kehilangan record dari UI.
    */
-  readonly index: RecordIndexEntry | null | 'keep'
+  readonly index: RecordIndexEntry | null | typeof RECORD_INDEX_KEEP
   /** Operasi yang diantre untuk dikirim ke server (`put` = upsert, `delete` = tombstone). */
   readonly op: SyncOp
   /** Baris outbox baru; `id` dan `queuedAt` diisi core supaya adapter tidak perlu jam sendiri. */

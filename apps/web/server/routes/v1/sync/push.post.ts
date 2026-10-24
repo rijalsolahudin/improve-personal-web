@@ -23,10 +23,11 @@ import { pushRecords } from '../../../services/sync'
  * Status per record (`applied`/`stale`/`rejected`) dibiarkan sampai service: hanya di sana HLC
  * tersimpan bisa dibandingkan, dan `stale` memang bukan kegagalan request.
  *
- * Sebelum itu semua, `requireExpectedUserId` menolak request yang menyatakan milik user lain
+ * Sebelum itu semua, `requireExpectedUserId` menolak request yang bukan milik sesi ini
  * (`x-expected-user-id`, temuan H1): cookie sesi itu ambient, jadi tab yang sudah login sebagai akun
- * lain bisa mengirim data tab ini ke akun tersebut. Dicek SEBELUM rate limit & body: request yang
- * bukan milik sesi ini tidak boleh menghabiskan jatah atau di-parse.
+ * lain bisa mengirim data tab ini ke akun tersebut. Klien browser WAJIB mengirim header itu; klien
+ * native (tanpa penanda browser) masih boleh tanpa header. Dicek SEBELUM rate limit & body: request
+ * yang bukan milik sesi ini tidak boleh menghabiskan jatah atau di-parse.
  */
 export default defineApiHandler(async (event) => {
   const auth = await requireSession(event)

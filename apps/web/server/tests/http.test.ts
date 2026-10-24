@@ -9,6 +9,7 @@
 // memanggil handler langsung. Harganya: tidak bisa menyuntik waktu (`ctx.now`) seperti test service,
 // jadi AC yang butuh waktu tetap ada di `otp.test.ts`/`sync.test.ts`.
 import { randomUUID } from 'node:crypto'
+import { request as nodeHttpRequest } from 'node:http'
 
 import {
   apiDataEnvelopeSchema,
@@ -57,10 +58,30 @@ type ApiRequest = {
   readonly token?: string
   readonly headers?: Record<string, string>
   /**
+   * Nilai header `x-expected-user-id`. `undefined` = header tidak dikirim - sah untuk klien
+   * native/CLI, dan justru itulah yang harus ditolak untuk request dari browser.
+   */
+  readonly expectedUserId?: string
+  /**
    * `false` = JANGAN kirim bukti same-origin. Dipakai HANYA oleh test CSRF, karena request browser
    * yang sah selalu membawa `Sec-Fetch-Site`/`Origin`.
    */
   readonly sameOriginProof?: boolean
+  /**
+   * Transport yang dipakai.
+   *
+   * `fetch` Node SELALU menambahkan `Sec-Fetch-Mode: cors`, jadi lewat `fetch` semua request terlihat
+   * seperti request browser - dan itu memang benar untuk klien web. Untuk menguji klien native/CLI
+   * (yang tidak mengirim satu pun penanda browser), pakai `'node'`: `node:http` hanya mengirim header
+   * yang kita minta.
+   */
+  readonly transport?: 'fetch' | 'node'
+}
+
+type RawResponse = {
+  readonly status: number
+  readonly headers: Headers
+  readonly text: string
 }
 
 type ApiResponse = {
@@ -72,6 +93,54 @@ type ApiResponse = {
 
 const MUTATING_METHODS = ['POST', 'PUT', 'PATCH', 'DELETE']
 
+/**
+ * Request lewat `node:http` - TANPA header tambahan dari runtime.
+ *
+ * Ini satu-satunya cara menguji jalur "klien tanpa penanda browser": `fetch` Node menyisipkan
+ * `Sec-Fetch-Mode` sendiri, dan header itu tidak bisa dihapus lewat `HeadersInit`.
+ */
+async function nodeRequest(
+  target: string,
+  method: string,
+  headers: Record<string, string>,
+  body: string | undefined,
+): Promise<RawResponse> {
+  return await new Promise((resolve, reject) => {
+    const request = nodeHttpRequest(
+      target,
+      {
+        method,
+        headers: {
+          ...headers,
+          ...(body === undefined ? {} : { 'content-length': String(Buffer.byteLength(body)) }),
+        },
+      },
+      (response) => {
+        const chunks: Buffer[] = []
+        response.on('data', (chunk: Buffer) => chunks.push(chunk))
+        response.on('end', () => {
+          const responseHeaders = new Headers()
+          for (let index = 0; index < response.rawHeaders.length; index += 2) {
+            responseHeaders.append(
+              response.rawHeaders[index] ?? '',
+              response.rawHeaders[index + 1] ?? '',
+            )
+          }
+
+          resolve({
+            status: response.statusCode ?? 0,
+            headers: responseHeaders,
+            text: Buffer.concat(chunks).toString('utf8'),
+          })
+        })
+      },
+    )
+
+    request.on('error', reject)
+    request.end(body)
+  })
+}
+
 async function api(path: string, request: ApiRequest = {}): Promise<ApiResponse> {
   const method = request.method ?? 'GET'
   const needsProof =
@@ -79,35 +148,43 @@ async function api(path: string, request: ApiRequest = {}): Promise<ApiResponse>
     MUTATING_METHODS.includes(method) &&
     request.sameOriginProof !== false
 
-  const response = await fetch(url(path), {
-    method,
-    headers: {
-      ...(request.body === undefined ? {} : { 'content-type': 'application/json' }),
-      ...(request.cookie === undefined ? {} : { cookie: request.cookie }),
-      ...(request.token === undefined ? {} : { authorization: `Bearer ${request.token}` }),
-      // Middleware CSRF menolak mutasi ber-cookie tanpa bukti same-origin (fail-closed), jadi test
-      // non-CSRF harus mengirim bukti itu seperti browser asli.
-      ...(needsProof ? { 'sec-fetch-site': 'same-origin' } : {}),
-      ...request.headers,
-    },
-    body: request.body === undefined ? undefined : JSON.stringify(request.body),
-  })
+  const headers: Record<string, string> = {
+    ...(request.body === undefined ? {} : { 'content-type': 'application/json' }),
+    ...(request.cookie === undefined ? {} : { cookie: request.cookie }),
+    ...(request.token === undefined ? {} : { authorization: `Bearer ${request.token}` }),
+    ...(request.expectedUserId === undefined
+      ? {}
+      : { 'x-expected-user-id': request.expectedUserId }),
+    // Middleware CSRF menolak mutasi ber-cookie tanpa bukti same-origin (fail-closed), jadi test
+    // non-CSRF harus mengirim bukti itu seperti browser asli.
+    ...(needsProof ? { 'sec-fetch-site': 'same-origin' } : {}),
+    ...request.headers,
+  }
+  const body = request.body === undefined ? undefined : JSON.stringify(request.body)
+  const target = url(path)
 
-  const text = await response.text()
-  let body: unknown = null
-  if (text.length > 0) {
+  let raw: RawResponse
+  if (request.transport === 'node') {
+    raw = await nodeRequest(target, method, headers, body)
+  } else {
+    const response = await fetch(target, { method, headers, body })
+    raw = { status: response.status, headers: response.headers, text: await response.text() }
+  }
+
+  let parsed: unknown = null
+  if (raw.text.length > 0) {
     try {
-      body = JSON.parse(text)
+      parsed = JSON.parse(raw.text)
     } catch {
-      body = text
+      parsed = raw.text
     }
   }
 
   return {
-    status: response.status,
-    headers: response.headers,
-    body,
-    setCookie: response.headers.getSetCookie(),
+    status: raw.status,
+    headers: raw.headers,
+    body: parsed,
+    setCookie: raw.headers.getSetCookie(),
   }
 }
 
@@ -626,6 +703,7 @@ describe('authz per-resource (IDOR) lewat HTTP', () => {
     const bobPush = await api('/v1/sync/push', {
       method: 'POST',
       cookie: bobCookie,
+      expectedUserId: bobSession.userId,
       body: {
         records: [{ id: bobRecordId, hlc: '1000-0-b', deleted: false, blob: blobOf('milik-bob') }],
       },
@@ -633,7 +711,12 @@ describe('authz per-resource (IDOR) lewat HTTP', () => {
     expect(bobPush.status).toBe(200)
 
     const alicePull = apiDataEnvelopeSchema(syncPullResultSchema).parse(
-      (await api('/v1/sync/pull?cursor=0&limit=50', { cookie: aliceCookie })).body,
+      (
+        await api('/v1/sync/pull?cursor=0&limit=50', {
+          cookie: aliceCookie,
+          expectedUserId: aliceSession.userId,
+        })
+      ).body,
     ).data
     expect(alicePull.records).toEqual([])
     expect(JSON.stringify(alicePull)).not.toContain(bobRecordId)
@@ -653,6 +736,7 @@ describe('sync lewat HTTP (T21)', () => {
     const pushed = await api('/v1/sync/push', {
       method: 'POST',
       cookie,
+      expectedUserId: session.userId,
       body: {
         records: [
           { id: liveId, hlc: '1000-0-a', deleted: false, blob: liveBlob },
@@ -665,7 +749,10 @@ describe('sync lewat HTTP (T21)', () => {
     const pushResult = apiDataEnvelopeSchema(syncPushResultSchema).parse(pushed.body).data
     expect(pushResult.results.map((entry) => entry.status)).toEqual(['applied', 'applied'])
 
-    const pulled = await api('/v1/sync/pull?cursor=0&limit=10', { cookie })
+    const pulled = await api('/v1/sync/pull?cursor=0&limit=10', {
+      cookie,
+      expectedUserId: session.userId,
+    })
     expect(pulled.status).toBe(200)
     const page = apiDataEnvelopeSchema(syncPullResultSchema).parse(pulled.body).data
 
@@ -676,7 +763,12 @@ describe('sync lewat HTTP (T21)', () => {
 
     // Halaman kosong tidak mereset cursor ke 0.
     const empty = apiDataEnvelopeSchema(syncPullResultSchema).parse(
-      (await api(`/v1/sync/pull?cursor=${page.nextCursor}&limit=10`, { cookie })).body,
+      (
+        await api(`/v1/sync/pull?cursor=${page.nextCursor}&limit=10`, {
+          cookie,
+          expectedUserId: session.userId,
+        })
+      ).body,
     ).data
     expect(empty.records).toEqual([])
     expect(empty.nextCursor).toBe(page.nextCursor)
@@ -693,11 +785,17 @@ describe('sync lewat HTTP (T21)', () => {
       blob: blobOf('x'),
     }))
 
-    const response = await api('/v1/sync/push', { method: 'POST', cookie, body: { records } })
+    const response = await api('/v1/sync/push', {
+      method: 'POST',
+      cookie,
+      expectedUserId: session.userId,
+      body: { records },
+    })
 
     expect(response.status).not.toBe(200)
     const pulled = apiDataEnvelopeSchema(syncPullResultSchema).parse(
-      (await api('/v1/sync/pull?cursor=0&limit=10', { cookie })).body,
+      (await api('/v1/sync/pull?cursor=0&limit=10', { cookie, expectedUserId: session.userId }))
+        .body,
     ).data
     expect(pulled.records).toEqual([])
   })
@@ -715,6 +813,7 @@ describe('sync lewat HTTP (T21)', () => {
     const response = await api('/v1/sync/push', {
       method: 'POST',
       cookie: cookieFor(session.token),
+      expectedUserId: session.userId,
       body: { records },
     })
 
@@ -732,6 +831,7 @@ describe('sync lewat HTTP (T21)', () => {
     const response = await api('/v1/sync/push', {
       method: 'POST',
       cookie,
+      expectedUserId: session.userId,
       body: {
         userId: randomUUID(),
         records: [{ id: recordId, hlc: '1000-0-a', deleted: false, blob: blobOf('x') }],
@@ -740,7 +840,8 @@ describe('sync lewat HTTP (T21)', () => {
 
     expect(response.status).not.toBe(200)
     const pulled = apiDataEnvelopeSchema(syncPullResultSchema).parse(
-      (await api('/v1/sync/pull?cursor=0&limit=10', { cookie })).body,
+      (await api('/v1/sync/pull?cursor=0&limit=10', { cookie, expectedUserId: session.userId }))
+        .body,
     ).data
     expect(pulled.records.map((record) => record.id)).not.toContain(recordId)
   })
@@ -752,6 +853,7 @@ describe('sync lewat HTTP (T21)', () => {
     const response = await api('/v1/sync/push', {
       method: 'POST',
       cookie: cookieFor(session.token),
+      expectedUserId: session.userId,
       body: {
         userId: session.userId,
         records: [{ id: randomUUID(), hlc: '1000-0-a', deleted: false, blob: blobOf('x') }],
@@ -773,6 +875,7 @@ describe('sync lewat HTTP (T21)', () => {
 
     const response = await api('/v1/sync/pull?cursor=0&limit=10', {
       cookie: cookieFor(session.token),
+      expectedUserId: session.userId,
     })
 
     expect(response.status).toBe(409)
@@ -781,6 +884,7 @@ describe('sync lewat HTTP (T21)', () => {
 
     const atWatermark = await api('/v1/sync/pull?cursor=500&limit=10', {
       cookie: cookieFor(session.token),
+      expectedUserId: session.userId,
     })
     expect(atWatermark.status).toBe(200)
   })
@@ -796,7 +900,10 @@ describe('sync lewat HTTP (T21)', () => {
       'limit=99999',
       'cursor=0&takDikenal=1',
     ]) {
-      const response = await api(`/v1/sync/pull?${query}`, { cookie: cookieFor(session.token) })
+      const response = await api(`/v1/sync/pull?${query}`, {
+        cookie: cookieFor(session.token),
+        expectedUserId: session.userId,
+      })
 
       expect(response.status, `query "${query}" seharusnya ditolak`).not.toBe(200)
       expect(apiErrorBodySchema.safeParse(response.body).success, `query "${query}"`).toBe(true)
@@ -808,7 +915,10 @@ describe('sync lewat HTTP (T21)', () => {
     const session = await seedSession(liveCtx(fixture), { email: fixture.email })
 
     for (const query of ['cursor=abc', 'cursor=-1', 'limit=0', 'limit=99999']) {
-      const response = await api(`/v1/sync/pull?${query}`, { cookie: cookieFor(session.token) })
+      const response = await api(`/v1/sync/pull?${query}`, {
+        cookie: cookieFor(session.token),
+        expectedUserId: session.userId,
+      })
 
       expectValidationFailure(response, `query "${query}"`)
     }
@@ -823,7 +933,7 @@ describe('sync: penanda pemilik request `x-expected-user-id` (H1)', () => {
     return await seedSession(liveCtx(fixture), { email: fixture.email })
   }
 
-  it('header cocok -> push & pull diproses seperti biasa', async () => {
+  it('header cocok + penanda browser (Origin) -> push & pull diproses seperti biasa', async () => {
     const fixture = scope.fixture({ prefix: 'http-sync-owner' })
     const session = await sessionOf(fixture)
     const cookie = cookieFor(session.token)
@@ -832,14 +942,17 @@ describe('sync: penanda pemilik request `x-expected-user-id` (H1)', () => {
     const pushed = await api('/v1/sync/push', {
       method: 'POST',
       cookie,
-      headers: { [HEADER]: session.userId },
+      expectedUserId: session.userId,
+      // Browser asli selalu mengirim salah satu penanda ini; aturan H1 bergantung padanya.
+      headers: { origin: serverOrigin() },
       body: { records: [{ id, hlc: '1000-0-a', deleted: false, blob: blobOf('milik-sendiri') }] },
     })
     expect(pushed.status).toBe(200)
 
     const pulled = await api('/v1/sync/pull?cursor=0&limit=10', {
       cookie,
-      headers: { [HEADER]: session.userId },
+      expectedUserId: session.userId,
+      headers: { origin: serverOrigin() },
     })
     expect(pulled.status).toBe(200)
     expect(
@@ -849,24 +962,74 @@ describe('sync: penanda pemilik request `x-expected-user-id` (H1)', () => {
     ).toEqual([id])
   })
 
-  it('tanpa header -> tetap dilayani (kompatibilitas klien lama)', async () => {
-    const fixture = scope.fixture({ prefix: 'http-sync-legacy' })
+  it('browser tanpa header -> 403, tanpa membaca/menulis data dan tanpa memakai jatah rate limit', async () => {
+    const fixture = scope.fixture({ prefix: 'http-sync-browser-no-header' })
     const session = await sessionOf(fixture)
     const cookie = cookieFor(session.token)
     const id = randomUUID()
 
-    const pushed = await api('/v1/sync/push', {
+    // `Origin` cukup untuk membuktikan request ini dari browser - dan browser WAJIB mengirim header.
+    const push = await api('/v1/sync/push', {
       method: 'POST',
       cookie,
+      headers: { origin: serverOrigin() },
+      body: { records: [{ id, hlc: '1000-0-a', deleted: false, blob: blobOf('tab-basi') }] },
+    })
+    expect(push.status).toBe(403)
+    expect(problemOf(push).error.code).toBe('FORBIDDEN')
+
+    const pull = await api('/v1/sync/pull?cursor=0&limit=10', {
+      cookie,
+      headers: { origin: serverOrigin() },
+    })
+    expect(pull.status).toBe(403)
+    expect(problemOf(pull).error.code).toBe('FORBIDDEN')
+
+    // Ditolak SEBELUM rate limit: jatah `sync:*` milik sesi masih utuh.
+    expect(await rateLimitCount(fixture.env, session.userId)).toBe(0)
+
+    // Dan tidak ada yang tertulis: pull yang sah (dengan header pemilik) tidak memuat record itu.
+    const legit = await api('/v1/sync/pull?cursor=0&limit=10', {
+      cookie,
+      expectedUserId: session.userId,
+    })
+    expect(legit.status).toBe(200)
+    expect(
+      apiDataEnvelopeSchema(syncPullResultSchema)
+        .parse(legit.body)
+        .data.records.map((record) => record.id),
+    ).not.toContain(id)
+  })
+
+  it('klien tanpa penanda browser (native, bearer) tanpa header -> tetap dilayani', async () => {
+    const fixture = scope.fixture({ prefix: 'http-sync-legacy' })
+    // Native memakai bearer tanpa cookie jar: tidak ada kredensial ambient yang bisa dipinjam tab
+    // lain, jadi header ini memang tidak diwajibkan untuknya. `transport: 'node'` mengirim request
+    // tanpa Fetch Metadata sama sekali - persis seperti klien native.
+    const session = await seedSession(liveCtx(fixture), { email: fixture.email, client: 'mobile' })
+    const id = randomUUID()
+
+    const pushed = await api('/v1/sync/push', {
+      method: 'POST',
+      token: session.token,
+      transport: 'node',
       body: { records: [{ id, hlc: '1000-0-a', deleted: false, blob: blobOf('x') }] },
     })
     expect(pushed.status).toBe(200)
 
-    const pulled = await api('/v1/sync/pull?cursor=0&limit=10', { cookie })
+    const pulled = await api('/v1/sync/pull?cursor=0&limit=10', {
+      token: session.token,
+      transport: 'node',
+    })
     expect(pulled.status).toBe(200)
+    expect(
+      apiDataEnvelopeSchema(syncPullResultSchema)
+        .parse(pulled.body)
+        .data.records.map((record) => record.id),
+    ).toEqual([id])
   })
 
-  it('header user lain -> 403 FORBIDDEN sebelum menyentuh data/jatah, nilai header tidak dipantulkan', async () => {
+  it('header user lain + penanda browser -> 403 FORBIDDEN sebelum menyentuh data/jatah, nilai header tidak dipantulkan', async () => {
     const alice = scope.fixture({ prefix: 'http-sync-owner-alice' })
     const bob = scope.fixture({ prefix: 'http-sync-owner-bob' })
     const session = await sessionOf(alice)
@@ -877,7 +1040,7 @@ describe('sync: penanda pemilik request `x-expected-user-id` (H1)', () => {
     const push = await api('/v1/sync/push', {
       method: 'POST',
       cookie,
-      headers: { [HEADER]: bobUserId },
+      headers: { [HEADER]: bobUserId, origin: serverOrigin() },
       body: { records: [{ id, hlc: '1000-0-a', deleted: false, blob: blobOf('bukan-miliknya') }] },
     })
     expect(push.status).toBe(403)
@@ -886,7 +1049,7 @@ describe('sync: penanda pemilik request `x-expected-user-id` (H1)', () => {
 
     const pull = await api('/v1/sync/pull?cursor=0&limit=10', {
       cookie,
-      headers: { [HEADER]: bobUserId },
+      headers: { [HEADER]: bobUserId, origin: serverOrigin() },
     })
     expect(pull.status).toBe(403)
     expect(problemOf(pull).error.code).toBe('FORBIDDEN')
@@ -896,7 +1059,10 @@ describe('sync: penanda pemilik request `x-expected-user-id` (H1)', () => {
     expect(await rateLimitCount(alice.env, session.userId)).toBe(0)
 
     // Dan tidak ada yang tertulis: pull yang sah tidak memuat record dari request yang ditolak.
-    const legit = await api('/v1/sync/pull?cursor=0&limit=10', { cookie })
+    const legit = await api('/v1/sync/pull?cursor=0&limit=10', {
+      cookie,
+      expectedUserId: session.userId,
+    })
     expect(legit.status).toBe(200)
     expect(
       apiDataEnvelopeSchema(syncPullResultSchema)
@@ -1109,15 +1275,19 @@ describe('regresi BUG-1: kegagalan validasi input seragam 400 VALIDATION_FAILED'
       },
       {
         label: 'query: cursor bukan angka',
-        run: () => api('/v1/sync/pull?cursor=abc', { cookie }),
+        run: () => api('/v1/sync/pull?cursor=abc', { cookie, expectedUserId: session.userId }),
       },
       {
         label: 'query: limit di luar rentang',
-        run: () => api('/v1/sync/pull?limit=99999', { cookie }),
+        run: () => api('/v1/sync/pull?limit=99999', { cookie, expectedUserId: session.userId }),
       },
       {
         label: 'query: parameter tak dikenal',
-        run: () => api('/v1/sync/pull?cursor=0&takDikenal=1', { cookie }),
+        run: () =>
+          api('/v1/sync/pull?cursor=0&takDikenal=1', {
+            cookie,
+            expectedUserId: session.userId,
+          }),
       },
       {
         label: 'param: id perangkat bukan UUID',
@@ -1130,6 +1300,7 @@ describe('regresi BUG-1: kegagalan validasi input seragam 400 VALIDATION_FAILED'
           api('/v1/sync/push', {
             method: 'POST',
             cookie,
+            expectedUserId: session.userId,
             body: {
               userId: session.userId,
               records: [{ id: randomUUID(), hlc: '1000-0-a', deleted: false, blob: blobOf('x') }],
@@ -1143,6 +1314,7 @@ describe('regresi BUG-1: kegagalan validasi input seragam 400 VALIDATION_FAILED'
           api('/v1/sync/push', {
             method: 'POST',
             cookie,
+            expectedUserId: session.userId,
             body: {
               records: Array.from({ length: SYNC_MAX_BATCH + 1 }, (_, index) => ({
                 id: randomUUID(),

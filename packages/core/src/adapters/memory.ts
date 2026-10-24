@@ -14,6 +14,7 @@ import type {
   SyncStatePatch,
   TransactionContext,
 } from '../ports.ts'
+import { RECORD_INDEX_KEEP } from '../ports.ts'
 import {
   compareIndexEntries,
   indexOverlapsRange,
@@ -108,7 +109,7 @@ function applyPutRecord(tables: MemoryTables, write: RecordWrite, clock: Clock):
     // Index yang ditulis bersama record membawa `updatedAtMs` versi data; record tanpa index (dan
     // record `'keep'`, yang index-nya tidak kita sentuh) memakai jam adapter. Keduanya "pembukuan
     // lokal" yang tidak ikut sync (`ports.ts`).
-    updatedAtMs: index === null || index === 'keep' ? nowMs : index.updatedAtMs,
+    updatedAtMs: index === null || index === RECORD_INDEX_KEEP ? nowMs : index.updatedAtMs,
   })
 
   // Index dan record harus selalu sinkron: entitas tanpa dimensi waktu tidak boleh meninggalkan
@@ -117,7 +118,7 @@ function applyPutRecord(tables: MemoryTables, write: RecordWrite, clock: Clock):
   // yang dibuat - adapter tidak boleh mengarang index.
   if (index === null) {
     tables.indexes.delete(write.sealed.id)
-  } else if (index !== 'keep') {
+  } else if (index !== RECORD_INDEX_KEEP) {
     tables.indexes.set(write.sealed.id, { ...index, recordId: write.sealed.id })
   }
 

@@ -70,6 +70,8 @@ async function api(
     readonly body?: unknown
     readonly cookie?: string
     readonly redirect?: RequestRedirect
+    /** Nilai `x-expected-user-id`. Endpoint sync mewajibkannya untuk klien browser. */
+    readonly expectedUserId?: string
   } = {},
 ): Promise<ApiResponse> {
   const method = request.method ?? 'GET'
@@ -80,6 +82,9 @@ async function api(
     headers: {
       ...(request.body === undefined ? {} : { 'content-type': 'application/json' }),
       ...(request.cookie === undefined ? {} : { cookie: request.cookie }),
+      ...(request.expectedUserId === undefined
+        ? {}
+        : { 'x-expected-user-id': request.expectedUserId }),
       ...(needsProof ? { 'sec-fetch-site': 'same-origin' } : {}),
     },
     body: request.body === undefined ? undefined : JSON.stringify(request.body),
@@ -353,7 +358,12 @@ describe('H1: batas ukuran body tidak bisa dilewati lewat chunked', () => {
     const sized = Buffer.byteLength(JSON.stringify({ records }))
     expect(sized).toBeLessThan(8_388_608)
 
-    const accepted = await api('/v1/sync/push', { method: 'POST', cookie, body: { records } })
+    const accepted = await api('/v1/sync/push', {
+      method: 'POST',
+      cookie,
+      expectedUserId: session.userId,
+      body: { records },
+    })
     expect(accepted.status, JSON.stringify(accepted.body)).toBe(200)
 
     const oversize = await chunkedUpload('/v1/sync/push', 'POST', [
@@ -393,14 +403,20 @@ describe('M4/M1: limiter endpoint mahal & bucket per akun', () => {
   type Case = {
     readonly label: string
     readonly scope: RateLimitScope
-    readonly request: (cookie: string, fixture: Fixture, deviceId: string) => Promise<ApiResponse>
+    readonly request: (
+      cookie: string,
+      fixture: Fixture,
+      userId: string,
+      deviceId: string,
+    ) => Promise<ApiResponse>
   }
 
   const cases: readonly Case[] = [
     {
       label: 'GET /v1/sync/pull',
       scope: 'sync:pull',
-      request: (cookie) => api('/v1/sync/pull?cursor=0&limit=1', { cookie }),
+      request: (cookie, _fixture, userId) =>
+        api('/v1/sync/pull?cursor=0&limit=1', { cookie, expectedUserId: userId }),
     },
     {
       label: 'POST /v1/keys/transfer',
@@ -420,7 +436,7 @@ describe('M4/M1: limiter endpoint mahal & bucket per akun', () => {
     {
       label: 'DELETE /v1/devices/:id',
       scope: 'devices:revoke',
-      request: (cookie, _fixture, deviceId) =>
+      request: (cookie, _fixture, _userId, deviceId) =>
         api(`/v1/devices/${deviceId}`, { method: 'DELETE', cookie }),
     },
     {
@@ -442,7 +458,7 @@ describe('M4/M1: limiter endpoint mahal & bucket per akun', () => {
 
     await seedAtLimit(fixture.env, testCase.scope, session.userId)
 
-    const limited = await testCase.request(cookie, fixture, session.deviceId)
+    const limited = await testCase.request(cookie, fixture, session.userId, session.deviceId)
 
     expect(limited.status, `${testCase.label} tidak pernah dijawab 429`).toBe(429)
     expect(problemOf(limited).error.code).toBe('RATE_LIMITED')
@@ -472,11 +488,13 @@ describe('M4/M1: limiter endpoint mahal & bucket per akun', () => {
 
     const limited = await api('/v1/sync/pull?cursor=0&limit=1', {
       cookie: cookieFor(aliceSession.token),
+      expectedUserId: aliceSession.userId,
     })
     expect(limited.status).toBe(429)
 
     const allowed = await api('/v1/sync/pull?cursor=0&limit=1', {
       cookie: cookieFor(bobSession.token),
+      expectedUserId: bobSession.userId,
     })
     expect(allowed.status, JSON.stringify(allowed.body)).toBe(200)
   })

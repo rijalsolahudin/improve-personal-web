@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 
 import { pointIndex, spanIndex, type EntityType } from '../domain/envelope.ts'
 import type { RecordWrite, StorageAdapter, StoredSyncState } from '../ports.ts'
+import { RECORD_INDEX_KEEP } from '../ports.ts'
 import { createManualClock, type ManualClock } from './clock.ts'
 
 /**
@@ -245,7 +246,7 @@ export function runStorageAdapterContractTests(
 
         await storage.runTransaction('contract.write', async (tx) => {
           await tx.putRecord(
-            write({ id: id(24), hlc: hlcOf(25), blob: 'blob-baru', index: 'keep' }),
+            write({ id: id(24), hlc: hlcOf(25), blob: 'blob-baru', index: RECORD_INDEX_KEEP }),
           )
         })
 
@@ -256,7 +257,7 @@ export function runStorageAdapterContractTests(
 
       it("putRecord dengan index 'keep' tidak mengarang index saat belum ada", async () => {
         await storage.runTransaction('contract.write', async (tx) => {
-          await tx.putRecord(write({ id: id(25), hlc: hlcOf(25), index: 'keep' }))
+          await tx.putRecord(write({ id: id(25), hlc: hlcOf(25), index: RECORD_INDEX_KEEP }))
         })
 
         expect((await storage.getRecord(id(25)))?.blob).toBe(`blob-${id(25)}`)
