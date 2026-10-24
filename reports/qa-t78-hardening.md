@@ -404,3 +404,100 @@ temuan; saya pertahankan sebagai B4 dan menandainya di laporan, bukan menghapus 
   record tertua, batas 200) + 2 pin `it.fails` untuk B3 dan B4.
 - Tidak ada kode produk yang diubah. `git status` hanya menampilkan file ini (plus addendum keamanan yang
   ditulis reviewer keamanan, bukan QA ini).
+
+## 12. Addendum putaran 3 — commit `30aa57c` (verifikasi penutupan B3/B4/A1)
+
+**Verdict: LULUS** untuk lingkup verifikasi ini. B3, B4, dan pagar A1 **tertutup**: bukti kunci sekarang
+milik sesi (`isFreshKey === false`, hasil unwrap AES-KW per akun) plus dekripsi sukses di generasi yang
+sama, sehingga tahan reload dan berlaku sejak halaman pertama tanpa cek "ada record lain yang berhasil".
+Tidak ada pagar yang dilonggarkan. Dua sisa risiko baru (R1, R2) dicatat di §12.3 dan §12.6 - keduanya butuh
+kondisi tambahan dan tidak mengembalikan B3/B4.
+
+Rules dibaca: root `CLAUDE.md`, `.claude/rules/{shared-security,shared-code-quality,ergonio-status-flow}.md`,
+`apps/web/AGENTS.md`, `apps/web/CLAUDE.md`, `apps/web/.claude/rules/{security,performance,code-quality}.md`.
+Kode produk **tidak** diubah (mutasi dijalankan lalu `git checkout --`; `git status` bersih kecuali file
+test baru). Status Ergonio **tidak** dipindahkan.
+
+### 12.1 Yang diverifikasi
+
+| # | Klaim | Hasil | Bukti |
+|---|---|---|---|
+| 1 | B3: setelah `stopSync()`+`startSync()` (reload) dengan cursor parkir di halaman rusak, record terkarantina dan pull maju | **lulus** - `isQuarantined === true`, `cursor: 2`, `synced`; pin `it.fails` → `it` | `controller.quarantine-edges.qa.test.ts:236` |
+| 2 | Test B3 benar-benar bergantung pada `isFreshKey === false` | **lulus** - mutasi a (bukti sesi dimatikan) membuat B3, B4, dan "TIGA record rusak" **merah** | §12.2 mutasi a |
+| 3 | B4: halaman pertama seluruhnya rusak, halaman berikutnya sehat | **lulus** - karantina terjadi, `cursor: 2`, `synced`, record sehat di halaman 1 tertulis | `controller.quarantine-edges.qa.test.ts:210` |
+| 4 | A1: bukti generasi lama tidak menyalakan bukti generasi baru | **lulus** - mutasi b (flag modul tanpa cek generasi) membuat **hanya A1 merah** | §12.2 mutasi b |
+| 5 | Tidak melonggarkan pagar: `isFreshKey: true` + record rusak tetap fail-closed | **lulus** - 5 siklus: `writes: []`, `quarantinedCount === 0`, `cursor: 0`, `error` | `controller.quarantine-solo.qa.test.ts:171` |
+| 6 | `keyProven` tidak pernah ditulis dari siklus basi | **lulus (kode + test)** - `keyProven` hidup di objek `PullKeyFailures` per `execute`, ditulis hanya di balik `!isGenerationStale(current)` (`controller.ts:484`); satu-satunya state lintas siklus adalah `consecutiveKeyFailures` yang di-`clear()` di `startSync` (`:189`) dan berkunci UUID per record | A1 + baca kode |
+| 7 | Bukti sesi benar-benar terikat akun (bukan "kunci apa pun yang pernah ada di perangkat") | **lulus (baca kode)** - `isFreshKey = !(await keyStore.has('device'))` (`session.ts:170`) dan `keyStore` adalah database kunci **per akun** (`session.ts:166` → `keyDatabaseName(userId)`, `database-names.ts:40`) | `session.ts:170-198` |
+
+Catatan verifikasi #1: `isSessionKeyProven` sekarang hanya `session.isFreshKey === false`, tanpa flag
+modul. `grep -rn keyProvenForSession apps/web/app apps/web/server packages` tidak menemukan sisa di
+sumber; yang masih menyebut nama lama hanya artefak build di `apps/web/.nuxt/test/**` (bukan kode).
+
+### 12.2 Mutation check (dijalankan, lalu dikembalikan dengan `git checkout --`; `git status` bersih)
+
+| # | Mutasi | Hasil | Yang menangkap |
+|---|---|---|---|
+| a | `isSessionKeyProven` → `return false` (bukti sesi dimatikan) | **3 failed / 3 passed** | `controller.quarantine-edges.qa.test.ts:171` ("TIGA record rusak"), `:210` (B4), `:236` (B3) - B3 gagal di `expect(isQuarantined…).toBe(true)` |
+| b | bukti kunci dikembalikan ke flag modul `moduleKeyProven` tanpa `isGenerationStale` | **1 failed / 5 passed** - hanya A1 | `controller.quarantine-edges.qa.test.ts:267` (`quarantinedCount(USER_B)` jadi 1, seharusnya 0) |
+
+Mutasi b adalah bukti bahwa pagar generasi di `buildIndex` bukan hiasan: tanpa cek itu, A1 langsung merah
+dan tidak ada test lain yang ikut merah (jadi pin A1 tepat sasaran, tidak tumpang tindih).
+
+### 12.3 Bentuk data lain yang diperiksa (putaran 3)
+
+File baru: `apps/web/app/utils/sync/controller.quarantine-residuals.qa.test.ts` (1 lulus + 2 `it.fails`).
+
+| Bentuk | Hasil | Bukti |
+|---|---|---|
+| Record rusak satu halaman dengan record yang **versi lokalnya menang** (`skipped`) | **pulih** - `cursor: 1`, `synced`, record `skipped` tidak ditulis; bukti tidak bergantung pada record itu | test "record yang versi LOKALNYA menang" |
+| **Reload di antara siklus** (tab ditutup/dibuang sebelum 3 siklus interval selesai) | **masih macet** - 6 × (start + 1 siklus + stop): `quarantinedCount === 0`, `cursor: 1`, `error` (R1) | `it.fails` "sisa risiko R1" |
+| `localStorage` diblokir (karantina tidak bisa ditulis) | **masih macet** - `quarantinedCount === 0`, `cursor: 0`, `error`; controller benar tidak mengklaim pulih (R2) | `it.fails` "sisa risiko R2" |
+| Halaman >200 record rusak | **masih macet** (L2 lama, tidak berubah): daftar berputar 200, `cursor: 0` | `controller.quarantine-edges.qa.test.ts:311` |
+| Halaman pertama seluruhnya rusak pada sesi `isFreshKey: true` | tetap fail-closed **by design** - tidak ada bukti akun yang bisa dipakai; hanya jalur pemulihan kunci yang menolong | `controller.quarantine-solo.qa.test.ts:171` |
+
+R1 adalah sisa B3 yang paling perlu diketahui: bukti kunci kini tahan reload, tetapi **penghitung tiga
+siklus tidak persisten** (`consecutiveKeyFailures` direset `startSync`, `controller.ts:189`). Jadi
+"permanen" berubah menjadi "butuh tiga siklus dalam satu sesi controller" (app_open + interval 5 menit,
+±10-15 menit dengan tab tetap terbuka). User yang memuat ulang lebih sering dari itu masih melihat pull
+berhenti. Saran murah: simpan penghitung (`recordId → count` + cap waktu) di store karantina yang sudah
+persisten, atau hitung "pertama terlihat gagal" dan karantina bila sudah lewat N menit/beberapa siklus.
+
+### 12.4 Perintah & hasil persis (putaran 3)
+
+| Perintah | Hasil |
+|---|---|
+| `vitest run app/utils/sync/controller.quarantine-edges.qa.test.ts` (pin) | **6 passed**, 3,50 s |
+| `vitest run app/utils/sync app/components/features/shell app/composables/useSyncStatus.test.ts` | **90 passed + 2 expected fail (92)**, 6,38 s |
+| `vitest run app` | **189 files passed, 1324 passed + 2 expected fail (1326)**, 46,20 s |
+| `npx prettier --check` + `npx eslint --max-warnings 0` pada file test baru | lolos, tanpa output |
+| `git status --short` | hanya `?? apps/web/app/utils/sync/controller.quarantine-residuals.qa.test.ts` (tidak ada perubahan produk) |
+
+Angka 2 expected fail seluruhnya berasal dari R1 dan R2 di file baru; pin B3/B4/A1 berjalan sebagai test
+normal.
+
+### 12.5 Tiga pilar (delta `30aa57c`)
+
+- **Keamanan.** Bukti kunci tidak lagi bisa dipalsukan oleh siklus lain (per-cycle + pagar generasi, A1).
+  Bukti `isFreshKey === false` sah karena unwrap AES-KW terautentikasi dan key store per akun; `true`
+  tetap fail-closed. Tidak ada dependency baru, tidak ada secret/id baru yang disimpan.
+- **Performa.** Tidak ada perubahan jalur panas: bukti sesi hanya satu perbandingan boolean per siklus
+  (`controller.ts:126`), menggantikan flag modul. Catatan lama §11.9 (`isQuarantined` mem-`JSON.parse`
+  per record) tetap berlaku, tidak bertambah buruk.
+- **Kerapian.** Komentar "kenapa" diperbarui dan sesuai kode; tidak ada `console.*`, `any`, `@ts-ignore`,
+  `.only`, atau `.skip` di file test baru (eslint bersih).
+
+### 12.6 Sisa risiko (tidak menggagalkan verifikasi)
+
+1. **R1 (Low-Medium):** penghitung gagal tidak persisten; reload berulang menunda pemulihan tanpa batas.
+2. **R2 (Low):** `localStorage` diblokir = tidak ada jalur pulih sama sekali; fallback karantina di memori
+   per sesi (tanpa klaim persisten) akan menutupnya.
+3. **L2 (Low, lama):** halaman >200 record rusak masih berputar dan tidak pernah dilewati; butuh server
+   mengirim >`limit`.
+4. **M1 (lama):** record terkarantina tidak pernah dicoba ulang, jadi pemulihan kunci tidak memunculkannya
+   kembali secara otomatis (user harus membersihkan daftar / ada mekanisme retry).
+5. Headroom budget landing ≈80 B (lama, di luar diff ini).
+
+Rekomendasi: R1 dan R2 cukup ditutup dalam satu perubahan kecil pada store karantina (persistensi
+penghitung + fallback memori); keduanya bukan blocker untuk AC #2 karena jalur normal (satu sesi, tiga
+siklus otomatis) sudah pulih dan teruji.
