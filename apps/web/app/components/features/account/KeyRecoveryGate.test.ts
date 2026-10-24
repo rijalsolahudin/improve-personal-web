@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { ENCRYPTED_BACKUP_FORMAT } from '~/utils/account/encrypted-backup'
 import type { LocalDataState } from '~/composables/useLocalData'
+import { resetPomodoroHistoryForTest } from '~/composables/usePomodoro'
 
 import KeyRecoveryGate from './KeyRecoveryGate.vue'
 
@@ -45,6 +46,10 @@ function setStatus(status: LocalDataState['status']): void {
 }
 
 beforeEach(() => {
+  // Hidrasi riwayat Pomodoro bereaksi pada `auth-session` dan ikut membuka `localData` (di test:
+  // lingkungan storage tidak lengkap, jadi statusnya jadi `error`). Gate ini menguji status `locked`
+  // buatan, bukan Pomodoro: matikan watcher app-level itu dulu supaya tidak menimpa state di tengah test.
+  resetPomodoroHistoryForTest()
   clearNuxtState(['localData', 'auth-session', 'auth-session-pending', 'auth-session-error', 'now'])
 })
 

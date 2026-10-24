@@ -206,20 +206,26 @@ describe('QA T24 · layer hias dipakai ulang di Overview, Daily, Goals, Akun', (
   ] as const
 
   for (const testCase of CASES) {
-    it(`${testCase.route}: hiasan halaman itu dirender (${testCase.page})`, async () => {
-      seed([
-        makeItem({ id: `${testCase.page}-1`, page: testCase.page, anchor: testCase.anchor }),
-        makeItem({ id: 'lain', page: 'memo', anchor: 'journal-feeling' }),
-      ])
-      const wrapper = await mountLayer(testCase.route)
-      await settle()
+    // Mount halaman `/app` yang sebenarnya: sendiri butuh ~2 detik (diukur standalone), dan di suite
+    // paralel bisa melewati timeout default 5 detik. Batas ini hanya soal lingkungan, bukan perilaku.
+    it(
+      `${testCase.route}: hiasan halaman itu dirender (${testCase.page})`,
+      { timeout: 20_000 },
+      async () => {
+        seed([
+          makeItem({ id: `${testCase.page}-1`, page: testCase.page, anchor: testCase.anchor }),
+          makeItem({ id: 'lain', page: 'memo', anchor: 'journal-feeling' }),
+        ])
+        const wrapper = await mountLayer(testCase.route)
+        await settle()
 
-      // Hanya sticker milik halaman aktif yang dirender (tidak bocor lintas halaman).
-      expect(itemEls(wrapper)).toHaveLength(1)
-      expect(wrapper.html()).toContain('😄')
-      wrapper.unmount()
-      mounted = null
-    })
+        // Hanya sticker milik halaman aktif yang dirender (tidak bocor lintas halaman).
+        expect(itemEls(wrapper)).toHaveLength(1)
+        expect(wrapper.html()).toContain('😄')
+        wrapper.unmount()
+        mounted = null
+      },
+    )
   }
 })
 
@@ -383,6 +389,11 @@ describe('QA T24 · performa layer hias', () => {
     expect(itemEls(wrapper)).toHaveLength(100)
 
     // rAF tidak dijalankan otomatis: kita cuma memastikan 10 event scroll → 1 permintaan frame.
+    //
+    // Tunggu satu putaran event loop dulu: frame nyata yang dijadwalkan saat mount bisa mendarat
+    // tepat di antara event scroll saat mesin sibuk, mereset penjaga `frame` dan membuat hitungan
+    // jadi 2. Setelah itu stub dipasang dan hitungannya bersih.
+    await new Promise((resolve) => setTimeout(resolve, 0))
     const raf = vi.fn(() => 1)
     vi.stubGlobal('requestAnimationFrame', raf)
     for (let i = 0; i < 10; i += 1) window.dispatchEvent(new Event('scroll'))

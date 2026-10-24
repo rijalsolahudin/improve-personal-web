@@ -8,6 +8,7 @@ import { keyDatabaseName } from '~/utils/storage/database-names'
 import { createWebKeyStore } from '~/utils/crypto/key-store'
 import { parseBackupCode } from '~/utils/account/backup-code'
 import { resetLocalDataSessionForTest } from '~/composables/useLocalData'
+import { resetPomodoroHistoryForTest } from '~/composables/usePomodoro'
 
 import RecoveryBackupCard from './RecoveryBackupCard.vue'
 
@@ -78,6 +79,10 @@ beforeEach(() => {
   clipboardSpy.mockClear()
 
   resetLocalDataSessionForTest()
+  // Pomodoro ikut menghidrasi riwayat saat `auth-session` terisi, dan itu membuka `localData` lebih
+  // dulu dari yang diatur test ini (mis. kasus "tanpa sesi"). Yang diuji di sini kartu backup, bukan
+  // Pomodoro - matikan watcher app-level itu supaya urutan buka/tutup sesi tetap milik test.
+  resetPomodoroHistoryForTest()
   clearNuxtState([
     'auth-session',
     'auth-session-pending',
@@ -161,9 +166,12 @@ describe('kartu backup kode pemulihan', () => {
 
     const button = wrapper.findAll('button').find((item) => item.text() === 'Buat kode pemulihan')
     await button?.trigger('click')
-    await flushPromises()
-
-    expect(wrapper.text()).toMatch(/tidak bisa|gagal|error/i)
+    // Gateway auth dimuat lewat `import()` saat sesi pertama kali dibaca (bukan lagi saat app start
+    // tanpa sesi - lihat gerbang sesi di `usePomodoro`), jadi tunggu hasilnya, bukan satu tick.
+    await vi.waitFor(() => expect(wrapper.text()).toMatch(/tidak bisa|gagal|error/i), {
+      timeout: 5_000,
+      interval: 50,
+    })
   })
 
   it('kode pemulihan tidak ikut masuk state SSR (`useState`)', async () => {

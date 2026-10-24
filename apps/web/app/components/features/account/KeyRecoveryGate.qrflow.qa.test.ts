@@ -3,6 +3,7 @@ import { flushPromises, type VueWrapper } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { LocalDataState } from '~/composables/useLocalData'
+import { resetPomodoroHistoryForTest } from '~/composables/usePomodoro'
 
 import KeyRecoveryGate from './KeyRecoveryGate.vue'
 
@@ -41,6 +42,10 @@ function buttonByText(wrapper: VueWrapper, pattern: RegExp) {
 }
 
 beforeEach(() => {
+  // Pomodoro menghidrasi riwayat begitu `auth-session` terisi dan ikut membuka `localData`; di test,
+  // lingkungan storage tidak lengkap sehingga status `locked` buatan test tertimpa `error`. Matikan
+  // watcher app-level itu: yang diuji di sini alur pairing, bukan Pomodoro.
+  resetPomodoroHistoryForTest()
   clearNuxtState(['localData', 'auth-session', 'auth-session-pending', 'auth-session-error', 'now'])
   useState('auth-session').value = SESSION
   useState<LocalDataState>('localData').value = LOCKED_STATE

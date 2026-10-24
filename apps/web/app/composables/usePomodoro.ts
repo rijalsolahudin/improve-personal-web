@@ -33,6 +33,7 @@ import {
 } from '~/utils/sync/refresh'
 import { createUuidV7Generator } from '~/utils/storage/uuid'
 
+import { useAuthSession } from './useAuthSession'
 import { useLocalData } from './useLocalData'
 
 /** Preferensi & state timer aktif (bukan data sensitif) → localStorage, divalidasi saat dibaca. */
@@ -83,11 +84,43 @@ let reloadInFlight: Promise<void> | null = null
 /** Antrean tulis riwayat: sesi yang selesai berurutan, dan reload menunggu antrean ini kosong. */
 let historyQueue: Promise<void> = Promise.resolve()
 
-/** Dipakai test supaya hydrate riwayat antar kasus tidak saling mewarisi. */
+type NuxtApplication = ReturnType<typeof useNuxtApp>
+
+/**
+ * Instance Nuxt yang sudah punya watcher sesi.
+ *
+ * `usePomodoro()` dipanggil plugin global DAN beberapa widget/halaman, jadi tanpa penjaga ini tiap
+ * pemanggilan menambah watcher yang menunggu transisi sesi - jumlahnya tumbuh mengikuti jumlah
+ * komponen, bukan jumlah user. Satu watcher per aplikasi cukup.
+ */
+let sessionWatchApps = new WeakSet<NuxtApplication>()
+
+/**
+ * Hidrator instance TERBARU per instance Nuxt.
+ *
+ * Watcher-nya satu, tetapi `hydrate()` yang dipanggil harus milik instance terakhir: test menyuntik
+ * `session` per instance, sedangkan di produksi semua instance memakai `localData.ensure`. Menyimpan
+ * fungsinya (bukan closure instance pertama) mencegah watcher memegang sesi yang sudah basi.
+ */
+let historyHydrators = new WeakMap<NuxtApplication, () => Promise<void>>()
+
+/** Penghenti watcher sesi, supaya test tidak mewarisi watcher kasus sebelumnya. */
+let sessionWatchStops: Array<() => void> = []
+
+/**
+ * Dipakai test supaya hydrate riwayat antar kasus tidak saling mewarisi.
+ *
+ * Watcher sesi ikut dihentikan: ia hidup selama satu instance Nuxt (satu file test), jadi tanpa ini
+ * kasus berikutnya masih mewarisi watcher kasus sebelumnya.
+ */
 export function resetPomodoroHistoryForTest(): void {
   historyInFlight = null
   reloadInFlight = null
   historyQueue = Promise.resolve()
+  for (const stop of sessionWatchStops) stop()
+  sessionWatchStops = []
+  sessionWatchApps = new WeakSet()
+  historyHydrators = new WeakMap()
 }
 
 function readStorage(key: string): string | null {
@@ -192,6 +225,10 @@ function readTimer(): StoredTimer | null {
 export function usePomodoro(options: UsePomodoroOptions = {}) {
   const localData = useLocalData()
   const getSession = options.session ?? localData.ensure
+  const auth = useAuthSession()
+
+  /** Akun yang sedang login; `null` = belum ada sesi (landing, atau sebelum guard selesai). */
+  const signedInUserId = computed(() => auth.session.value?.user.id ?? null)
 
   const now = useNow()
   const config = useState<PomodoroConfig>('pomodoro-config', readConfig)
@@ -304,6 +341,37 @@ export function usePomodoro(options: UsePomodoroOptions = {}) {
   }
 
   /**
+   * Mulai hidrasi riwayat setelah AKUN diketahui, dan tetap hidup kalau sesi muncul belakangan.
+   *
+   * `hydrate()` -> `localData.ensure()` -> `auth.ensureLoaded()` = `GET /v1/auth/session`. Plugin
+   * pomodoro jalan di SEMUA rute, sedangkan landing sengaja melewati middleware auth: memanggil
+   * hydrate tanpa sesi membuat halaman publik yang belum tentu login ikut mengunduh chunk gateway
+   * auth dan memanggil endpoint yang tidak dibutuhkan. Karena itu: belum ada user id = jangan sentuh
+   * penyimpanan sama sekali; sesi yang muncul kemudian (login di tab ini tanpa reload, atau pindah ke
+   * `/app` setelah guard memuat sesi) yang memulai.
+   */
+  function startHistoryHydration(): void {
+    // Di server tidak ada penyimpanan dan tidak ada watcher: status tetap `idle` sampai client.
+    if (!import.meta.client || typeof window === 'undefined') return
+
+    const app = useNuxtApp()
+    historyHydrators.set(app, hydrate)
+
+    if (!sessionWatchApps.has(app)) {
+      sessionWatchApps.add(app)
+      sessionWatchStops.push(
+        watch(signedInUserId, (userId) => {
+          if (userId === null) return
+          void historyHydrators.get(app)?.()
+        }),
+      )
+    }
+
+    // Sesi sudah ada sebelum composable ini dibuat (mis. reload di `/app`): hidrasi seperti dulu.
+    if (signedInUserId.value !== null) void hydrate()
+  }
+
+  /**
    * Muat ulang riwayat setelah pull menerapkan sesi dari perangkat lain.
    *
    * Hanya riwayat yang record-backed; timer & preferensi tetap di `localStorage` (state perangkat,
@@ -400,8 +468,8 @@ export function usePomodoro(options: UsePomodoroOptions = {}) {
     finish(true, state.value.endsAt)
   }
 
-  // Di server ini tidak melakukan apa pun (sesi `null`), dan status tetap `idle`.
-  void hydrate()
+  // Riwayat tidak dibuka sebelum akun jelas (lihat `startHistoryHydration`).
+  startHistoryHydration()
 
   // Halaman yang memakai riwayat pomodoro ikut memuat ulang saat pull menerapkan data perangkat lain.
   registerSyncReloader('pomodoro', reload)
