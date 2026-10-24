@@ -1,13 +1,20 @@
 import { DEVICE_NAME_MAX_LENGTH, type DeviceInfo } from '@improve-personal/contracts'
 
+import { currentInstallationId } from './device-installation'
+
 /**
- * Info perangkat yang disumbang web saat login (`deviceInfoSchema` di kontrak: `name` + `platform`;
- * `devices.id` diterbitkan server, jadi client tidak pernah mengirim id).
+ * Info perangkat yang disumbang web saat login (`deviceInfoSchema` di kontrak: `name` + `platform` +
+ * `installationId`; `devices.id` diterbitkan server, jadi client tidak pernah mengirim id).
  *
  * Nama diturunkan dari User-Agent, bukan dibuat acak: `Math.random()` membuat nama perangkat berubah
  * tiap login, sehingga user tidak bisa mengenali perangkatnya sendiri di halaman Perangkat (PRD F15)
  * - dan string kosong ditolak `deviceNameSchema` (server menjawab 400). Fungsi di sini murni:
  * User-Agent di-inject, jadi bisa diuji tanpa DOM dan hasilnya deterministik (input sama, output sama).
+ *
+ * Nama saja TIDAK cukup membedakan perangkat - dua mesin dengan browser + OS sama menghasilkan nama
+ * identik (Ergonio #80). Karena itu `installationId` ikut dikirim: satu id per instalasi browser,
+ * dipakai server sebagai pembeda utama. Id itu bukan kredensial, jadi ia tidak pernah dipakai untuk
+ * otorisasi dan tidak boleh di-log (lihat `./device-installation`).
  */
 
 /** Platform yang selalu dikirim web (enum kontrak `devicePlatformSchema`). */
@@ -84,7 +91,20 @@ function currentUserAgent(): string {
   return typeof navigator === 'undefined' ? '' : navigator.userAgent
 }
 
+/**
+ * Info perangkat yang SELALU membawa `installationId`.
+ *
+ * `DeviceInfo` di kontrak membuat field itu opsional (klien lama belum mengirimnya), sedangkan web
+ * selalu punya id instalasi. Tipe ini menyatakan fakta itu supaya pemanggil tidak perlu menangani
+ * kemungkinan "tidak ada id" yang sebenarnya tidak pernah terjadi.
+ */
+export type CurrentDeviceInfo = DeviceInfo & { readonly installationId: string }
+
 /** Info perangkat untuk `otpRequestInputSchema`/`otpVerifyInputSchema`; kontrak yang memvalidasinya. */
-export function currentDeviceInfo(): DeviceInfo {
-  return { name: deviceNameFromUserAgent(currentUserAgent()), platform: WEB_PLATFORM }
+export function currentDeviceInfo(): CurrentDeviceInfo {
+  return {
+    name: deviceNameFromUserAgent(currentUserAgent()),
+    platform: WEB_PLATFORM,
+    installationId: currentInstallationId(),
+  }
 }

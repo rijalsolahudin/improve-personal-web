@@ -50,24 +50,37 @@ export async function countActiveDevices(ctx: ServiceContext, userId: string): P
   return rows[0]?.total ?? 0
 }
 
-/**
- * Perangkat untuk login ini.
- *
- * Kalau user sudah punya perangkat AKTIF dengan nama + platform yang sama, baris itu yang dipakai
- * ulang, bukan baris baru. Alasannya praktis: login berikutnya dari browser yang sama tidak boleh
- * membuat halaman "Perangkat" penuh duplikat, dan tanpa ini satu browser cukup login 10 kali untuk
- * memakai habis jatah 10 perangkat aktif.
- *
- * Kalau belum ada, batas `MAX_ACTIVE_DEVICES_PER_USER` ditegakkan di sini dan kegagalannya memakai
- * kode `DEVICE_LIMIT_REACHED` (`409`, kontrak). Kode khusus ini penting supaya client bisa menyuruh
- * user menghapus salah satu perangkat - `FORBIDDEN` hanya bilang "tidak boleh" tanpa jalan keluar.
- */
-export async function resolveDeviceForLogin(
+/** Perangkat AKTIF user ini untuk satu nilai `installation_id`. Jalur utama sejak task #80. */
+async function findActiveDeviceIdByInstallation(
+  ctx: ServiceContext,
+  userId: string,
+  installationId: string,
+): Promise<string | null> {
+  const rows = await ctx.db
+    .select({ id: devices.id })
+    .from(devices)
+    .where(
+      and(
+        eq(devices.userId, userId),
+        eq(devices.installationId, installationId),
+        isNull(devices.revokedAt),
+      ),
+    )
+    // Nilai yang sama bisa menempel di beberapa baris (lihat catatan kolomnya), jadi pilih yang
+    // paling baru - sama seperti heuristik nama+platform yang lama.
+    .orderBy(desc(devices.createdAt))
+    .limit(1)
+
+  return rows[0]?.id ?? null
+}
+
+/** Perangkat AKTIF user ini dengan nama + platform sama - perilaku klien lama (tanpa installationId). */
+async function findActiveDeviceIdByNamePlatform(
   ctx: ServiceContext,
   userId: string,
   info: DeviceInfo,
-): Promise<string> {
-  const existing = await ctx.db
+): Promise<string | null> {
+  const rows = await ctx.db
     .select({ id: devices.id })
     .from(devices)
     .where(
@@ -75,17 +88,100 @@ export async function resolveDeviceForLogin(
         eq(devices.userId, userId),
         eq(devices.name, info.name),
         eq(devices.platform, info.platform),
+        // TIDAK menyaring `installation_id`: inilah perilaku lama yang harus tetap jalan untuk build
+        // yang belum mengirim installationId.
         isNull(devices.revokedAt),
       ),
     )
     .orderBy(desc(devices.createdAt))
     .limit(1)
 
-  const reused = existing[0]
-  if (reused) {
-    await ctx.db.update(devices).set({ lastSeenAt: ctx.now }).where(eq(devices.id, reused.id))
+  return rows[0]?.id ?? null
+}
 
-    return reused.id
+/**
+ * Adopsi baris lama (dari sebelum kolom `installation_id` ada) oleh instalasi yang baru dikenali.
+ *
+ * Tanpa langkah ini, user yang sudah punya perangkat akan mendapat baris KEDUA saat build baru
+ * pertama kali login (instalasinya belum tercatat di baris mana pun) - halaman "Perangkat" langsung
+ * berisi duplikat, dan jatah 10 perangkat aktif terpakai dua kali untuk satu browser.
+ *
+ * `WHERE installation_id IS NULL` di UPDATE, bukan cuma di SELECT: kalau dua instalasi login hampir
+ * bersamaan, hanya satu yang boleh mengklaim baris lama; yang kalah (0 baris ter-update) membuat baris
+ * sendiri, karena baris itu sekarang jelas milik instalasi lain.
+ */
+async function adoptLegacyDeviceForInstallation(
+  ctx: ServiceContext,
+  userId: string,
+  info: DeviceInfo & { readonly installationId: string },
+): Promise<string | null> {
+  const candidates = await ctx.db
+    .select({ id: devices.id })
+    .from(devices)
+    .where(
+      and(
+        eq(devices.userId, userId),
+        eq(devices.name, info.name),
+        eq(devices.platform, info.platform),
+        isNull(devices.installationId),
+        isNull(devices.revokedAt),
+      ),
+    )
+    .orderBy(desc(devices.createdAt))
+    .limit(1)
+
+  const legacy = candidates[0]
+  if (!legacy) return null
+
+  const adopted = await ctx.db
+    .update(devices)
+    .set({ installationId: info.installationId })
+    .where(and(eq(devices.id, legacy.id), isNull(devices.installationId)))
+    .returning({ id: devices.id })
+
+  return adopted[0]?.id ?? null
+}
+
+/**
+ * Perangkat untuk login ini.
+ *
+ * URUTAN pencocokan (task #80) - urutannya yang bikin perbaikan ini aman untuk pengguna lama:
+ *
+ * 1. `installationId` cocok dengan perangkat AKTIF milik user -> pakai ulang baris itu. Ini kasus
+ *    normal: satu instalasi = satu baris, jadi login berikutnya tidak menumpuk baris dan rotasi sesi
+ *    (`issueSession`) hanya mematikan sesi INSTALASI ITU.
+ * 2. Belum ada, tapi ada perangkat aktif bernama + platform sama yang `installation_id`-nya masih
+ *    NULL -> ADOPSI baris lama (isi kolomnya) dan pakai ulang. Ini jalur upgrade: pengguna lama tidak
+ *    mendapat baris duplikat, dan instalasi yang berbeda tidak pernah "mencuri" baris yang sudah
+ *    punya pemilik.
+ * 3. Belum ada juga -> baris BARU. Dua instalasi berbeda (dua mesin, atau dua profil browser di mesin
+ *    yang sama) memang harus jadi dua baris: kalau digabung, login di profil kedua me-revoke sesi
+ *    profil pertama - persis bug yang diperbaiki di sini.
+ * 4. Tanpa `installationId` (build lama) -> heuristik lama `name` + `platform` tanpa menyaring
+ *    `installation_id`. Sengaja dipertahankan: klien yang belum bisa membedakan instalasi tidak boleh
+ *    tiba-tiba kehabisan jatah perangkat setiap kali login.
+ *
+ * Kalau tidak ada yang cocok, batas `MAX_ACTIVE_DEVICES_PER_USER` ditegakkan per BARIS (bukan per
+ * mesin) dan kegagalannya memakai kode `DEVICE_LIMIT_REACHED` (`409`, kontrak). Kode khusus ini
+ * penting supaya client bisa menyuruh user menghapus salah satu perangkat - `FORBIDDEN` hanya bilang
+ * "tidak boleh" tanpa jalan keluar.
+ */
+export async function resolveDeviceForLogin(
+  ctx: ServiceContext,
+  userId: string,
+  info: DeviceInfo,
+): Promise<string> {
+  const installationId = info.installationId
+
+  const reused = installationId
+    ? ((await findActiveDeviceIdByInstallation(ctx, userId, installationId)) ??
+      (await adoptLegacyDeviceForInstallation(ctx, userId, { ...info, installationId })))
+    : await findActiveDeviceIdByNamePlatform(ctx, userId, info)
+
+  if (reused) {
+    await ctx.db.update(devices).set({ lastSeenAt: ctx.now }).where(eq(devices.id, reused))
+
+    return reused
   }
 
   const active = await countActiveDevices(ctx, userId)
@@ -97,6 +193,7 @@ export async function resolveDeviceForLogin(
     userId,
     name: info.name,
     platform: info.platform,
+    installationId: installationId ?? null,
     createdAt: ctx.now,
     lastSeenAt: ctx.now,
   })

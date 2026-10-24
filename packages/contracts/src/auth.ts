@@ -43,11 +43,21 @@ export const clientKindSchema = z.enum(CLIENT_KINDS)
 /**
  * Info perangkat yang disumbang client saat login. Server yang menerbitkan `devices.id`, jadi schema
  * ini sengaja tidak punya field `id`.
+ *
+ * `installationId` membedakan INSTALASI browser, bukan mesin: dua profil Chrome di laptop yang sama
+ * (atau dua mesin dengan browser + OS identik) menghasilkan nama yang sama kalau hanya `name` +
+ * `platform` yang dipakai, sehingga server menganggapnya satu perangkat dan me-revoke sesi yang lain
+ * saat login. Nilainya dibuat client sekali per instalasi dan disimpan lokal; ia bukan kredensial -
+ * hanya penanda baris `devices` mana yang dipakai ulang.
+ *
+ * Opsional supaya build lama (yang belum mengirimnya) tetap jalan dengan heuristik `name` +
+ * `platform`.
  */
 export const deviceInfoSchema = z
   .object({
     name: deviceNameSchema,
     platform: devicePlatformSchema,
+    installationId: uuidSchema.optional(),
   })
   .strict()
 
@@ -102,13 +112,25 @@ export const otpVerifyInputSchema = z
 export type OtpVerifyInput = z.infer<typeof otpVerifyInputSchema>
 
 /**
- * `GET /v1/auth/google/start?client=`
+ * `GET /v1/auth/google/start?client=&installationId=`
  *
  * `redirectUri` SENGAJA tidak diterima dari client: server memetakan `client` -> redirect URI yang
  * terdaftar per environment (`server.dbml` `oauth_states.redirect_uri`). Kalau redirect URI boleh
  * dikirim client, endpoint ini jadi open redirect sekaligus jalur pencurian authorization code.
+ * Karena itu schema ini tetap `.strict()`: menerima `installationId` BUKAN berarti field asing lain
+ * boleh ikut - `redirectUri`, `state`, `code`, `device`, `email`, atau apa pun yang bisa mengubah
+ * tujuan/identitas flow tetap ditolak (`400 VALIDATION_FAILED`). Field asing bukan cuma "tidak
+ * dipakai": ia akan lolos ke log/analytics dan membuat kontrak ini diam-diam melebar.
+ *
+ * `installationId` (task #80) adalah penanda INSTALASI yang memulai flow, bukan kredensial. Nilainya
+ * disimpan di baris `oauth_states` dan baru dipakai saat callback menerbitkan sesi, supaya login
+ * Google pun tidak menyamakan dua instalasi yang nama + platform-nya identik (kalau disamakan, login
+ * di instalasi kedua me-revoke sesi instalasi pertama). Opsional: klien lama - termasuk build mobile
+ * yang belum mengirimnya - tetap jalan dengan heuristik `name` + `platform`.
  */
-export const googleStartQuerySchema = z.object({ client: clientKindSchema }).strict()
+export const googleStartQuerySchema = z
+  .object({ client: clientKindSchema, installationId: uuidSchema.optional() })
+  .strict()
 
 export type GoogleStartQuery = z.infer<typeof googleStartQuerySchema>
 

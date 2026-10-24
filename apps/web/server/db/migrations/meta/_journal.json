@@ -15,6 +15,20 @@
       "when": 1792280487488,
       "tag": "0001_partial_indexes",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792832892868,
+      "tag": "0002_loving_warhawk",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1792835102363,
+      "tag": "0003_powerful_grey_gargoyle",
+      "breakpoints": true
     }
   ]
 }

@@ -1,7 +1,12 @@
-import { DEVICE_NAME_MAX_LENGTH, deviceInfoSchema } from '@improve-personal/contracts'
-import { describe, expect, it } from 'vitest'
+import { DEVICE_NAME_MAX_LENGTH, deviceInfoSchema, uuidSchema } from '@improve-personal/contracts'
+import { beforeEach, describe, expect, it } from 'vitest'
 
 import { currentDeviceInfo, deviceNameFromUserAgent } from './device'
+import {
+  INSTALLATION_ID_STORAGE_KEY,
+  currentInstallationId,
+  resetInstallationIdForTest,
+} from './device-installation'
 
 const UA = {
   chromeLinux:
@@ -69,11 +74,35 @@ describe('deviceNameFromUserAgent', () => {
 })
 
 describe('currentDeviceInfo', () => {
+  beforeEach(() => {
+    localStorage.clear()
+    resetInstallationIdForTest()
+  })
+
   it('selalu platform web dan nama yang lolos kontrak', () => {
     const info = currentDeviceInfo()
 
     expect(info.platform).toBe('web')
     expect(info.name.length).toBeGreaterThan(0)
     expect(deviceInfoSchema.safeParse(info).success).toBe(true)
+  })
+
+  it('menyertakan installationId UUID yang sah dan disimpan di perangkat', () => {
+    const info = currentDeviceInfo()
+
+    expect(uuidSchema.safeParse(info.installationId).success).toBe(true)
+    expect(info.installationId).toBe(localStorage.getItem(INSTALLATION_ID_STORAGE_KEY))
+  })
+
+  it('dua panggilan memakai instalasi yang sama (bukan id acak per login)', () => {
+    expect(currentDeviceInfo().installationId).toBe(currentDeviceInfo().installationId)
+  })
+
+  it('deviceInfoSchema menerima bentuk lengkap (name + platform + installationId)', () => {
+    expect(deviceInfoSchema.safeParse(currentDeviceInfo()).success).toBe(true)
+  })
+
+  it('id instalasi sama dengan yang dipakai jalur lain di app ini', () => {
+    expect(currentDeviceInfo().installationId).toBe(currentInstallationId())
   })
 })

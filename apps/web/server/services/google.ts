@@ -78,10 +78,14 @@ function redirectUriFor(ctx: ServiceContext, client: ClientKind): string {
  *
  * Pemetaan `client` -> redirect URI dilakukan di sini satu kali; nilai yang sama dipakai lagi saat
  * menukar code, jadi Google selalu menerima `redirect_uri` yang identik antara dua langkah itu.
+ *
+ * `installationId` (task #80) cuma DICATAT di baris `oauth_states`; ia tidak ikut ke URL Google dan
+ * tidak menentukan apa pun di sini. Yang memakainya adalah callback, setelah state terbukti sah -
+ * jadi nilai ini tidak bisa dipakai untuk memilih baris `devices` tanpa menyelesaikan flow.
  */
 export async function startGoogleLogin(
   ctx: ServiceContext,
-  input: { readonly client: ClientKind },
+  input: { readonly client: ClientKind; readonly installationId?: string },
 ): Promise<GoogleStartResult> {
   if (ctx.clientIp) await consumeRateLimit(ctx, 'google:start:ip', `ip:${ctx.clientIp}`)
 
@@ -97,6 +101,7 @@ export async function startGoogleLogin(
     nonce,
     client: input.client,
     redirectUri,
+    installationId: input.installationId ?? null,
     createdAt: ctx.now,
     expiresAt,
   })
@@ -235,6 +240,7 @@ export async function completeGoogleLogin(
       nonce: oauthStates.nonce,
       client: oauthStates.client,
       redirectUri: oauthStates.redirectUri,
+      installationId: oauthStates.installationId,
     })
 
   const state = consumed[0]
@@ -274,9 +280,15 @@ export async function completeGoogleLogin(
     client: state.client,
     // Nama perangkat untuk login lewat Google: klien tidak mengirim `device` di query callback
     // (kontrak `googleCallbackQuerySchema` strict), jadi perangkat dicatat dengan label platform.
+    //
+    // `installationId` datang dari BARIS `oauth_states` yang barusan dikonsumsi - bukan dari query
+    // callback - sehingga nilainya hanya bisa diisi oleh pihak yang memulai flow (task #80). Tanpa
+    // nilai itu (`null`, klien lama/mobile), objek `device` dibentuk persis seperti sebelumnya:
+    // `loginDevice` lalu memakai heuristik `name` + `platform`, jadi tidak ada perubahan perilaku.
     device: {
       name: `Google ${state.client}`,
       platform: state.client === 'web' ? 'web' : 'android',
+      ...(state.installationId === null ? {} : { installationId: state.installationId }),
     },
   })
 

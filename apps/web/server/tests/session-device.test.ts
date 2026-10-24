@@ -5,6 +5,8 @@
 // Yang diuji di sini adalah jaminan yang tidak bisa dibuktikan lewat HTTP: "token mentah tidak ada di
 // DB", "perangkat user lain tidak bisa dicabut dan datanya tidak berubah", dan "batas perangkat
 // aktif". Test untuk bentuk respons/cookie ada di `http.test.ts`.
+import { randomUUID } from 'node:crypto'
+
 import {
   MAX_ACTIVE_DEVICES_PER_USER,
   currentSessionResultSchema,
@@ -342,5 +344,185 @@ describe('perangkat', () => {
 
     expect(foreign).toEqual(missing)
     expect(foreign?.code).toBe('NOT_FOUND')
+  })
+})
+
+/**
+ * Identitas INSTALASI (task #80): "login di perangkat/profil lain mematikan sesi perangkat pertama".
+ *
+ * Penyebabnya bukan `issueSession` (rotasi per perangkat itu memang benar), tapi `resolveDeviceForLogin`
+ * yang menyamakan dua instalasi karena nama + platform-nya identik: `"Chrome di Linux"` dari dua mesin
+ * (atau dua profil Chrome di satu mesin) adalah dua perangkat berbeda. Test di bawah mengunci
+ * pemisahan itu, sekaligus mengunci jalur upgrade supaya pengguna lama tidak mendapat baris duplikat.
+ */
+describe('perangkat: identitas instalasi', () => {
+  const SAME_NAME = 'Chrome di Linux'
+
+  it('dua installationId berbeda -> dua perangkat, dan KEDUA sesi tetap hidup', async () => {
+    const fixture = scope.fixture({ prefix: 'device-install-split' })
+    const installationA = randomUUID()
+    const installationB = randomUUID()
+
+    const first = await seedSession(fixture.ctx(), {
+      email: fixture.email,
+      deviceName: SAME_NAME,
+      installationId: installationA,
+    })
+    const second = await seedSession(fixture.ctx(), {
+      email: fixture.email,
+      deviceName: SAME_NAME,
+      installationId: installationB,
+    })
+
+    // Inti perbaikan: nama + platform sama, tapi ini dua instalasi -> dua baris.
+    expect(second.deviceId).not.toBe(first.deviceId)
+    expect(await countActiveDevices(fixture.ctx(), first.userId)).toBe(2)
+
+    // Dan konsekuensi yang dilaporkan user: login di instalasi kedua TIDAK mematikan sesi pertama.
+    await expect(findSessionByToken(fixture.ctx(), first.token)).resolves.toMatchObject({
+      deviceId: first.deviceId,
+    })
+    await expect(findSessionByToken(fixture.ctx(), second.token)).resolves.toMatchObject({
+      deviceId: second.deviceId,
+    })
+
+    const rows = await fixture
+      .ctx()
+      .db.select({ id: devices.id, installationId: devices.installationId })
+      .from(devices)
+      .where(eq(devices.userId, first.userId))
+
+    expect(rows.find((row) => row.id === first.deviceId)?.installationId).toBe(installationA)
+    expect(rows.find((row) => row.id === second.deviceId)?.installationId).toBe(installationB)
+  })
+
+  it('installationId SAMA -> baris perangkat sama, sesi lama tetap ter-revoke (rotasi tidak dilonggarkan)', async () => {
+    const fixture = scope.fixture({ prefix: 'device-install-rotate' })
+    const installationId = randomUUID()
+
+    const first = await seedSession(fixture.ctx(), {
+      email: fixture.email,
+      deviceName: SAME_NAME,
+      installationId,
+    })
+    const second = await seedSession(fixture.ctxAt(new Date(FIXED_NOW.getTime() + 60_000)), {
+      email: fixture.email,
+      deviceName: SAME_NAME,
+      installationId,
+    })
+
+    expect(second.deviceId).toBe(first.deviceId)
+    expect(await countActiveDevices(fixture.ctx(), first.userId)).toBe(1)
+    await expect(findSessionByToken(fixture.ctx(), first.token)).resolves.toBeNull()
+    await expect(findSessionByToken(fixture.ctx(), second.token)).resolves.toMatchObject({
+      sessionId: second.sessionId,
+    })
+  })
+
+  it('adopsi: perangkat lama tanpa installation_id dipakai ulang, bukan digandakan', async () => {
+    const fixture = scope.fixture({ prefix: 'device-install-adopt' })
+    const ctx = fixture.ctx()
+    const user = await findOrCreateUserByEmail(ctx, fixture.email)
+    const installationId = randomUUID()
+
+    // Baris lama: dibuat sebelum kolom `installation_id` ada (klien belum mengirimnya).
+    const legacyId = await resolveDeviceForLogin(ctx, user.id, {
+      name: SAME_NAME,
+      platform: 'web',
+    })
+    // Login pertama dari build baru: instalasinya belum ada di baris mana pun -> adopsi baris lama.
+    const adoptedId = await resolveDeviceForLogin(ctx, user.id, {
+      name: SAME_NAME,
+      platform: 'web',
+      installationId,
+    })
+
+    expect(adoptedId).toBe(legacyId)
+    expect(await countActiveDevices(ctx, user.id)).toBe(1)
+
+    const rows = await ctx.db
+      .select({ installationId: devices.installationId })
+      .from(devices)
+      .where(eq(devices.id, legacyId))
+    expect(rows.at(0)?.installationId).toBe(installationId)
+  })
+
+  it('adopsi TIDAK mencuri baris yang sudah punya installation_id lain', async () => {
+    const fixture = scope.fixture({ prefix: 'device-install-owner' })
+    const ctx = fixture.ctx()
+    const user = await findOrCreateUserByEmail(ctx, fixture.email)
+
+    const firstId = await resolveDeviceForLogin(ctx, user.id, {
+      name: SAME_NAME,
+      platform: 'web',
+      installationId: randomUUID(),
+    })
+    const secondId = await resolveDeviceForLogin(ctx, user.id, {
+      name: SAME_NAME,
+      platform: 'web',
+      installationId: randomUUID(),
+    })
+
+    // Tanpa filter `installation_id IS NULL` di jalur adopsi, instalasi kedua akan memakai baris
+    // pertama dan bug "sesi perangkat lain mati" kembali muncul.
+    expect(secondId).not.toBe(firstId)
+  })
+
+  it('klien lama (tanpa installationId) tetap memakai ulang perangkat lewat nama + platform', async () => {
+    const fixture = scope.fixture({ prefix: 'device-install-legacy' })
+    const ctx = fixture.ctx()
+    const user = await findOrCreateUserByEmail(ctx, fixture.email)
+
+    const seeded = await resolveDeviceForLogin(ctx, user.id, {
+      name: SAME_NAME,
+      platform: 'web',
+      installationId: randomUUID(),
+    })
+    const legacy = await resolveDeviceForLogin(ctx, user.id, { name: SAME_NAME, platform: 'web' })
+
+    // Build lama tidak bisa membedakan instalasi, jadi ia memakai baris yang ada - bukan menambah
+    // slot baru setiap login.
+    expect(legacy).toBe(seeded)
+    expect(await countActiveDevices(ctx, user.id)).toBe(1)
+  })
+
+  it('batas perangkat dihitung per baris: dua instalasi = dua slot, instalasi baru ditolak saat penuh', async () => {
+    const fixture = scope.fixture({ prefix: 'device-install-limit' })
+    const ctx = fixture.ctx()
+    const user = await findOrCreateUserByEmail(ctx, fixture.email)
+    const installations = Array.from({ length: MAX_ACTIVE_DEVICES_PER_USER }, () => randomUUID())
+
+    const ids: string[] = []
+    for (const installationId of installations) {
+      // Nama + platform SENGAJA identik semua: yang membedakan hanya instalasinya.
+      ids.push(
+        await resolveDeviceForLogin(ctx, user.id, {
+          name: SAME_NAME,
+          platform: 'web',
+          installationId,
+        }),
+      )
+    }
+    expect(new Set(ids).size).toBe(MAX_ACTIVE_DEVICES_PER_USER)
+    expect(await countActiveDevices(ctx, user.id)).toBe(MAX_ACTIVE_DEVICES_PER_USER)
+
+    // Login ulang dari instalasi yang sudah terdaftar: tidak makan slot baru.
+    expect(
+      await resolveDeviceForLogin(ctx, user.id, {
+        name: SAME_NAME,
+        platform: 'web',
+        installationId: installations[0] ?? '',
+      }),
+    ).toBe(ids[0])
+
+    const overflow = await captureProblem(
+      resolveDeviceForLogin(ctx, user.id, {
+        name: SAME_NAME,
+        platform: 'web',
+        installationId: randomUUID(),
+      }),
+    )
+    expect(overflow).toMatchObject({ code: 'DEVICE_LIMIT_REACHED', statusCode: 409 })
+    expect(await countActiveDevices(ctx, user.id)).toBe(MAX_ACTIVE_DEVICES_PER_USER)
   })
 })

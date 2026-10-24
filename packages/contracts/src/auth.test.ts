@@ -62,6 +62,48 @@ describe('deviceInfoSchema', () => {
       false,
     )
   })
+
+  it('installationId opsional: menerima UUID dan menolak nilai yang bukan UUID', () => {
+    const installationId = '018fabc1-def2-7abc-8def-0123456789ab'
+
+    // Ada: diteruskan apa adanya (server memakainya untuk memilih baris `devices`).
+    expect(
+      deviceInfoSchema.parse({ name: 'HP Bayu', platform: 'android', installationId }),
+    ).toEqual({
+      name: 'HP Bayu',
+      platform: 'android',
+      installationId,
+    })
+    // Tidak ada: tetap sah - build lama belum mengirim field ini dan harus tetap bisa login.
+    expect(deviceInfoSchema.safeParse({ name: 'HP Bayu', platform: 'android' }).success).toBe(true)
+    // Nilai asal-asalan ditolak, bukan diabaikan diam-diam: kalau lolos, semua instalasi akan
+    // tampak identik dan bug "login di perangkat lain mematikan sesi" kembali.
+    expect(
+      deviceInfoSchema.safeParse({ name: 'HP', platform: 'web', installationId: 'bukan-uuid' })
+        .success,
+    ).toBe(false)
+    expect(
+      deviceInfoSchema.safeParse({ name: 'HP', platform: 'web', installationId: null }).success,
+    ).toBe(false)
+  })
+
+  it('installationId ikut di body OTP request/verify (satu sumber schema, bukan duplikat)', () => {
+    const installationId = '018fabc1-def2-7abc-8def-0123456789ab'
+    const device = { name: 'HP Bayu', platform: 'android', installationId } as const
+
+    expect(
+      otpRequestInputSchema.safeParse({ email: 'budi@example.com', client: 'mobile', device })
+        .success,
+    ).toBe(true)
+    expect(
+      otpVerifyInputSchema.safeParse({
+        email: 'budi@example.com',
+        code: '000123',
+        client: 'mobile',
+        device,
+      }).success,
+    ).toBe(true)
+  })
 })
 
 describe('otpCodeSchema', () => {
@@ -141,6 +183,41 @@ describe('Google OAuth', () => {
       googleStartQuerySchema.safeParse({ client: 'web', redirectUri: 'https://jahat.example' })
         .success,
     ).toBe(false)
+  })
+
+  it('start: installationId opsional diterima, tapi schema TETAP strict untuk field lain', () => {
+    const installationId = '018fabc1-def2-7abc-8def-0123456789ab'
+
+    // Ada: diteruskan apa adanya (server menyimpannya di baris `oauth_states`).
+    expect(googleStartQuerySchema.parse({ client: 'web', installationId })).toEqual({
+      client: 'web',
+      installationId,
+    })
+    // Tidak ada: tetap sah - build lama/mobile belum mengirim field ini dan harus tetap bisa login.
+    expect(googleStartQuerySchema.parse({ client: 'mobile' })).toEqual({ client: 'mobile' })
+    // Nilai asal-asalan ditolak, bukan diabaikan: kalau lolos, semua instalasi tampak identik dan
+    // bug "login di perangkat lain mematikan sesi" kembali di jalur Google.
+    expect(
+      googleStartQuerySchema.safeParse({ client: 'web', installationId: 'bukan-uuid' }).success,
+    ).toBe(false)
+    expect(googleStartQuerySchema.safeParse({ client: 'web', installationId: null }).success).toBe(
+      false,
+    )
+
+    // `installationId` diterima BUKAN berarti kontraknya melebar: field asing - terutama yang bisa
+    // membelokkan tujuan/identitas flow - tetap ditolak.
+    for (const extra of [
+      { redirectUri: 'https://jahat.example' },
+      { redirect_uri: 'https://jahat.example' },
+      { state: 'state-dari-luar' },
+      { code: 'code-dari-luar' },
+      { device: DEVICE },
+    ]) {
+      expect(
+        googleStartQuerySchema.safeParse({ client: 'web', installationId, ...extra }).success,
+        `harus ditolak: ${JSON.stringify(extra)}`,
+      ).toBe(false)
+    }
   })
 
   it('hasil start (mobile): authorizationUrl + expiresAt, tanpa token', () => {

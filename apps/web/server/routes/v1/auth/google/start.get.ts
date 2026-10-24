@@ -26,6 +26,11 @@ import { logServerError } from '../../../../utils/server-log'
  * yang terdaftar di env. Kalau klien boleh mengirimnya, endpoint ini jadi open redirect sekaligus
  * jalur pencurian authorization code.
  *
+ * `installationId` (opsional, task #80) diterima dan hanya DICATAT di baris `oauth_states`; ia tidak
+ * ikut ke URL Google dan tidak mengubah bentuk respons. Callback yang memakainya, setelah state
+ * terbukti sah, supaya login Google juga bisa membedakan dua instalasi yang nama + platform-nya sama.
+ * Field lain tetap ditolak: schema-nya strict, dan `redirectUri` sengaja tidak ada di daftar itu.
+ *
  * Body `mobile` divalidasi dengan `googleStartResultSchema` (kontrak, additive) supaya bentuk yang
  * benar-benar dikirim ke klien diuji terhadap definisi bersama - web dan mobile membaca schema yang
  * sama. Kegagalan di situ BUKAN kesalahan klien: body ini disusun server sendiri, jadi jawabannya
@@ -35,7 +40,10 @@ export default defineApiHandler(async (event) => {
   const query = await getValidatedQuery(event, (value) => googleStartQuerySchema.parse(value))
   const ctx = serviceContext(event)
 
-  const start = await startGoogleLogin(ctx, { client: query.client })
+  const start = await startGoogleLogin(ctx, {
+    client: query.client,
+    ...(query.installationId === undefined ? {} : { installationId: query.installationId }),
+  })
 
   setHeader(event, 'cache-control', 'no-store')
 

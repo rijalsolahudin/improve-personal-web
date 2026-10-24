@@ -37,7 +37,7 @@ import { RATE_LIMIT_RULES, type RateLimitScope } from '../services/rate-limit'
 import { startGoogleLogin } from '../services/google'
 import { OAUTH_STATE_COOKIE_NAME } from '../utils/oauth-state-cookie'
 import { bytesToBase64, hmacSha256, sha256Hex } from '../utils/crypto'
-import { rateLimits } from '../db/schema'
+import { rateLimits, oauthStates } from '../db/schema'
 import {
   clearRateLimitScope,
   closeTestDb,
@@ -829,5 +829,61 @@ describe('M2: binding `state` OAuth lewat HTTP', () => {
         else await testDb().update(rateLimits).set({ count: previous }).where(rowWhere(row))
       }
     }
+  })
+})
+
+/**
+ * `installationId` di `/auth/google/start` (task #80).
+ *
+ * Kenapa di HTTP, bukan cuma service: keluhan yang diperbaiki adalah responsnya sendiri - klien web
+ * sudah mengirim `installationId`, dan sebelum kontraknya menerima field itu SELURUH login Google
+ * dijawab `400 VALIDATION_FAILED`. Test service tidak akan pernah menangkap itu.
+ */
+describe('task #80: `/start` menerima installationId, field asing tetap ditolak', () => {
+  it('`client=web&installationId=<uuid>` -> 302, dan nilainya tersimpan di baris oauth_states', async () => {
+    const installationId = randomUUID()
+    const response = await api(
+      `/v1/auth/google/start?client=web&installationId=${encodeURIComponent(installationId)}`,
+    )
+
+    // Bukan 400: inilah regresi yang diperbaiki.
+    expect(response.status).toBe(302)
+
+    const state = new URL(response.headers.get('location') ?? '').searchParams.get('state') ?? ''
+    const rows = await testDb()
+      .select({ client: oauthStates.client, installationId: oauthStates.installationId })
+      .from(oauthStates)
+      .where(eq(oauthStates.stateHash, sha256Hex(state)))
+
+    expect(rows.at(0)).toMatchObject({ client: 'web', installationId })
+    // Cookie binding tetap dipasang: menerima field baru tidak boleh melemahkan M2.
+    expect(
+      response.setCookie.find((entry) => entry.startsWith(`${OAUTH_STATE_COOKIE_NAME}=`)),
+    ).toBeDefined()
+  })
+
+  it('field tak dikenal tetap 400 walau installationId sah (redirectUri tidak dilonggarkan)', async () => {
+    const installationId = randomUUID()
+
+    for (const extra of [
+      `redirectUri=${encodeURIComponent('https://jahat.example/pwn')}`,
+      'redirect_uri=https%3A%2F%2Fjahat.example%2Fpwn',
+      'state=state-dari-luar',
+    ]) {
+      const response = await api(
+        `/v1/auth/google/start?client=web&installationId=${encodeURIComponent(installationId)}&${extra}`,
+      )
+
+      expect(response.status, `harus 400: ${extra}`).toBe(400)
+      expect(problemOf(response).error.code).toBe('VALIDATION_FAILED')
+      expect(response.headers.get('location')).toBeNull()
+    }
+
+    // Ditolak SEBELUM apa pun disimpan: tidak ada baris `oauth_states` yang lahir dari request itu.
+    const rows = await testDb()
+      .select({ stateHash: oauthStates.stateHash })
+      .from(oauthStates)
+      .where(eq(oauthStates.installationId, installationId))
+    expect(rows).toEqual([])
   })
 })

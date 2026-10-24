@@ -94,6 +94,18 @@ export const devices = pgTable(
     /** Di-trim + panjang dibatasi kontrak (`deviceNameSchema`). */
     name: text('name').notNull(),
     platform: devicePlatformEnum('platform').notNull(),
+    /**
+     * Penanda INSTALASI yang disumbang client (`deviceInfoSchema.installationId`), bukan penanda mesin.
+     *
+     * Kenapa perlu: `name` + `platform` saja tidak unik - dua mesin, atau dua profil browser di mesin
+     * yang sama, menghasilkan `"Chrome di Linux"` yang identik. Tanpa kolom ini server menganggapnya
+     * satu perangkat dan rotasi sesi saat login mematikan sesi instalasi lain (task #80).
+     *
+     * NULLABLE dan sengaja tanpa unique: baris lama belum punya nilainya (diisi saat login berikutnya
+     * lewat jalur adopsi di `resolveDeviceForLogin`), dan dua AKUN di instalasi yang sama boleh
+     * berbagi nilai ini - unique global akan menolak login akun kedua di browser yang sama.
+     */
+    installationId: uuid('installation_id'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     /** Di-update throttled (>= 5 menit), bukan tiap request (dbml `devices.last_seen_at`). */
     lastSeenAt: timestamp('last_seen_at', { withTimezone: true }).notNull().defaultNow(),
@@ -104,6 +116,9 @@ export const devices = pgTable(
   },
   (table) => [
     index('idx_devices_user_created').on(table.userId, table.createdAt),
+    // Jalur login mencari perangkat AKTIF user ini berdasarkan nilai instalasi yang dikirim client.
+    // Index biasa (bukan unique): lihat catatan `installation_id` di atas.
+    index('idx_devices_user_installation').on(table.userId, table.installationId),
     // `idx_devices_user_active` = PARTIAL (WHERE revoked_at IS NULL) -> migrasi SQL tangan.
   ],
 )
@@ -174,6 +189,17 @@ export const oauthStates = pgTable(
     client: clientKindEnum('client').notNull(),
     /** Validasi harus persis salah satu yang terdaftar per environment. */
     redirectUri: text('redirect_uri').notNull(),
+    /**
+     * Instalasi yang MEMULAI flow (task #80), dibawa dari query `/auth/google/start`.
+     *
+     * Disimpan di baris state, bukan dibaca lagi dari callback: query callback strict dan sengaja
+     * tidak punya field ini, jadi nilai yang dipakai saat menerbitkan sesi hanya berasal dari baris
+     * yang server sendiri tulis (state + PKCE sudah membuktikannya). Kalau callback boleh
+     * menentukannya, penyerang bisa memilih baris `devices` mana yang dipakai ulang.
+     *
+     * Nullable: klien lama/mobile belum mengirimnya, dan perilakunya harus tetap seperti sebelumnya.
+     */
+    installationId: uuid('installation_id'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
     consumedAt: timestamp('consumed_at', { withTimezone: true }),

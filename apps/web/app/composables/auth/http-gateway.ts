@@ -5,12 +5,11 @@ import {
   currentSessionResultSchema,
   webSessionDtoSchema,
   type CurrentSessionResult,
-  type DeviceInfo,
   type ErrorCode,
   type WebSessionDto,
 } from '@improve-personal/contracts'
 
-import { currentDeviceInfo } from '~/utils/device'
+import type { CurrentDeviceInfo } from '~/utils/device'
 
 import { AuthRequestError, type AuthGateway } from './gateway'
 
@@ -22,9 +21,6 @@ const OTP_VERIFY_PATH = '/v1/auth/otp/verify'
 const SESSION_PATH = '/v1/auth/session'
 const LOGOUT_PATH = '/v1/auth/logout'
 
-/** Browser jadi agen OAuth: server membalas 302 ke Google (`googleStartQuerySchema`). */
-const GOOGLE_START_URL = `/v1/auth/google/start?client=${CLIENT_KIND}`
-
 /**
  * Batas jaringan gateway: satu fungsi saja, supaya test bisa menukar transportnya tanpa mem-mock
  * composable atau Nuxt (mock jaringan di batas, bukan di tengah alur).
@@ -35,8 +31,14 @@ export type AuthFetch = (
 ) => Promise<unknown>
 
 export interface AuthGatewayOptions {
-  /** Info perangkat yang disumbang web (`deviceInfoSchema`): server yang menerbitkan id perangkatnya. */
-  readonly device: DeviceInfo
+  /**
+   * Info perangkat yang disumbang web (`deviceInfoSchema`): server yang menerbitkan id perangkatnya.
+   *
+   * Boleh fungsi (boleh async), dan `useAuthGateway` memang mengirim fungsi: info perangkat hanya
+   * perlu dibaca saat login benar-benar dikirim, bukan saat gateway dibuat (gateway dibuat sekali di
+   * plugin & middleware, jadi setiap halaman akan ikut membaca User-Agent + `localStorage`).
+   */
+  readonly device: () => CurrentDeviceInfo | Promise<CurrentDeviceInfo>
 }
 
 /**
@@ -99,8 +101,6 @@ function toAuthRequestError(error: unknown): AuthRequestError {
 }
 
 export function createAuthGateway(request: AuthFetch, options: AuthGatewayOptions): AuthGateway {
-  const { device } = options
-
   /** Satu jalur request: kegagalan jaringan/HTTP jadi `AuthRequestError`, bukan error mentah. */
   async function call(
     path: string,
@@ -143,24 +143,33 @@ export function createAuthGateway(request: AuthFetch, options: AuthGatewayOption
     // 204 tanpa body: tidak ada yang boleh diparse (amplop `{ data }` hanya untuk yang punya DTO).
     await call(OTP_REQUEST_PATH, {
       method: 'POST',
-      body: { email, client: CLIENT_KIND, device },
+      body: { email, client: CLIENT_KIND, device: await options.device() },
     })
   }
 
   async function verifyEmailOtp(email: string, code: string): Promise<WebSessionDto> {
     const body = await call(OTP_VERIFY_PATH, {
       method: 'POST',
-      body: { email, code, client: CLIENT_KIND, device },
+      body: { email, code, client: CLIENT_KIND, device: await options.device() },
     })
 
     return readEnvelope(loginEnvelopeSchema, body)
   }
 
   async function startGoogleLogin(): Promise<void> {
+    // `installationId` ikut di query karena alur Google satu-satunya jalur login tanpa body `device`
+    // (browser yang jadi agen, server yang me-redirect). Tanpa id ini semua login Google tercatat
+    // sebagai perangkat yang sama ("Google web") dan rotasi sesi mematikan sesi Google lain
+    // (Ergonio #80). Nilainya bagian dari `googleStartQuerySchema` di server, yang strict: field
+    // tambahan apa pun selain yang dikenal schema akan ditolak.
+    const { installationId } = await options.device()
+
     // Navigasi PENUH (`window.location.assign`), bukan `$fetch`/`navigateTo`: server membalas 302 ke
     // Google dan browser yang mengikuti alur OAuth (cookie binding state ikut lewat browser, bukan
     // lewat JS). Halaman `/login` client-only (`routeRules` ssr:false), jadi `window` aman di sini.
-    window.location.assign(GOOGLE_START_URL)
+    window.location.assign(
+      `/v1/auth/google/start?client=${CLIENT_KIND}&installationId=${installationId}`,
+    )
   }
 
   async function signOut(): Promise<void> {
@@ -191,6 +200,9 @@ export function useAuthGateway(): AuthGateway {
   // (`NUXT_SMTP_URL`, dilaporkan di log startup `server/plugins/env.ts`), sementara public config
   // tidak melihatnya. UI tidak menebak - hint kode demo dihapus, bukan diganti tebakan baru.
   return createAuthGateway((path, options) => useRequestFetch()(path, options), {
-    device: currentDeviceInfo(),
+    // `import()` dinamis, bukan impor statis: `device.ts` (User-Agent + id instalasi + generator
+    // UUID) hanya dibutuhkan saat login dikirim. Kalau diimpor statis, ia ikut JS AWAL setiap halaman -
+    // termasuk landing - dan menembus budget 170 KB (performance.md §Budget).
+    device: () => import('~/utils/device').then((module) => module.currentDeviceInfo()),
   })
 }

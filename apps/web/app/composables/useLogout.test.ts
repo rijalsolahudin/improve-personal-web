@@ -2,6 +2,7 @@ import { mockNuxtImport } from '@nuxt/test-utils/runtime'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { LOGIN_PATH } from '~/utils/features'
+import { INSTALLATION_ID_STORAGE_KEY } from '~/utils/device-installation'
 
 import type { AuthGateway } from './auth/gateway'
 import { AUTH_SESSION_STATE_KEYS, useAuthSession } from './useAuthSession'
@@ -45,6 +46,19 @@ describe('clearAppStorage', () => {
     expect(localStorage.getItem('ip-style')).toBeNull()
     expect(localStorage.getItem('ip-deco')).toBeNull()
     expect(localStorage.getItem('other-site')).toBe('keep')
+  })
+
+  it('mempertahankan id instalasi: ia menandai browser, bukan akun', () => {
+    localStorage.setItem(INSTALLATION_ID_STORAGE_KEY, '018f2b3c-4d5e-7f80-9abc-def012345678')
+    localStorage.setItem('ip-theme', 'ungu')
+
+    clearAppStorage(localStorage)
+
+    // Kalau ikut terhapus, login berikutnya di perangkat ini terlihat seperti instalasi baru.
+    expect(localStorage.getItem(INSTALLATION_ID_STORAGE_KEY)).toBe(
+      '018f2b3c-4d5e-7f80-9abc-def012345678',
+    )
+    expect(localStorage.getItem('ip-theme')).toBeNull()
   })
 })
 

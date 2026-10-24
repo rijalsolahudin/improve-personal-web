@@ -4,7 +4,11 @@ import { describe, expect, it, vi } from 'vitest'
 import { AuthRequestError } from './gateway'
 import { createAuthGateway, type AuthFetch } from './http-gateway'
 
-const DEVICE: DeviceInfo = { name: 'Chrome di Linux', platform: 'web' }
+const DEVICE = {
+  name: 'Chrome di Linux',
+  platform: 'web',
+  installationId: '018f2b3c-4d5e-7f80-9abc-def012345678',
+} as const satisfies DeviceInfo
 
 const SESSION_BODY = {
   user: { id: '018f2b3c-4d5e-7f80-9abc-def012345678', email: 'kamu@email.com' },
@@ -26,7 +30,7 @@ function networkFailure(): unknown {
 }
 
 function gatewayWith(request: AuthFetch) {
-  return createAuthGateway(request, { device: DEVICE })
+  return createAuthGateway(request, { device: () => DEVICE })
 }
 
 describe('createAuthGateway', () => {

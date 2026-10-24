@@ -24,6 +24,8 @@
 //    harus instan.
 //  - HLC dipecah jadi kolom turunan (hlc_wall_ms, hlc_counter, hlc_device) untuk
 //    dibandingkan. Membandingkan string hlc mentah akan salah.
+//  - devices.installation_id membedakan INSTALASI, bukan mesin: nama + platform saja
+//    tidak unik, sehingga dua instalasi bisa saling mematikan sesi saat login.
 //  - tombstone dibersihkan > 90 hari; klien yang cursor-nya ketinggalan dapat
 //    409 SYNC_RESET_REQUIRED (lihat sync_watermarks).
 //
@@ -96,24 +98,34 @@ Table users {
 }
 
 Table devices {
-  id            uuid            [pk, note: 'UUID v7, dibuat server saat login']
-  user_id       uuid            [not null]
-  name          text            [not null, note: 'di-trim + panjang dibatasi di kontrak']
-  platform      device_platform [not null]
-  created_at    timestamptz     [not null, default: `now()`]
-  last_seen_at  timestamptz     [not null, default: `now()`, note: 'di-update throttled (>= 5 menit), bukan tiap request']
-  last_ip_city  text            [null, note: 'metadata kota dari IP; sumber (CDN/GeoLite) belum diputuskan']
-  revoked_at    timestamptz     [null, note: 'soft revoke -> jejak audit; butuh retensi']
+  id              uuid            [pk, note: 'UUID v7, dibuat server saat login']
+  user_id         uuid            [not null]
+  name            text            [not null, note: 'di-trim + panjang dibatasi di kontrak']
+  platform        device_platform [not null]
+  installation_id uuid            [null, note: 'penanda INSTALASI dari client (bukan mesin); NULL = baris lama sebelum kolom ini ada']
+  created_at      timestamptz     [not null, default: `now()`]
+  last_seen_at    timestamptz     [not null, default: `now()`, note: 'di-update throttled (>= 5 menit), bukan tiap request']
+  last_ip_city    text            [null, note: 'metadata kota dari IP; sumber (CDN/GeoLite) belum diputuskan']
+  revoked_at      timestamptz     [null, note: 'soft revoke -> jejak audit; butuh retensi']
 
   indexes {
     // PARTIAL (DBML belum bisa menulis WHERE): create index where revoked_at is null
     (user_id, revoked_at) [name: 'idx_devices_user_active']
     (user_id, created_at) [name: 'idx_devices_user_created']
+    // Jalur login: cari perangkat aktif user ini untuk satu nilai instalasi. BUKAN unique - lihat Note.
+    (user_id, installation_id) [name: 'idx_devices_user_installation']
   }
 
   Note: '''
   Halaman "Perangkat" (PRD F15): daftar perangkat login, nama, waktu login terakhir,
   lokasi dari IP, logout jarak jauh. Batas maks 10 device aktif per user (rate limit).
+
+  installation_id ada karena name + platform TIDAK unik: dua mesin, atau dua profil browser
+  di satu mesin, sama-sama menghasilkan "Chrome di Linux". Tanpa kolom ini server menganggapnya
+  satu perangkat, lalu rotasi sesi saat login mematikan sesi instalasi lain. Nilainya dibuat
+  client sekali per instalasi (bukan kredensial, cuma penanda baris), nullable supaya baris lama
+  tetap sah dan diisi saat login berikutnya (adopsi). TIDAK unique: dua akun di instalasi yang
+  sama boleh berbagi nilai ini.
   '''
 }
 
@@ -170,6 +182,7 @@ Table oauth_states {
   nonce        text        [not null, note: 'dicek ke klaim nonce di ID token']
   client       client_kind [not null]
   redirect_uri text        [not null, note: 'validasi harus persis salah satu yang terdaftar per env']
+  installation_id uuid     [null, note: 'instalasi yang memulai flow (task #80); dibaca callback, bukan dari query callback']
   created_at   timestamptz [not null, default: `now()`]
   expires_at   timestamptz [not null, note: '<= 10 menit']
   consumed_at  timestamptz [null]
@@ -181,6 +194,13 @@ Table oauth_states {
   Note: '''
   Google SSO (Authorization Code + PKCE). Validasi: state, nonce, aud, iss, exp, email_verified.
   Client secret cuma di env server. Retensi: 1 jam.
+
+  installation_id ada karena login Google sama-sama menerbitkan sesi per perangkat: tanpa penanda
+  instalasi, dua instalasi dengan name + platform identik ("Google web") dianggap satu perangkat dan
+  login kedua me-revoke sesi pertama (task #80). Nilainya dicatat di sini saat /start - bukan
+  diterima lagi di query callback (schema callback strict) - jadi hanya flow yang benar-benar
+  dimulai server yang bisa menentukan baris devices mana yang dipakai ulang. Nullable: klien
+  lama/mobile yang belum mengirimnya tetap berperilaku seperti sebelumnya.
   '''
 }
 

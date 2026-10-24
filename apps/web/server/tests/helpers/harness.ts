@@ -261,12 +261,16 @@ export async function seedSession(
     readonly email: string
     readonly client?: 'web' | 'mobile'
     readonly deviceName?: string
+    /** Penanda instalasi (task #80). Dua login dengan nilai berbeda = dua baris perangkat. */
+    readonly installationId?: string
+    readonly platform?: 'web' | 'ios' | 'android'
   },
 ): Promise<SeededSession> {
   const user = await findOrCreateUserByEmail(ctx, input.email)
   const deviceId = await resolveDeviceForLogin(ctx, user.id, {
     name: input.deviceName ?? `QA Device ${randomUUID().slice(0, 8)}`,
-    platform: input.client === 'mobile' ? 'android' : 'web',
+    platform: input.platform ?? (input.client === 'mobile' ? 'android' : 'web'),
+    ...(input.installationId === undefined ? {} : { installationId: input.installationId }),
   })
   const issued = await issueSession(ctx, {
     userId: user.id,

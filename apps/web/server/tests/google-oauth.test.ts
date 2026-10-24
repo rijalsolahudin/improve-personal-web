@@ -9,13 +9,17 @@
 // Batas keluar ke Google diganti `fetchImpl` (seam yang memang disediakan service), jadi test ini
 // tidak bergantung pada jaringan: yang diuji klaim ID token + aturan binding, bukan ketersediaan
 // Google.
+import { randomUUID } from 'node:crypto'
+
 import { eq } from 'drizzle-orm'
 import { afterAll, afterEach, describe, expect, it } from 'vitest'
 
 import { googleStartResultSchema } from '@improve-personal/contracts'
 
 import { completeGoogleLogin, startGoogleLogin, type GoogleFetchLike } from '../services/google'
-import { oauthStates } from '../db/schema'
+import { countActiveDevices } from '../services/device'
+import { findSessionByToken } from '../services/session'
+import { devices, oauthStates } from '../db/schema'
 import { sha256Hex } from '../utils/crypto'
 import { matchesOAuthStateBinding, OAUTH_STATE_COOKIE_NAME } from '../utils/oauth-state-cookie'
 import { closeTestDb, testDb, type Fixture } from './helpers/harness'
@@ -240,5 +244,138 @@ describe('binding `state` OAuth ke browser yang memulai flow (M2)', () => {
       // Binding-nya benar, jadi code MEMANG ditukar - yang menolak adalah validasi klaim.
       expect(google.calls(), label).toBe(1)
     }
+  })
+})
+
+/**
+ * Login Google per INSTALASI (task #80).
+ *
+ * Jalur OTP sudah membedakan instalasi lewat `device.installationId`, tapi jalur Google membentuk
+ * perangkat dari label `Google <client>` - nama + platform SELALU identik. Tanpa penanda instalasi,
+ * dua instalasi browser jatuh ke baris `devices` yang sama, dan login kedua me-revoke sesi pertama:
+ * persis bug yang dilaporkan. Test di bawah mengunci dua sisi: penanda ikut dari `/start`, dan
+ * ketiadaannya tetap berperilaku seperti sebelum perubahan.
+ */
+describe('login Google per instalasi (task #80)', () => {
+  /** Login Google lengkap untuk satu `installationId`; batas keluar ke Google dipalsukan. */
+  async function googleLogin(fixture: Fixture, installationId?: string) {
+    const start = await startGoogleLogin(fixture.ctx(), {
+      client: 'web',
+      ...(installationId === undefined ? {} : { installationId }),
+    })
+    const state = new URL(start.authorizationUrl).searchParams.get('state') ?? ''
+    const rows = await testDb()
+      .select()
+      .from(oauthStates)
+      .where(eq(oauthStates.stateHash, sha256Hex(state)))
+    const row = rows.at(0)
+    if (!row) throw new Error('baris oauth_states tidak dibuat oleh startGoogleLogin')
+
+    const google = tokenEndpoint(row.nonce, fixture.email)
+    const result = await completeGoogleLogin(
+      fixture.ctx(),
+      { code: 'kode-dari-google', state },
+      { fetchImpl: google.fetchImpl, stateBinding: sha256Hex(state) },
+    )
+
+    return { row, result }
+  }
+
+  it('start menyimpan installationId di baris oauth_states, tanpa membocorkannya ke URL Google', async () => {
+    const fixture = scope.fixture({ prefix: 'google-install-state' })
+    const installationId = randomUUID()
+
+    const start = await startGoogleLogin(fixture.ctx(), { client: 'web', installationId })
+    const state = new URL(start.authorizationUrl).searchParams.get('state') ?? ''
+    const rows = await testDb()
+      .select()
+      .from(oauthStates)
+      .where(eq(oauthStates.stateHash, sha256Hex(state)))
+    const row = rows.at(0)
+
+    expect(row?.installationId).toBe(installationId)
+    expect(row?.client).toBe('web')
+    // Penanda instalasi urusan server: ia bukan parameter OAuth, jadi tidak ikut ke Google maupun
+    // ke body respons (body `web` tidak ada; body `mobile` cuma URL + `expiresAt`).
+    expect(start.authorizationUrl).not.toContain(installationId)
+  })
+
+  it('start tanpa installationId: kolomnya NULL - klien lama tidak berubah perilakunya', async () => {
+    const fixture = scope.fixture({ prefix: 'google-install-state-none' })
+    const { row } = await googleLogin(fixture)
+
+    expect(row.installationId).toBeNull()
+  })
+
+  it('dua installationId berbeda -> dua perangkat, dan KEDUA sesi tetap hidup', async () => {
+    const fixture = scope.fixture({ prefix: 'google-install-split' })
+    const installationA = randomUUID()
+    const installationB = randomUUID()
+
+    const first = await googleLogin(fixture, installationA)
+    const second = await googleLogin(fixture, installationB)
+
+    const firstDevice = first.result.login.dto.device
+    const secondDevice = second.result.login.dto.device
+
+    // Nama + platform memang identik (label yang sama dibuat service) - hanya instalasinya beda.
+    expect(firstDevice.name).toBe('Google web')
+    expect(secondDevice.name).toBe('Google web')
+
+    // Inti perbaikan: dua instalasi = dua baris `devices`, bukan satu yang dipakai bergantian.
+    expect(secondDevice.id).not.toBe(firstDevice.id)
+    expect(await countActiveDevices(fixture.ctx(), first.result.login.dto.user.id)).toBe(2)
+
+    // Dan konsekuensi yang dilaporkan user: login kedua TIDAK mematikan sesi pertama.
+    await expect(
+      findSessionByToken(fixture.ctx(), first.result.login.token),
+    ).resolves.toMatchObject({ deviceId: firstDevice.id })
+    await expect(
+      findSessionByToken(fixture.ctx(), second.result.login.token),
+    ).resolves.toMatchObject({ deviceId: secondDevice.id })
+
+    const rows = await testDb()
+      .select({ id: devices.id, installationId: devices.installationId })
+      .from(devices)
+      .where(eq(devices.userId, first.result.login.dto.user.id))
+
+    expect(rows.find((row) => row.id === firstDevice.id)?.installationId).toBe(installationA)
+    expect(rows.find((row) => row.id === secondDevice.id)?.installationId).toBe(installationB)
+  })
+
+  it('tanpa installationId: nama + platform dipakai ulang dan sesi lama ter-rotate (perilaku lama)', async () => {
+    const fixture = scope.fixture({ prefix: 'google-install-legacy' })
+
+    const first = await googleLogin(fixture)
+    const second = await googleLogin(fixture)
+
+    // Satu perangkat, bukan dua: klien yang belum bisa membedakan instalasi tidak boleh memakan
+    // jatah perangkat setiap kali login lewat Google.
+    expect(second.result.login.dto.device.id).toBe(first.result.login.dto.device.id)
+    expect(await countActiveDevices(fixture.ctx(), first.result.login.dto.user.id)).toBe(1)
+
+    // Rotasi sesi per perangkat tetap berlaku - itulah perilaku lama yang dipertahankan.
+    await expect(findSessionByToken(fixture.ctx(), first.result.login.token)).resolves.toBeNull()
+    await expect(
+      findSessionByToken(fixture.ctx(), second.result.login.token),
+    ).resolves.toMatchObject({ deviceId: second.result.login.dto.device.id })
+  })
+
+  it('build baru setelah klien lama: baris Google lama diadopsi, bukan digandakan', async () => {
+    const fixture = scope.fixture({ prefix: 'google-install-adopt' })
+
+    // Baris lama: dibuat sebelum klien mengirim `installationId`.
+    const legacy = await googleLogin(fixture)
+    // Login pertama dari build baru: instalasinya belum tercatat di baris mana pun.
+    const upgraded = await googleLogin(fixture, randomUUID())
+
+    expect(upgraded.result.login.dto.device.id).toBe(legacy.result.login.dto.device.id)
+    expect(await countActiveDevices(fixture.ctx(), legacy.result.login.dto.user.id)).toBe(1)
+
+    const rows = await testDb()
+      .select({ installationId: devices.installationId })
+      .from(devices)
+      .where(eq(devices.id, legacy.result.login.dto.device.id))
+    expect(rows.at(0)?.installationId).not.toBeNull()
   })
 })
