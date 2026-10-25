@@ -1105,7 +1105,7 @@ Data utama ada di perangkat dan diakses lewat interface repository; server cuma 
 - T24 setelah T4–T11 & T15 (layer hias dipasang ke halaman yang sudah jadi).
 - T25 setelah T2 & T24 (token gaya dipakai semua halaman; boleh paralel dengan T13/T14/T18).
 - T21 setelah T19 & T20 (boleh jalan barengan grup mana pun di atas).
-- T13 ∥ T14 ∥ T18 ∥ T22 (setelah T24; Overview butuh widget goal dari T18 → integrasinya dikerjain di T18, bukan T13; Daily hanya butuh kartu review).
+- T13 ∥ T14 ∥ T18 ∥ T22 (setelah T24; Overview butuh widget goal dari T18 → integrasinya dikerjain di T18, bukan T13).
 
 ### Definition of Done
 - Semua task T1–T15, T17–T25 `done`, QA (T16) verdict LULUS.
@@ -1162,7 +1162,7 @@ Data utama ada di perangkat dan diakses lewat interface repository; server cuma 
 #### Goals & Progress
 - **Goals 2 tingkat** (main goal → chapter), item boleh langsung ke main goal lewat "Sepanjang goal", bobot rata (bobot custom ditunda).
 - **Menit fokus Pomodoro belum dihitung ke progress goal** — rilis pertama cuma task/habit/jadwal; nyusul kalau dibutuhkan.
-- **Review berkala** muncul di Daily (bukan push), jawabannya disimpan di jurnal.
+- **Review berkala** ditandai di daftar goal (chip "perlu review") dan dilakukan dari detail goal; tidak ada kartu terpisah di Daily dan jawaban tidak disimpan ke jurnal.
 
 ---
 
