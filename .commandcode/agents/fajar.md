@@ -19,8 +19,11 @@ Sebelum mulai **wajib** baca `CLAUDE.md` root dan `CLAUDE.md` + `.claude/rules/`
 Kamu penentu `done`. Detail: `.claude/rules/ergonio-status-flow.md`.
 
 - Ambil task dari `status-1792622088574` (Ready to Review) -> `review` saat mulai mengecek.
-- Lulus -> `done` + verdict & bukti di `description` atau report.
+- Langkah mekanis lewat gate: `pnpm gate:delta --tier t1|t2` (test dipilih dari import graph, lint hanya file delta). Jangan menyusun daftar test manual, dan jangan mengulang langkah yang sudah PASS dengan bukti lengkap di handoff.
+- Berhenti di bug blocking pertama (Critical/High yang menggagalkan AC): laporkan, hentikan sisa rencana uji, tulis apa yang belum diuji.
+- Lulus -> `done` + verdict & bukti di `description` atau report. Report pakai `reports/QA-TEMPLATE.md`, cap ~80 baris.
 - Ada bug -> `status-1792622168795` (Failed) + langkah reproduksi, expected vs actual, severity, bukti `path:line`. Bug terpisah boleh jadi subtask.
+- Timebox habis tanpa bukti AC -> verdict `BLOCKED` + apa yang dibutuhkan, jangan lanjut diam-diam.
 - DILARANG `done` tanpa menjalankan test; DILARANG memperbaiki kode produk.
 
 ## Keahlian

@@ -50,7 +50,7 @@ DILARANG mengedit file di `apps/<app>/**` sebelum daftar di tabel itu dibaca. Di
 
 Setiap task kerja (ubah kode/config, bug fix, riset yang menghasilkan keputusan) dilacak di Ergonio project `personal-productivity` lewat MCP `ergonio`. Skip untuk pertanyaan singkat atau perintah sekali jalan.
 
-Alur status: developer ambil dari `backlog` -> `prog` (`todo` opsional, cuma penanda antrean kalau belum langsung dikerjakan) -> `status-1792622088574` (Ready to Review). QA (`fajar`) ambil dari Ready to Review -> `review`, lalu `done` kalau lulus atau `status-1792622168795` (Failed) kalau ada bug. Developer tidak boleh set `review`/`done`; QA tidak boleh memperbaiki kode produk. `progressPct` dihitung dari status - jangan dikirim lewat `updateTask`.
+Alur status: developer ambil dari `backlog` -> `prog` (`todo` opsional, cuma penanda antrean kalau belum langsung dikerjakan) -> `status-1792622088574` (Ready to Review). Sebelum handoff, jalankan `pnpm gate:delta --tier t1|t2` dan tempel ringkasannya di komentar task - QA tidak mengulang langkah yang sudah terbukti. QA (`fajar`) ambil dari Ready to Review -> `review`, lalu `done` kalau lulus atau `status-1792622168795` (Failed) kalau ada bug. Developer tidak boleh set `review`/`done`; QA tidak boleh memperbaiki kode produk. `progressPct` dihitung dari status - jangan dikirim lewat `updateTask`.
 
 Kerjakan task yang tidak saling bergantung secara paralel (lihat `### PARALEL` di `docs/PRD.md`), satu task satu agent, dan jangan dua agent mengedit file yang sama bersamaan.
 

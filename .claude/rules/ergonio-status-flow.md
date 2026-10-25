@@ -33,10 +33,11 @@ Transisi yang boleh: `backlog` -> (`todo`) -> `prog` -> `status-1792622088574`.
 1. Ambil task dari `backlog`, pindah ke `todo` saat jadi antrean berikutnya. Kalau
    langsung dikerjakan, `backlog` -> `prog` boleh sekalian.
 2. Mulai kerja: `prog`.
-3. "Selesai" berarti kode + test + lint/typecheck sudah jalan. Pindah ke
-   `status-1792622088574`, lalu tambah
-   `<p><strong>Hasil:</strong> ...</p>` di `description`: file yang diubah, cara
-   verifikasi, trade-off tiga pilar.
+3. "Selesai" berarti kode + test + lint/typecheck sudah jalan. Jalankan
+   `pnpm gate:delta --tier t1|t2` untuk delta sendiri dan simpan blok ringkasannya.
+   Pindah ke `status-1792622088574`, lalu tambah
+   `<p><strong>Hasil:</strong> ...</p>` di `description`: file yang diubah, tier,
+   hasil gate, trade-off tiga pilar.
 4. DILARANG set `review` atau `done` - itu wilayah QA.
 5. Task `status-1792622168795` (Failed): baca komentar bug QA dulu, **pindah ke
    `prog` dulu saat mulai memperbaiki** (jangan langsung ke Ready to Review), lalu
@@ -48,25 +49,37 @@ Transisi yang boleh: `backlog` -> (`todo`) -> `prog` -> `status-1792622088574`.
 Transisi yang boleh: `status-1792622088574` -> `review` -> (`done` | `status-1792622168795`).
 
 1. Ambil task dari `status-1792622088574`, pindah ke `review` saat mulai mengecek.
-2. Lulus: `done` + verdict & bukti di `description` atau report,
-   plus komentar ringkas `LULUS` + perintah yang membuktikannya.
-3. Gagal: `status-1792622168795` + catat tiap bug di komentar (langkah reproduksi,
+   Komentar "mulai cek" menyebut tier (T1/T2/T3) + delta file. Tier diambil dari
+   handoff developer; kalau tidak ditulis, QA menetapkannya sekali lalu menuliskannya.
+2. **Langkah mekanis lewat gate, bukan manual.** Jalankan `pnpm gate:delta --tier t1`
+   (atau `--tier t2`) - script memilih test lewat import graph dan menjalankan
+   prettier/eslint hanya untuk file delta. Tempel blok ringkasannya di komentar; jangan
+   menyusun daftar test manual, dan jangan mengulang langkah yang sudah PASS dengan
+   bukti lengkap di handoff.
+3. Lulus: `done` + verdict & bukti di `description` atau report, plus komentar ringkas
+   `LULUS` + perintah yang membuktikannya. Report memakai `reports/QA-TEMPLATE.md`,
+   cap ~80 baris; yang tidak muat -> komentar task atau `reports/qa-<task>.log`.
+4. Gagal: `status-1792622168795` + catat tiap bug di komentar (langkah reproduksi,
    expected vs actual, severity, bukti `path:line`); ringkasan panjang di
-   `reports/**`. Bug terpisah boleh jadi subtask.
-4. DILARANG `done` tanpa menjalankan verifikasi; DILARANG memperbaiki kode produk.
-5. **Cek per modul, bukan seluruh app.** QA memverifikasi delta task itu (file + test yang disentuh) plus regresi area terdekat. Sidak end-to-end semua AC hanya di task payung (mis. T16/#30), dijalankan sekali setelah turunannya `done`. Task docs-only/deps-only diverifikasi orchestrator lewat script gate (perintahnya ditulis di komentar verdict), tidak perlu antre QA manual.
-6. **Tier verifikasi - pilih yang paling ringan yang masih membuktikan AC:**
+   `reports/**`. Bug terpisah boleh jadi subtask. **Berhenti di bug blocking pertama**
+   (Critical/High yang menggagalkan AC): laporkan bug itu, hentikan sisa rencana uji,
+   tulis apa yang belum diuji. Sisa skenario jadi putaran berikutnya, bukan alasan
+   menahan verdict.
+5. DILARANG `done` tanpa menjalankan verifikasi; DILARANG memperbaiki kode produk.
+6. **Cek per modul, bukan seluruh app.** QA memverifikasi delta task itu (file + test yang disentuh) plus regresi area terdekat. Sidak end-to-end semua AC hanya di task payung (mis. T16/#30), dijalankan sekali setelah turunannya `done`. Task docs-only/deps-only diverifikasi orchestrator lewat script gate (perintahnya ditulis di komentar verdict), tidak perlu antre QA manual.
+7. **Tier verifikasi - pilih yang paling ringan yang masih membuktikan AC:**
 
    | Tier | Kapan dipakai | Yang dijalankan | Batas waktu |
    |---|---|---|---|
-   | **T1 cepat** (default) | UI, komponen, composable, util, copy | test file yang disentuh + 2-3 file test area terdekat; eslint/prettier file itu; baca diff | <= 10 menit |
-   | **T2 sedang** | server, auth, kripto, storage/IndexedDB, skema, perbaikan data-loss | T1 + `typecheck` + build/audit bila relevan | <= 20 menit |
+   | **T1 cepat** (default) | UI, komponen, composable, util, copy | `pnpm gate:delta --tier t1` (test file terkait + prettier/eslint delta); baca diff | <= 10 menit |
+   | **T2 sedang** | server, auth, kripto, storage/IndexedDB, skema, perbaikan data-loss | T1 + `--tier t2` (tambah typecheck paket) + build/audit bila relevan | <= 20 menit |
    | **T3 rilis** | task payung (T16/#30) | suite penuh, build, Lighthouse, e2e/PWA | sekali per rilis |
 
-   DILARANG menjalankan suite penuh, `build`, atau Lighthouse di T1/T2. Suite penuh + typecheck dijalankan orchestrator **sekali per batch** sebelum beberapa task naik ke `status-1792622088574`, bukan per task.
-7. **Satu putaran QA + satu re-check.** Re-check hanya menguji bug yang dilaporkan pada putaran sebelumnya; DILARANG membuka area atau skenario baru saat re-check. Skenario baru = task baru.
-8. **Temuan di luar AC tidak menggagalkan task.** Kalau kriteria task lulus tetapi QA menemukan isu lain: orchestrator membuat task terpisah, lalu task tetap `done`. Status `Failed` hanya untuk AC gagal, regresi, atau data-loss **di jalur yang diubah task itu**.
-9. **Hemat alat ukur.** Build/Lighthouse/benchmark hanya bila AC-nya memang menyebut angka itu; selain itu pakai test yang sudah ada. Jangan mengulang pengukuran yang sudah dibuktikan task lain di tree yang sama.
+   DILARANG menjalankan suite penuh, `build`, atau Lighthouse di T1/T2. Suite penuh + typecheck dijalankan orchestrator **sekali per batch** sebelum beberapa task naik ke `status-1792622088574`, bukan per task - pakai `pnpm exec turbo run test --affected` bila perlu, bukan `pnpm test`.
+8. **Satu putaran QA + satu re-check.** Re-check hanya menguji bug yang dilaporkan pada putaran sebelumnya; DILARANG membuka area atau skenario baru saat re-check. Skenario baru = task baru.
+9. **Temuan di luar AC tidak menggagalkan task.** Kalau kriteria task lulus tetapi QA menemukan isu lain: orchestrator membuat task terpisah, lalu task tetap `done`. Status `Failed` hanya untuk AC gagal, regresi, atau data-loss **di jalur yang diubah task itu**.
+10. **Hemat alat ukur.** Build/Lighthouse/benchmark hanya bila AC-nya memang menyebut angka itu; selain itu pakai test yang sudah ada. Jangan mengulang pengukuran yang sudah dibuktikan task lain di tree yang sama.
+11. **Timebox punya exit.** Kalau batas waktu tier tercapai dan AC belum terbukti, jangan lanjut diam-diam: tulis verdict `BLOCKED` di komentar (apa yang belum diuji + info yang dibutuhkan), lalu pindahkan ke `status-1792622168795` supaya balik ke developer. `Failed` di kasus ini berarti "tidak bisa diverifikasi", bukan bug.
 
 ## Komentar task (handoff developer <-> QA)
 
@@ -94,8 +107,9 @@ mewarisi MCP sesi induk. Batasnya karena itu aturan, bukan sandbox:
    yang sudah dilaporkan.
 2. **Developer selesai, butuh dites** - saat pindah ke
    `status-1792622088574`, posting komentar handoff: apa yang selesai, file yang
-   diubah, perintah verifikasi yang sudah dijalankan, dan bagian mana yang minta
-   dites ulang.
+   diubah, **tier** (T1/T2/T3), blok ringkasan `pnpm gate:delta` (status + jumlah
+   test + exit code), dan bagian mana yang minta dites ulang. Tanpa bukti output,
+   QA mengulang semuanya dari nol - itu yang bikin QA lambat.
 3. **QA mulai** - saat pindah ke `review`, komentar singkat "mulai cek" + lingkup
    yang dicek (biar tidak dua QA mengerjakan bagian sama).
 4. **QA gagal** - satu komentar berisi daftar bug (reproduksi, expected vs actual,

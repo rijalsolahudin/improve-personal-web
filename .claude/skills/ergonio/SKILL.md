@@ -47,8 +47,12 @@ Label yang ada: `Web`, `Mobile` (dari `listFields`). Custom field: tidak ada - p
    - DILARANG set `review` atau `done` - itu wilayah QA (`fajar`)
    - Belum bisa dimulai (pendahulu belum siap), ide, atau ditunda → `status: "backlog"`, tulis alasan/pendahulu di `description`
    - Field yang tidak diubah wajib `null`.
-4. **Ringkasan akhir** - sebelum pindah ke `status-1792622088574`, update `description`: tambah `<p><strong>Hasil:</strong> ...</p>` berisi file yang diubah + catatan trade-off (tiga pilar: keamanan, performa, kerapian).
-5. **QA** - `fajar` ambil task dari `status-1792622088574` → `review` (+ komentar "mulai cek"), lalu `done` + komentar verdict kalau lulus, atau `status-1792622168795` (Failed) + komentar bug kalau gagal. DILARANG memperbaiki kode produk.
+4. **Ringkasan akhir** - sebelum pindah ke `status-1792622088574`, jalankan
+   `pnpm gate:delta --tier t1|t2` untuk delta sendiri, lalu update `description`:
+   tambah `<p><strong>Hasil:</strong> ...</p>` berisi file yang diubah, tier, hasil
+   gate, + catatan trade-off (tiga pilar: keamanan, performa, kerapian). Tempel blok
+   ringkasan gate di komentar handoff - tanpa bukti output, QA mengulang dari nol.
+5. **QA** - `fajar` ambil task dari `status-1792622088574` → `review` (+ komentar "mulai cek"), lalu `done` + komentar verdict kalau lulus, atau `status-1792622168795` (Failed) + komentar bug kalau gagal. Verifikasi lewat `pnpm gate:delta`, report pakai `reports/QA-TEMPLATE.md` (cap ~80 baris), berhenti di bug blocking pertama. DILARANG memperbaiki kode produk.
 
 ## Komentar task
 
