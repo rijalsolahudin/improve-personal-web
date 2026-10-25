@@ -459,3 +459,100 @@ describe('useMemos: muat ulang setelah pull (AC T77)', () => {
     expect(error.value).toBe('storage rusak')
   })
 })
+
+/**
+ * BUG-83: `useState` bisa kosong (`clearNuxtState` saat logout/test) selagi tulisan masih di
+ * antrean. Lanjutan async-nya TIDAK boleh melempar, dan halaman yang sudah tidak ada di memori tidak
+ * boleh meninggalkan banner "belum tersimpan".
+ */
+describe('useMemos: state dibuang di tengah tulisan (BUG-83)', () => {
+  beforeEach(async () => {
+    await waitForMemosWritesForTest()
+    localStorage.clear()
+    clearNuxtState([...STATE_KEYS])
+    resetMemosHydrationForTest()
+  })
+
+  /** Sesi baru dijawab setelah `release()`, jadi tulisan masih menggantung saat state dibuang. */
+  function gatedSession(answer: LocalDataSession | null): {
+    readonly getSession: () => Promise<LocalDataSession | null>
+    readonly release: () => void
+  } {
+    let release!: () => void
+    const gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+
+    return {
+      release,
+      getSession: async () => {
+        await gate
+        return answer
+      },
+    }
+  }
+
+  /** Penyimpanan yang menahan tulisan sampai `release()` - antrean tulis belum mendarat. */
+  function gatedWriter(session: LocalDataSession): {
+    readonly session: LocalDataSession
+    readonly release: () => void
+  } {
+    let release!: () => void
+    const gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    const writer = session.writer
+
+    return {
+      release,
+      session: {
+        ...session,
+        writer: {
+          ...writer,
+          write: async (input) => {
+            await gate
+            return writer.write(input)
+          },
+        },
+      },
+    }
+  }
+
+  it('tulisan gagal setelah state dibersihkan tidak melempar & tidak meninggalkan banner', async () => {
+    const gated = gatedSession(null)
+    const memos = useMemos({ session: gated.getSession })
+    const saved = memos.save({ ...INPUT, date: DAY })
+    if (!saved) throw new Error('simpan tidak diantrekan')
+    const write = memos.waitForSave(saved.id)
+
+    // Logout/teardown membuang state Nuxt selagi tulisan masih di antrean.
+    clearNuxtState([...STATE_KEYS])
+    gated.release()
+
+    // Kontrak antrean tidak berubah: selesai dengan `false`, bukan reject.
+    await expect(write).resolves.toBe(false)
+
+    const after = useMemos({ session: async () => null })
+    expect(after.hasUnsaved(DAY)).toBe(false)
+    expect(after.memos.value).toHaveLength(0)
+  })
+
+  it('tulisan sukses setelah state dibersihkan tidak melempar saat menyegarkan halaman', async () => {
+    const gated = gatedWriter(memorySession())
+    const memos = useMemos({ session: async () => gated.session })
+    await memos.hydrate()
+
+    const saved = memos.save({ ...INPUT, date: DAY })
+    if (!saved) throw new Error('simpan tidak diantrekan')
+    const write = memos.waitForSave(saved.id)
+
+    clearNuxtState([...STATE_KEYS])
+    gated.release()
+
+    await expect(write).resolves.toBe(true)
+
+    const after = useMemos({ session: async () => null })
+    expect(after.memos.value).toHaveLength(0)
+    expect(after.hasUnsaved(DAY)).toBe(false)
+  })
+})

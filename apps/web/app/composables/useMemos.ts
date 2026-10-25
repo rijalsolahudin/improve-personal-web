@@ -228,6 +228,15 @@ export function useMemos(options: UseMemosOptions = {}) {
   /** Tanggal yang tulisannya belum terkonfirmasi (gagal) - dipakai hydrate & banner editor. */
   const unsaved = useState<string[]>('memosUnsaved', () => [])
 
+  /**
+   * Tanggal "belum tersimpan" yang masih bisa dibaca. `useState` bisa kosong setelah
+   * `clearNuxtState` (logout/test), dan lanjutan async yang mendarat setelahnya tidak boleh melempar
+   * hanya karena state itu sudah tidak ada (BUG-83).
+   */
+  function unsavedDays(): readonly string[] {
+    return unsaved.value ?? []
+  }
+
   /** UUIDv7: `journalEntrySchema.id` menolak versi lain (sama seperti task/habit/goal). */
   const newMemoId = createUuidV7Generator({ clock: createSystemClock() })
 
@@ -266,19 +275,20 @@ export function useMemos(options: UseMemosOptions = {}) {
    */
   async function read(session: LocalDataSession, before: MemoStore): Promise<MemoStore> {
     const loaded: MemoRecords = await loadMemoRecords(session, paper.value)
-    const keep = new Set(unsaved.value)
+    // State bisa dibuang selama pembacaan (logout/test): pakai snapshot awal supaya merge tidak
+    // membaca `undefined` dan melempar (BUG-83). Hasilnya tidak dipakai lagi oleh `apply`.
+    const current = store.value ?? before
+    const keep = new Set(unsavedDays())
     return {
-      memos: mergeMemos(loaded.entries, before.memos, store.value.memos, keep),
-      moods: mergeMoods(loaded.moods, before.moods, store.value.moods, keep),
+      memos: mergeMemos(loaded.entries, before.memos, current.memos, keep),
+      moods: mergeMoods(loaded.moods, before.moods, current.moods, keep),
     }
   }
 
   function apply(next: MemoStore): void {
+    // State sudah dibuang: jangan hidupkan lagi store milik sesi/halaman yang sudah tidak ada.
+    if (!store.value) return
     store.value = next
-  }
-
-  async function load(session: LocalDataSession, before: MemoStore): Promise<void> {
-    apply(await read(session, before))
   }
 
   /**
@@ -292,20 +302,28 @@ export function useMemos(options: UseMemosOptions = {}) {
       // Snapshot SEBELUM await: tulisan yang terjadi selama sesi dibuka harus terdeteksi sebagai
       // perubahan lokal (lihat `mergeMemos`), bukan dianggap bagian dari snapshot storage.
       const before = store.value
+      // State sudah dibuang (logout/test): tidak ada store yang perlu dimuat.
+      if (!before) return
       status.value = 'loading'
       try {
         const session = await getSession()
+        // `clearNuxtState` selama sesi dibuka: berhenti, jangan menulis status ke state yang kosong.
+        if (!store.value) return
         if (session === null) {
           // SSR / sesi terkunci: daftar kosong - bukan data contoh, bukan kegagalan.
           status.value = 'idle'
           return
         }
 
-        await load(session, before)
+        const next = await read(session, before)
+        if (!store.value) return
+        apply(next)
         status.value = 'ready'
         // Kegagalan tulis yang belum terselesaikan BUKAN error hydrate: jangan sembunyikan banner-nya.
-        if (unsaved.value.length === 0) error.value = null
+        if (unsavedDays().length === 0) error.value = null
       } catch (cause) {
+        // State bisa dibuang sebelum kegagalan mendarat (logout/test): jangan tulis state kosong.
+        if (!store.value) return
         status.value = 'error'
         error.value = cause instanceof Error ? cause.message : 'jurnal tidak bisa dimuat'
       } finally {
@@ -330,6 +348,8 @@ export function useMemos(options: UseMemosOptions = {}) {
       // Snapshot untuk merge diambil sebelum menunggu antrean: tulisan yang selesai saat reload
       // berjalan tetap terlihat sebagai perubahan lokal.
       const before = store.value
+      // State sudah dibuang (logout/test): tidak ada store yang perlu dimuat ulang.
+      if (!before) return
       try {
         const target = await reloadSession(localData.current, getSession)
         if (target === null) return
@@ -341,11 +361,14 @@ export function useMemos(options: UseMemosOptions = {}) {
 
         // Sesi bisa berganti pemilik selama pembacaan (lihat `isReloadSessionActive`).
         if (!isReloadSessionActive(target, localData.current)) return
+        // State bisa dibuang selama pembacaan: jangan menghidupkan lagi store lama.
+        if (!store.value) return
 
         apply(loaded)
         status.value = 'ready'
-        if (unsaved.value.length === 0) error.value = null
+        if (unsavedDays().length === 0) error.value = null
       } catch (cause) {
+        if (!store.value) return
         status.value = 'error'
         error.value = cause instanceof Error ? cause.message : 'jurnal tidak bisa dimuat'
       } finally {
@@ -358,9 +381,14 @@ export function useMemos(options: UseMemosOptions = {}) {
 
   /** Ganti/letakkan halaman hasil tulisan tanpa memecah invariant "satu halaman per tanggal". */
   function applyWritten(written: Memo): void {
+    // Tulisan bisa mendarat setelah state dibuang (logout/test): halaman ini sudah tidak ada di
+    // memori, jadi tidak ada yang bisa diganti (BUG-83).
+    const current = store.value
+    if (!current) return
+
     const memos: Memo[] = []
     let replaced = false
-    for (const memo of store.value.memos) {
+    for (const memo of current.memos) {
       if (memo.id === written.id) {
         memos.push(written)
         replaced = true
@@ -369,14 +397,18 @@ export function useMemos(options: UseMemosOptions = {}) {
       if (memo.date === written.date) continue
       memos.push(memo)
     }
-    store.value = { ...store.value, memos: replaced ? memos : [written, ...memos] }
+    store.value = { ...current, memos: replaced ? memos : [written, ...memos] }
   }
 
   /** Buang jejak tulisan tertunda tanggal `day` (tulisan selesai, atau halamannya dihapus). */
   function clearPending(day: string): void {
     pendingWrites.delete(day)
-    unsaved.value = unsaved.value.filter((item) => item !== day)
-    if (unsaved.value.length === 0) error.value = null
+    // `unsaved` bisa sudah dibuang bersama state (logout/test): tidak ada banner yang perlu dihapus.
+    if (!unsaved.value) return
+
+    const next = unsaved.value.filter((item) => item !== day)
+    unsaved.value = next
+    if (next.length === 0) error.value = null
   }
 
   /** Tulisan terkonfirmasi: state disegarkan dengan versi yang benar-benar ditulis, tanda gagal dibuang. */
@@ -395,12 +427,18 @@ export function useMemos(options: UseMemosOptions = {}) {
    * hydrate berikutnya mengganti store dengan snapshot storage dan menghapus halaman ini (BUG-65-01).
    */
   function failWrite(pending: PendingWrite, cause: unknown, failure: string): void {
+    // State sudah dibuang (logout/test) sebelum tulisan selesai: halaman ini tidak ada lagi di
+    // memori, jadi tidak ada banner/error yang bisa ditampilkan dan tidak boleh melempar (BUG-83).
+    const current = store.value
+    if (!current) return
+
     // Halaman yang sudah dihapus dari memori tidak punya salinan yang bisa disimpan ulang: menandainya
     // "belum tersimpan" hanya meninggalkan banner tanpa aksi (BUG-71-02).
-    if (store.value.memos.some((memo) => memo.id === pending.memo.id)) {
+    if (current.memos.some((memo) => memo.id === pending.memo.id)) {
       pendingWrites.set(pending.memo.date, pending)
-      if (!unsaved.value.includes(pending.memo.date)) {
-        unsaved.value = [...unsaved.value, pending.memo.date]
+      const marked = unsavedDays()
+      if (!marked.includes(pending.memo.date)) {
+        unsaved.value = [...marked, pending.memo.date]
       }
     }
     error.value = cause instanceof Error ? cause.message : failure
@@ -430,17 +468,18 @@ export function useMemos(options: UseMemosOptions = {}) {
           if (!import.meta.client) return true
           const cause = new Error(SESSION_UNAVAILABLE_MESSAGE)
           if (pending !== null) failWrite(pending, cause, failure)
-          else error.value = cause.message
+          // State bisa dibuang (logout/test) selama antrean berjalan: jangan tulis state kosong.
+          else if (store.value) error.value = cause.message
           return false
         }
 
         const written = await work(session)
         if (pending !== null) settleWrite(pending, written)
-        else if (unsaved.value.length === 0) error.value = null
+        else if (store.value && unsavedDays().length === 0) error.value = null
         return true
       } catch (cause) {
         if (pending !== null) failWrite(pending, cause, failure)
-        else error.value = cause instanceof Error ? cause.message : failure
+        else if (store.value) error.value = cause instanceof Error ? cause.message : failure
         return false
       }
     })
@@ -479,7 +518,7 @@ export function useMemos(options: UseMemosOptions = {}) {
   }
 
   function hasUnsaved(day: string): boolean {
-    return unsaved.value.includes(day)
+    return unsavedDays().includes(day)
   }
 
   /** Waktu tulis halaman baru: hari ini = sekarang, hari lalu = jam 20:00 (design). */
