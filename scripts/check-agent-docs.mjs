@@ -155,6 +155,51 @@ for (const doc of [ERGONIO_SKILL, ORCHESTRATION_SKILL]) {
     errors.push(`${doc}: harus merujuk bagian "Komentar task" di ${RULES_DOC}`)
 }
 
+// Salinan agent/skill untuk client lain (`.qoder`, `.commandcode`, `.opencode`)
+// dihasilkan `pnpm sync:agents`. Tanpa penjaga, drift-nya senyap: OpenCode membaca
+// skill dari `.qoder/skills`, jadi skill basi = agent menjalankan aturan lama tanpa
+// ada yang gagal. N1/N2 QA #82.
+const CLIENT_DIRS = ['.qoder', '.commandcode', '.opencode']
+// Samakan dengan `stripModel` di scripts/sync-agent-config.mjs: `.qoder` hanya
+// membuang field `model:`, jadi sisanya harus identik dengan sumber.
+const stripModel = (markdown) => markdown.replace(/^model:[^\n]*\n/gm, '')
+
+for (const file of agentFiles) {
+  const name = file.replace('.claude/agents/', '')
+  const source = await read(file)
+  const qoderPath = `.qoder/agents/${name}`
+  try {
+    const copy = await read(qoderPath)
+    if (copy !== stripModel(source))
+      errors.push(`${qoderPath}: drift dari ${file} - jalankan \`pnpm sync:agents\``)
+  } catch {
+    errors.push(`salinan agent hilang: ${qoderPath} - jalankan \`pnpm sync:agents\``)
+  }
+  for (const client of CLIENT_DIRS.filter((dir) => dir !== '.qoder')) {
+    const path = `${client}/agents/${name}`
+    try {
+      await access(join(root, path))
+    } catch {
+      errors.push(`salinan agent hilang: ${path} - jalankan \`pnpm sync:agents\``)
+    }
+  }
+}
+
+const skillNames = (await readdir(join(root, '.claude', 'skills'), { withFileTypes: true }))
+  .filter((entry) => entry.isDirectory())
+  .map((entry) => entry.name)
+
+for (const name of skillNames) {
+  const source = await read(`.claude/skills/${name}/SKILL.md`)
+  const path = `.qoder/skills/${name}/SKILL.md`
+  try {
+    const copy = await read(path)
+    if (copy !== source) errors.push(`${path}: drift dari sumber - jalankan \`pnpm sync:agents\``)
+  } catch {
+    errors.push(`salinan skill hilang: ${path} - jalankan \`pnpm sync:agents\``)
+  }
+}
+
 if (errors.length > 0) {
   console.error(`check-agent-docs gagal:\n- ${errors.join('\n- ')}`)
   process.exit(1)
