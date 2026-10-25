@@ -67,12 +67,6 @@ const entries = computed(() => memosOn(matching.value, selected.value))
     />
 
     <div class="pages">
-      <JournalIntentions
-        :day="selected"
-        :today="today"
-        data-anchor="journal-intentions"
-        data-anchor-kind="content"
-      />
       <div class="daily">
         <div class="col">
           <JournalFeeling

@@ -1153,17 +1153,6 @@
     }
   },
   "journal": {
-    "intentionsToday": "Niat hari ini",
-    "intentions": "Niat",
-    "intentionsHint": "Maksimal {n} niat · klik kertas buat centang",
-    "leadIn": "Hari ini mau jadi orang yang…",
-    "word": "Kata hari ini",
-    "wordPlaceholder": "Satu kata…",
-    "newIntention": "Niat baru",
-    "newPlaceholder": "Hari ini aku mau…",
-    "add": "Tambah",
-    "goalLink": "+ Hubungkan goal",
-    "goalCycle": "Klik buat ganti goal",
     "feelingNote": "Cerita perasaan hari ini",
     "feelingPlaceholder": "Ceritain sedikit kenapa rasanya begitu…",
     "affirm": {

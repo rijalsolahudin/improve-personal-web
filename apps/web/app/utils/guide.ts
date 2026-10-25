@@ -182,7 +182,7 @@ export const GUIDE_FEATURES: readonly GuideFeature[] = [
     title: 'Journal',
     status: 'ready',
     summary:
-      'Jurnal harian berisi catatan bebas, mood, dan niat harian. Isi jurnal, judul, dan mood tersimpan terenkripsi di perangkat ini lewat penyimpanan lokal yang sama dengan fitur lain, jadi tetap ada setelah aplikasi ditutup.',
+      'Jurnal harian berisi catatan bebas, mood, afirmasi, dan refleksi. Isi jurnal, judul, dan mood tersimpan terenkripsi di perangkat ini lewat penyimpanan lokal yang sama dengan fitur lain, jadi tetap ada setelah aplikasi ditutup.',
     tips: [
       'Tulis @ di editor untuk menyebut jadwal, atau # untuk menyebut goal dan chapter; keduanya jadi chip yang bisa diklik.',
       'Satu halaman per tanggal: menyimpan lagi di tanggal yang sama memperbarui halaman itu, bukan membuat salinan baru.',

@@ -55,8 +55,6 @@ const memo = (overrides: Partial<Memo> = {}): Memo => ({
 })
 
 const DAY: JournalDay = {
-  word: 'Tenang',
-  intentions: [{ id: 'i1', text: 'Fokus satu hal dulu', done: false, goalId: null }],
   affirm: 'Aku cukup. Aku bisa pelan-pelan.',
   reflect: 'Belajar sabar sama proses.',
   feelingNote: 'Capek tapi lega.',
@@ -106,18 +104,12 @@ afterEach(async () => {
   await flushPromises()
 })
 
-describe('T11 5 bagian harian', () => {
-  it('niat, perasaan + mood, afirmasi, refleksi (3 daftar), dan diary tampil terisi', async () => {
+describe('T11 4 bagian harian', () => {
+  it('perasaan + mood, afirmasi, refleksi (3 daftar), dan diary tampil terisi', async () => {
     seed([memo({ text: 'Hari ini belajar IAM.' })], { [TODAY]: 4 }, { [TODAY]: DAY })
     mounted = await mountPage()
 
-    // 1. Niat + "kata hari ini".
-    expect(mounted.find('[data-anchor="journal-intentions"]').exists()).toBe(true)
-    expect((mounted.find('.word-input').element as HTMLInputElement).value).toBe('Tenang')
-    expect(mounted.find('.note-text').text()).toBe('Fokus satu hal dulu')
-    expect(mounted.find('.new-input').exists()).toBe(true)
-
-    // 2. Perasaan: mood 5 skala + cerita.
+    // 1. Perasaan: mood 5 skala + cerita.
     expect(mounted.find('[data-anchor="journal-feeling"]').exists()).toBe(true)
     expect(mounted.findAll('.moods .mood')).toHaveLength(5)
     expect(mounted.find('.moods .mood[aria-pressed="true"]').text()).toContain('😄')
@@ -288,22 +280,22 @@ describe('T11 satu isian per tanggal', () => {
     seed([], { [YESTERDAY]: 2 }, {})
     mounted = await mountPage()
 
-    const word = mounted.find('.word-input')
-    await word.setValue('Fokus')
+    const note = mounted.find('textarea.affirm')
+    await note.setValue('Cukup')
     await flushPromises()
-    await word.setValue('Fokus hari ini')
+    await note.setValue('Cukup hari ini')
     await flushPromises()
 
     const days = useState<Record<string, JournalDay>>('journal-days').value
     expect(Object.keys(days)).toEqual([TODAY])
-    expect(days[TODAY]?.word).toBe('Fokus hari ini')
+    expect(days[TODAY]?.affirm).toBe('Cukup hari ini')
 
     // Pindah tanggal lalu isi: tanggal lain punya isian sendiri, hari ini tetap satu.
     const other = dateButtons(mounted)[1]
     if (!other) throw new Error('tombol tanggal kedua tidak ada')
     await other.trigger('click')
     await flushPromises()
-    await mounted.find('.word-input').setValue('Hari lain')
+    await mounted.find('textarea.affirm').setValue('Hari lain')
     await flushPromises()
     expect(Object.keys(useState<Record<string, JournalDay>>('journal-days').value).sort()).toEqual(
       [TODAY, YESTERDAY].sort(),
@@ -314,7 +306,9 @@ describe('T11 satu isian per tanggal', () => {
     if (!back) throw new Error('tombol tanggal pertama tidak ada')
     await back.trigger('click')
     await flushPromises()
-    expect((mounted.find('.word-input').element as HTMLInputElement).value).toBe('Fokus hari ini')
+    expect((mounted.find('textarea.affirm').element as HTMLTextAreaElement).value).toBe(
+      'Cukup hari ini',
+    )
   })
 
   it('satu kali simpan diary membuat satu halaman jurnal', async () => {

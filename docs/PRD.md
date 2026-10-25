@@ -1,7 +1,7 @@
 # PRD — Improve Personal (Aplikasi Produktivitas Personal)
 
 ## Konteks
-Individu butuh satu tempat buat ngatur goal jangka panjang, jadwal (sekali & rutin), to-do, prioritas (Eisenhower), fokus (Pomodoro), momen penting (countdown), habit, dan refleksi harian (journal: niat, perasaan, afirmasi, syukur). Sekarang tersebar di banyak app. Target: pengguna personal, satu akun dipakai di banyak perangkat (laptop, HP). Isinya personal (journal, mood, goal hidup), jadi user harus yakin datanya cuma bisa dibaca dia sendiri.
+Individu butuh satu tempat buat ngatur goal jangka panjang, jadwal (sekali & rutin), to-do, prioritas (Eisenhower), fokus (Pomodoro), momen penting (countdown), habit, dan refleksi harian (journal: perasaan, afirmasi, syukur). Sekarang tersebar di banyak app. Target: pengguna personal, satu akun dipakai di banyak perangkat (laptop, HP). Isinya personal (journal, mood, goal hidup), jadi user harus yakin datanya cuma bisa dibaca dia sendiri.
 
 ## Tujuan & kriteria sukses
 Satu app di **web desktop, PWA, dan aplikasi native Android (APK) & iOS** yang bikin user bisa rencanain hari, eksekusi dengan fokus, dan refleksi. Semua data saling terhubung (jadwal ↔ task ↔ journal ↔ goal), tersinkron antar perangkat, dan terenkripsi end-to-end.
@@ -316,21 +316,17 @@ Kebiasaan harian dengan frekuensi, check-in, streak, riwayat heatmap, link ke go
 
 ## F8. Journal
 
-Jurnal harian terstruktur: **satu jurnal per hari**, berisi niat hari ini, perasaan (dengan cerita detail), afirmasi, refleksi (bersyukur / sedih / bisa lebih baik), dan diary bebas tentang hari itu.
+Jurnal harian terstruktur: **satu jurnal per hari**, berisi perasaan (dengan cerita detail), afirmasi, refleksi (bersyukur / sedih / bisa lebih baik), dan diary bebas tentang hari itu.
 
 ### Satu Jurnal Per Hari
 - Satu jurnal per tanggal (bukan banyak entri); tanggal default hari ini, bisa pilih tanggal lain
-- Bagian boleh diisi bertahap sepanjang hari (mis. niat pagi, refleksi malam); semua bagian opsional
+- Bagian boleh diisi bertahap sepanjang hari (mis. afirmasi pagi, refleksi malam); semua bagian opsional
 - Edit kapan aja, otomatis tersimpan sebagai draf lokal
 - Status hari: kosong / sebagian / lengkap (dipakai streak & Overview)
 
 ### Bagian Jurnal
 
-#### 1. Hari Ini Mau Jadi Orang yang Gimana
-- Teks pendek: niat/identitas yang mau dihidupi hari ini (mis. "orang yang sabar & fokus")
-- Opsional: bisa ditulis ulang di akhir hari lewat refleksi ("sudah sesuai?")
-
-#### 2. Perasaan Hari Ini
+#### 1. Perasaan Hari Ini
 - **Mood** 5 skala emoji (satu mood per hari):
   - 😞 sangat sedih
   - 😕 sedih
@@ -339,17 +335,17 @@ Jurnal harian terstruktur: **satu jurnal per hari**, berisi niat hari ini, peras
   - 😄 sangat bahagia
 - **Cerita detail** (teks panjang, markdown): apa yang terjadi & apa yang dirasakan
 
-#### 3. Afirmasi
+#### 2. Afirmasi
 - Satu atau lebih kalimat afirmasi untuk hari ini
 - Bisa ketik sendiri atau pilih dari daftar bawaan; afirmasi favorit bisa disimpan buat dipakai ulang
 
-#### 4. Refleksi Hari Ini
+#### 3. Refleksi Hari Ini
 Tiga daftar (masing-masing bisa >1 poin, opsional):
 - **Bersyukur karena apa aja**
 - **Yang bikin sedih apa aja**
 - **Yang bisa lebih baik apa aja**
 
-#### 5. Tentang Hari Ini (Diary Book)
+#### 4. Tentang Hari Ini (Diary Book)
 - Diary bebas tentang hari ini: textarea markdown (bold, italic, list, link)
 - Sticker (opsional, bisa >1) dari F14
 - Mention jadwal `@`: autocomplete jadwal di sekitar tanggal jurnal → chip yang bisa diklik; jadwal terhapus → chip "jadwal dihapus", nggak error
@@ -1082,7 +1078,7 @@ Data utama ada di perangkat dan diakses lewat interface repository; server cuma 
 | M3 Fokus | T8 | Countdown dengan unit dinamis | Unit test tiap ambang F5; sort terdekat; lewat → status "sudah lewat" | `fe` | T1, T2 | S |
 | M4 Kalender | T9 | Kalender view hari/pekan/bulan + panel detail hari | Recurring dari T3 tampil benar di 3 view; klik hari tampilkan jadwal+todo+jurnal; render bulan < 100ms untuk 500 kejadian | `fe` | T4, T5 | L |
 | M5 Refleksi, Habit & Sticker | T10 | Habit: CRUD, check-in, streak | Streak benar untuk habit hari tertentu (hari non-jadwal tidak memutus); unit test streak | `fe` | T2 | M |
-| M5 Refleksi, Habit & Sticker | T11 | Journal: 5 bagian harian (niat, perasaan+mood, afirmasi, refleksi syukur/sedih/lebih baik, diary) + mention `@jadwal` + Diary Book + pencarian lokal | Mention jadi chip yang navigasi ke jadwal; jadwal terhapus tidak bikin error; isi jurnal dirender aman; satu jurnal per tanggal (simpan ulang = update, bukan duplikat) (sanitasi markdown); pencarian jalan offline | `fe` | T4 | M |
+| M5 Refleksi, Habit & Sticker | T11 | Journal: 4 bagian harian (perasaan+mood, afirmasi, refleksi syukur/sedih/lebih baik, diary; bagian "niat" dicabut di #90) + mention `@jadwal` + Diary Book + pencarian lokal | Mention jadi chip yang navigasi ke jadwal; jadwal terhapus tidak bikin error; isi jurnal dirender aman; satu jurnal per tanggal (simpan ulang = update, bukan duplikat) (sanitasi markdown); pencarian jalan offline | `fe` | T4 | M |
 | M5 Refleksi, Habit & Sticker | T24 | Sticker: koleksi bawaan + picker + sticker di jurnal + ikon habit/countdown + **layer hias halaman** (mode hias, tempel ke elemen, simpan per ukuran layar, salin antar ukuran) dipasang di semua halaman yang sudah ada; komponen picker & layer hias dipakai ulang di Overview, Daily, Goals, Akun | Sticker bisa ditempel/diganti/dihapus di jurnal; ikon habit & countdown bisa diganti; hiasan desktop nggak muncul di HP & sebaliknya; resize jendela lintas batas ukuran ganti set hiasan; elemen melebar → sticker ikut (posisi %); sticker bisa ditaruh di posisi mana pun di semua halaman tanpa batas jumlah; di luar mode hias sticker nggak menangkap tap/klik/drag (tombol & drag di bawah sticker tetap jalan); halaman dengan 100 sticker tetap scroll mulus; ID tak dikenal → placeholder tanpa error; aset di-lazy-load per pack & tersedia offline; layer hias nggak bikin halaman re-render saat sticker digeser | `fe` | T4–T11, T15 | L |
 | M6 Data | T12 | Import/export JSON (gabung / ganti semua) | Round-trip export→wipe→import identik; file invalid/versi asing ditolak tanpa mengubah data; batas ukuran file; peringatan "file tidak terenkripsi" sebelum export | `be` | T2 | M |
 | M7 Dashboard | T13 | Halaman Overview (isi F11) | 5 rentang (Keseluruhan/Harian/Pekanan/Bulanan/Tahunan) + prev/next jalan; semua metrik & streak F11 benar per rentang (unit test agregasi + streak); agregasi satu kali per ganti rentang, bukan per widget re-scan | `fe` | T7, T10, T11, T24 | L |
