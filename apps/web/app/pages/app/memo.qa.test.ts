@@ -13,7 +13,7 @@ import type { Schedule } from '~/utils/schedule'
 import MemoPage from './memo.vue'
 
 /**
- * QA T11 - halaman Journal (PRD F8): 5 bagian harian, chip `@jadwal` + jadwal terhapus, isi jurnal
+ * QA T11 - halaman Journal (PRD F8): 4 bagian harian, chip `@jadwal` + jadwal terhapus, isi jurnal
  * dirender aman (tanpa HTML mentah), satu isian per tanggal, Diary Book, dan pencarian lokal.
  *
  * Data disemai lewat `useState` yang sama dengan yang dibaca halaman/composable - bukan dengan
