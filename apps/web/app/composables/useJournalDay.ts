@@ -11,16 +11,16 @@ import {
   type JournalListKey,
   type JournalNoteKey,
 } from '~/utils/journal'
-import { toIsoDate } from '~/utils/time'
-
-import { createJournalMock } from './journal/mock'
 
 /**
  * Isian harian halaman Journal untuk tanggal `day`. Fase 1: in-memory seperti memo; isi jurnal
  * tidak ditulis ke localStorage (data pribadi; nanti terenkripsi lewat packages/core).
+ *
+ * Hari yang belum pernah diisi dimulai kosong - tidak ada isian contoh, supaya user tidak perlu
+ * menghapus teks orang lain sebelum menulis.
  */
 export function useJournalDay(day: MaybeRefOrGetter<string>) {
-  const store = useState('journal-days', () => createJournalMock(toIsoDate(new Date())))
+  const store = useState<Record<string, JournalDay>>('journal-days', () => ({}))
   const { goals } = useGoals()
 
   const current = computed(() => store.value[toValue(day)] ?? emptyJournalDay())
