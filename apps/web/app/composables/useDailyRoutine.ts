@@ -10,14 +10,13 @@ import {
   withDailyDay,
   type DailyDay,
   type RoutineBlock,
+  type RoutineStep,
   type WeatherKind,
 } from '~/utils/dailyRoutine'
 import { countOn, isScheduled } from '~/utils/habits'
 import { occurrencesOn } from '~/utils/schedule'
 import { END_OF_DAY, deadlineFrom } from '~/utils/tasks'
 import { toIsoDate } from '~/utils/time'
-
-import { createRoutineMock } from './routine/mock'
 
 /** State harian (bukan data core) disimpan di localStorage; ikut terhapus saat logout. */
 export const DAILY_STORAGE_KEY = 'ip-daily'
@@ -58,8 +57,10 @@ export interface RoutineItem {
 export function useDailyRoutine() {
   const now = useNow()
   const today = computed(() => toIsoDate(new Date(now.value)))
+  // Tanpa langkah contoh: blok rutinitas hanya berisi jadwal hari ini sampai ada sumber data
+  // langkah (repository/CRUD). Halaman tidak boleh dibuka dengan pekerjaan orang lain.
   const store = useState('daily-routine', () => ({
-    steps: createRoutineMock(),
+    steps: [] as readonly RoutineStep[],
     days: readDays(),
   }))
   const day = computed(() => store.value.days[today.value] ?? EMPTY_DAILY_DAY)

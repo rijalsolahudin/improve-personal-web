@@ -109,10 +109,11 @@ describe('state harian bertahan setelah reload (B3)', () => {
   it('centang langkah rutinitas juga bertahan setelah reload', () => {
     const before = useDailyRoutine()
     const block = before.currentBlock.value.block
-    const step = useState<{ steps: readonly RoutineStep[] }>('daily-routine').value.steps.find(
-      (item) => item.block === block,
-    )
-    if (!step) throw new Error('blok sekarang tidak punya langkah rutinitas')
+    // Langkah rutinitas tidak lagi disemai mock di produksi; test menyuntik sendiri supaya
+    // perilaku centang + persistensi tetap terjaga.
+    const step: RoutineStep = { id: 'qa-step', title: 'Langkah QA', block }
+    const store = useState<{ steps: readonly RoutineStep[] }>('daily-routine')
+    store.value = { ...store.value, steps: [step] }
 
     const doneBefore = before.currentBlock.value.done
     before.toggleRoutineItem({ kind: 'step', id: step.id, title: step.title, isDone: false })
@@ -120,6 +121,10 @@ describe('state harian bertahan setelah reload (B3)', () => {
 
     clearNuxtState(['daily-routine'])
     const after = useDailyRoutine()
+    // Langkah rutinitas bukan data user (dulu datang dari mock): setelah reload, sumbernya
+    // disuntik ulang - yang harus bertahan adalah centangnya (`doneSteps` di localStorage).
+    const afterStore = useState<{ steps: readonly RoutineStep[] }>('daily-routine')
+    afterStore.value = { ...afterStore.value, steps: [step] }
 
     expect(after.currentBlock.value.done).toBe(doneBefore + 1)
     expect(after.currentBlock.value.nextItem?.id).not.toBe(step.id)

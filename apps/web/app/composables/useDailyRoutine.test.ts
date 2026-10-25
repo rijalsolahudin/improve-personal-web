@@ -1,9 +1,11 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 
-import { useDailyRoutine } from './useDailyRoutine'
-import { useTasks } from './useTasks'
+import type { RoutineStep } from '~/utils/dailyRoutine'
 import { END_OF_DAY, deadlineFrom } from '~/utils/tasks'
 import { toIsoDate } from '~/utils/time'
+
+import { useDailyRoutine } from './useDailyRoutine'
+import { useTasks } from './useTasks'
 
 describe('useDailyRoutine', () => {
   beforeEach(() => {
@@ -39,12 +41,16 @@ describe('useDailyRoutine', () => {
   })
 
   it('langkah rutinitas bisa dicentang dan menaikkan progres', () => {
+    // Langkah rutinitas tidak lagi disemai mock: test menyuntik satu langkah sendiri untuk
+    // membuktikan perilaku centang + progres tetap benar.
     const { currentBlock, toggleRoutineItem, progress } = useDailyRoutine()
-    const item = currentBlock.value.nextItem
-    if (!item) throw new Error('blok sekarang kosong')
-    const before = progress.value.done
+    const block = currentBlock.value.block
+    const step: RoutineStep = { id: 'qa-step', title: 'Langkah QA', block }
+    const store = useState<{ steps: readonly RoutineStep[] }>('daily-routine')
+    store.value = { ...store.value, steps: [step] }
 
-    toggleRoutineItem(item)
+    const before = progress.value.done
+    toggleRoutineItem({ kind: 'step', id: step.id, title: step.title, isDone: false })
     expect(progress.value.done).toBe(before + 1)
     expect(currentBlock.value.done).toBeGreaterThan(0)
   })
