@@ -15,7 +15,6 @@ import {
 } from '~/utils/dailyRoutine'
 import { countOn, isScheduled } from '~/utils/habits'
 import { occurrencesOn } from '~/utils/schedule'
-import { END_OF_DAY, deadlineFrom } from '~/utils/tasks'
 import { toIsoDate } from '~/utils/time'
 
 /** State harian (bukan data core) disimpan di localStorage; ikut terhapus saat logout. */
@@ -147,11 +146,17 @@ export function useDailyRoutine() {
   }
 
   /**
-   * Quick add (PRD F12): judul + deadline akhir hari ini + prioritas default. Deadline ini yang
-   * membuat task tetap muncul di To-do setelah reload dan besok tampil sebagai terlambat.
+   * Quick add (PRD F12): judul + prioritas default, tanpa deadline. Id task dicatat di
+   * `addedTaskIds` hari ini supaya tetap muncul di To-do setelah reload; tanpa deadline task
+   * tidak dianggap terlambat besok.
    */
   function addTodayTask(title: string): boolean {
-    return add(title, 'medium', deadlineFrom(today.value, END_OF_DAY)) !== null
+    const id = add(title, 'medium', null)
+    if (id === null) return false
+
+    const added = day.value.addedTaskIds
+    if (!added.includes(id)) updateDay({ addedTaskIds: [...added, id] })
+    return true
   }
 
   // ---- Habit ----

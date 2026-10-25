@@ -48,6 +48,12 @@ const categories = ['semua', ...GOAL_CATEGORIES] as const
 
 .filters :deep(.segmented) {
   flex-wrap: wrap;
+  gap: 2px;
+}
+
+/* Opsi segmented design: padding 8px 16px (default komponen 8px 14px). */
+.filters :deep(.segmented .option) {
+  padding: 8px 16px;
 }
 
 .cats {
@@ -58,6 +64,13 @@ const categories = ['semua', ...GOAL_CATEGORIES] as const
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
+}
+
+/* Chip kategori design: font 14px, padding 0 14px (komponen 13px / 12px). */
+.cats :deep(.chip-pick) {
+  min-height: 36px;
+  padding: 0 14px;
+  font-size: 14px;
 }
 
 .dot {

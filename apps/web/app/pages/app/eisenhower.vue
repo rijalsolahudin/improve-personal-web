@@ -8,6 +8,7 @@ useHead({ title: () => t('feature.eisenhower.label') })
 
 const now = useNow()
 const { tasks, toggle, move, setQuadrant, clearDoneQuadrants } = useTasks()
+const { focusOn } = useFocusTarget()
 
 const isQuadrant = (zone: string): zone is Quadrant =>
   (QUADRANTS as readonly string[]).includes(zone)
@@ -48,6 +49,7 @@ const pool = computed(() => unsortedTasks(tasks.value))
           @toggle="toggle"
           @remove="(id) => setQuadrant(id, null)"
           @add="(id) => setQuadrant(id, item.quadrant)"
+          @focus="focusOn"
           @drag="start"
         />
       </div>
@@ -90,6 +92,11 @@ const pool = computed(() => unsortedTasks(tasks.value))
   font-weight: var(--fw-body);
   font-size: 16px;
   color: var(--mute);
+}
+
+/* Design: CTA header padding 0 18 (primitif Button md 0 20). */
+.header > .btn {
+  padding: 0 18px;
 }
 
 .layout {

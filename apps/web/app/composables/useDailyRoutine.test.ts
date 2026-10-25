@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 
 import type { RoutineStep } from '~/utils/dailyRoutine'
-import { END_OF_DAY, deadlineFrom } from '~/utils/tasks'
+import { parseDailyDays } from '~/utils/dailyRoutine'
 import { toIsoDate } from '~/utils/time'
 
-import { useDailyRoutine } from './useDailyRoutine'
+import { DAILY_STORAGE_KEY, useDailyRoutine } from './useDailyRoutine'
 import { useTasks } from './useTasks'
 
 describe('useDailyRoutine', () => {
@@ -29,15 +29,19 @@ describe('useDailyRoutine', () => {
     expect(priorities.value.find(({ task }) => task.id === first.task.id)?.task.done).toBe(true)
   })
 
-  it('quick add memakai deadline akhir hari ini (PRD F12), jadi tetap muncul di to-do', () => {
+  it('quick add tanpa deadline (PRD F12): tetap muncul di to-do karena id dicatat hari ini', () => {
     const { addTodayTask, todayList } = useDailyRoutine()
     expect(addTodayTask('   ')).toBe(false)
     expect(addTodayTask('Bayar listrik')).toBe(true)
 
-    const today = toIsoDate(new Date())
     const added = todayList.value.find(({ task }) => task.title === 'Bayar listrik')
-    expect(added?.task.deadline).toBe(deadlineFrom(today, END_OF_DAY))
-    expect(added?.isOverdue).toBe(false)
+    if (!added) throw new Error('task hasil quick add tidak muncul di to-do hari ini')
+    expect(added.task.deadline).toBeNull()
+    expect(added.isOverdue).toBe(false)
+
+    const today = toIsoDate(new Date())
+    const stored = parseDailyDays(JSON.parse(localStorage.getItem(DAILY_STORAGE_KEY) ?? 'null'))
+    expect(stored[today]?.addedTaskIds).toContain(added.task.id)
   })
 
   it('langkah rutinitas bisa dicentang dan menaikkan progres', () => {

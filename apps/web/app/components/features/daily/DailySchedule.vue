@@ -28,9 +28,12 @@ function open(occurrence: Occurrence): void {
         <AppIcon icon="clock" color="--icon-cal" :size="38" />
         <h2 id="daily-schedule-title" class="title">{{ $t('daily.schedule.title') }}</h2>
       </div>
-      <NuxtLink :to="getFeature('kalender').path" class="link">
-        {{ $t('daily.meta', { done, total }) }} · {{ $t('daily.openCalendar') }}
-      </NuxtLink>
+      <div class="summary">
+        <span class="meta">{{ $t('daily.meta', { done, total }) }}</span>
+        <NuxtLink :to="getFeature('kalender').path" class="link">
+          {{ $t('daily.openCalendar') }}
+        </NuxtLink>
+      </div>
     </div>
     <div class="board">
       <CalendarTimeGrid
@@ -79,6 +82,20 @@ function open(occurrence: Occurrence): void {
   line-height: 1.1;
 }
 
+.summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.meta {
+  font-weight: var(--fw-strong);
+  font-size: 12.5px;
+  color: var(--mute);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
 .link {
   font-weight: var(--fw-strong);
   font-size: 12.5px;
@@ -86,10 +103,16 @@ function open(occurrence: Occurrence): void {
 }
 
 .board {
-  padding: 14px;
+  padding: 6px 6px 6px 0;
+  overflow: hidden;
   border: var(--border) solid var(--outline);
   border-radius: var(--radius-card);
   background: var(--paper);
   box-shadow: var(--shadow-drop-sm);
+}
+
+/* Design: bingkai kertas 6px, isi timeline punya jarak sendiri 10px di dalamnya. */
+.board :deep(.time-grid) {
+  padding: 10px 10px 10px 0;
 }
 </style>

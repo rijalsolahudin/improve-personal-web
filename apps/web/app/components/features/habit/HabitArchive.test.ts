@@ -1,6 +1,6 @@
 import { mountSuspended } from '@nuxt/test-utils/runtime'
 import { flushPromises, type VueWrapper } from '@vue/test-utils'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { resetHabitsHydrationForTest } from '~/composables/useHabits'
 import type { Habit } from '~/utils/habits'
@@ -63,9 +63,12 @@ describe('daftar arsip habit', () => {
     mounted = await mountSuspended(HabitArchive)
 
     await mounted.find('button').trigger('click')
-    await flushPromises()
 
-    expect(mounted.find('[role="alert"]').text()).toBe('Gagal mengembalikan habit. Coba lagi.')
+    // Pembacaan sesi auth di test tidak punya server: tunggu kegagalannya benar-benar mendarat
+    // (flushPromises saja bisa mendahului request yang ditolak).
+    await vi.waitFor(() =>
+      expect(mounted?.find('[role="alert"]').text()).toBe('Gagal mengembalikan habit. Coba lagi.'),
+    )
     expect(mounted.text()).toContain('Baca buku')
     expect(useState<Habit[]>('habits').value[0]).toMatchObject({ isArchived: true })
   })

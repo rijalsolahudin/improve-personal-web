@@ -5,6 +5,7 @@ import {
   COMPACT_HEAD_PX,
   SLOT_COUNT,
   entryNeed,
+  focusPillStyle,
   gridScale,
   isVisible,
   placeColumns,
@@ -74,5 +75,19 @@ describe('resizeEntry', () => {
     expect(resizeEntry('top', at(9), 60, -2)).toEqual({ start: at(8, 30), dur: 90 })
     expect(resizeEntry('top', at(9), 60, 10)).toEqual({ start: at(9, 45), dur: 15 })
     expect(resizeEntry('top', at(5, 15), 60, -4)).toEqual({ start: at(5), dur: 75 })
+  })
+})
+
+describe('focusPillStyle', () => {
+  it('kartu pendek: pill Fokus 14px dan di tengah kartu', () => {
+    expect(focusPillStyle(true)).toEqual({
+      top: 'calc(50% - 7px)',
+      right: '24px',
+      minHeight: '14px',
+    })
+  })
+
+  it('kartu normal: pill Fokus 18px di atas kartu', () => {
+    expect(focusPillStyle(false)).toEqual({ top: '8px', right: '28px', minHeight: '18px' })
   })
 })

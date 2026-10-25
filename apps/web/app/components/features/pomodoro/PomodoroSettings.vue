@@ -24,7 +24,7 @@ const pomodoro = usePomodoro()
           :title="$t('pomodoro.decrease', { setting: $t(`pomodoro.setting.${key}`) })"
           @click="pomodoro.adjust(key, -1)"
         >
-          −
+          <span class="sign">−</span>
         </IconButton>
         <span class="value" aria-live="polite">
           {{
@@ -41,10 +41,10 @@ const pomodoro = usePomodoro()
           :title="$t('pomodoro.increase', { setting: $t(`pomodoro.setting.${key}`) })"
           @click="pomodoro.adjust(key, 1)"
         >
-          +
+          <span class="sign">+</span>
         </IconButton>
       </li>
-      <li class="row">
+      <li class="row sound">
         <span class="label">{{ $t('pomodoro.sound') }}</span>
         <Toggle
           :on="pomodoro.isSoundOn.value"
@@ -86,6 +86,11 @@ const pomodoro = usePomodoro()
   border-top: var(--border-thin) dashed var(--line-2);
 }
 
+/* Baris terakhir design hanya punya padding atas; jarak bawah dipegang padding kartu (20px). */
+.rows > .row:last-child {
+  padding-bottom: 0;
+}
+
 .label {
   flex: 1;
   font-weight: var(--fw-strong);
@@ -98,5 +103,31 @@ const pomodoro = usePomodoro()
   font-family: var(--font-display);
   font-weight: var(--fw-display);
   font-size: 18px;
+}
+
+/* Glyph −/+ design 18px; IconButton menurunkan ukuran font dari `size` (34 → 14px) lewat
+   custom property inline, jadi ukuran glyph diatur di sini, bukan di komponen. */
+.sign {
+  font-size: 18px;
+  line-height: 1;
+}
+
+/* Switch design 52×30 dengan kenop 21px (Toggle md global 40×24), jalur mati lebih gelap
+   (`--dash`) dan garis lebih tebal supaya sebanding dengan kartu 22px padding-nya. */
+.sound :deep(.toggle.toggle-md) {
+  width: 52px;
+  height: 30px;
+  border-width: var(--border);
+  background: var(--dash);
+}
+
+.sound :deep(.toggle.on) {
+  background: var(--accent);
+}
+
+.sound :deep(.knob) {
+  top: 2px;
+  bottom: auto;
+  height: 21px;
 }
 </style>

@@ -56,7 +56,13 @@ const badge = computed(() => {
         <span class="left">{{ left }}</span>
         <span class="date">{{ dateLabel }}</span>
       </span>
-      <Button v-if="showArchive" variant="paper" size="xs" @click="emit('archive')">
+      <Button
+        v-if="showArchive"
+        variant="paper"
+        size="xs"
+        class="archive-btn"
+        @click="emit('archive')"
+      >
         {{ countdown.archived ? $t('countdown.unarchive') : $t('countdown.archive') }}
       </Button>
     </div>
@@ -193,5 +199,10 @@ const badge = computed(() => {
   font-weight: var(--fw-body);
   font-size: 12px;
   color: var(--ink-2);
+}
+
+/* Design chip arsip: 12px dengan padding 5px 12px (Button xs = 0 10px). */
+.foot .archive-btn {
+  padding: 0 12px;
 }
 </style>

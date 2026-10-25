@@ -123,6 +123,9 @@ function onFreeInput(value: string | number): void {
 }
 
 .label {
+  /* Design: 12px / nowrap (eyebrow global 11px). */
+  font-size: 12px;
+  white-space: nowrap;
   color: var(--ph-deep);
 }
 
@@ -183,7 +186,10 @@ function onFreeInput(value: string | number): void {
   cursor: not-allowed;
 }
 
-.search,
+.search {
+  margin-top: 10px;
+}
+
 .options {
   max-height: 236px;
   display: flex;
@@ -203,7 +209,8 @@ function onFreeInput(value: string | number): void {
   padding: 8px 10px;
   border: none;
   border-radius: calc(12px * var(--rk));
-  background: transparent;
+  /* Design: baris belum dipilih = putih transparan di atas panel wash, bukan transparan penuh. */
+  background: rgb(255 255 255 / 0.5);
   color: var(--ink);
   text-align: left;
 }

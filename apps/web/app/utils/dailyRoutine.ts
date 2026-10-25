@@ -44,15 +44,19 @@ export const WEATHER_META: Record<WeatherKind, { icon: IconName; color: string }
 
 /**
  * State halaman Daily per tanggal (bukan data core): langkah rutinitas, task yang dicentang,
- * cuaca manual, dan id quick add versi lama. Disimpan di localStorage supaya tidak hilang saat
- * reload (PRD F12: centang bertahan "sampai ganti hari", cuaca menampilkan data terakhir).
+ * cuaca manual, dan id task hasil quick add tanggal itu. Disimpan di localStorage supaya tidak
+ * hilang saat reload (PRD F12: centang bertahan "sampai ganti hari", cuaca menampilkan data
+ * terakhir).
  */
 export interface DailyDay {
   doneSteps: readonly string[]
   /** Task yang dicentang dari Daily hari ini: tetap tampil dicoret di Prioritas sampai ganti hari. */
   checkedTaskIds: readonly string[]
   weather: WeatherKind | null
-  /** Quick add versi lama (sebelum deadline hari ini dipakai); dipertahankan saat membaca storage. */
+  /**
+   * Id task hasil quick add tanggal ini: penanda "tampil di To-do hari itu" untuk task tanpa
+   * deadline (design `addedOn`), jadi task tetap muncul setelah reload.
+   */
   addedTaskIds: readonly string[]
 }
 
@@ -180,7 +184,9 @@ function isDueToday(task: Task, start: number, end: number): boolean {
  * To-do hari ini (PRD F12): deadline hari ini + terlambat yang belum selesai, plus task yang
  * ditambah dari Daily Routine hari ini (`addedIds`, boleh tanpa deadline - design `addedOn`).
  * Task yang sudah tampil di Prioritas tidak diulang; yang selesai hari ini tetap tampil dicoret.
- * Satu daftar tanpa grup, urutan tetap, supaya baris tidak pindah saat dicentang.
+ * Hasilnya daftar datar dengan urutan tetap (tidak dikelompokkan di sini). Pengelompokan visual
+ * (Terlambat / Hari ini / Selesai) hanya di `DailyTodoCard`, jadi baris yang baru dicentang memang
+ * pindah ke grup "Selesai" sesuai design.
  */
 export function todayTasks(
   tasks: readonly Task[],

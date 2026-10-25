@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { isOverdue, type Task } from '~/utils/tasks'
 
-/** Kartu task di kuadran: pegangan drag, centang, sisa waktu, titik prioritas, keluarkan. */
+/** Kartu task di kuadran: pegangan drag, centang, sisa waktu, titik prioritas, "▶ Fokus", keluarkan. */
 const {
   task,
   now,
@@ -11,7 +11,7 @@ const {
   now: number
   isDragging?: boolean
 }>()
-defineEmits<{ toggle: []; remove: [] }>()
+defineEmits<{ toggle: []; remove: []; focus: [title: string] }>()
 
 const { t } = useI18n()
 const formatTimeLeft = useTimeLeft()
@@ -19,7 +19,11 @@ const timeLeft = computed(() => (task.done ? t('time.done') : formatTimeLeft(tas
 </script>
 
 <template>
-  <li class="card" :class="{ done: task.done, dragging: isDragging }" :data-drop-item="task.id">
+  <li
+    class="card hover-reveal"
+    :class="{ done: task.done, dragging: isDragging }"
+    :data-drop-item="task.id"
+  >
     <span class="grip" data-drag-handle aria-hidden="true">⋮⋮</span>
     <Checkbox
       :checked="task.done"
@@ -35,6 +39,16 @@ const timeLeft = computed(() => (task.done ? t('time.done') : formatTimeLeft(tas
       :style="{ background: `var(--prio-${task.priority}-fg)` }"
       :title="$t(`priority.${task.priority}`)"
     />
+    <Button
+      v-if="!task.done"
+      variant="chip"
+      size="xs"
+      class="focus reveal"
+      :aria-label="$t('daily.focusLabel', { title: task.title })"
+      @click.stop="$emit('focus', task.title)"
+    >
+      {{ $t('daily.focus') }}
+    </Button>
     <IconButton
       tone="muted"
       :size="26"
@@ -111,5 +125,20 @@ const timeLeft = computed(() => (task.done ? t('time.done') : formatTimeLeft(tas
   height: 10px;
   flex-shrink: 0;
   border-radius: 50%;
+}
+
+/* Design kartu Eisenhower: pill "▶ Fokus" 26px, padding 0 10, teks 12px. Button xs sudah
+   segitu; dikunci di sini supaya tidak ikut mengecil kalau primitif berubah. */
+.card > .focus {
+  min-height: 26px;
+  padding: 0 10px;
+  font-size: 12px;
+}
+
+/* Design: "×" 26px dengan glyph 14px (IconButton menurunkan font dari ukuran tombol → 11px)
+   dan tinta redup, bukan aksen tema. */
+.card > .remove {
+  color: var(--mute-2);
+  font-size: 14px;
 }
 </style>

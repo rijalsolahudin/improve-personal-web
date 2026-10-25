@@ -16,8 +16,8 @@ const mood = computed({
 </script>
 
 <template>
-  <JournalCard>
-    <p class="eyebrow label">{{ $t('memo.feelingsLabel') }}</p>
+  <JournalCard :gap="12">
+    <p class="label">{{ $t('memo.feelingsLabel') }}</p>
     <MoodPicker v-model="mood" :label="$t('memo.moodLabel')" />
     <div class="feelings" role="group" :aria-label="$t('memo.feelingsLabel')">
       <button
@@ -46,6 +46,11 @@ const mood = computed({
 
 <style scoped>
 .label {
+  font-weight: var(--fw-strong);
+  font-size: 13px;
+  line-height: 1.2;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   color: var(--deep);
 }
 
@@ -62,6 +67,8 @@ const mood = computed({
   background: transparent;
   color: var(--mute-2);
   font-family: var(--font-hand);
+  /* Patrick Hand hanya punya weight 400; tombol mewarisi `--fw-body` (700) → faux-bold. */
+  font-weight: 400;
   font-size: 16px;
 }
 

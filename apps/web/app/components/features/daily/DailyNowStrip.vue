@@ -40,7 +40,7 @@ const nextIn = computed(() => {
 </script>
 
 <template>
-  <section class="strip dot-grid" aria-labelledby="daily-now-title">
+  <section class="strip" aria-labelledby="daily-now-title">
     <div class="now">
       <AppIcon :icon="current.icon" :color="current.color" :size="50" />
       <div class="now-text">
@@ -89,6 +89,12 @@ const nextIn = computed(() => {
   border: var(--border-thick) solid var(--outline);
   border-radius: calc(28px * var(--rk));
   background-color: var(--primary);
+  /* Dot grid design (lebih tegas & rapat dari token global `--pattern-dots`). Alpha dikali `--bev`
+     supaya gaya non-dekoratif (Cute Pure ke bawah) tetap polos, sama seperti token. */
+  background-image: radial-gradient(
+    rgb(255 255 255 / calc(0.55 * var(--bev))) 1.6px,
+    transparent 1.7px
+  );
   background-size: 18px 18px;
   box-shadow: var(--shadow-drop);
 }
@@ -160,6 +166,8 @@ const nextIn = computed(() => {
 
 .hand {
   font-family: var(--font-hand);
+  /* Patrick Hand hanya punya weight 400; span mewarisi `--fw-body` (700) → faux-bold. */
+  font-weight: 400;
   font-size: var(--fs-hand-body);
   line-height: 1.2;
 }

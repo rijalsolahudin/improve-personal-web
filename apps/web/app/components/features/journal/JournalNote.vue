@@ -40,6 +40,7 @@ function insertGoal(goalId: string): void {
     :title="$t(`journal.${kind}.title`)"
     :dot="isAffirm ? 'var(--deep)' : 'var(--accent)'"
     :is-soft="isAffirm"
+    :gap="isAffirm ? 10 : 6"
   >
     <template v-if="isAffirm" #decor>
       <Tape :width="84" :height="24" :top="-13" left="auto" :rotate="4" :radius="4" class="tape" />
@@ -122,6 +123,8 @@ function insertGoal(goalId: string): void {
   border: none;
   background: transparent;
   font-family: var(--font-hand);
+  /* Patrick Hand hanya punya weight 400; textarea mewarisi `--fw-body` (700) → faux-bold. */
+  font-weight: 400;
   font-size: 24px;
   line-height: 32px;
   resize: none;

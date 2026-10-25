@@ -4,7 +4,7 @@ import { QUADRANT_STYLE, isOverdue, type Task } from '~/utils/tasks'
 import { formatHourMinute } from '~/utils/time'
 
 const { task, now } = defineProps<{ task: Task; now: number }>()
-defineEmits<{ toggle: []; edit: [] }>()
+defineEmits<{ toggle: []; edit: []; focus: [title: string] }>()
 
 const { t } = useI18n()
 const formatTimeLeft = useTimeLeft()
@@ -23,7 +23,7 @@ const deadlineLabel = computed(() =>
 </script>
 
 <template>
-  <li class="row" :class="{ done: task.done }">
+  <li class="row hover-reveal" :class="{ done: task.done }">
     <Checkbox
       :checked="task.done"
       :label="$t('common.toggleDone', { title: task.title })"
@@ -46,6 +46,25 @@ const deadlineLabel = computed(() =>
         </span>
       </span>
     </button>
+    <Button
+      variant="chip"
+      size="xs"
+      class="focus reveal"
+      :aria-label="$t('daily.focusLabel', { title: task.title })"
+      @click.stop="$emit('focus', task.title)"
+    >
+      {{ $t('daily.focus') }}
+    </Button>
+    <IconButton
+      tone="muted"
+      :size="30"
+      :radius="15"
+      class="edit reveal"
+      :title="$t('daily.editLabel', { title: task.title })"
+      @click.stop="$emit('edit')"
+    >
+      <Icon name="pencil" :size="15" />
+    </IconButton>
     <span class="when">
       <span class="left" :class="{ overdue: isOverdue(task, now) }">{{ timeLeft }}</span>
       <span class="deadline">{{ deadlineLabel }}</span>
@@ -107,6 +126,20 @@ const deadlineLabel = computed(() =>
   font-size: 12px;
 }
 
+/* Design: chip prioritas seukuran chip jadwal/kuadran di baris ini (12px, 3x10). */
+.row .main :deep(.badge) {
+  padding: 3px 10px;
+  font-size: 12px;
+}
+
+/* Design baris To-do: pill "▶ Fokus" 30px yang muncul saat hover (desktop) / selalu di layar sentuh. */
+.row .focus {
+  flex-shrink: 0;
+  min-height: 30px;
+  padding: 0 12px;
+  font-size: 12.5px;
+}
+
 .dot {
   width: 8px;
   height: 8px;
@@ -124,6 +157,8 @@ const deadlineLabel = computed(() =>
 .left {
   font-weight: var(--fw-strong);
   font-size: 14px;
+  /* Design memakai #8A7B68 (di bawah 4,5:1 di atas --paper), jadi tetap token teks `--mute`
+     yang lolos AA - sama seperti keputusan QA #62 untuk state selesai. */
   color: var(--mute);
 }
 

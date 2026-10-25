@@ -10,6 +10,7 @@ const {
   meta = '',
   isOverdue = false,
   isDense = false,
+  isDaily = false,
 } = defineProps<{
   task: Task
   /** Info deadline di kanan, mis. "14:00". */
@@ -18,16 +19,21 @@ const {
   isOverdue?: boolean
   /** Versi rapat untuk di dalam kartu jadwal; tinggi = LINKED_ROW_PX (utils/calendarGrid). */
   isDense?: boolean
+  /** Baris kartu To-do Daily (design): checkbox 22px, judul 600, latar hover tanpa garis pemisah. */
+  isDaily?: boolean
   /** Tampilkan tombol edit (buka form task). */
   canEdit?: boolean
 }>()
 const emit = defineEmits<{ toggle: []; focus: [title: string]; edit: [] }>()
 
-const size = computed(() => (isDense ? 'sm' : 'md'))
+const size = computed(() => {
+  if (isDense) return 'sm'
+  return isDaily ? 'md' : 'lg'
+})
 </script>
 
 <template>
-  <div class="line hover-reveal" :class="{ done: task.done, dense: isDense }">
+  <div class="line hover-reveal" :class="{ done: task.done, dense: isDense, daily: isDaily }">
     <Checkbox
       :checked="task.done"
       :size="size"
@@ -56,7 +62,7 @@ const size = computed(() => (isDense ? 'sm' : 'md'))
     >
       <Icon name="pencil" :size="14" />
     </IconButton>
-    <PriorityBadge :level="task.priority" :size="size" />
+    <PriorityBadge :level="task.priority" :size="size === 'lg' ? 'md' : 'sm'" />
     <span v-if="meta" class="meta" :class="{ overdue: isOverdue }">{{ meta }}</span>
   </div>
 </template>
@@ -77,12 +83,30 @@ const size = computed(() => (isDense ? 'sm' : 'md'))
   padding: 0 2px;
 }
 
+/* Design kartu To-do Daily: baris selebar kartu (margin negatif), tanpa garis pemisah. */
+.daily {
+  gap: 12px;
+  padding: 9px 8px;
+  margin: 0 -8px;
+  border-bottom: 0;
+  border-radius: var(--radius-inner);
+}
+
+.daily:hover {
+  background: var(--hover);
+}
+
 .title {
   flex: 1;
   min-width: 0;
   font-weight: var(--fw-strong);
   font-size: var(--fs-body-sm);
   line-height: 1.25;
+}
+
+.daily .title {
+  font-weight: var(--fw-medium);
+  font-size: 14.5px;
 }
 
 .dense .title {
@@ -117,5 +141,13 @@ const size = computed(() => (isDense ? 'sm' : 'md'))
   min-height: 20px;
   padding: 0 8px;
   font-size: 10.5px;
+}
+
+/* Design Daily memakai pill "▶ Fokus" 26px yang tidak mengecil saat hover. */
+.daily .focus,
+.daily .focus:hover {
+  min-height: 26px;
+  padding: 0 10px;
+  font-size: 12px;
 }
 </style>

@@ -110,6 +110,8 @@ select:focus-visible {
   background-attachment: local;
   color: var(--ink);
   font-family: var(--font-hand);
+  /* Patrick Hand hanya punya weight 400; tanpa ini textarea mewarisi `--fw-body` (700) → faux-bold. */
+  font-weight: 400;
   line-height: var(--line-h);
   resize: none;
   outline: none;

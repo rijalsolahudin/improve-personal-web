@@ -2,12 +2,12 @@
 const {
   checked,
   label,
-  size = 'md',
+  size = 'lg',
 } = defineProps<{
   checked: boolean
   label: string
-  /** sm = versi rapat, mis. to-do di dalam kartu jadwal kalender. */
-  size?: 'md' | 'sm'
+  /** lg = 26px (default halaman lain), md = 22px (baris Daily), sm = 16px (baris rapat timeline). */
+  size?: 'lg' | 'md' | 'sm'
 }>()
 
 const emit = defineEmits<{ toggle: [] }>()
@@ -42,6 +42,14 @@ const emit = defineEmits<{ toggle: [] }>()
   color: var(--paper);
   font-weight: var(--fw-strong);
   font-size: 15px;
+}
+
+.checkbox.size-md {
+  width: 22px;
+  height: 22px;
+  border-radius: calc(8px * var(--rk)) calc(8px * var(--rk)) calc(8px * var(--rk))
+    calc(3px * var(--rk));
+  font-size: 12px;
 }
 
 .checkbox.size-sm {

@@ -332,6 +332,8 @@ async function save(): Promise<void> {
   outline: none;
   color: var(--memo-ink);
   font-family: var(--font-hand);
+  /* Patrick Hand hanya punya weight 400; input mewarisi `--fw-body` (700) → faux-bold. */
+  font-weight: 400;
   background-color: var(--memo-bg);
   padding: 14px 28px 2px 66px;
   font-size: 26px;
@@ -415,6 +417,8 @@ async function save(): Promise<void> {
   background: var(--alt);
   color: var(--ink-2);
   font-family: var(--font-hand);
+  /* Patrick Hand hanya punya weight 400; tombol mewarisi `--fw-body` (700) → faux-bold. */
+  font-weight: 400;
   font-size: 15px;
 }
 

@@ -146,7 +146,6 @@ export function gridScale(heights: readonly number[]): GridScale {
 }
 
 export type ResizeEdge = 'top' | 'bottom'
-
 /**
  * Tarik tepi atas/bawah jadwal (design `startDrag`): geser per 15 menit, tidak keluar grid,
  * durasi minimal 15 menit. Tepi atas menggeser mulai tapi akhir tetap.
@@ -163,4 +162,30 @@ export function resizeEntry(
     return { start: next, dur: dur - (next - start) }
   }
   return { start, dur: Math.min(Math.max(SLOT_MINUTES, dur + delta), GRID_END_MIN - start) }
+}
+
+/** Tinggi pill "▶ Fokus": 18px di kartu normal, 14px di kartu pendek (< 24 menit). */
+export const FOCUS_PILL_PX = 18
+export const FOCUS_PILL_TINY_PX = 14
+
+export interface FocusPillStyle {
+  top: string
+  right: string
+  minHeight: string
+}
+
+/**
+ * Geometri pill "▶ Fokus" mengikuti centang kartu (design `ckS`/`ckTop`, Desktop.dc.html:875,3529):
+ * di kartu pendek pill ikut 14px dan berada di tengah kartu. Dikembalikan sebagai style inline
+ * supaya ukurannya tidak bisa kalah oleh urutan rule CSS `.event .focus`.
+ */
+export function focusPillStyle(isTiny: boolean): FocusPillStyle {
+  if (isTiny) {
+    return {
+      top: `calc(50% - ${FOCUS_PILL_TINY_PX / 2}px)`,
+      right: `${FOCUS_PILL_TINY_PX + 10}px`,
+      minHeight: `${FOCUS_PILL_TINY_PX}px`,
+    }
+  }
+  return { top: '8px', right: `${FOCUS_PILL_PX + 10}px`, minHeight: `${FOCUS_PILL_PX}px` }
 }

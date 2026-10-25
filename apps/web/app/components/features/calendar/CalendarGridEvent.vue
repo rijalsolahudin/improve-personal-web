@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { GridEvent } from '~/composables/useTimeGrid'
-import type { ResizeEdge } from '~/utils/calendarGrid'
+import { focusPillStyle, type ResizeEdge } from '~/utils/calendarGrid'
 import { formatMinutes } from '~/utils/schedule'
 
 /**
@@ -50,6 +50,8 @@ const style = computed(() => ({
   '--ev-solid': item.solid,
   '--ev-tint': item.tint,
 }))
+/** Pill Fokus 14px di kartu pendek, 18px di kartu normal (design). */
+const focusStyle = computed(() => focusPillStyle(item.size === 'tiny'))
 </script>
 
 <template>
@@ -75,6 +77,7 @@ const style = computed(() => ({
       variant="chip"
       size="xs"
       class="focus reveal"
+      :style="focusStyle"
       :aria-label="$t('daily.focusLabel', { title })"
       @click.stop="emit('focus', title)"
     >
@@ -133,7 +136,6 @@ const style = computed(() => ({
   z-index: 2;
   display: flex;
   flex-direction: column;
-  padding-bottom: 3px;
   overflow: hidden;
   border-radius: calc(10px * var(--rk));
   background: color-mix(in srgb, var(--ev-solid) 15%, var(--paper));
@@ -361,17 +363,16 @@ const style = computed(() => ({
   top: 4px;
 }
 
+/* Geometri (top/right/tinggi) datang dari `focusPillStyle` sebagai style inline, jadi varian
+   kartu pendek tidak mungkin kalah oleh urutan rule CSS. */
 .focus {
   position: absolute;
-  top: 8px;
-  right: 34px;
   z-index: 4;
   box-shadow: 0 1px 0 rgb(47 42 36 / 0.18);
 }
 
 /* Lebih kecil dari pill "▶ Fokus" standar: harus muat di blok jadwal yang pendek. */
 .event .focus {
-  min-height: 18px;
   padding: 0 8px;
   font-size: 10.5px;
 }

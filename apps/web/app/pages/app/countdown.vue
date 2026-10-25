@@ -188,6 +188,11 @@ function openEdit(id: string): void {
   margin-top: 12px;
 }
 
+/* Design "Lihat arsip": 14px (Button link = 13px). */
+.archive .archive-toggle {
+  font-size: 14px;
+}
+
 @media (max-width: 599px) {
   .title {
     font-size: 28px;

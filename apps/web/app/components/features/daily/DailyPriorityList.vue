@@ -110,6 +110,8 @@ const visible = computed(() =>
   border: var(--border-thin) dashed var(--dash);
   border-radius: calc(20px * var(--rk));
   font-family: var(--font-hand);
+  /* Patrick Hand hanya punya weight 400; paragraf mewarisi `--fw-body` (700) → faux-bold. */
+  font-weight: 400;
   font-size: var(--fs-hand-body);
   color: var(--mute);
 }

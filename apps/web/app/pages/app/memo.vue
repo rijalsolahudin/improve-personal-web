@@ -14,6 +14,8 @@ const { findSchedule } = useSchedules()
 const { findGoal } = useGoals()
 
 const SEARCH_MAX = 80
+/** Design: kolom cari `padding: 11px 16px`; `Input` size-md bawaannya 14px horizontal. */
+const SEARCH_STYLE = { paddingInline: '16px' }
 const query = ref('')
 // Tanggal terpilih bertahan selama sesi (mis. balik dari Kalender).
 const selected = useState<string>('memo-selected', () => toIsoDate(new Date()))
@@ -50,6 +52,7 @@ const entries = computed(() => memosOn(matching.value, selected.value))
         class="search"
         shape="pill"
         type="search"
+        :style="SEARCH_STYLE"
         :maxlength="SEARCH_MAX"
         :placeholder="$t('memo.search')"
         :aria-label="$t('memo.search')"
@@ -170,6 +173,8 @@ const entries = computed(() => memosOn(matching.value, selected.value))
   padding: 10px;
   text-align: center;
   font-family: var(--font-hand);
+  /* Patrick Hand hanya punya weight 400; paragraf mewarisi `--fw-body` (700) → faux-bold. */
+  font-weight: 400;
   font-size: 19px;
   color: var(--mute);
 }

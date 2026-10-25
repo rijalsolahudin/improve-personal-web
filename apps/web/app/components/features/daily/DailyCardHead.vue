@@ -11,6 +11,7 @@ const {
   linkTo,
   meta = undefined,
   pct = undefined,
+  barColor = 'var(--accent)',
 } = defineProps<{
   icon: IconName
   /** Nama CSS custom property warna tile. */
@@ -22,6 +23,8 @@ const {
   meta?: string
   /** 0–100; kalau diisi tampil bar progres + `meta`. */
   pct?: number
+  /** Warna isi bar progres (design: warna fitur, mis. `var(--icon-todo)`). */
+  barColor?: string
 }>()
 </script>
 
@@ -33,7 +36,9 @@ const {
       <NuxtLink :to="linkTo" class="link">{{ linkLabel }}</NuxtLink>
     </div>
     <div v-if="pct !== undefined" class="progress">
-      <ProgressBar :pct="pct" :height="7" track="var(--chip)" />
+      <span class="track">
+        <ProgressBar :pct="pct" :height="7" :color="barColor" track="var(--chip)" />
+      </span>
       <span v-if="meta" class="meta">{{ meta }}</span>
     </div>
   </div>
@@ -70,22 +75,25 @@ const {
 }
 
 .progress {
-  width: 96px;
   flex-shrink: 0;
   display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 4px;
+  align-items: center;
+  gap: 8px;
 }
 
-.progress > :first-child {
-  width: 100%;
+.track {
+  width: 56px;
+  flex-shrink: 0;
+  /* Blok, bukan flex: root ProgressBar (`.bar`) tidak punya width, jadi sebagai flex item
+     ia menyusut ke 0px dan isi bar tak pernah terlihat (QA #91 BUG-1). */
+  display: block;
 }
 
 .meta {
-  font-weight: var(--fw-strong);
-  font-size: 11.5px;
-  color: var(--mute-3);
+  font-family: var(--font-display);
+  font-weight: var(--fw-display);
+  font-size: 15px;
+  line-height: 1;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }

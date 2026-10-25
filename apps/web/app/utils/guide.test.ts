@@ -84,15 +84,18 @@ describe('status & klaim mengikuti kode', () => {
     expect(`${feature?.summary} ${feature?.tips.join(' ')}`).toMatch(/ganti semua/i)
   })
 
-  it('Daily mengklaim perilaku yang sudah diperbaiki: deadline hari ini & daftar dilipat', () => {
+  it('Daily mengklaim perilaku yang sudah diperbaiki: quick add tanpa deadline & daftar dilipat', () => {
     const feature = GUIDE_FEATURES.find((item) => item.code === 'F12')
     const copy = `${feature?.summary} ${feature?.tips.join(' ')}`
-    // Quick add memakai deadline akhir hari (PRD F12) dan daftar panjang dilipat di "Lihat N lagi".
+    // Quick add dibuat tanpa deadline (Ergonio #97) dan tetap tampil berkat `addedTaskIds`;
+    // daftar panjang dilipat di "Lihat N lagi".
     expect(feature?.status).toBe('ready')
     expect(copy).toMatch(/quick add/i)
-    expect(copy).toMatch(/deadline akhir hari ini/i)
+    expect(copy).toMatch(/tanpa deadline/i)
+    expect(copy).toMatch(/tetap tampil di to-do hari itu/i)
     expect(copy).toMatch(/Lihat N lagi/i)
     // Copy lama tidak boleh kembali: itu menandakan panduan menjelaskan bug yang sudah hilang.
+    expect(copy).not.toMatch(/deadline akhir hari ini/i)
     expect(copy).not.toMatch(/belum otomatis diberi deadline/i)
     expect(copy).not.toMatch(/sampai perbaikan selesai/i)
     expect(copy).not.toMatch(/hilang dari daftar setelah reload/i)

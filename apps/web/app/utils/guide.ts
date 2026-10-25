@@ -46,7 +46,7 @@ export const GUIDE_FEATURES: readonly GuideFeature[] = [
     summary:
       'Halaman utama yang menyatukan prioritas hari ini, to-do hari ini (termasuk yang telat), habit, cuaca, dan kalender hari ini. Widget di sini membaca data yang sama dengan halaman lain, jadi centang di sini ikut mengubah progres di sana.',
     tips: [
-      'Quick add di kartu To-do langsung membuat task dengan deadline akhir hari ini. Task tetap ada setelah reload, dan besok muncul lagi sebagai terlambat sampai kamu selesaikan.',
+      'Tinggal tulis judulnya di quick add To-do: task dibuat tanpa deadline dan tetap tampil di To-do hari itu. Besok tidak berubah jadi terlambat, dan task tetap ada setelah reload sampai kamu selesaikan.',
       'Prioritas diambil dari kuadran Penting & Mendesak lebih dulu, lalu task urgent.',
       'Daftar panjang di Prioritas maupun To-do dilipat lewat tombol "Lihat N lagi", bukan dipotong. Progres dihitung dari seluruh item hari ini, bukan cuma yang tampil.',
       'Centang, langkah rutinitas, dan cuaca tersimpan per tanggal di perangkat ini, jadi tidak hilang setelah reload dan kembali bersih saat ganti hari.',

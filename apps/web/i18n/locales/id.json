@@ -177,9 +177,9 @@
     "editLabel": "Edit task: {title}",
     "prio": {
       "title": "Prioritas",
-      "link": "Buka Eisenhower →",
+      "link": "Eisenhower →",
       "linkHint": "Otomatis: kuadran Penting & Mendesak + to-do Urgent",
-      "empty": "Nggak ada yang mendesak hari ini",
+      "empty": "Belum ada task penting & mendesak atau urgent.",
       "origin": {
         "quadrant": "Penting & Mendesak"
       },
@@ -192,6 +192,10 @@
       "empty": "Belum ada to-do buat hari ini.",
       "add": "Tambah to-do, lalu Enter…",
       "addLabel": "Judul to-do baru",
+      "group": {
+        "late": "Terlambat",
+        "done": "Selesai"
+      },
       "more": "Lihat {n} lagi",
       "less": "Lipat lagi"
     },
@@ -602,7 +606,7 @@
     "unmarkDone": "Batalkan tanda selesai",
     "review": {
       "title": "Chapter ini terlewat di {n}%",
-      "sub": "Mau diapain chapter ini?",
+      "sub": "Mau diapain? Jawabanmu tersimpan sebagai memo.",
       "extend": "Perpanjang",
       "shift": "Geser periode",
       "close": "Tutup"

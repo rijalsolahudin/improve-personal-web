@@ -552,7 +552,7 @@ Halaman utama (menggantikan "Home"; nama menu di sidebar: **Daily**): satu layar
 - Progress bar selesai / total ("5 dari 10 task")
 - Centang selesai langsung dari widget
 - **Bisa edit task langsung dari widget** (lihat [Edit Task dari Daily](#edit-task-dari-daily))
-- Quick add task (judul + deadline default hari ini + prioritas) → masuk F2
+- Quick add task (judul + prioritas default medium, tanpa deadline; tetap tampil di To-do hari itu via addedTaskIds) → masuk F2
 - Link "Lihat semua task" (F2)
 
 #### Edit Task dari Daily

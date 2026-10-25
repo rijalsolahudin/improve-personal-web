@@ -55,6 +55,7 @@ const timeLeft = computed(() =>
     </IconButton>
     <Checkbox
       :checked="task.done"
+      size="md"
       :label="$t('common.toggleDone', { title: task.title })"
       @toggle="emit('toggle')"
     />

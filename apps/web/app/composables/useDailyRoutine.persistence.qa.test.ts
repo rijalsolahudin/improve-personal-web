@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { EMPTY_DAILY_DAY, type DailyDay, type RoutineStep } from '~/utils/dailyRoutine'
 import type { Task } from '~/utils/tasks'
-import { MS_PER_HOUR, addDays, fromIsoDate, toIsoDate } from '~/utils/time'
+import { MS_PER_HOUR, addDays, fromIsoDate } from '~/utils/time'
 
 import { clearAppStorage, useLogout } from './useLogout'
 import type { AuthGateway } from './auth/gateway'
@@ -181,23 +181,20 @@ describe('logout membuang state harian (B3)', () => {
 })
 
 describe('quick add lintas hari (AC3)', () => {
-  it('task quick add punya deadline 23:59 hari ini, tetap di To-do besok dan jadi terlambat', () => {
+  it('task quick add tanpa deadline dicatat untuk hari ini saja: besok tidak muncul & tidak terlambat', () => {
     const today = useDailyRoutine()
     today.addTodayTask('Bayar listrik')
 
     const added = today.todayList.value.find(({ task: item }) => item.title === 'Bayar listrik')
     expect(added).toBeDefined()
+    expect(added?.task.deadline).toBeNull()
     expect(added?.isOverdue).toBe(false)
-    expect(added?.task.deadline && toIsoDate(new Date(added.task.deadline))).toBe(TODAY)
-    expect(new Date(added?.task.deadline ?? 0).getHours()).toBe(23)
-    expect(new Date(added?.task.deadline ?? 0).getMinutes()).toBe(59)
 
-    // Ganti hari: task yang sama tetap muncul sebagai terlambat, bukan hilang.
+    // Ganti hari: catatan quick add milik tanggal kemarin dan task tanpa deadline tidak jatuh tempo,
+    // jadi besok ia tidak lagi muncul di To-do (bukan muncul sebagai terlambat).
     useState<number>('now').value = fromIsoDate(addDays(TODAY, 1)).getTime() + 9 * MS_PER_HOUR
     const besok = useDailyRoutine()
 
-    const overdue = besok.todayList.value.find(({ task: item }) => item.title === 'Bayar listrik')
-    expect(overdue).toBeDefined()
-    expect(overdue?.isOverdue).toBe(true)
+    expect(besok.todayList.value.map(({ task: item }) => item.title)).not.toContain('Bayar listrik')
   })
 })

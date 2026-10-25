@@ -14,6 +14,7 @@ const emit = defineEmits<{
   toggle: [id: string]
   remove: [id: string]
   add: [id: string]
+  focus: [title: string]
   drag: [event: PointerEvent, id: string]
 }>()
 
@@ -48,7 +49,9 @@ function add(id: string): void {
       </span>
       <span class="count">{{ tasks.length }}</span>
     </header>
-    <ul class="cards">
+    <ul v-if="tasks.length" class="cards">
+      <!-- `v-if` bukan kosmetik: `<ul>` kosong tetap jadi flex item, jadi jarak header→"Tambah"
+           dobel (10+10) dibanding design yang tidak merender daftar kosong. -->
       <EisenhowerCard
         v-for="task in tasks"
         :key="task.id"
@@ -58,6 +61,7 @@ function add(id: string): void {
         @pointerdown="(event: PointerEvent) => emit('drag', event, task.id)"
         @toggle="emit('toggle', task.id)"
         @remove="emit('remove', task.id)"
+        @focus="(title: string) => emit('focus', title)"
       />
     </ul>
     <button

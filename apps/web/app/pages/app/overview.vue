@@ -320,16 +320,19 @@ const rangeOptions = computed(() =>
 .overview {
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 16px;
   padding-bottom: 80px;
 }
 
+/* Sumber: jarak antar baris kartu 16px, tapi header->statistik dan statistik->baris pertama 20px
+   (main gap 20 + grid baris gap 16). Selisih 4px ditambahkan sebagai margin, bukan gap. */
 .header {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-end;
   justify-content: space-between;
   gap: 16px;
+  margin-bottom: 4px;
 }
 
 .title {
@@ -360,6 +363,11 @@ const rangeOptions = computed(() =>
   gap: 6px;
 }
 
+/* Sumber desain memberi opacity .35 pada tombol next yang tidak aktif. */
+.nav :deep(.icon-btn:disabled) {
+  opacity: 0.35;
+}
+
 .ranges {
   align-items: center;
   height: 44px;
@@ -368,10 +376,21 @@ const rangeOptions = computed(() =>
   scrollbar-width: none;
 }
 
+/* Padding/gap pill rentang di desain 3px/2px dengan opsi 7px 14px (bukan 4px/4px, 8px 14px). */
+.controls .ranges {
+  gap: 2px;
+  padding: 3px;
+}
+
+.controls :deep(.option) {
+  padding: 7px 14px;
+}
+
 .stats {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
   gap: 14px;
+  margin-bottom: 4px;
 }
 
 .stat {
@@ -435,15 +454,24 @@ const rangeOptions = computed(() =>
 }
 
 .card-note,
-.card-total,
 .mute {
   font-weight: var(--fw-strong);
   font-size: 13px;
   color: var(--mute);
 }
 
+.card-total {
+  font-family: var(--font-display);
+  font-weight: var(--fw-display);
+  font-size: 18px;
+}
+
 .chart {
   flex: 2 1 480px;
+}
+
+.chart .card-head {
+  flex-wrap: wrap;
 }
 
 .bars {
@@ -460,8 +488,7 @@ const rangeOptions = computed(() =>
   flex: 1;
   min-width: 0;
   border: var(--border-thin) solid transparent;
-  border-radius: calc(8px * var(--rk)) calc(8px * var(--rk)) calc(3px * var(--rk))
-    calc(3px * var(--rk));
+  border-radius: calc(8px * var(--rk)) calc(8px * var(--rk)) 3px 3px;
 }
 
 .ticks {
@@ -482,6 +509,10 @@ const rangeOptions = computed(() =>
 
 .streak {
   flex: 1 1 300px;
+}
+
+.streak .card-note {
+  font-size: 12px;
 }
 
 .big-streaks {
@@ -543,7 +574,7 @@ const rangeOptions = computed(() =>
 }
 
 .hs-best {
-  width: 84px;
+  width: 76px;
   text-align: right;
   font-weight: var(--fw-body);
   font-size: 12px;
@@ -560,6 +591,18 @@ const rangeOptions = computed(() =>
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
+}
+
+/* Chip tab habit: padding 6px 12px dan titik 9px (desain), bukan tinggi minimum 34px. */
+.habits-tabs :deep(.chip) {
+  min-height: 0;
+  padding: 6px 12px;
+}
+
+.habits-tabs .dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 3px;
 }
 
 .heatmap {
@@ -605,6 +648,7 @@ const rangeOptions = computed(() =>
 
 .mood-card {
   flex: 1 1 300px;
+  border: none;
   background: #c7e3ee;
 }
 
@@ -703,11 +747,17 @@ const rangeOptions = computed(() =>
   text-wrap: pretty;
 }
 
-.sched-list,
-.goal-list {
+.sched-list {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  margin-top: 12px;
+}
+
+.goal-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
   margin-top: 12px;
 }
 
@@ -717,7 +767,15 @@ const rangeOptions = computed(() =>
   justify-content: space-between;
   gap: 8px;
   font-weight: var(--fw-strong);
+}
+
+.sched-head {
   font-size: 13px;
+}
+
+.goal-head {
+  align-items: baseline;
+  font-size: 14px;
 }
 
 .goal-pct {

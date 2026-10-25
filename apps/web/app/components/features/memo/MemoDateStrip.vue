@@ -103,6 +103,8 @@ const items = computed(() =>
 
 .n {
   font-family: var(--font-hand);
+  /* Patrick Hand hanya punya weight 400; tombol mewarisi `--fw-body` (700) → faux-bold. */
+  font-weight: 400;
   font-size: 28px;
   line-height: 1;
 }
@@ -130,6 +132,8 @@ const items = computed(() =>
 .preview {
   overflow: hidden;
   font-family: var(--font-hand);
+  /* Patrick Hand hanya punya weight 400; tombol mewarisi `--fw-body` (700) → faux-bold. */
+  font-weight: 400;
   font-size: 15px;
   color: var(--mute-2);
   white-space: nowrap;
@@ -151,6 +155,8 @@ const items = computed(() =>
 .none {
   padding: 12px;
   font-family: var(--font-hand);
+  /* Patrick Hand hanya punya weight 400; paragraf mewarisi `--fw-body` (700) → faux-bold. */
+  font-weight: 400;
   font-size: 17px;
   color: var(--mute);
 }

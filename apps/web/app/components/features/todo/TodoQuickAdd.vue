@@ -36,7 +36,7 @@ function submit(): void {
       :aria-label="$t('todo.quickDate')"
     />
     <TodoPriorityPicker v-model="priority" :label="$t('priority.label')" />
-    <Button type="submit" variant="primary">{{ $t('todo.add') }}</Button>
+    <Button type="submit" variant="primary" class="submit">{{ $t('todo.add') }}</Button>
   </form>
 </template>
 
@@ -58,5 +58,15 @@ function submit(): void {
 
 .date {
   flex: 0 0 auto;
+}
+
+/* Design quick add: kolom tanggal & tombol Tambah lebih ringkas/pendek dari default Input/Button
+   (tanggal 10px, tombol 46px). Awalan `.quick` supaya menang atas style komponen. */
+.quick .date {
+  padding: 10px 14px;
+}
+
+.quick .submit {
+  min-height: 46px;
 }
 </style>

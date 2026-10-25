@@ -47,6 +47,18 @@ const LAPORAN: Task = {
   position: 0,
 }
 
+/** To-do tanpa deadline & tanpa jadwal: muncul di rail bagian "Tanpa deadline". */
+const BEBAS: Task = {
+  id: 'task-bebas',
+  title: 'Rapikan meja',
+  priority: 'low',
+  deadline: null,
+  done: false,
+  scheduleId: null,
+  quadrant: null,
+  position: 0,
+}
+
 const JURNAL: Memo = {
   id: 'memo-1',
   date: '2025-09-10',
@@ -199,6 +211,24 @@ describe('T9 klik tanggal -> panel detail hari', () => {
     expect(panel).toContain('Mingguan, Sen & Kam')
     expect(panel).toContain('Nggak ada deadline di tanggal ini.')
     expect(panel).toContain('Belum ada memo di tanggal ini.')
+  })
+
+  it('to-do tanpa deadline tampil di rail dan hilang setelah dicentang', async () => {
+    seedCalendar('hari', '2025-09-10', '2025-09-10')
+    useState<Task[]>('tasks').value = [BEBAS]
+    mounted = await mountCalendar()
+
+    const panel = mounted.find('aside.panel')
+    expect(panel.text()).toContain('Tanpa deadline')
+    const row = panel.find('.row.undated')
+    expect(row.text()).toContain('Rapikan meja')
+
+    await row.find('[role="checkbox"]').trigger('click')
+    await flushPromises()
+
+    // Task selesai tidak lagi tampil di daftar "Tanpa deadline".
+    expect(mounted.find('aside.panel .row.undated').exists()).toBe(false)
+    expect(useState<Task[]>('tasks').value[0]?.done).toBe(true)
   })
 
   it('tanggal yang dipilih tetap dipakai saat pindah view (panel & papan tidak menyimpang)', async () => {

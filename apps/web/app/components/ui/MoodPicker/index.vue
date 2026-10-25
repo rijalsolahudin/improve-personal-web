@@ -39,34 +39,41 @@ const moods = MOOD_EMOJI.map((emoji, index) => ({ emoji, index, tint: moodTints[
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 3px;
+  gap: 4px;
   padding: 8px 2px 6px;
   border: var(--border) solid var(--line);
-  border-radius: calc(16px * var(--rk)) calc(16px * var(--rk)) calc(16px * var(--rk))
-    calc(6px * var(--rk));
+  border-radius: calc(20px * var(--rk)) calc(20px * var(--rk)) calc(20px * var(--rk))
+    calc(8px * var(--rk));
   background: var(--paper);
+  transition: transform 0.15s;
 }
 
+/* Design: tile terpilih miring -2°, tile mana pun yang di-hover naik -3° + membesar. */
 .mood[aria-pressed='true'] {
   background: var(--mood-tint);
   border-color: var(--outline);
-  transform: rotate(calc(-3deg * var(--bev)));
+  transform: rotate(calc(-2deg * var(--bev)));
+}
+
+.mood:hover {
+  transform: rotate(calc(-3deg * var(--bev))) scale(1.04);
 }
 
 .emoji {
-  font-size: 22px;
+  font-size: 30px;
   line-height: 1;
 }
 
 .mood[aria-pressed='true'] .emoji {
-  font-size: 26px;
+  font-size: 36px;
 }
 
 .label {
   font-family: var(--font-hand);
+  /* Patrick Hand hanya punya weight 400; warisan `--fw-body` (700) membuatnya faux-bold. */
+  font-weight: 400;
   font-size: var(--fs-hand-label);
-  line-height: 1.1;
+  line-height: 1.05;
   text-align: center;
-  white-space: nowrap;
 }
 </style>

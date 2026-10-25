@@ -53,7 +53,12 @@ const summary = computed(() => {
     <section class="board" data-anchor="habit-board" data-anchor-kind="content">
       <div class="bar">
         <div class="month-nav">
-          <IconButton :title="$t('habit.prevMonth')" @click="month = firstOfMonth(month, -1)">
+          <IconButton
+            :title="$t('habit.prevMonth')"
+            :size="40"
+            :radius="14"
+            @click="month = firstOfMonth(month, -1)"
+          >
             ‹
           </IconButton>
           <span class="month" aria-live="polite">{{
@@ -61,6 +66,8 @@ const summary = computed(() => {
           }}</span>
           <IconButton
             :title="$t('habit.nextMonth')"
+            :size="40"
+            :radius="14"
             :disabled="isCurrentMonth"
             @click="month = firstOfMonth(month, 1)"
           >
@@ -149,6 +156,19 @@ const summary = computed(() => {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+/* Design: panah 18px (tombol 40) dan tombol "bulan berikutnya" memudar 0.35, bukan 0.45. */
+.month-nav :deep(.icon-btn) {
+  font-size: 18px;
+}
+
+.month-nav :deep(.icon-btn:disabled) {
+  opacity: 0.35;
+}
+
+.header :deep(.btn-primary:hover) {
+  background: var(--deeper);
 }
 
 .month {

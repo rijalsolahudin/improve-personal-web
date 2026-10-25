@@ -187,6 +187,16 @@ describe('grid habit: angka parsial & aria-label (QA T10)', () => {
     expect(names).toEqual(['Minum air'])
   })
 
+  it('bar "Bulan ini" setinggi 5px sesuai design (bukan 8px bawaan ProgressBar)', async () => {
+    const habit = habitOf({ target: 1 })
+    seed([habit], { [habit.id]: { [PAST]: 1 } })
+    await mountGrid()
+
+    const bar = gridRow(habit.name).find('[role="progressbar"]')
+    expect(bar.exists()).toBe(true)
+    expect(bar.attributes('style')).toContain('height: 5px')
+  })
+
   it('nama habit berisi HTML dirender sebagai teks biasa, bukan elemen', async () => {
     const habit = habitOf({ name: '<b>jangan</b><img src=x onerror=alert(1)>' })
     seed([habit])

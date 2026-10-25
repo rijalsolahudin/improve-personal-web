@@ -39,6 +39,8 @@ const style = computed(() => {
   outline: none;
   color: var(--memo-ink);
   font-family: var(--font-hand);
+  /* Patrick Hand hanya punya weight 400; textarea mewarisi `--fw-body` (700) → faux-bold. */
+  font-weight: 400;
   font-size: 21px;
   line-height: 34px;
   resize: vertical;

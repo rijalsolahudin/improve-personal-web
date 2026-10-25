@@ -51,6 +51,8 @@
 .sub {
   max-width: 340px;
   font-family: var(--font-hand);
+  /* Patrick Hand hanya punya weight 400; paragraf mewarisi `--fw-body` (700) → faux-bold. */
+  font-weight: 400;
   font-size: 22px;
   line-height: 1.3;
   color: #5a4a2e;

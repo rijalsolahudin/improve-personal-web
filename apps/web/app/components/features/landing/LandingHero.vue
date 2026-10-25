@@ -139,6 +139,8 @@
 
 .note {
   font-family: var(--font-hand);
+  /* Patrick Hand hanya punya weight 400; paragraf mewarisi `--fw-body` (700) → faux-bold. */
+  font-weight: 400;
   font-size: 20px;
   color: var(--deep);
   transform: rotate(calc(-2deg * var(--bev)));

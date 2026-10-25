@@ -126,6 +126,11 @@ const dots = computed(() =>
   justify-content: center;
 }
 
+/* Opsi pill fase: padding 8px 16px (default Segmented 8px 14px) - sama dengan bar filter Goal. */
+.phases :deep(.option) {
+  padding: 8px 16px;
+}
+
 .ring {
   width: min(300px, 70vw);
   aspect-ratio: 1;
@@ -150,6 +155,8 @@ const dots = computed(() =>
 }
 
 .phase-label {
+  /* Design: 13px (eyebrow global 11px). */
+  font-size: 13px;
   letter-spacing: 0.14em;
   color: var(--ph-deep);
 }

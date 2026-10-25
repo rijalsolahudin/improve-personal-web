@@ -7,7 +7,7 @@ import { resetTasksHydrationForTest, useTasks } from './useTasks'
 import { useDailyRoutine } from './useDailyRoutine'
 import type { CheckIns, Habit } from '~/utils/habits'
 import type { Task } from '~/utils/tasks'
-import { MS_PER_HOUR, addDays, fromIsoDate, toIsoDate } from '~/utils/time'
+import { MS_PER_HOUR, addDays, fromIsoDate } from '~/utils/time'
 
 /**
  * QA T14 (Ergonio #28) - AC2, AC3, AC5 lewat composable yang dipakai halaman Daily.
@@ -154,16 +154,17 @@ describe('quick add & quick habit check (AC3)', () => {
     expect(added?.isOverdue).toBe(false)
   })
 
-  it('B1 (reproduksi): quick add harus memakai deadline hari ini seperti yang dijanjikan panduan/PRD F12', () => {
-    // `guide.ts` (teks yang dibaca user) menjanjikan "Quick add ... membuat task baru dengan
-    // deadline hari ini"; PRD F12 juga "deadline default hari ini + prioritas".
-    // Implementasi memanggil `add(title, 'medium', null)` -> deadline null.
+  it('quick add tidak memberi deadline (PRD F12 revisi): task langsung masuk To-do hari ini', () => {
+    // Panduan dulu menjanjikan "deadline hari ini", sekarang quick add sengaja tanpa deadline;
+    // task tetap tampil karena id-nya dicatat di `addedTaskIds` tanggal ini.
     const { addTodayTask, todayList } = useDailyRoutine()
     addTodayTask('Bayar listrik')
 
     const added = todayList.value.find(({ task: item }) => item.title === 'Bayar listrik')
-    expect(added?.task.deadline).not.toBeNull()
-    expect(added?.task.deadline && toIsoDate(new Date(added.task.deadline))).toBe(TODAY)
+    expect(added).toBeDefined()
+    expect(added?.task.priority).toBe('medium')
+    expect(added?.task.deadline).toBeNull()
+    expect(added?.isOverdue).toBe(false)
   })
 
   it('B1b (reproduksi): task hasil quick add tetap ada di To-do setelah state halaman dimuat ulang', () => {

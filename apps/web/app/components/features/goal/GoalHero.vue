@@ -61,7 +61,7 @@ const daysLeftLabel = computed(() => {
           path: getFeature('countdown').path,
           query: { title: goal.title, date: goal.end },
         }"
-        class="btn solid"
+        class="countdown"
       >
         {{ $t('goals.makeCountdown') }}
       </NuxtLink>
@@ -77,6 +77,11 @@ const daysLeftLabel = computed(() => {
   padding: 26px 28px;
   border-radius: var(--radius-panel);
   background-color: var(--goal-tint);
+}
+
+/* Design memakai titik putih .4 (token global .35), hanya untuk hero goal. */
+.hero.dot-grid {
+  background-image: radial-gradient(rgba(255, 255, 255, 0.4) 1.2px, transparent 1.2px);
 }
 
 .chips {
@@ -189,6 +194,41 @@ const daysLeftLabel = computed(() => {
   flex-wrap: wrap;
   gap: 10px;
   margin-top: 18px;
+}
+
+/*
+ * CTA countdown butuh gaya sendiri: `Button` punya style scoped, jadi class global `.btn`
+ * tidak berlaku di dalam komponen ini (bug: link tampil sebagai link polos).
+ */
+.countdown {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  box-sizing: border-box;
+  padding: 10px 18px;
+  border: none;
+  border-radius: var(--radius-pill);
+  background: var(--goal-text);
+  color: var(--paper);
+  font-family: var(--font-body);
+  font-weight: var(--fw-strong);
+  font-size: 14px;
+  line-height: 1.2;
+  white-space: nowrap;
+  text-decoration: none;
+  transition: filter var(--dur) var(--ease);
+}
+
+.countdown:hover {
+  filter: brightness(0.92);
+}
+
+/* "Edit goal" design: pill paper 14px/800, padding 10px 18px (Button sm = 36px/13px). */
+.actions :deep(.btn-sm) {
+  min-height: 38px;
+  padding: 10px 18px;
+  font-size: 14px;
 }
 
 @media (max-width: 599px) {

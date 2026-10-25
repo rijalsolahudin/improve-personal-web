@@ -79,7 +79,9 @@ function onCoverCleared(): void {
         <h1 class="title">{{ $t('feature.goals.label') }}</h1>
         <p class="summary">{{ summary }}</p>
       </div>
-      <Button variant="primary" @click="form = { id: null }">+ {{ $t('goals.new') }}</Button>
+      <Button class="new-goal" variant="primary" @click="form = { id: null }">
+        + {{ $t('goals.new') }}
+      </Button>
     </header>
 
     <GoalFilters v-model:status="status" v-model:category="category" />
@@ -161,6 +163,13 @@ function onCoverCleared(): void {
   color: var(--mute);
 }
 
+/* CTA header design: 16px/800, padding 14px 24px (Button md = 44px / 15px / 20px). */
+.header :deep(.btn.new-goal) {
+  min-height: 46px;
+  padding: 14px 24px;
+  font-size: 16px;
+}
+
 .layout {
   container-type: inline-size;
   display: flex;
@@ -189,8 +198,8 @@ function onCoverCleared(): void {
 @container (min-width: 764px) {
   .rail {
     position: sticky;
-    /* Kartu sejajar tepi atas sidebar (sidebar sticky di --gap-desktop). */
-    top: var(--gap-desktop);
+    /* Design: rail menempel 20px dari atas, sejajar kartu dengan detail. */
+    top: 20px;
     /* Di atas kolom tetangga: sticker yang ditempel di dalam panel boleh menjorok keluar. */
     z-index: 1;
   }

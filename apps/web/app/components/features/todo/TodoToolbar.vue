@@ -42,6 +42,7 @@ const sortOptions = computed<SegmentedOption<TaskSort>[]>(() =>
 
 /* Filter bisa digeser horizontal di layar sempit (design). */
 .filters {
+  min-width: 0;
   max-width: 100%;
   overflow-x: auto;
   scrollbar-width: none;
@@ -51,6 +52,19 @@ const sortOptions = computed<SegmentedOption<TaskSort>[]>(() =>
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+/* Design: grup pill padding 3/gap 2 (default Segmented 4/4) & opsi 7x14 (default 8x14).
+   Selektor diberi awalan `.toolbar` supaya menang atas style Segmented sendiri. */
+.toolbar .filters,
+.toolbar .sort :deep(.segmented) {
+  padding: 3px;
+  gap: 2px;
+}
+
+.toolbar .filters :deep(.option),
+.toolbar .sort :deep(.option) {
+  padding: 7px 14px;
 }
 
 .sort-label {

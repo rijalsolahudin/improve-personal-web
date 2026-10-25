@@ -13,7 +13,8 @@ const { t } = useI18n()
 
 /** Lebih dari ini pip-nya terlalu rapat; sisanya cukup angka N/target. */
 const MAX_PIPS = 12
-const PIP_ICON_PX = 18
+const PIP_ICON_PX = 20
+const HABIT_TILE_PX = 30
 
 const rows = computed(() =>
   habits.map((item) => ({
@@ -39,6 +40,7 @@ const rows = computed(() =>
       :link-label="$t('daily.habit.link')"
       :link-to="getFeature('habit').path"
       :pct="progress.percent"
+      bar-color="var(--icon-habit)"
       :meta="t('daily.meta', { done: progress.done, total: progress.total })"
     />
     <ul v-if="rows.length" class="list">
@@ -55,7 +57,7 @@ const rows = computed(() =>
           :aria-label="$t('daily.habit.toggle', { name: row.habit.name })"
           @click="emit('toggle', row.habit.id)"
         >
-          <HabitIcon :habit="row.habit" :size="32" is-plain />
+          <HabitIcon :habit="row.habit" :size="HABIT_TILE_PX" is-plain />
           <span class="text">
             <span class="name">{{ row.habit.name }}</span>
             <span v-if="row.isMulti" class="pips" aria-hidden="true">
@@ -84,7 +86,9 @@ const rows = computed(() =>
         <span class="streak" :title="$t('daily.habit.streak', { n: row.streak })"
           >🔥 {{ row.streak }}</span
         >
-        <span v-if="row.isMulti" class="count">{{ row.count }}/{{ row.habit.target }}</span>
+        <span v-if="row.isMulti" class="count" :style="{ '--pip-color': row.color }"
+          >{{ row.count }}/{{ row.habit.target }}</span
+        >
         <span
           v-else
           class="box"
@@ -119,16 +123,22 @@ const rows = computed(() =>
   display: flex;
   flex-direction: column;
   margin: 0;
-  padding: 0;
+  padding: 8px 0 0;
   list-style: none;
 }
 
+/* Design: baris menempel ke tepi kartu (margin negatif), latar hover, tanpa garis pemisah. */
 .row {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 9px 2px;
-  border-bottom: var(--border-thin) solid var(--mline);
+  margin: 0 -8px;
+  padding: 9px 8px;
+  border-radius: var(--radius-inner);
+}
+
+.row:hover {
+  background: var(--hover);
 }
 
 .check-in {
@@ -148,11 +158,11 @@ const rows = computed(() =>
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 3px;
 }
 
 .name {
-  font-weight: var(--fw-strong);
+  font-weight: var(--fw-medium);
   font-size: 14.5px;
   line-height: 1.25;
 }
@@ -166,23 +176,27 @@ const rows = computed(() =>
 .pips {
   display: flex;
   flex-wrap: wrap;
-  gap: 2px;
+  gap: 1px;
 }
 
-/* Pip = ikon habit (design): belum = garis pudar & mengecil, tercapai = terisi warna habit. */
+/* Pip = ikon habit (design): slot 24x26, ikon 20px; belum tercapai = garis pudar & mengecil. */
 .pip {
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 26px;
   display: flex;
   align-items: center;
   justify-content: center;
   color: var(--dash);
-  transform: scale(0.85);
-  transition: transform var(--dur) var(--ease);
+  opacity: 0.8;
+  transform: scale(0.82);
+  transition:
+    transform var(--dur) var(--ease),
+    opacity var(--dur) var(--ease);
 }
 
 .pip.on {
   color: var(--pip-color);
+  opacity: 1;
   transform: none;
 }
 
@@ -205,6 +219,10 @@ const rows = computed(() =>
   font-family: var(--font-display);
   font-weight: var(--fw-display);
   font-size: 15px;
+  /* Warna habit mentah (#E6A800, #FF6A13, #F03FBF) < 4,5:1 sebagai teks di `--paper`; campuran
+     50% dengan `--ink` mempertahankan warna habit dan menaikkan semua 8 warna ke >= 4,95:1. */
+  color: color-mix(in srgb, var(--pip-color) 50%, var(--ink));
+  font-variant-numeric: tabular-nums;
 }
 
 .box {
@@ -230,6 +248,8 @@ const rows = computed(() =>
 .empty {
   padding: 14px 4px 4px;
   font-family: var(--font-hand);
+  /* Patrick Hand hanya punya weight 400; paragraf mewarisi `--fw-body` (700) → faux-bold. */
+  font-weight: 400;
   font-size: var(--fs-hand-body);
   color: var(--mute);
 }

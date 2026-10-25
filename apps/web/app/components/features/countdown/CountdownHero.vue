@@ -83,6 +83,11 @@ const tiles = computed(() => {
   text-align: left;
 }
 
+/* Design blok `isCd` memakai titik putih .45 (token global .35), hanya untuk hero countdown. */
+.hero.dot-grid {
+  background-image: radial-gradient(rgba(255, 255, 255, 0.45) 1.2px, transparent 1.2px);
+}
+
 .hero:hover .title {
   color: var(--cd-deep);
 }
@@ -111,7 +116,13 @@ const tiles = computed(() => {
 }
 
 .eyebrow {
+  letter-spacing: 0.12em;
   color: var(--cd-deep);
+}
+
+/* Eyebrow judul momen 12px; label "Tinggal" tetap 11px (design baris 1907 vs 1913). */
+.info .eyebrow {
+  font-size: 12px;
 }
 
 .title {
@@ -162,7 +173,9 @@ const tiles = computed(() => {
   border-radius: calc(20px * var(--rk)) calc(20px * var(--rk)) calc(20px * var(--rk))
     calc(8px * var(--rk));
   background: var(--paper);
-  box-shadow: var(--shadow-drop-sm);
+  /* Design: 4px, bayangan .14 - lebih rapat/gelap dari `--shadow-drop-sm` (5px/.1). */
+  box-shadow: calc(4px * var(--sx)) calc(4px * var(--sy)) calc(4px * var(--sbl))
+    var(--shadow-color, rgba(47, 42, 36, 0.14));
 }
 
 .v {

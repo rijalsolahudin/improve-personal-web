@@ -1,6 +1,6 @@
 import { mountSuspended } from '@nuxt/test-utils/runtime'
 import { flushPromises, type VueWrapper } from '@vue/test-utils'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { resetHabitsHydrationForTest } from '~/composables/useHabits'
 import type { Habit } from '~/utils/habits'
@@ -50,6 +50,17 @@ function alertText(wrapper: VueWrapper): string {
   return alert.exists() ? alert.text() : ''
 }
 
+/**
+ * Tunggu pesan gagal benar-benar mendarat.
+ *
+ * Jalur gagal menunggu penolakan sesi auth, yang di test tidak punya server - `flushPromises` bisa
+ * selesai sebelum request ditolak, jadi assertion bisa membaca DOM kosong (flaky). Tidak memakai
+ * delay tetap: `waitFor` berhenti begitu pesannya tampil.
+ */
+async function expectWriteError(wrapper: VueWrapper, text: string): Promise<void> {
+  await vi.waitFor(() => expect(alertText(wrapper)).toBe(text))
+}
+
 beforeEach(() => {
   clearNuxtState(['habits', 'habitsCheckIns', 'habitsStatus', 'habitsError', 'localData'])
   resetHabitsHydrationForTest()
@@ -67,9 +78,8 @@ describe('form habit', () => {
 
     await mounted.find('input').setValue('Lari pagi')
     await mounted.find('form').trigger('submit')
-    await flushPromises()
+    await expectWriteError(mounted, 'Gagal menyimpan. Coba lagi.')
 
-    expect(alertText(mounted)).toBe('Gagal menyimpan. Coba lagi.')
     expect(mounted.find('form').exists()).toBe(true)
     expect(mounted.emitted('saved')).toBeUndefined()
     expect(mounted.emitted('close')).toBeUndefined()
@@ -103,9 +113,8 @@ describe('form habit', () => {
     mounted = await mountSuspended(HabitForm, { props: { habitId: EXISTING_ID } })
 
     await buttonWith(mounted, 'Arsipkan habit').trigger('click')
-    await flushPromises()
+    await expectWriteError(mounted, 'Gagal mengarsipkan. Coba lagi.')
 
-    expect(alertText(mounted)).toBe('Gagal mengarsipkan. Coba lagi.')
     expect(mounted.emitted('close')).toBeUndefined()
     expect(useState<Habit[]>('habits').value[0]?.isArchived).toBe(false)
   })
@@ -116,9 +125,8 @@ describe('form habit', () => {
 
     await buttonWith(mounted, 'Hapus habit').trigger('click')
     await buttonWith(mounted, 'Yakin hapus? Riwayat ikut hilang').trigger('click')
-    await flushPromises()
+    await expectWriteError(mounted, 'Gagal menghapus. Coba lagi.')
 
-    expect(alertText(mounted)).toBe('Gagal menghapus. Coba lagi.')
     expect(mounted.emitted('close')).toBeUndefined()
     expect(useState<Habit[]>('habits').value.map((habit) => habit.id)).toEqual([EXISTING_ID])
   })

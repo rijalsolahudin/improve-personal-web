@@ -117,6 +117,8 @@ const style = computed(() => ({
 .body {
   margin-top: 2px;
   font-family: var(--font-hand);
+  /* Patrick Hand hanya punya weight 400; paragraf mewarisi `--fw-body` (700) → faux-bold. */
+  font-weight: 400;
   font-size: 20px;
   line-height: 32px;
   overflow-wrap: anywhere;
@@ -148,6 +150,8 @@ const style = computed(() => ({
   background: var(--alt);
   color: var(--ink-2);
   font-family: var(--font-hand);
+  /* Patrick Hand hanya punya weight 400; tag mewarisi `--fw-body` (700) → faux-bold. */
+  font-weight: 400;
   font-size: 15px;
 }
 

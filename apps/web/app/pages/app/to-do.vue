@@ -15,6 +15,7 @@ useHead({ title: () => t('feature.to-do.label') })
 
 const now = useNow()
 const { tasks, toggle } = useTasks()
+const { focusOn } = useFocusTarget()
 
 // Filter & urutan bertahan selama sesi (pindah halaman), bukan disimpan permanen.
 const filter = useState<TaskFilter>('todo-filter', () => 'semua')
@@ -64,6 +65,7 @@ const summary = computed(() =>
           :now="now"
           @toggle="toggle(task.id)"
           @edit="editing = task.id"
+          @focus="focusOn"
         />
       </ul>
       <p v-else class="empty">{{ $t('todo.empty') }}</p>

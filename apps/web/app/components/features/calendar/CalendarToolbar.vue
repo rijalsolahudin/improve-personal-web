@@ -21,10 +21,18 @@ const viewOptions = computed<SegmentedOption<CalendarView>[]>(() =>
     <div class="controls">
       <div class="nav">
         <IconButton :title="$t('calendar.prev')" @click="$emit('prev')">‹</IconButton>
-        <Button variant="outline" @click="$emit('today')">{{ $t('calendar.today') }}</Button>
+        <Button variant="outline" class="today" @click="$emit('today')">
+          {{ $t('calendar.today') }}
+        </Button>
         <IconButton :title="$t('calendar.next')" @click="$emit('next')">›</IconButton>
       </div>
-      <Segmented v-model="view" :options="viewOptions" :label="$t('calendar.viewLabel')" framed />
+      <Segmented
+        v-model="view"
+        class="views"
+        :options="viewOptions"
+        :label="$t('calendar.viewLabel')"
+        framed
+      />
       <Button variant="primary" @click="$emit('create')">+ {{ $t('calendar.newSchedule') }}</Button>
     </div>
   </header>
@@ -63,6 +71,26 @@ const viewOptions = computed<SegmentedOption<CalendarView>[]>(() =>
 .nav {
   display: flex;
   gap: 6px;
+}
+
+/* Design: "Hari ini" setinggi 44px dengan sudut 16px (bukan pill), teks 14px.
+   Selektor dua kelas supaya menang dari `.btn-md` milik komponen Button. */
+.nav .today {
+  padding: 0 16px;
+  border-radius: var(--radius-btn-sq);
+  font-size: 14px;
+}
+
+/* Grup tampilan: tinggi tetap 44px, bantalan 3px, jarak antar-opsi 2px (design). */
+.controls .views {
+  height: var(--tap-min);
+  align-items: center;
+  padding: 3px;
+  gap: 2px;
+}
+
+.controls .views :deep(.option) {
+  padding: 7px 16px;
 }
 
 @media (max-width: 599px) {

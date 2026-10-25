@@ -177,6 +177,7 @@ function timeLabel(occurrence: Occurrence): string {
         >
           <Checkbox
             :checked="task.done"
+            size="md"
             :label="$t('common.toggleDone', { title: task.title })"
             @toggle="toggleTask(task.id)"
           />
@@ -200,9 +201,11 @@ function timeLabel(occurrence: Occurrence): string {
       <template v-if="undated.length">
         <p class="eyebrow undated-title">{{ $t('calendar.noDeadline') }}</p>
         <ul class="rows">
-          <li v-for="task in undated" :key="task.id" class="row hover-reveal">
+          <li v-for="task in undated" :key="task.id" class="row undated hover-reveal">
             <Checkbox
               :checked="task.done"
+              size="md"
+              class="undated-box"
               :label="$t('common.toggleDone', { title: task.title })"
               @toggle="toggleTask(task.id)"
             />
@@ -256,7 +259,10 @@ function timeLabel(occurrence: Occurrence): string {
 }
 
 .dow {
-  /* Eyebrow di atas `--primary`: `--deep` 3,98:1 (cute/hijau), `--deeper` 5,09:1 (QA #67). */
+  /* Design: 12px, letter-spacing .12em (eyebrow global 11px/.1em).
+     Eyebrow di atas `--primary`: `--deep` 3,98:1 (cute/hijau), `--deeper` 5,09:1 (QA #67). */
+  font-size: 12px;
+  letter-spacing: 0.12em;
   color: var(--deeper);
 }
 
@@ -316,6 +322,14 @@ function timeLabel(occurrence: Occurrence): string {
   font-family: var(--font-display);
   font-weight: var(--fw-display);
   font-size: 18px;
+}
+
+/* Tautan "+ Tambah" di rail (design): 13px, bobot 800, warna accent - termasuk NuxtLink yang
+   tidak memakai komponen Button. */
+.link {
+  font-weight: var(--fw-strong);
+  font-size: 13px;
+  color: var(--accent);
 }
 
 .rows {
@@ -413,6 +427,14 @@ function timeLabel(occurrence: Occurrence): string {
   color: var(--mute);
 }
 
+/* Pill "▶ Fokus" di rail (design): 30px, bantalan 0 12px, teks 12.5px.
+   `.panel` menaikkan spesifisitas di atas `.btn-xs` milik komponen Button. */
+.panel .focus {
+  min-height: 30px;
+  padding: 0 12px;
+  font-size: 12.5px;
+}
+
 .linked-list {
   display: flex;
   flex-direction: column;
@@ -486,7 +508,29 @@ function timeLabel(occurrence: Occurrence): string {
 }
 
 .undated-title {
-  margin-top: 12px;
+  margin-top: 10px;
+  letter-spacing: 0.08em;
   color: var(--mute-3);
+}
+
+/* Baris "Tanpa deadline" (design): lebih rapat dari baris ber-deadline, garis bawah tipis
+   menggantikan garis putus-putus di atas, judul 600 (bukan 800). */
+.row.undated {
+  padding: 6px 0;
+  border-top: 0;
+  border-bottom: calc(1.5px * var(--bk)) solid var(--line-2);
+}
+
+.row.undated .task-title {
+  font-weight: var(--fw-medium);
+}
+
+/* Design: kotak "Tanpa deadline" 20px (baris ber-deadline 22px). Tiga kelas + atribut scope
+   supaya menang dari `.checkbox.size-md` milik komponen Checkbox. */
+.row.undated .undated-box {
+  width: 20px;
+  height: 20px;
+  border-radius: calc(7px * var(--rk)) calc(7px * var(--rk)) calc(7px * var(--rk))
+    calc(2px * var(--rk));
 }
 </style>

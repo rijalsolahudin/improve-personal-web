@@ -44,9 +44,9 @@ export interface StyleDefinition {
 const CUTE_FONTS = {
   display: "'Baloo 2', 'Nunito', sans-serif",
   body: "'Nunito', sans-serif",
-  // Budget performa web: font default maksimal 2 berkas (performance.md §Gambar & font). Teks "tulisan
-  // tangan" karena itu memakai Baloo 2 yang sudah dimuat untuk judul, bukan keluarga font ketiga.
-  hand: "'Baloo 2', 'Nunito', cursive",
+  // Patrick Hand sudah dimuat `nuxt.config.ts` (permukaan jurnal) dan dipakai source design
+  // (`source-ui/tokens/fonts.css`), jadi mengubah teks "tulisan tangan" ke sana tidak menambah berkas font.
+  hand: "'Patrick Hand', cursive",
 } as const
 const CUTE_WEIGHTS = { display: '800', strong: '800', body: '700', medium: '600' } as const
 const HARD_SHADOW = { x: 0, y: 1, blur: 0, color: null } as const

@@ -84,7 +84,12 @@ const summary = computed(() => {
 }
 
 .notice {
-  --btn-ink: #f3cb86;
+  --btn-ink: var(--primary);
+}
+
+/* "Tutup" design: seukuran teks banner (16px), bukan 13px seperti link kecil Button. */
+.notice :deep(.btn.dismiss) {
+  font-size: 16px;
 }
 
 .layout {

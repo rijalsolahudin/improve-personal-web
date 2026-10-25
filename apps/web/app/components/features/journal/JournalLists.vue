@@ -13,7 +13,7 @@ const lists = computed(() =>
 </script>
 
 <template>
-  <JournalCard class="lists">
+  <JournalCard :gap="20">
     <div v-for="list in lists" :key="list.key" class="list">
       <JournalHeading :title="$t(`journal.list.${list.key}`)" :dot="list.color" />
       <ol class="rows">
@@ -37,10 +37,6 @@ const lists = computed(() =>
 </template>
 
 <style scoped>
-.lists {
-  gap: 20px;
-}
-
 .list {
   display: flex;
   flex-direction: column;
@@ -76,6 +72,8 @@ const lists = computed(() =>
   border: none;
   background: transparent;
   font-family: var(--font-hand);
+  /* Patrick Hand hanya punya weight 400; input mewarisi `--fw-body` (700) → faux-bold. */
+  font-weight: 400;
   font-size: 19px;
   line-height: 32px;
   outline: none;

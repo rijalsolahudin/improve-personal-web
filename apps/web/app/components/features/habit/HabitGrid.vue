@@ -176,7 +176,13 @@ const gridStyle = computed(() => ({
         </span>
         <span class="rate" role="cell">
           <span class="rate-n">{{ row.rate }}%</span>
-          <ProgressBar class="bar" :pct="row.rate" :color="row.solid" track="var(--chip)" />
+          <ProgressBar
+            class="bar"
+            :pct="row.rate"
+            :color="row.solid"
+            track="var(--chip)"
+            :height="5"
+          />
         </span>
       </div>
 
@@ -236,14 +242,20 @@ const gridStyle = computed(() => ({
   align-items: flex-end;
   padding-bottom: 10px;
   font-weight: var(--fw-strong);
-  font-size: 11px;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--mute-3);
 }
 
 .th-name {
   padding: 0 12px 10px 20px;
+  font-size: 12px;
+  letter-spacing: 0.1em;
+}
+
+.th-streak,
+.th-rate {
+  font-size: 11px;
 }
 
 .th-streak {
@@ -284,7 +296,13 @@ const gridStyle = computed(() => ({
   border-left: var(--border-thin) solid var(--line);
 }
 
-.week {
+/* Pemisah minggu: header pakai garis header, sel & pengisi pakai garis baris. */
+.th-day.week {
+  border-left: calc(1.5px * var(--bk)) solid var(--line);
+}
+
+.cell.week,
+.fill-day.week {
   border-left: calc(1.5px * var(--bk)) solid var(--line-2);
 }
 
@@ -387,7 +405,9 @@ const gridStyle = computed(() => ({
   background: transparent;
   font-weight: var(--fw-strong);
   font-size: 13px;
-  transition: transform var(--dur) var(--ease);
+  transition:
+    transform 0.12s,
+    background 0.12s;
 }
 
 .box:not(:disabled):hover {

@@ -137,7 +137,7 @@ function toggleTime(): void {
         </Field>
         <Field :label="$t('countdown.form.time')">
           <template #action>
-            <Button variant="link" @click="toggleTime">
+            <Button variant="link" class="time-toggle" @click="toggleTime">
               {{ draft.time ? $t('countdown.form.allDay') : $t('countdown.form.useTime') }}
             </Button>
           </template>
@@ -269,6 +269,7 @@ function toggleTime(): void {
   border-radius: var(--radius-btn-sq);
   background: var(--alt);
   color: var(--mute-2);
+  font-weight: var(--fw-strong);
   font-size: 14px;
 }
 
@@ -285,6 +286,18 @@ function toggleTime(): void {
   padding: 12px 14px;
   border-radius: var(--radius-row);
   background: var(--alt);
+}
+
+/* Design toggle 52x30 (Toggle md = 40x24); knob ikut 21px karena top/bottom tetap 2px. */
+.switch-row :deep(.toggle-md) {
+  width: 52px;
+  height: 30px;
+  border-width: var(--border);
+}
+
+/* Design tautan "Pakai jam"/"Sepanjang hari": 12px (Button link = 13px). */
+.form .time-toggle {
+  font-size: 12px;
 }
 
 .switch-text {
