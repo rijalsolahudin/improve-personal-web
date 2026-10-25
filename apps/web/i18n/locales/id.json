@@ -204,13 +204,6 @@
     },
     "schedule": {
       "title": "Jadwal hari ini"
-    },
-    "goalReview": {
-      "title": "Review goal",
-      "question": "Gimana progress {goal} / {chapter}?",
-      "placeholder": "Ceritakan progress-nya…",
-      "save": "Simpan ke jurnal",
-      "skip": "Lewati"
     }
   },
   "todo": {

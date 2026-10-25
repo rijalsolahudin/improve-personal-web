@@ -363,7 +363,6 @@ Tiga daftar (masing-masing bisa >1 poin, opsional):
 
 ### Integrasi
 - **Overview (F11):** tren mood, streak menulis jurnal, korelasi mood vs hari fokus tinggi/rendah
-- **Goals (F13):** jawaban review berkala disimpan sebagai bagian "Tentang Hari Ini" jurnal hari itu dengan auto-mention goal
 - **Kalender (F6):** panel detail hari menampilkan ringkasan jurnal hari itu
 
 ### Rendering & Keamanan
@@ -587,9 +586,6 @@ Halaman utama (menggantikan "Home"; nama menu di sidebar: **Daily**): satu layar
 - Klik item → detail; klik slot kosong → bikin jadwal (seperti F6)
 - Link "Buka Kalender" (F6)
 
-#### Review Berkala (kondisional)
-- Kalau ada chapter berakhir/terlewat atau akhir pekan → kartu review dari F13 ("Gimana progress [goal]/[chapter]?") dengan opsi perpanjang/geser/tutup
-
 ### UI Layout
 - Responsive: stacked di HP, 2-col di tablet, 3-col di desktop (kalender hari ini mendapat kolom lebar)
 - Card per widget; urutan di HP: Prioritas → To-do → Jadwal → Habit → Cuaca
@@ -603,7 +599,6 @@ Halaman utama (menggantikan "Home"; nama menu di sidebar: **Daily**): satu layar
 ### Integrasi
 - Task prioritas → F3 (kuadran) + F2 (prioritas urgent), to-do → F2, habit → F7, jadwal/kalender → F1 & F6
 - Quick add task → F2 (task baru), edit/hapus task dari widget → F2 (task yang sama), quick check habit → F7
-- Review berkala → F13
 
 ## F13. Goals
 
@@ -660,10 +655,8 @@ Rata-rata dari item di dalamnya:
 - **Terlewat:** hari ini > tanggal selesai AND progress < 100%
 
 ### Review Berkala
-- Saat chapter berakhir / terlewat, dan **tiap akhir pekan** untuk goal aktif
-- Muncul kartu review di Daily (F12): "Gimana progress [goal]/[chapter]?"
-- Opsi chapter terlewat: **perpanjang / geser periode / tutup**
-- Jawaban review **disimpan sebagai Journal** (bagian "Tentang Hari Ini") dengan auto-mention goal-nya
+- Chapter yang berakhir / terlewat ditandai **perlu review** di daftar goal
+- Opsi chapter terlewat di detail goal: **perpanjang / geser periode / tutup**
 
 ### Integrasi
 
@@ -678,9 +671,6 @@ Rata-rata dari item di dalamnya:
 
 #### Overview (F11)
 - Widget "Progress goal": tiap goal aktif + chapter berjalan di rentang terpilih
-
-#### Daily (F12)
-- Kartu review berkala saat chapter berakhir/terlewat
 
 ### Halaman Goals
 1. **Daftar goal** — filter status/kategori + progress bar
@@ -1099,7 +1089,7 @@ Data utama ada di perangkat dan diakses lewat interface repository; server cuma 
 | M7 Dashboard | T14 | Halaman Daily (isi F12) + label menu sidebar "Daily" | Widget Prioritas tanpa batas 3: task kuadran Penting & Mendesak dulu, lalu task urgent (tanpa duplikat, masing-masing urut deadline); task di Prioritas & To-do hari ini bisa diedit/dihapus dari widget dan perubahan langsung tercermin di F2/F3/F6; to-do hari ini (termasuk terlambat) + progress benar; quick add masuk to-do; quick habit check update streak; kalender hari ini menampilkan jadwal (recurring ter-expand) + task tertaut/ber-deadline hari ini; cuaca gagal/offline tidak memblokir widget lain & menampilkan data terakhir; koordinat cuaca tidak disimpan di server | `fe` | T7, T10, T11, T24 | M |
 | M7 Dashboard | T15 | Halaman Panduan (termasuk "Gimana data lo dijaga") | Ada section tiap fitur F1–F16 + FAQ + backup + penjelasan E2EE & pemulihan; daftar isi bisa diklik | `fe` | T1 | S |
 | M8 Goals | T17 | Model goal + chapter + tautan item, kalkulasi progress & status chapter | Unit test: progress task/habit/jadwal, Sepanjang goal ikut rata-rata, goal tanpa chapter, chapter selesai manual, status terlewat; periode chapter di luar main goal ditolak; satu item cuma satu tautan; hapus goal/chapter sesuai edge case F13 | `be` | T2 | M |
-| M8 Goals | T18 | Halaman Goals + field "Untuk goal" di form task/habit/jadwal + sticker sampul + review berkala + integrasi (jurnal `#goal`, countdown, kalender, Overview, Daily) | Stepper chapter + progress tampil benar; dropdown "Untuk goal" berisi Sepanjang goal + chapter; kartu review muncul saat chapter berakhir/terlewat & akhir pekan, jawabannya jadi bagian jurnal; teks goal dirender aman (escape) | `fe` | T4, T5, T10, T11, T17, T24 | L |
+| M8 Goals | T18 | Halaman Goals + field "Untuk goal" di form task/habit/jadwal + sticker sampul + review berkala + integrasi (jurnal `#goal`, countdown, kalender, Overview, Daily) | Stepper chapter + progress tampil benar; dropdown "Untuk goal" berisi Sepanjang goal + chapter; kartu review muncul saat chapter berakhir/terlewat & akhir pekan, jawabannya jadi bagian jurnal; teks goal dirender aman (escape). Catatan: kartu review Daily + penyimpanan jawaban review ke jurnal dicabut di task #85 | `fe` | T4, T5, T10, T11, T17, T24 | L |
 | M9 Akun & Sync | T20 | Kripto E2EE: kunci utama, gembok per pembuka (kunci perangkat, passkey PRF, kode pemulihan = 24 kata + envelope), lupa akses pakai kode pemulihan/passkey, transfer kunci via QR | Unit test: data TIDAK bisa dibuka lewat OTP (Salinan 1 dihapus); bisa dibuka lewat sidik jari/passkey setelah login pertama; kode pemulihan salah ditolak dengan rate limit di perangkat; kunci perangkat non-extractable / di Keychain-Keystore; kunci utama & OTP nggak pernah dikirim/di-log polos; kode pemulihan tunggal (24 kata + envelope, `iprk1.<base64url>`) bisa membuka kunci utama, sementara envelope tanpa 24 kata TIDAK bisa memulihkan sendiri; berkas terenkripsi kata sandi (Argon2id + XChaCha20-Poly1305, min 12 karakter, huruf besar/kecil dihitung) teruji di level data — UI-nya belum ada; ≥2 format TIDAK lagi jadi syarat; server TIDAK menyimpan kode pemulihan/24 kata (`KEY_SLOTS = ['passkey']`); pakai library kripto teruji (bukan bikin algoritma sendiri) | `be` | T2 | L |
 | M9 Akun & Sync | T21 | Sync engine: antrean lokal, push/pull delta berhalaman, konflik update-terakhir-menang, tombstone, status sync | Uji 2 perangkat: edit offline di keduanya → setelah online hasil sama di dua sisi; hapus ikut tersinkron; pull cuma ambil perubahan sejak cursor terakhir (berhalaman); isi DB server terbukti cuma ciphertext (cek manual tabel) | `be` | T19, T20 | L |
 | M9 Akun & Sync | T22 | UI akun: daftar/login email OTP + Google SSO, onboarding passkey wajib satu tap + tawaran simpan kode pemulihan, sidik jari/Face ID setup, tambah perangkat via QR, daftar perangkat + logout jarak jauh, lupa OTP flow, hapus akun, kunci app biometrik (native), indikator status sync | Daftar: email → OTP kirim 30 detik → ketik OTP → dialog passkey WAJIB satu tap (tanpa tombol tutup, Esc/klik latar tidak menutup; envelope dititip ke server, PRF tidak keluar dari authenticator; boleh dilewati HANYA kalau perangkat tidak mendukung WebAuthn) → kartu "Backup kode pemulihan" (disarankan, bukan gerbang; kode = 24 kata + envelope dalam satu string `iprk1.<base64url>`, user tidak menulis/menghafal apa pun; tersedia Simpan ke cloud lewat share sheet OS tanpa OAuth, Salin, Unduh .txt berisi kode, "Sudah saya simpan" → envelope di slot `recovery` perangkat, status "sudah disimpan"; ≥2 format tidak lagi disyaratkan); login: email → OTP atau Google SSO atau sidik jari/Face ID (kalau udah aktif); lupa OTP: email → "Pakai passkey atau kode pemulihan?" → pilihan ke masing-masing flow; QR tambah perangkat kedaluwarsa ≤ 2 menit & sekali pakai; daftar perangkat tampil nama, waktu login terakhir, lokasi (dari IP); hapus akun minta konfirmasi email + OTP ulang; pesan error nggak membocorkan apakah email terdaftar | `fe` | T19, T20, T23, T24 | L |

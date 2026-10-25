@@ -52,7 +52,7 @@ mockNuxtImport('navigateTo', () => navigateToMock)
 const NOW = new Date(2025, 8, 10, 10, 0, 0).getTime()
 const TODAY = '2025-09-10'
 const YESTERDAY = '2025-09-09'
-/** Jawaban kartu review goal yang ditulis `DailyGoalReviewCard.saveAnswer()`. */
+/** Catatan dari penulis lain (mis. halaman/jurnal yang sama, perangkat lain). */
 const REVIEW = 'Catatan review goal'
 const DRAFT_STATES = ['memo-draft', 'memo-draft-day', 'memo-draft-saved', 'memo-draft-held']
 

@@ -9,7 +9,6 @@ import {
   extendChapter,
   focusChapterIndex,
   goalProgress,
-  goalReviewTargets,
   nextChapterDraft,
   shiftChapter,
   toggleTaskItem,
@@ -119,30 +118,6 @@ describe('status chapter', () => {
     const items = toggleTaskItem([task('t', false), habit('h', 10)], 't')
     expect(items[0]?.done).toBe(true)
     expect(toggleTaskItem(items, 'h')[1]).toEqual(habit('h', 10))
-  })
-})
-
-describe('review berkala', () => {
-  it('chapter terlewat & akhir pekan memunculkan target review', () => {
-    const g = goal({
-      chapters: [
-        chapter({ id: 'past', start: '2026-09-01', end: '2026-09-30' }),
-        chapter({ id: 'now', start: '2026-10-01', end: '2026-10-31' }),
-      ],
-    })
-    // Jumat: hanya chapter terlewat.
-    expect(goalReviewTargets([g], '2026-10-09').map((target) => target.chapterId)).toEqual(['past'])
-    // Sabtu: goal aktif yang belum punya kartu tetap dapat satu review.
-    const ongoing = goal({ chapters: [chapter({ id: 'now' })] })
-    expect(goalReviewTargets([ongoing], '2026-10-09')).toHaveLength(0)
-    expect(goalReviewTargets([ongoing], '2026-10-10').map((target) => target.chapterId)).toEqual([
-      'now',
-    ])
-  })
-
-  it('chapter yang berakhir hari ini ikut direview', () => {
-    const g = goal({ chapters: [chapter({ start: '2026-10-01', end: '2026-10-09' })] })
-    expect(goalReviewTargets([g], '2026-10-09')).toHaveLength(1)
   })
 })
 

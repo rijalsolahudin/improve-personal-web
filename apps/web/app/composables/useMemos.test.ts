@@ -305,7 +305,7 @@ describe('useMemos', () => {
     before.showDay(DAY, first.memoOn(DAY))
     before.draft.value.text = 'Draf saya yang belum disimpan'
 
-    // Penulis lain (DailyGoalReviewCard) menambah catatan ke halaman tanggal yang sama.
+    // Penulis lain (perangkat/halaman lain) menambah catatan ke halaman tanggal yang sama.
     first.append(DAY, 'Catatan review goal')
     await vi.waitFor(async () => {
       const records = await loadMemoRecords(session, 'krem')

@@ -41,7 +41,6 @@ const next = computed(() => {
       :next="next"
       @toggle-item="daily.toggleRoutineItem"
     />
-    <DailyGoalReviewCard />
     <div class="columns">
       <div class="side">
         <DailyPriorityList

@@ -11,7 +11,7 @@ import {
   type ProgressSlice,
 } from '@improve-personal/core'
 
-import { addDays, addMonths, daysBetween, fromIsoDate, isIsoDate } from './time'
+import { addDays, addMonths, daysBetween, isIsoDate } from './time'
 
 export const GOAL_CATEGORIES = ['karier', 'kesehatan', 'keuangan', 'diri', 'relasi'] as const
 export type GoalCategory = (typeof GOAL_CATEGORIES)[number]
@@ -202,80 +202,6 @@ export function goalProgress(goal: Goal): number {
 
 export function needsReview(goal: Goal, today: string): boolean {
   return goal.chapters.some((chapter) => chapterStatus(chapter, today) === 'terlewat')
-}
-
-/** Sabtu/Minggu - pemicu review berkala untuk goal aktif (PRD F13). */
-export function isWeekend(today: string): boolean {
-  const day = fromIsoDate(today).getDay()
-  return day === 0 || day === 6
-}
-
-/** Satu kartu review Daily: chapter terlewat/berakhir, atau goal aktif di akhir pekan. */
-export type GoalReviewTarget = {
-  readonly key: string
-  readonly goalId: string
-  readonly goalTitle: string
-  /** Akhir periode main goal: batas aksi perpanjang/geser. */
-  readonly goalEnd: string
-  readonly chapterId: string | null
-  readonly chapterTitle: string | null
-  readonly status: ChapterStatus
-  /** `true` = chapter sudah lewat tanggal & progress < 100% (opsi perpanjang/geser/tutup). */
-  readonly isOverdue: boolean
-}
-
-/**
- * Kartu review yang harus muncul di Daily (PRD F13):
- * - chapter berakhir hari ini, atau sudah `terlewat`;
- * - tiap akhir pekan, satu review per goal aktif yang belum punya kartu.
- *
- * Tidak ada state "sudah dijawab" di sini supaya fungsi tetap murni; komponen menyaring yang sudah
- * dijawab di sesi itu.
- */
-export function goalReviewTargets(goals: readonly Goal[], today: string): GoalReviewTarget[] {
-  const targets: GoalReviewTarget[] = []
-  const seenGoals = new Set<string>()
-
-  for (const goal of goals) {
-    if (goal.status !== 'aktif' && goal.status !== 'ditunda') continue
-
-    for (const chapter of goal.chapters) {
-      const status = chapterStatus(chapter, today)
-      const endedToday = chapter.end === today
-      if (status !== 'terlewat' && !endedToday) continue
-
-      targets.push({
-        key: `${goal.id}:${chapter.id}`,
-        goalId: goal.id,
-        goalTitle: goal.title,
-        goalEnd: goal.end,
-        chapterId: chapter.id,
-        chapterTitle: chapter.title,
-        status,
-        isOverdue: status === 'terlewat',
-      })
-      seenGoals.add(goal.id)
-    }
-  }
-
-  if (!isWeekend(today)) return targets
-
-  for (const goal of goals) {
-    if (goal.status !== 'aktif' || seenGoals.has(goal.id)) continue
-    const focus = goal.chapters[focusChapterIndex(goal, today)]
-    targets.push({
-      key: `${goal.id}:weekend`,
-      goalId: goal.id,
-      goalTitle: goal.title,
-      goalEnd: goal.end,
-      chapterId: focus?.id ?? null,
-      chapterTitle: focus?.title ?? null,
-      status: focus ? chapterStatus(focus, today) : 'berjalan',
-      isOverdue: false,
-    })
-  }
-
-  return targets
 }
 
 /** Chapter yang dibuka default di detail: yang terlewat atau sedang berjalan. */
