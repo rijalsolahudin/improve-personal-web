@@ -38,8 +38,8 @@ afterEach(async () => {
   await flushPromises()
 })
 
-describe('indikator status sync (T22)', () => {
-  it('layout dashboard menampilkan status sinkronisasi (tersinkron/menunggu/offline/gagal)', async () => {
+describe('indikator status sync (T22, T105)', () => {
+  it('layout dashboard menaruh indikator sync di dock kanan bawah, bukan di atas halaman', async () => {
     const wrapper = await mount()
 
     // Tanpa dialog onboarding/recovery: user sudah punya passkey dan data lokal siap.
@@ -48,6 +48,9 @@ describe('indikator status sync (T22)', () => {
     await nextTick()
 
     expect(wrapper.find('[role="dialog"]').exists()).toBe(false)
-    expect(wrapper.text()).toMatch(/tersinkron|menunggu|offline|gagal (sinkron|sync)/i)
+    expect(wrapper.get('.fab-dock').find('.sync-wrap').exists()).toBe(true)
+    expect(wrapper.get('.main').find('.sync-wrap').exists()).toBe(false)
+    // Saat tersinkron tidak ada status yang dirender sama sekali.
+    expect(wrapper.find('.sync').exists()).toBe(false)
   })
 })

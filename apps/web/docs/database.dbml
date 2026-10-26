@@ -158,7 +158,8 @@ Table sync_state {
   Cursor disimpan di CLIENT (server tetap stateless).
   Kalau server balas 409 SYNC_RESET_REQUIRED (cursor di bawah watermark purge),
   cursor harus di-reset ke 0 dan dilakukan full pull.
-  Status inilah yang jadi indikator UI: tersinkron / menunggu / offline / gagal.
+  Status inilah yang jadi indikator UI (menunggu / offline / gagal + coba lagi); status tersinkron
+  tidak ditampilkan terus-menerus, indikator "sedang sync" datang dari siklus push/pull yang berjalan.
   '''
 }
 

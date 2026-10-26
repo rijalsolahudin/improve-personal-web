@@ -78,8 +78,7 @@
   },
   "sync": {
     "status": {
-      "unknown": "Menunggu status sinkronisasi",
-      "synced": "Tersinkron",
+      "syncing": "Menyinkronkan…",
       "pending": "Menunggu dikirim ({n})",
       "offline": "Offline",
       "error": "Gagal sinkron"

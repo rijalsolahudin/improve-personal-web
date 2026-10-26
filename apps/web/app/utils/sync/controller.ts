@@ -12,6 +12,7 @@ import type { LocalDataSession } from '../storage/session'
 import { RecordKeyError, decodeRecord } from '../storage/record-codec'
 import { RECORD_INDEX_KEEP, type RecordIndexDecision } from '../storage/index-decision'
 import { indexEntryForRecord } from '../io/index-entry'
+import { markSyncRunEnd, markSyncRunStart } from './activity'
 import { createSyncHttpClient } from './client'
 import { LOCAL_WRITE_EVENT, notifyRemoteApplied, notifySyncState } from './events'
 import {
@@ -301,7 +302,14 @@ export function runSync(options: { readonly pull: boolean }): Promise<SyncOutcom
   if (inFlight !== null && inFlight.generation === current.generation) return inFlight.promise
 
   const generation = current.generation
+
+  // Indikator "sedang sync" di shell: satu hitungan per siklus, ditutup di `finally` supaya siklus
+  // yang gagal/batal pun tidak meninggalkan spinner berputar selamanya.
+  markSyncRunStart()
+
   const promise = execute(current).finally(() => {
+    markSyncRunEnd()
+
     // Generasi lain sudah mengambil alih (`stopSync` melepas `inFlight`): akhir siklus akun lama
     // tidak boleh menutup siklus akun baru, apalagi menjadwalkan siklus untuknya.
     if (inFlight?.promise !== promise) return

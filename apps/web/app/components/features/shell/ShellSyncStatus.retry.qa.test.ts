@@ -124,7 +124,8 @@ describe('tombol "Coba lagi"', () => {
 
     window.dispatchEvent(new Event(SYNC_STATE_EVENT))
 
-    await vi.waitFor(() => expect(mounted?.text()).toContain('Tersinkron'))
+    await vi.waitFor(() => expect(mounted?.find('.sync').exists()).toBe(false))
+    expect(mounted.text()).not.toContain('Tersinkron')
     expect(mounted.find('button.retry').exists()).toBe(false)
   })
 })

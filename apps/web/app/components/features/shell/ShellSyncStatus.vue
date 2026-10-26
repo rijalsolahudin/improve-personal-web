@@ -1,28 +1,36 @@
 <script setup lang="ts">
-import type { StorageAdapter } from '@improve-personal/core'
+import type { StorageAdapter, SyncStatus } from '@improve-personal/core'
 
 import { SYNC_REMOTE_APPLIED_EVENT, SYNC_STATE_EVENT } from '~/utils/sync/events'
 import { runSyncReloaders } from '~/utils/sync/refresh'
 
 /**
- * Indikator status sinkronisasi di shell (PRD F15 "Status Sync Terlihat").
+ * Indikator sinkronisasi di dock kanan bawah (PRD F15 "Status Sync Terlihat").
  *
- * Sumber datanya `useSyncStatus` → `readSyncStatus` core (bukan kesimpulan komponen): jumlah baris
+ * Sumber statusnya `useSyncStatus` → `readSyncStatus` core (bukan kesimpulan komponen): jumlah baris
  * outbox di penyimpanan lokal akun + keadaan jaringan. Push/pull dijalankan plugin
  * `sync.client.ts`; setelah satu siklus selesai event `SYNC_STATE_EVENT` memicu pembacaan ulang, jadi
- * badge tidak menunggu polling 60 detik.
+ * indikator tidak menunggu polling 60 detik.
  *
- * Selama penyimpanan lokal belum terbuka (SSR, perangkat terkunci, atau storage diblokir) statusnya
- * belum diketahui; badge menampilkan "menunggu status sinkronisasi" alih-alih menebak `synced`.
+ * Yang tampil hanya saat perlu dilihat:
+ * - sedang sync → "Menyinkronkan…" (sinyal `useSyncActivity`, bukan status storage);
+ * - menunggu dikirim / offline / gagal → status itu, dengan tombol "Coba lagi" saat gagal;
+ * - tersinkron / status belum diketahui (storage belum terbuka) → tidak ada elemen. Status "sudah
+ *   beres" tidak perlu diberitahukan terus-menerus di setiap halaman.
  *
  * Sesi data lokal dibaca lewat `localData.current()`, BUKAN `ensure()`: `ensure()` menulis state
  * bersama (`loading`) dan itu membuat gate onboarding berkedip tertutup di halaman yang sama.
  */
 const SYNC_REFRESH_MS = 60_000
 
+/** Status yang tetap perlu dilihat user walau tidak ada siklus berjalan. */
+const ATTENTION_STATUSES: readonly SyncStatus[] = ['pending', 'offline', 'error']
+
 const localData = useLocalData()
 const { t } = useI18n()
 const { dateTime } = useDateFormat()
+
+const { isSyncing } = useSyncActivity()
 
 const storage = shallowRef<StorageAdapter | null>(null)
 const isOnline = ref(true)
@@ -33,12 +41,23 @@ const sync = useSyncStatus({
   getOwnerId: () => localData.state.value.userId,
 })
 
-const label = computed(() => {
+const showIndicator = computed(() => {
   const status = sync.status.value
-  if (status === null) return t('sync.status.unknown')
+
+  return isSyncing.value || (status !== null && ATTENTION_STATUSES.includes(status))
+})
+
+const label = computed(() => {
+  if (isSyncing.value) return t('sync.status.syncing')
+
+  const status = sync.status.value
+  if (status === null) return ''
 
   return t(`sync.status.${status}`, { n: sync.pendingCount.value })
 })
+
+/** Kelas warna mengikuti status storage; saat siklus berjalan yang tampil spinner, bukan dot. */
+const tone = computed(() => sync.status.value ?? 'unknown')
 
 const lastSync = computed(() =>
   sync.lastSyncAtMs.value === null
@@ -182,27 +201,11 @@ watch(
 
 <template>
   <div class="sync-wrap">
-    <div class="sync-row">
-      <p
-        class="sync"
-        :class="`sync--${sync.status.value ?? 'unknown'}`"
-        role="status"
-        aria-live="polite"
-        :title="lastSync ?? undefined"
-      >
-        <span class="dot" aria-hidden="true" />
-        <span class="text">{{ label }}</span>
-        <span v-if="lastSync" class="last">{{ lastSync }}</span>
-      </p>
-      <button v-if="sync.status.value === 'error'" type="button" class="retry" @click="retry">
-        {{ t('sync.retry') }}
-      </button>
-    </div>
     <!--
       Keterangan, bukan status baru: record yang tidak bisa dibuka tetap tersimpan di perangkat dan
       tidak menghalangi sync lagi. Id record sengaja tidak ditampilkan (tidak berguna bagi user).
 
-      Tombol tetap tampil walau badge `synced`: karantina tidak mengubah status sync, tetapi user
+      Tombol tetap tampil walau status `synced`: karantina tidak mengubah status sync, tetapi user
       butuh jalan untuk memaksa record dicoba lagi (mis. setelah kunci dipulihkan).
     -->
     <p v-if="sync.blockedCount.value > 0" class="blocked">
@@ -211,6 +214,27 @@ watch(
         {{ t('sync.blockedRetry') }}
       </button>
     </p>
+    <div v-if="showIndicator" class="sync-row">
+      <p
+        class="sync"
+        :class="`sync--${tone}`"
+        role="status"
+        aria-live="polite"
+        :title="lastSync ?? undefined"
+      >
+        <span v-if="isSyncing" class="spinner" aria-hidden="true" />
+        <span v-else class="dot" aria-hidden="true" />
+        <span class="text">{{ label }}</span>
+      </p>
+      <button
+        v-if="sync.status.value === 'error' && !isSyncing"
+        type="button"
+        class="retry"
+        @click="retry"
+      >
+        {{ t('sync.retry') }}
+      </button>
+    </div>
   </div>
 </template>
 
@@ -218,38 +242,41 @@ watch(
 .sync-wrap {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  gap: var(--space-4, 0.25rem);
-  margin: 0 0 var(--space-6, 0.5rem);
+  align-items: flex-end;
+  gap: var(--space-4, 0.5rem);
+  max-width: min(320px, calc(100vw - 28px));
 }
 
 .sync-row {
   display: flex;
   align-items: center;
-  gap: var(--space-4, 0.25rem);
+  gap: var(--space-4, 0.5rem);
 }
 
 .sync {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-4, 0.25rem);
+  gap: var(--space-3, 0.375rem);
   margin: 0;
-  padding: var(--space-3, 0.2rem) var(--space-6, 0.5rem);
-  border: var(--border-thin, 1px) solid var(--line, #e6ded1);
+  padding: 0 var(--space-6, 0.75rem);
+  height: 32px;
+  border: var(--border-thin, 2px) solid var(--line, #e6ded1);
   border-radius: var(--radius-pill, 999px);
   background: var(--surface-card, #fffdf8);
   color: var(--text-muted, #6b5e4b);
-  font-size: var(--fs-caption, 0.75rem);
+  font-size: var(--fs-caption, 0.8125rem);
   font-weight: var(--fw-medium, 500);
+  white-space: nowrap;
 }
 
 .retry {
-  padding: var(--space-3, 0.2rem) var(--space-6, 0.5rem);
-  border: var(--border-thin, 1px) solid var(--line, #e6ded1);
+  padding: 0 var(--space-6, 0.75rem);
+  height: 32px;
+  border: var(--border-thin, 2px) solid var(--line, #e6ded1);
   border-radius: var(--radius-pill, 999px);
   background: transparent;
   color: var(--text-muted, #6b5e4b);
-  font-size: var(--fs-caption, 0.75rem);
+  font-size: var(--fs-caption, 0.8125rem);
   cursor: pointer;
 }
 
@@ -265,10 +292,6 @@ watch(
   background: var(--text-subtle, #8a7a60);
 }
 
-.sync--synced .dot {
-  background: var(--success, #1d6b34);
-}
-
 .sync--pending .dot {
   background: var(--prio-medium-fg, #8a5a00);
 }
@@ -278,24 +301,41 @@ watch(
   background: var(--danger, #b0283e);
 }
 
-.last {
-  color: var(--text-subtle, #8a7a60);
+.spinner {
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--line, #e6ded1);
+  border-top-color: var(--text-muted, #6b5e4b);
+  border-radius: 50%;
+  animation: sync-spin 0.8s linear infinite;
 }
 
-.last::before {
-  content: '·';
-  margin-right: var(--space-3, 0.2rem);
+@keyframes sync-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Getaran/perputaran terus-menerus bisa mengganggu; teks "Menyinkronkan…" sudah cukup jelas. */
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation: none;
+  }
 }
 
 .blocked {
   margin: 0;
+  padding: var(--space-3, 0.375rem) var(--space-6, 0.75rem);
+  border: var(--border-thin, 2px) solid var(--line, #e6ded1);
+  border-radius: var(--radius-btn-sq, 16px);
+  background: var(--surface-card, #fffdf8);
   color: var(--text-muted, #6b5e4b);
-  font-size: var(--fs-caption, 0.75rem);
+  font-size: var(--fs-caption, 0.8125rem);
   line-height: 1.4;
 }
 
 .blocked-retry {
-  margin-inline-start: var(--space-4, 0.25rem);
+  margin-inline-start: var(--space-4, 0.5rem);
   vertical-align: baseline;
 }
 </style>

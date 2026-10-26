@@ -81,9 +81,10 @@ describe('tombol "Coba buka ulang"', () => {
     quarantineRecord(TEST_USER_A, '018f2c4e-0000-7000-8000-0000000000c1')
     const wrapper = await mountSyncStatus()
 
-    await vi.waitFor(() => expect(wrapper.text()).toContain('Tersinkron'))
+    await vi.waitFor(() => expect(wrapper.text()).toContain('1 data tidak bisa dibuka'))
 
-    expect(wrapper.text()).toContain('1 data tidak bisa dibuka')
+    // Status "tersinkron" tidak dirender lagi; hanya keterangan karantina yang tampil.
+    expect(wrapper.find('.sync').exists()).toBe(false)
     expect(wrapper.find('button.blocked-retry').exists()).toBe(true)
     expect(wrapper.text()).toContain('Coba buka ulang')
     // Id record tidak pernah ditampilkan.

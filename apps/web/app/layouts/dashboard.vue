@@ -39,7 +39,6 @@ function toggleDeco(): void {
   <div class="shell paper-grid">
     <ShellSidebar class="desktop-only" />
     <main class="main" data-anchor="page" data-anchor-kind="page">
-      <ShellSyncStatus />
       <AccountKeyStatusNotice />
       <slot />
     </main>
@@ -54,6 +53,9 @@ function toggleDeco(): void {
     <LazyDecoLayer v-if="isDecoMounted" />
     <div class="fab-dock" data-deco-ui>
       <ShellPomodoroPill />
+      <!-- Indikator sync berdiri sendiri di kiri tombol Hias; saat normal ia tidak dirender, jadi
+           dock tidak berubah lebar dan tidak ada ruang kosong yang menetap. -->
+      <ShellSyncStatus />
       <button
         type="button"
         class="fab"

@@ -3,6 +3,7 @@ import { flushPromises, type VueWrapper } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { LocalDataState } from '~/composables/useLocalData'
+import { markSyncRunEnd, markSyncRunStart, resetSyncActivityForTest } from '~/utils/sync/activity'
 import { SYNC_REMOTE_APPLIED_EVENT, SYNC_STATE_EVENT } from '~/utils/sync/events'
 import { clearQuarantineForTest, quarantineRecord } from '~/utils/sync/quarantine'
 import { registerSyncReloader, resetSyncReloadersForTest } from '~/utils/sync/refresh'
@@ -10,10 +11,12 @@ import { registerSyncReloader, resetSyncReloadersForTest } from '~/utils/sync/re
 import ShellSyncStatus from './ShellSyncStatus.vue'
 
 /**
- * Indikator status sync di shell (AC T22): sumbernya `readSyncStatus` + outbox, dan selama penyimpanan
- * lokal belum terbuka ia TIDAK boleh mengarang "Tersinkron".
+ * Indikator sync di dock kanan bawah (AC T22 + T105): sumber statusnya `readSyncStatus` + outbox,
+ * tetapi yang tampil hanya saat siklus berjalan atau saat ada yang perlu diperhatikan. "Sudah
+ * tersinkron" tidak dirender sama sekali - bukan sekadar disembunyikan dengan CSS.
  *
- * `dashboard.qa.test.ts` (putaran 1) hanya memastikan ada teks status; test ini mengunci arti teksnya.
+ * `dashboard.qa.test.ts` memastikan penempatannya (dock, bukan atas halaman); test ini mengunci
+ * arti teksnya.
  */
 
 const IDLE_STATE: LocalDataState = {
@@ -42,29 +45,58 @@ async function mount(): Promise<VueWrapper> {
 
 beforeEach(() => {
   clearNuxtState(['localData', 'auth-session', 'auth-session-pending', 'auth-session-error', 'now'])
+  resetSyncActivityForTest()
 })
 
 afterEach(async () => {
   mounted?.unmount()
   mounted = null
+  resetSyncActivityForTest()
   await flushPromises()
 })
 
 describe('indikator status sync', () => {
-  it('penyimpanan lokal belum terbuka: menunggu status, bukan "Tersinkron"', async () => {
+  it('penyimpanan lokal belum terbuka: tidak menampilkan status apa pun', async () => {
     useState<LocalDataState>('localData').value = IDLE_STATE
     const wrapper = await mount()
 
-    expect(wrapper.text()).toContain('Menunggu status sinkronisasi')
-    expect(wrapper.text()).not.toMatch(/tersinkron/i)
+    expect(wrapper.find('.sync').exists()).toBe(false)
+    expect(wrapper.text()).not.toMatch(/tersinkron|menunggu status/i)
   })
 
   it('perangkat terkunci: tetap tidak mengklaim data sudah tersinkron', async () => {
     useState<LocalDataState>('localData').value = LOCKED_STATE
     const wrapper = await mount()
 
-    expect(wrapper.text()).toContain('Menunggu status sinkronisasi')
+    expect(wrapper.find('.sync').exists()).toBe(false)
     expect(wrapper.text()).not.toMatch(/tersinkron/i)
+  })
+
+  it('sedang sync: "Menyinkronkan…" tampil, lalu hilang saat siklus selesai', async () => {
+    useState<LocalDataState>('localData').value = IDLE_STATE
+    const wrapper = await mount()
+
+    markSyncRunStart()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Menyinkronkan…')
+    expect(wrapper.find('.spinner').exists()).toBe(true)
+
+    markSyncRunEnd()
+    await flushPromises()
+
+    expect(wrapper.find('.sync').exists()).toBe(false)
+    expect(wrapper.text()).not.toMatch(/tersinkron/i)
+  })
+
+  it('dipasang saat siklus sudah berjalan: indikator langsung tampil', async () => {
+    useState<LocalDataState>('localData').value = IDLE_STATE
+    markSyncRunStart()
+
+    const wrapper = await mount()
+
+    expect(wrapper.text()).toContain('Menyinkronkan…')
+    markSyncRunEnd()
   })
 })
 
@@ -146,8 +178,8 @@ describe('keterangan record terkarantina', () => {
       expect(text).toContain(
         '2 data tidak bisa dibuka dan tidak ditampilkan, tetapi tetap tersimpan di perangkat ini.',
       )
-      // Badge statusnya tetap apa adanya (belum terbuka), bukan berubah jadi status karantina.
-      expect(text).toContain('Menunggu status sinkronisasi')
+      // Keterangan karantina bukan status sync: badge status tetap tidak dirender (belum terbuka).
+      expect(wrapper.find('.sync').exists()).toBe(false)
       // Yang tampil hanya jumlah; id record tidak pernah bocor ke UI.
       expect(text).not.toContain('018f2c4e-0000-7000-8000-0000000000c1')
     } finally {

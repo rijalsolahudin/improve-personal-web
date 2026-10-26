@@ -940,8 +940,10 @@ Tiap salinan digembok dengan pembuka berbeda:
 - Bukan semua data (performa)
 
 #### Status Sync Terlihat
-- Indicator UI: tersinkron / menunggu / offline / gagal (+ coba lagi)
-- User tahu kapan data up-to-date
+- Indikator ringkas di dock kanan bawah (sebelah tombol Hias), bukan banner di atas halaman
+- Sedang sync: "Menyinkronkan…" + spinner, hanya selama siklus push/pull berjalan
+- Perlu perhatian: menunggu dikirim / offline / gagal (+ tombol coba lagi)
+- Tersinkron tidak ditampilkan terus-menerus supaya tidak jadi noise; user tahu kapan data butuh perhatian
 
 ### Database Server
 - Cuma simpan ciphertext (terenkripsi)
