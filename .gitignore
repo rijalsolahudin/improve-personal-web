@@ -18,3 +18,8 @@ apps/web/source-ui
 .env
 .env.*
 !.env.example
+
+# Playwright
+apps/web/test-results/
+apps/web/playwright-report/
+apps/web/blob-report/
