@@ -25,7 +25,9 @@ import {
 } from '../services/device'
 import {
   buildSessionDto,
+  DeviceNotActiveError,
   findSessionByToken,
+  issueSession,
   loginDevice,
   revokeSession,
   sessionResultFrom,
@@ -688,5 +690,159 @@ describe('perangkat: identitas instalasi', () => {
       .where(eq(devices.userId, user.id))
     expect(rows).toHaveLength(1)
     expect(rows[0]?.installationId).toBe(installationId)
+  })
+})
+
+/**
+ * Task #81 - dua sisa race yang tidak tertutup oleh index unik #80:
+ * 1. revoke bisa menang setelah perangkat dipilih/diadopsi tetapi sebelum sesi diterbitkan;
+ * 2. batas 10 perangkat dulu `SELECT count` lalu `INSERT`, jadi dua login paralel dari instalasi
+ *    BERBEDA bisa sama-sama lolos dan menghasilkan 11 baris aktif.
+ */
+describe('race revoke vs penerbitan sesi & batas perangkat atomik', () => {
+  const SAME_NAME = 'Chrome di Linux'
+
+  it('issueSession menolak perangkat yang sudah di-revoke dan TIDAK menyisipkan sesi apa pun', async () => {
+    const fixture = scope.fixture({ prefix: 'device-issue-revoked' })
+    const ctx = fixture.ctx()
+    const user = await findOrCreateUserByEmail(ctx, fixture.email)
+    const installationId = randomUUID()
+
+    // Jalur adopsi persis seperti login: baris lama tanpa installation_id dipakai ulang.
+    const legacyId = await resolveDeviceForLogin(ctx, user.id, { name: SAME_NAME, platform: 'web' })
+    const adoptedId = await resolveDeviceForLogin(ctx, user.id, {
+      name: SAME_NAME,
+      platform: 'web',
+      installationId,
+    })
+    expect(adoptedId).toBe(legacyId)
+
+    // Revoke menang SETELAH adopsi, SEBELUM sesi diterbitkan.
+    await revokeDevice(ctx, user.id, adoptedId)
+
+    await expect(
+      issueSession(ctx, {
+        userId: user.id,
+        deviceId: adoptedId,
+        client: 'web',
+        installationId,
+      }),
+    ).rejects.toBeInstanceOf(DeviceNotActiveError)
+
+    const rows = await ctx.db
+      .select({ id: sessions.id })
+      .from(sessions)
+      .where(eq(sessions.deviceId, adoptedId))
+    expect(rows).toHaveLength(0)
+  })
+
+  it('revoke yang menang sebelum issueSession -> loginDevice memakai perangkat BARU, bukan baris mati', async () => {
+    const fixture = scope.fixture({ prefix: 'device-login-revoke-race' })
+    const ctx = fixture.ctx()
+    const user = await findOrCreateUserByEmail(ctx, fixture.email)
+    const installationId = randomUUID()
+    const device = { name: SAME_NAME, platform: 'web' as const, installationId }
+
+    const first = await loginDevice(ctx, {
+      userId: user.id,
+      email: fixture.email,
+      client: 'web',
+      device,
+    })
+
+    // Kunci baris perangkat dari koneksi lain. `touchDevice` di dalam login berikutnya akan tertahan
+    // TEPAT setelah perangkat dipilih dan sebelum `issueSession` - jendela yang diuji.
+    const racingSql = postgres(TEST_DATABASE_URL, { max: 2 })
+    const tx = await racingSql.reserve()
+
+    try {
+      await tx`begin`
+      await tx`select id from devices where id = ${first.dto.device.id} for update`
+
+      const pending = loginDevice(ctx, {
+        userId: user.id,
+        email: fixture.email,
+        client: 'web',
+        device,
+      })
+      await waitForBlockedDeviceUpdate(racingSql)
+
+      // "Keluarkan perangkat" dari tab lain, persis sebelum issueSession berjalan.
+      await tx`update devices set revoked_at = now() where id = ${first.dto.device.id}`
+      await tx`update sessions set revoked_at = now() where device_id = ${first.dto.device.id} and revoked_at is null`
+      await tx`commit`
+
+      const second = await pending
+
+      // Baris mati tidak boleh menerima sesi. Login harus berakhir sebagai perangkat baru yang hidup.
+      expect(second.dto.device.id).not.toBe(first.dto.device.id)
+      expect(await countActiveDevices(ctx, user.id)).toBe(1)
+      await expect(findSessionByToken(ctx, second.token)).resolves.toMatchObject({
+        deviceId: second.dto.device.id,
+      })
+      await expect(findSessionByToken(ctx, first.token)).resolves.toBeNull()
+    } finally {
+      await tx.release()
+      await racingSql.end({ timeout: 5 })
+    }
+  })
+
+  it('login PARALEL dari instalasi berbeda tidak bisa melampaui batas 10 perangkat', async () => {
+    const fixture = scope.fixture({ prefix: 'device-limit-parallel' })
+    const ctx = fixture.ctx()
+    const user = await findOrCreateUserByEmail(ctx, fixture.email)
+
+    // Sisakan SATU slot, lalu lima login paralel memperebutkannya.
+    for (let index = 0; index < MAX_ACTIVE_DEVICES_PER_USER - 1; index += 1) {
+      await resolveDeviceForLogin(ctx, user.id, {
+        name: `QA Device ${index}`,
+        platform: 'web',
+        installationId: randomUUID(),
+      })
+    }
+    expect(await countActiveDevices(ctx, user.id)).toBe(MAX_ACTIVE_DEVICES_PER_USER - 1)
+
+    const results = await Promise.allSettled(
+      Array.from({ length: 5 }, () =>
+        resolveDeviceForLogin(ctx, user.id, {
+          name: SAME_NAME,
+          platform: 'web',
+          installationId: randomUUID(),
+        }),
+      ),
+    )
+
+    const fulfilled = results.filter(
+      (result): result is PromiseFulfilledResult<string> => result.status === 'fulfilled',
+    )
+    const rejected = results.filter(
+      (result): result is PromiseRejectedResult => result.status === 'rejected',
+    )
+
+    // Tanpa advisory lock, kelima login membaca "9 aktif" lalu sama-sama INSERT -> 14 baris.
+    expect(fulfilled).toHaveLength(1)
+    expect(rejected).toHaveLength(4)
+    for (const result of rejected) {
+      expect(result.reason).toMatchObject({ code: 'DEVICE_LIMIT_REACHED', statusCode: 409 })
+    }
+    expect(await countActiveDevices(ctx, user.id)).toBe(MAX_ACTIVE_DEVICES_PER_USER)
+  })
+
+  it('index lama idx_devices_user_installation sudah dihapus, unique partial tetap ada', async () => {
+    const sql = postgres(TEST_DATABASE_URL, { max: 1 })
+
+    try {
+      const rows = await sql<{ indexname: string }[]>`
+        select indexname
+        from pg_indexes
+        where schemaname = 'public' and tablename = 'devices'
+      `
+      const names = rows.map((row) => row.indexname)
+
+      expect(names).toContain('uq_devices_user_installation_active')
+      expect(names).not.toContain('idx_devices_user_installation')
+    } finally {
+      await sql.end({ timeout: 5 })
+    }
   })
 })

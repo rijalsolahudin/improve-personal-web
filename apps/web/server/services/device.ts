@@ -222,7 +222,8 @@ async function adoptLegacyDeviceForInstallation(
  * Kalau tidak ada yang cocok, batas `MAX_ACTIVE_DEVICES_PER_USER` ditegakkan per BARIS (bukan per
  * mesin) dan kegagalannya memakai kode `DEVICE_LIMIT_REACHED` (`409`, kontrak). Kode khusus ini
  * penting supaya client bisa menyuruh user menghapus salah satu perangkat - `FORBIDDEN` hanya bilang
- * "tidak boleh" tanpa jalan keluar.
+ * "tidak boleh" tanpa jalan keluar. Pemeriksaan + INSERT-nya ATOMIK (advisory lock per user, lihat
+ * `createDeviceWithinLimit`): dua login paralel dari instalasi berbeda tidak bisa melampaui batas.
  *
  * Balapan dua login dengan `installationId` yang SAMA dijaga dua lapis: unique partial index
  * `uq_devices_user_installation_active` di DB dan `ON CONFLICT DO NOTHING` saat INSERT. Yang kalah
@@ -260,40 +261,134 @@ async function resolveDeviceOnce(
 
   if (reused) return touchDevice(ctx, reused)
 
-  const active = await countActiveDevices(ctx, userId)
-  if (active >= MAX_ACTIVE_DEVICES) throw apiProblem('DEVICE_LIMIT_REACHED')
+  return await createDeviceWithinLimit(ctx, userId, info)
+}
 
-  const deviceId = uuidv7(ctx.now.getTime())
-  const inserted = await ctx.db
-    .insert(devices)
-    .values({
-      id: deviceId,
-      userId,
-      name: info.name,
-      platform: info.platform,
-      installationId: installationId ?? null,
-      createdAt: ctx.now,
-      lastSeenAt: ctx.now,
-    })
-    // Target + predikat sama dengan index partial-nya: `DO NOTHING` HANYA meredam konflik index itu.
-    // Konflik lain (mis. tabrakan primary key) tetap dilempar - bukan sesuatu yang boleh ditelan.
-    // Klien lama (`installationId` NULL) tidak pernah cocok dengan predikat ini, jadi tetap INSERT.
-    .onConflictDoNothing({
-      target: [devices.userId, devices.installationId],
-      where: sql`${devices.installationId} is not null and ${devices.revokedAt} is null`,
-    })
-    .returning({ id: devices.id })
+type Transaction = Parameters<Parameters<ServiceContext['db']['transaction']>[0]>[0]
 
-  const insertedId = inserted[0]?.id
-  if (insertedId) return insertedId
+/** Perangkat AKTIF user ini untuk satu nilai `installation_id`, di dalam transaksi pemanggil. */
+async function findActiveDeviceIdByInstallationInTx(
+  tx: Transaction,
+  userId: string,
+  installationId: string,
+): Promise<string | null> {
+  const rows = await tx
+    .select({ id: devices.id })
+    .from(devices)
+    .where(
+      and(
+        eq(devices.userId, userId),
+        eq(devices.installationId, installationId),
+        isNull(devices.revokedAt),
+      ),
+    )
+    .orderBy(desc(devices.createdAt))
+    .limit(1)
 
-  // Kalah balapan: baris aktif dengan instalasi yang sama sudah dibuat request lain. Pakai baris itu
-  // (idempoten), jangan buat baris kedua dan jangan melempar - kedua login memang berhasil.
-  const winner = installationId
-    ? await findActiveDeviceIdByInstallation(ctx, userId, installationId)
-    : null
+  return rows[0]?.id ?? null
+}
 
-  return winner ? touchDevice(ctx, winner) : null
+/** Perangkat AKTIF user ini dengan nama + platform sama, di dalam transaksi pemanggil. */
+async function findActiveDeviceIdByNamePlatformInTx(
+  tx: Transaction,
+  userId: string,
+  info: DeviceInfo,
+): Promise<string | null> {
+  const rows = await tx
+    .select({ id: devices.id })
+    .from(devices)
+    .where(
+      and(
+        eq(devices.userId, userId),
+        eq(devices.name, info.name),
+        eq(devices.platform, info.platform),
+        isNull(devices.revokedAt),
+      ),
+    )
+    .orderBy(desc(devices.createdAt))
+    .limit(1)
+
+  return rows[0]?.id ?? null
+}
+
+/**
+ * Buat perangkat BARU dengan batas 10 ditegakkan secara ATOMIK.
+ *
+ * Kenapa tidak boleh `SELECT count` lalu `INSERT` di luar transaksi (temuan task #81): dua login
+ * paralel dari instalasi BERBEDA sama-sama membaca "9 perangkat aktif", sama-sama lolos, lalu
+ * sama-sama INSERT - jumlahnya jadi 11. Pemeriksaan di level aplikasi tidak bisa menutup jendela itu.
+ *
+ * Kuncinya advisory lock per user (`pg_advisory_xact_lock`), bukan `SERIALIZABLE`: seluruh login user
+ * itu diserialkan hanya pada langkah pembuatan baris (beberapa milidetik), sementara jalur baca
+ * (daftar perangkat, cek sesi) tetap paralel. Lock dilepas otomatis saat transaksi selesai, jadi
+ * request yang crash tidak meninggalkan lock menggantung. Lock-nya per DATABASE (bukan per pod),
+ * jadi tetap benar kalau API dilayani lebih dari satu instance.
+ *
+ * Di dalam lock, pencarian "sudah ada?" DIULANG. Tanpa itu, login kedua dengan instalasi yang SAMA
+ * akan melihat count sudah 10 (baris pemenang baru saja masuk) lalu ditolak `DEVICE_LIMIT_REACHED`
+ * padahal seharusnya memakai baris yang menang - perilaku idempoten yang dijaga test #80.
+ */
+async function createDeviceWithinLimit(
+  ctx: ServiceContext,
+  userId: string,
+  info: DeviceInfo,
+): Promise<string | null> {
+  const installationId = info.installationId
+
+  return await ctx.db.transaction(async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`devices:${userId}`}))`)
+
+    const reused = installationId
+      ? await findActiveDeviceIdByInstallationInTx(tx, userId, installationId)
+      : await findActiveDeviceIdByNamePlatformInTx(tx, userId, info)
+
+    if (reused) {
+      await tx.update(devices).set({ lastSeenAt: ctx.now }).where(eq(devices.id, reused))
+      return reused
+    }
+
+    const rows = await tx
+      .select({ total: count() })
+      .from(devices)
+      .where(and(eq(devices.userId, userId), isNull(devices.revokedAt)))
+
+    const active = rows[0]?.total ?? 0
+    if (active >= MAX_ACTIVE_DEVICES) throw apiProblem('DEVICE_LIMIT_REACHED')
+
+    const deviceId = uuidv7(ctx.now.getTime())
+    const inserted = await tx
+      .insert(devices)
+      .values({
+        id: deviceId,
+        userId,
+        name: info.name,
+        platform: info.platform,
+        installationId: installationId ?? null,
+        createdAt: ctx.now,
+        lastSeenAt: ctx.now,
+      })
+      // Target + predikat sama dengan index partial-nya: `DO NOTHING` HANYA meredam konflik index itu.
+      // Konflik lain (mis. tabrakan primary key) tetap dilempar - bukan sesuatu yang boleh ditelan.
+      // Klien lama (`installationId` NULL) tidak pernah cocok dengan predikat ini, jadi tetap INSERT.
+      .onConflictDoNothing({
+        target: [devices.userId, devices.installationId],
+        where: sql`${devices.installationId} is not null and ${devices.revokedAt} is null`,
+      })
+      .returning({ id: devices.id })
+
+    const insertedId = inserted[0]?.id
+    if (insertedId) return insertedId
+
+    // Kalah balapan: baris aktif dengan instalasi yang sama sudah dibuat request lain. Pakai baris itu
+    // (idempoten), jangan buat baris kedua dan jangan melempar - kedua login memang berhasil.
+    if (!installationId) return null
+
+    const winner = await findActiveDeviceIdByInstallationInTx(tx, userId, installationId)
+    if (!winner) return null
+
+    await tx.update(devices).set({ lastSeenAt: ctx.now }).where(eq(devices.id, winner))
+    return winner
+  })
 }
 
 /** Catat aktivitas terakhir lalu kembalikan id-nya. */
@@ -328,11 +423,15 @@ export async function revokeDevice(
   deviceId: string,
 ): Promise<void> {
   await ctx.db.transaction(async (tx) => {
+    // `FOR UPDATE`: revoke dan penerbitan sesi (`issueSession`) harus antre pada baris perangkat yang
+    // sama. Tanpa lock ini, revoke bisa membaca "masih aktif" sementara `issueSession` menyisipkan
+    // sesi baru tepat setelahnya - sesi yang sudah pasti mati tapi tetap terbit (task #81).
     const owned = await tx
       .select({ id: devices.id, revokedAt: devices.revokedAt })
       .from(devices)
       .where(and(eq(devices.id, deviceId), eq(devices.userId, userId)))
       .limit(1)
+      .for('update')
 
     const device = owned[0]
     // Perangkat milik user lain dan perangkat yang tidak ada sama-sama `NOT_FOUND`: membedakannya

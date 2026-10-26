@@ -36,6 +36,13 @@
       "when": 1792857975632,
       "tag": "0004_wealthy_tombstone",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1792979956980,
+      "tag": "0005_zippy_firebird",
+      "breakpoints": true
     }
   ]
 }

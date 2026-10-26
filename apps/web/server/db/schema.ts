@@ -120,10 +120,9 @@ export const devices = pgTable(
   },
   (table) => [
     index('idx_devices_user_created').on(table.userId, table.createdAt),
-    // Jalur login mencari perangkat AKTIF user ini berdasarkan nilai instalasi yang dikirim client.
-    // Index biasa ini tetap dipertahankan: ia melayani pencarian tanpa melihat `revoked_at`, dan
-    // menghapusnya bukan perubahan additive di migrasi produksi.
-    index('idx_devices_user_installation').on(table.userId, table.installationId),
+    // Index biasa `idx_devices_user_installation` dihapus di migrasi 0005: semua pencarian perangkat
+    // berdasarkan `installation_id` selalu menyaring baris AKTIF, dan index partial unik di bawah
+    // sudah melayani pasangan (user_id, installation_id) itu - index kedua hanya menambah biaya tulis.
     /**
      * Invarian "satu instalasi = satu baris AKTIF per user" (temuan L2 security review #80).
      *

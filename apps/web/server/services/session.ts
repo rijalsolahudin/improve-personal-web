@@ -7,6 +7,7 @@ import type {
 import { and, eq, isNull, lt } from 'drizzle-orm'
 
 import { devices, sessions, users } from '../db/schema'
+import { apiProblem } from '../utils/api-error'
 import { createSessionToken, sha256Hex } from '../utils/crypto'
 import { uuidv7 } from '../utils/uuid'
 import type { ServiceContext } from './context'
@@ -33,6 +34,19 @@ const SESSION_ABSOLUTE_DAYS = 180
 
 /** `last_used_at`/`last_seen_at` di-update paling sering sekali per 5 menit, bukan tiap request. */
 const TOUCH_INTERVAL_MS = 5 * 60_000
+
+/**
+ * Perangkat tidak lagi memenuhi syarat untuk menerbitkan sesi: barisnya sudah di-revoke, bukan milik
+ * user ini, atau `installationId`-nya tidak cocok. Ini kegagalan INTERNAL antar-service (bukan kode
+ * kontrak): satu-satunya pemanggil produksi, `loginDevice`, menangkapnya lalu menyelesaikan ulang
+ * perangkat - sehingga client tidak pernah melihat error ini.
+ */
+export class DeviceNotActiveError extends Error {
+  constructor() {
+    super('perangkat tidak aktif untuk menerbitkan sesi')
+    this.name = 'DeviceNotActiveError'
+  }
+}
 
 export type IssuedSession = {
   readonly sessionId: string
@@ -62,16 +76,53 @@ function idleExpiry(now: Date, createdAt: Date): Date {
  * Rotasi sesi saat login: sesi aktif lain untuk perangkat + client yang sama di-revoke lebih dulu.
  * Tanpa rotasi, sesi lama tetap hidup setelah login ulang - dan itu justru sesi yang paling mungkin
  * sudah bocor (mis. dari perangkat bersama).
+ *
+ * Validasi perangkat dilakukan DI DALAM transaksi yang sama dan dengan `FOR KEY SHARE` (task #81).
+ * Alasan: `loginDevice` memilih/mengadopsi perangkat lebih dulu, lalu menerbitkan sesi. Kalau user
+ * menekan "keluarkan perangkat" di tab lain tepat di antara dua langkah itu, tanpa validasi ini sesi
+ * baru tetap disisipkan pada perangkat yang sudah mati - token terbit tetapi langsung ditolak
+ * `findSessionByToken`. Lock baris membuat revoke dan penerbitan sesi antre: revoke yang menang lebih
+ * dulu membuat langkah ini gagal (`DeviceNotActiveError`) dan TIDAK ada sesi yang terbit.
+ *
+ * Kenapa `KEY SHARE`, bukan `FOR UPDATE`: `revokeDevice` mengambil `FOR UPDATE` (konflik dengan KEY
+ * SHARE, jadi keduanya tetap antre), sementara `touchSession` memperbarui `last_seen_at` tanpa transaksi
+ * dengan `FOR NO KEY UPDATE` (kompatibel dengan KEY SHARE). Kalau di sini dipakai `FOR UPDATE`,
+ * urutan lock-nya bertabrakan dengan `touchSession` (sesi dulu, lalu perangkat) dan bisa menghasilkan
+ * deadlock di jalur panas.
  */
 export async function issueSession(
   ctx: ServiceContext,
-  input: { readonly userId: string; readonly deviceId: string; readonly client: ClientKind },
+  input: {
+    readonly userId: string
+    readonly deviceId: string
+    readonly client: ClientKind
+    /** Nilai dari klien; dicek agar baris perangkat yang dipakai memang instalasi ini. */
+    readonly installationId?: string | undefined
+  },
 ): Promise<IssuedSession> {
   const token = createSessionToken()
   const sessionId = uuidv7(ctx.now.getTime())
   const expiresAt = idleExpiry(ctx.now, ctx.now)
 
   await ctx.db.transaction(async (tx) => {
+    const active = await tx
+      .select({ id: devices.id })
+      .from(devices)
+      .where(
+        and(
+          eq(devices.id, input.deviceId),
+          eq(devices.userId, input.userId),
+          isNull(devices.revokedAt),
+          input.installationId === undefined
+            ? undefined
+            : eq(devices.installationId, input.installationId),
+        ),
+      )
+      .limit(1)
+      .for('key share')
+
+    if (!active[0]) throw new DeviceNotActiveError()
+
     await tx
       .update(sessions)
       .set({ revokedAt: ctx.now })
@@ -250,10 +301,22 @@ export type LoginResult = {
 }
 
 /**
+ * Percobaan login sebelum menyerah. Dua cukup: kegagalan hanya berasal dari "perangkat di-revoke tepat
+ * setelah dipilih", dan percobaan kedua memilih perangkat baru (baris revoked tidak pernah dipakai).
+ */
+const LOGIN_DEVICE_ATTEMPTS = 2
+
+/**
  * Login perangkat: daftarkan/pakai ulang perangkat, terbitkan sesi, susun DTO.
  *
  * Dipakai jalur OTP maupun Google SSO supaya kedua jalur tidak bisa berbeda soal batas perangkat,
  * rotasi sesi, atau bentuk DTO.
+ *
+ * Kenapa ada pengulangan (task #81): `resolveDeviceForLogin` dan `issueSession` adalah dua langkah.
+ * Kalau revoke menang di antara keduanya, `issueSession` menolak (tidak ada sesi yang terbit di atas
+ * perangkat mati). Pilihan yang benar bagi user bukan 500: perangkat itu memang sudah "dikeluarkan",
+ * jadi login ini harus berakhir sebagai perangkat BARU yang aktif - persis perilaku login setelah
+ * revoke. Pengulangan menutup jendela itu tanpa melonggarkan validasi.
  */
 export async function loginDevice(
   ctx: ServiceContext,
@@ -264,23 +327,36 @@ export async function loginDevice(
     readonly device: DeviceInfo
   },
 ): Promise<LoginResult> {
-  const deviceId = await resolveDeviceForLogin(ctx, input.userId, input.device)
-  const issued = await issueSession(ctx, {
-    userId: input.userId,
-    deviceId,
-    client: input.client,
-  })
+  for (let attempt = 0; attempt < LOGIN_DEVICE_ATTEMPTS; attempt += 1) {
+    const deviceId = await resolveDeviceForLogin(ctx, input.userId, input.device)
 
-  return {
-    token: issued.token,
-    dto: buildSessionDto({
-      userId: input.userId,
-      email: input.email,
-      deviceId,
-      deviceName: input.device.name,
-      client: input.client,
-      expiresAt: issued.expiresAt,
-      token: issued.token,
-    }),
+    try {
+      const issued = await issueSession(ctx, {
+        userId: input.userId,
+        deviceId,
+        client: input.client,
+        installationId: input.device.installationId,
+      })
+
+      return {
+        token: issued.token,
+        dto: buildSessionDto({
+          userId: input.userId,
+          email: input.email,
+          deviceId,
+          deviceName: input.device.name,
+          client: input.client,
+          expiresAt: issued.expiresAt,
+          token: issued.token,
+        }),
+      }
+    } catch (error) {
+      if (!(error instanceof DeviceNotActiveError)) throw error
+    }
   }
+
+  // Tidak tercapai dalam praktik: hanya bisa terjadi kalau perangkat di-revoke dua kali berturut-turut
+  // tepat di jendela sempit yang sama. Fail-closed dengan pesan generik lebih baik daripada
+  // mengembalikan sesi yang tidak bisa dipakai.
+  throw apiProblem('INTERNAL')
 }

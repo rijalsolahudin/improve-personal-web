@@ -112,10 +112,9 @@ Table devices {
     // PARTIAL (DBML belum bisa menulis WHERE): create index where revoked_at is null
     (user_id, revoked_at) [name: 'idx_devices_user_active']
     (user_id, created_at) [name: 'idx_devices_user_created']
-    // Jalur login: cari perangkat aktif user ini untuk satu nilai instalasi. Index biasa ini tetap
-    // ada (melayani pencarian tanpa melihat revoked_at); unique-nya dijaga index di bawah.
-    (user_id, installation_id) [name: 'idx_devices_user_installation']
     // PARTIAL + UNIQUE: WHERE installation_id IS NOT NULL AND revoked_at IS NULL
+    // Melayani jalur login (cari perangkat AKTIF untuk satu instalasi) sekaligus target ON CONFLICT.
+    // Index biasa `idx_devices_user_installation` dihapus di migrasi 0005 - redundan dengan ini.
     (user_id, installation_id) [unique, name: 'uq_devices_user_installation_active']
   }
 
