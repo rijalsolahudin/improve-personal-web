@@ -14,6 +14,7 @@ import {
 } from '@improve-personal/core'
 
 import { notifyLocalWrite } from '../sync/events'
+import { guardStorageWrite } from './quota-guard'
 import { decodeRecord, encodeRecord } from './record-codec'
 import { createOutboxId, createUuidV7Generator } from './uuid'
 
@@ -132,16 +133,20 @@ export async function writeRecord(
     updatedAtMs: nowMs,
   }
 
-  await commitLocalWrite({
-    storage: deps.storage,
-    write: buildRecordWrite({
-      sealed,
-      index,
-      op: syncOpFor(sealed),
-      outbox: { id: createOutboxId(deps.random), queuedAtMs: nowMs },
-    }),
-    label: `record.write:${input.type}`,
-  })
+  await guardStorageWrite(
+    () =>
+      commitLocalWrite({
+        storage: deps.storage,
+        write: buildRecordWrite({
+          sealed,
+          index,
+          op: syncOpFor(sealed),
+          outbox: { id: createOutboxId(deps.random), queuedAtMs: nowMs },
+        }),
+        label: `record.write:${input.type}`,
+      }),
+    nowMs,
+  )
 
   // Outbox sudah ikut commit. Plugin sync memakai ini untuk menjadwalkan push berdebounce - tanpa
   // event, satu-satunya pemicu adalah timer, dan data baru bisa tertahan sampai 5 menit.

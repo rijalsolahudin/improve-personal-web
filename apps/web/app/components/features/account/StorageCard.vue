@@ -6,6 +6,8 @@
  * terpakai, dan apakah browser boleh menghapus data ini sendiri. Angka datang dari
  * `navigator.storage.estimate()`; status dari `persisted()` (lihat `utils/storage/durability.ts`).
  */
+import { compactTombstones } from '~/utils/storage/compaction'
+
 const { t } = useI18n()
 
 const {
@@ -18,7 +20,31 @@ const {
   formattedUsage,
   formattedQuota,
   protect,
+  refresh,
 } = useStorageDurability()
+
+const localData = useLocalData()
+const cleaning = ref(false)
+const cleaned = ref<number | null>(null)
+
+const canCompact = computed(() => localData.current() !== null)
+
+/**
+ * Buang tombstone lokal >90 hari yang sudah terkirim (task #109). Batasnya sama dengan retensi
+ * server; tombolnya hanya muncul kalau sesi data lokal sudah terbuka (adaptor tersedia).
+ */
+async function cleanTombstones(): Promise<void> {
+  const session = localData.current()
+  if (!session || cleaning.value) return
+
+  cleaning.value = true
+  try {
+    cleaned.value = await compactTombstones(session.storage)
+    await refresh()
+  } finally {
+    cleaning.value = false
+  }
+}
 
 const protectionLabel = computed(() => {
   if (persisted.value === null) return t('account.storage.protectionUnknown')
@@ -77,10 +103,28 @@ const protectionLabel = computed(() => {
         >
           {{ t('account.storage.protect') }}
         </Button>
+        <Button
+          v-if="canCompact"
+          variant="outline"
+          size="sm"
+          :disabled="busy || cleaning"
+          @click="cleanTombstones"
+        >
+          {{ t('account.storage.compact') }}
+        </Button>
         <NuxtLink class="backup-link" to="/app/import-export">
           {{ t('account.storage.backup') }}
         </NuxtLink>
       </div>
+
+      <p v-if="canCompact" class="hint">{{ t('account.storage.compactHint') }}</p>
+      <p v-if="cleaned !== null" class="hint" role="status">
+        {{
+          cleaned > 0
+            ? t('account.storage.compactDone', { n: cleaned })
+            : t('account.storage.compactNone')
+        }}
+      </p>
     </template>
 
     <p v-else class="hint">{{ t('account.storage.unsupported') }}</p>

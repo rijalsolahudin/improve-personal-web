@@ -76,6 +76,11 @@
       "logout": "Logout"
     }
   },
+  "storageQuota": {
+    "message": "Penyimpanan perangkat penuh. Perubahan terakhir belum tersimpan.",
+    "backup": "Unduh backup",
+    "dismiss": "Tutup"
+  },
   "sync": {
     "status": {
       "syncing": "Menyinkronkan…",
@@ -1205,6 +1210,10 @@
       "nearFull": "Penyimpanan hampir penuh. Unduh backup dulu, lalu bersihkan data lama.",
       "protect": "Minta perlindungan",
       "backup": "Unduh backup",
+      "compact": "Bersihkan riwayat terhapus",
+      "compactHint": "Tombstone lebih dari 90 hari yang sudah terkirim ke server dihapus permanen dari perangkat ini.",
+      "compactDone": "{n} record dibersihkan.",
+      "compactNone": "Tidak ada riwayat yang perlu dibersihkan.",
       "unsupported": "Browser ini tidak menyediakan informasi penyimpanan lokal."
     },
     "passkey": {

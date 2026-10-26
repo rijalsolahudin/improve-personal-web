@@ -15,7 +15,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createManualClock, type ManualClock } from '@improve-personal/core'
 import { runStorageAdapterContractTests } from '@improve-personal/core/testing'
 
-import { createIndexedDbStorage, createWebLocksRunner } from './indexeddb'
+import { createIndexedDbStorage, createWebLocksRunner, type IndexedDbStorage } from './indexeddb'
 
 let databaseCounter = 0
 
@@ -291,5 +291,81 @@ describe('createWebLocksRunner', () => {
     expect(result).toBe('selesai')
     expect(requested).toEqual(['ip-writer'])
     expect(executed).toBe(true)
+  })
+})
+
+describe('pemeliharaan tombstone lokal (#109)', () => {
+  const NOW_MS = 1_800_000_000_000
+  const DAY_MS = 24 * 60 * 60 * 1000
+
+  function indexFor(id: string, updatedAtMs: number) {
+    return {
+      recordId: id,
+      entityType: 'todo' as const,
+      rangeStartMs: updatedAtMs,
+      rangeEndMs: null,
+      updatedAtMs,
+    }
+  }
+
+  async function seed(
+    storage: IndexedDbStorage,
+    id: string,
+    input: { readonly deleted: boolean; readonly updatedAtMs: number },
+  ): Promise<void> {
+    await storage.runTransaction(`seed.${id}`, async (tx) => {
+      await tx.putRecord({
+        sealed: { id, hlc: `${input.updatedAtMs}-0-devicea`, deleted: input.deleted, blob: 'blob' },
+        index: indexFor(id, input.updatedAtMs),
+        op: input.deleted ? 'delete' : 'put',
+        outbox: { id: `out-${id}`, queuedAtMs: input.updatedAtMs },
+      })
+    })
+  }
+
+  it('menghapus tombstone lama yang sudah terkirim, mempertahankan yang pending/baru/hidup', async () => {
+    const storage = createTestStorage(createManualClock(NOW_MS))
+    const cutoff = NOW_MS - 90 * DAY_MS
+
+    await seed(storage, 'old-synced', { deleted: true, updatedAtMs: NOW_MS - 120 * DAY_MS })
+    await seed(storage, 'old-pending', { deleted: true, updatedAtMs: NOW_MS - 120 * DAY_MS })
+    await seed(storage, 'new-tombstone', { deleted: true, updatedAtMs: NOW_MS - 5 * DAY_MS })
+    await seed(storage, 'live', { deleted: false, updatedAtMs: NOW_MS - 120 * DAY_MS })
+
+    // `old-synced` sudah pernah terkirim: tidak ada outbox pending untuk record itu.
+    await storage.deleteOutboxRows(['out-old-synced'])
+
+    await expect(storage.purgeTombstones(cutoff)).resolves.toBe(1)
+
+    await expect(storage.getRecord('old-synced')).resolves.toBeNull()
+    await expect(storage.getRecord('old-pending')).resolves.not.toBeNull()
+    await expect(storage.getRecord('new-tombstone')).resolves.not.toBeNull()
+    await expect(storage.getRecord('live')).resolves.not.toBeNull()
+
+    const indexIds = (await storage.listIndexByType('todo')).map((entry) => entry.recordId)
+    expect(indexIds).not.toContain('old-synced')
+    expect(indexIds).toContain('old-pending')
+
+    const outbox = await storage.listOutbox(10)
+    const outboxIds = outbox.map((row) => row.recordId)
+    expect(outboxIds).not.toContain('old-synced')
+    expect(outboxIds).toContain('old-pending')
+  })
+
+  it('cutoff bersifat eksklusif dan operasi idempotent', async () => {
+    const storage = createTestStorage(createManualClock(NOW_MS))
+    const cutoff = NOW_MS - 90 * DAY_MS
+
+    await seed(storage, 'at-cutoff', { deleted: true, updatedAtMs: cutoff })
+    await storage.deleteOutboxRows(['out-at-cutoff'])
+
+    await expect(storage.purgeTombstones(cutoff)).resolves.toBe(0)
+    await expect(storage.getRecord('at-cutoff')).resolves.not.toBeNull()
+
+    await seed(storage, 'past-cutoff', { deleted: true, updatedAtMs: cutoff - 1 })
+    await storage.deleteOutboxRows(['out-past-cutoff'])
+
+    await expect(storage.purgeTombstones(cutoff)).resolves.toBe(1)
+    await expect(storage.purgeTombstones(cutoff)).resolves.toBe(0)
   })
 })

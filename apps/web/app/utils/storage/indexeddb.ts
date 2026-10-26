@@ -357,7 +357,7 @@ async function patchSyncStateRow(tx: WriteTx, patch: SyncStatePatch): Promise<vo
   await store.put({ id: CURRENT_STATE_KEY, ...applySyncStatePatch(current ?? null, patch) })
 }
 
-export function createIndexedDbStorage(options: IndexedDbStorageOptions): StorageAdapter {
+export function createIndexedDbStorage(options: IndexedDbStorageOptions): IndexedDbStorage {
   const databaseName = options.databaseName ?? INDEXED_DB_DATABASE_NAME
   const runExclusive = options.runExclusive ?? createWebLocksRunner()
 
@@ -430,6 +430,51 @@ export function createIndexedDbStorage(options: IndexedDbStorageOptions): Storag
     async getRecord(id: string): Promise<StoredRecord | null> {
       const db = await database()
       return (await db.get(STORAGE_TABLES.record, id)) ?? null
+    },
+
+    /**
+     * Pembersihan tombstone lama (task #109) - lihat `TombstoneMaintenance`.
+     *
+     * Scan penuh disengaja: ini aksi pemeliharaan yang dipicu user, bukan jalur panas, dan
+     * `record` tidak punya index `deleted` (IndexedDB melarang boolean sebagai kunci index).
+     */
+    async purgeTombstones(cutoffMs: number): Promise<number> {
+      return runExclusive(async () => {
+        const db = await database()
+        const tx = db.transaction(
+          [STORAGE_TABLES.record, STORAGE_TABLES.recordIndex, STORAGE_TABLES.syncOutbox],
+          'readwrite',
+          { durability: 'strict' },
+        )
+
+        const records = tx.objectStore(STORAGE_TABLES.record)
+        const indexes = tx.objectStore(STORAGE_TABLES.recordIndex)
+        const outbox = tx.objectStore(STORAGE_TABLES.syncOutbox)
+
+        let purged = 0
+        let cursor = await records.openCursor()
+
+        while (cursor) {
+          const row = cursor.value
+
+          if (row.deleted && row.updatedAtMs < cutoffMs) {
+            // Tombstone yang belum terkirim WAJIB dipertahankan: dialah satu-satunya bukti record
+            // harus dihapus juga di server.
+            const pending = await outbox.index(INDEX_NAMES.outboxRecord).count(row.id)
+
+            if (pending === 0) {
+              await cursor.delete()
+              await indexes.delete(row.id)
+              purged += 1
+            }
+          }
+
+          cursor = await cursor.continue()
+        }
+
+        await tx.done
+        return purged
+      })
     },
 
     async getRecords(ids: readonly string[]): Promise<readonly StoredRecord[]> {
@@ -636,4 +681,22 @@ function compareIds(a: string, b: string): number {
 export type { SyncOp, SyncStatus }
 
 /** Alias tipe eksplisit: adapter ini memenuhi `StorageAdapter` (dicek `satisfies` di test). */
-export type IndexedDbStorage = StorageAdapter
+export type IndexedDbStorage = StorageAdapter & TombstoneMaintenance
+
+/**
+ * Kemampuan khas IndexedDB yang tidak ada di port `StorageAdapter`: pembersihan tombstone fisik.
+ *
+ * Port sengaja tidak memuat operasi hapus fisik (kontrak core hanya kenal tombstone, karena hapus
+ * harus ikut tersinkron). Pemeliharaan ruang adalah urusan shell web, jadi kemampuannya ditambahkan
+ * di sini dan dideteksi lewat type guard di `compaction.ts`.
+ */
+export type TombstoneMaintenance = {
+  /**
+   * Hapus permanen tombstone yang `updatedAtMs < cutoffMs` DAN tidak punya baris outbox pending.
+   *
+   * Syarat outbox itu yang membuat operasi ini aman: tombstone yang belum terkirim adalah SATU-SATUNYA
+   * bukti bahwa record harus dihapus di server. Kalau dibuang sebelum push, record hidup kembali saat
+   * pull berikutnya.
+   */
+  purgeTombstones(cutoffMs: number): Promise<number>
+}

@@ -54,6 +54,7 @@ onMounted(() => {
     <ShellSidebar class="desktop-only" />
     <main class="main" data-anchor="page" data-anchor-kind="page">
       <AccountKeyStatusNotice />
+      <StorageQuotaBanner />
       <slot />
     </main>
     <!-- Onboarding pembuka kunci: satu tap Face ID/passkey, tidak bisa ditutup sampai selesai.
