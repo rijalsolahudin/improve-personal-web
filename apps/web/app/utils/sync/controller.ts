@@ -11,6 +11,7 @@ import {
 import type { LocalDataSession } from '../storage/session'
 import { RecordKeyError, decodeRecord } from '../storage/record-codec'
 import { RECORD_INDEX_KEEP, type RecordIndexDecision } from '../storage/index-decision'
+import { guardStorageWrite } from '../storage/quota-guard'
 import { indexEntryForRecord } from '../io/index-entry'
 import { markSyncRunEnd, markSyncRunStart } from './activity'
 import { createSyncHttpClient } from './client'
@@ -383,7 +384,7 @@ async function execute(current: ActiveSync): Promise<SyncOutcome | null> {
 
     if (shouldPull && navigator.onLine) {
       const summary = await pullDelta({
-        storage: guardPullMerge(mySession.storage, keyFailures),
+        storage: guardPullMerge(mySession.storage, keyFailures, nowMs()),
         http,
         url: `${baseUrl}/v1/sync/pull`,
         nowMs: nowMs(),
@@ -538,14 +539,21 @@ async function buildIndex(
  * dicoba, sehingga kunci yang salah dan record rusak terlihat sama. Merge adalah titik terakhir sebelum
  * record ditulis dan cursor maju - di situlah penolakan harus terjadi.
  */
-function guardPullMerge(storage: StorageAdapter, keyFailures: PullKeyFailures): StorageAdapter {
+function guardPullMerge(
+  storage: StorageAdapter,
+  keyFailures: PullKeyFailures,
+  atMs: number,
+): StorageAdapter {
   const guarded: StorageAdapter = {
     ...storage,
     runTransaction: (label, fn) => {
       const abort = label === 'sync.pull.merge' ? decidePullKeyFailures(keyFailures) : null
       if (abort !== null) return Promise.reject(abort)
 
-      return storage.runTransaction(label, fn)
+      // Merge menarik menulis lewat adapter langsung (bukan `RecordWriter`), jadi kuota penuh di
+      // sini juga harus memunculkan banner - bukan berhenti sebagai kegagalan siklus yang tidak
+      // dijelaskan (temuan F1 QA #108).
+      return guardStorageWrite(() => storage.runTransaction(label, fn), atMs)
     },
   }
 

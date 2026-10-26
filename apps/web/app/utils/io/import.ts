@@ -12,6 +12,7 @@ import {
 } from '@improve-personal/core'
 
 import { encodeRecord } from '../storage/record-codec'
+import { guardStorageWrite } from '../storage/quota-guard'
 import { createOutboxId } from '../storage/uuid'
 import { notifyLocalWrite } from '../sync/events'
 import { indexEntryForRecord } from './index-entry'
@@ -50,15 +51,22 @@ export async function applyBackupDocument(
 ): Promise<ImportApplyResult> {
   const { target, document, mode, nowMs } = input
 
-  const result = await applyBackupImport({
-    storage: target.storage,
-    document,
-    mode,
+  // Import menulis lewat core (`applyBackupImport`), bukan `RecordWriter`, jadi guard kuota dipasang
+  // di sini - kalau tidak, kuota penuh saat import hanya muncul sebagai pesan generik tanpa banner
+  // (temuan F1 QA #108).
+  const result = await guardStorageWrite(
+    () =>
+      applyBackupImport({
+        storage: target.storage,
+        document,
+        mode,
+        nowMs,
+        seal: (record) => encodeRecord(target.provider, target.dataKey, record),
+        outboxIdFor: () => createOutboxId(),
+        indexFor: (record) => backupIndexEntry(record, nowMs),
+      }),
     nowMs,
-    seal: (record) => encodeRecord(target.provider, target.dataKey, record),
-    outboxIdFor: () => createOutboxId(),
-    indexFor: (record) => backupIndexEntry(record, nowMs),
-  })
+  )
 
   // HLC di berkas berasal dari perangkat lain dan bisa lebih besar dari jam perangkat ini. Tanpa
   // `observe`, edit berikutnya di sini memakai HLC lebih kecil dan kalah LWW saat sync - data hasil

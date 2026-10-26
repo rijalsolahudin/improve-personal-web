@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { LOCAL_WRITE_EVENT, SYNC_REMOTE_APPLIED_EVENT } from './events'
 import { runSync, startSync, stopSync } from './controller'
 import { clearQuarantineForTest, isQuarantined, quarantinedCount } from './quarantine'
+import { resetStorageQuotaForTest, storageQuotaState } from '../storage/pressure'
 
 import type { LocalDataSession } from '../storage/session'
 
@@ -115,6 +116,7 @@ function within<T>(promise: Promise<T>, label: string): Promise<T> {
 afterEach(() => {
   stopSync()
   clearQuarantineForTest()
+  resetStorageQuotaForTest()
   vi.useRealTimers()
   vi.unstubAllGlobals()
 })
@@ -357,6 +359,39 @@ describe('sync controller: pull menerapkan data perangkat lain (AC T77)', () => 
     } finally {
       listener.stop()
     }
+  })
+
+  it('kuota penuh saat merge pull: banner aktif dan siklus ditandai error', async () => {
+    const session = fakeSession({
+      openRecord: async () => JSON.stringify({ type: 'todo', schemaVersion: 1, data: {} }),
+    })
+    const base = session.storage as unknown as {
+      runTransaction: (label: string, fn: (tx: unknown) => Promise<unknown>) => Promise<unknown>
+    }
+
+    const quotaSession = {
+      ...session,
+      storage: {
+        ...session.storage,
+        runTransaction: (label: string, fn: (tx: unknown) => Promise<unknown>) =>
+          label === 'sync.pull.merge'
+            ? Promise.reject(new DOMException('penuh', 'QuotaExceededError'))
+            : base.runTransaction(label, fn),
+      },
+    } as LocalDataSession
+
+    const http = httpOf({
+      getJson: vi.fn(async () => ({
+        records: [remoteRecord()],
+        nextCursor: 0,
+      })) as unknown as HttpClient['getJson'],
+    })
+
+    startSync(quotaSession, 'https://app.test', { http, autoStart: false })
+    const outcome = await runSync({ pull: true })
+
+    expect(outcome).toMatchObject({ status: 'error' })
+    expect(storageQuotaState()).not.toBeNull()
   })
 
   it('pull kosong tidak memicu muat ulang (tidak ada kerja tambahan tiap 5 menit)', async () => {
