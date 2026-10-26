@@ -27,7 +27,12 @@ const localData = useLocalData()
 const cleaning = ref(false)
 const cleaned = ref<number | null>(null)
 
-const canCompact = computed(() => localData.current() !== null)
+/**
+ * `current()` membaca variabel modul non-reaktif (`opened`), jadi ia TIDAK boleh dipakai untuk
+ * memutuskan render: pada reload halaman Akun sesi dibuka setelah mount dan tombol tidak akan pernah
+ * muncul (QA #109). Status `ready` di `useState` adalah sinyal reaktif yang benar.
+ */
+const canCompact = computed(() => localData.state.value.status === 'ready')
 
 /**
  * Buang tombstone lokal >90 hari yang sudah terkirim (task #109). Batasnya sama dengan retensi
