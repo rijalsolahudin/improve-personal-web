@@ -61,6 +61,9 @@ describe('indikator status sync', () => {
     const wrapper = await mount()
 
     expect(wrapper.find('.sync').exists()).toBe(false)
+    // Root-nya juga tidak dirender: `.sync-wrap` item flex di dock, dan elemen kosong menambah `gap`
+    // (regresi T106 - jarak Pomodoro<->Hias jadi 20px).
+    expect(wrapper.find('.sync-wrap').exists()).toBe(false)
     expect(wrapper.text()).not.toMatch(/tersinkron|menunggu status/i)
   })
 
@@ -81,11 +84,14 @@ describe('indikator status sync', () => {
 
     expect(wrapper.text()).toContain('Menyinkronkan…')
     expect(wrapper.find('.spinner').exists()).toBe(true)
+    // Wrapper baru dirender saat ada yang perlu dilihat; sebelum siklus ia tidak ada sama sekali.
+    expect(wrapper.find('.sync-wrap').exists()).toBe(true)
 
     markSyncRunEnd()
     await flushPromises()
 
     expect(wrapper.find('.sync').exists()).toBe(false)
+    expect(wrapper.find('.sync-wrap').exists()).toBe(false)
     expect(wrapper.text()).not.toMatch(/tersinkron/i)
   })
 

@@ -47,6 +47,16 @@ const showIndicator = computed(() => {
   return isSyncing.value || (status !== null && ATTENTION_STATUSES.includes(status))
 })
 
+/**
+ * Apakah wrapper perlu dirender sama sekali.
+ *
+ * `.sync-wrap` adalah item flex di `.fab-dock`; item tanpa isi tetap dihitung `gap`, jadi membiarkannya
+ * sebagai elemen kosong menambah 10 px jarak Pomodoro↔Hias. Karena itu `v-if` dipasang di ROOT, bukan
+ * hanya di anak-anaknya. Komponennya sendiri tetap ter-mount (listener sync, interval, dan `watch`
+ * sesi data lokal jalan seperti biasa) - yang hilang hanya elemen DOM-nya.
+ */
+const hasContent = computed(() => showIndicator.value || sync.blockedCount.value > 0)
+
 const label = computed(() => {
   if (isSyncing.value) return t('sync.status.syncing')
 
@@ -200,7 +210,7 @@ watch(
 </script>
 
 <template>
-  <div class="sync-wrap">
+  <div v-if="hasContent" class="sync-wrap">
     <!--
       Keterangan, bukan status baru: record yang tidak bisa dibuka tetap tersimpan di perangkat dan
       tidak menghalangi sync lagi. Id record sengaja tidak ditampilkan (tidak berguna bagi user).
