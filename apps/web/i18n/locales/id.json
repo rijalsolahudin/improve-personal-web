@@ -1191,6 +1191,22 @@
       "unset": "belum diatur",
       "hint": "Kunci utama tidak pernah dikirim ke server. Server hanya menyimpan envelope passkey, dan itu pun tidak bisa dibuka tanpa passkey kamu."
     },
+    "storage": {
+      "title": "Penyimpanan",
+      "usageLabel": "Pemakaian",
+      "usageValue": "{used} dari {total} ({pct}%)",
+      "usageUnknown": "Browser tidak memberi angka pemakaian.",
+      "protectionLabel": "Perlindungan",
+      "protectionOn": "aktif",
+      "protectionOff": "belum aktif",
+      "protectionUnknown": "tidak diketahui",
+      "protectedHint": "Browser sudah menganggap data ini penting dan tidak akan membersihkannya otomatis saat ruang menipis.",
+      "unprotectedHint": "Tanpa perlindungan, browser bisa menghapus data lokal saat ruang perangkat menipis. Data tetap bisa dipulihkan selama passkey atau kode pemulihan masih ada.",
+      "nearFull": "Penyimpanan hampir penuh. Unduh backup dulu, lalu bersihkan data lama.",
+      "protect": "Minta perlindungan",
+      "backup": "Unduh backup",
+      "unsupported": "Browser ini tidak menyediakan informasi penyimpanan lokal."
+    },
     "passkey": {
       "title": "Passkey",
       "intro": "Passkey (sidik jari/Face ID/kunci keamanan) membuat login berikutnya tidak perlu OTP. Envelope kuncinya dititip ke server, tapi cuma bisa dibuka oleh passkey ini.",

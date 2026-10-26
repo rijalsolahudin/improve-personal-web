@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { ensureStorageProtection } from '~/utils/storage/durability'
+
 const route = useRoute()
 const isMenuOpen = ref(false)
 
@@ -33,6 +35,18 @@ const isDecoMounted = computed(
 function toggleDeco(): void {
   deco.setEditing(!deco.isEditing.value)
 }
+
+/**
+ * Minta status persistent storage sekali saat shell dibuka (ARCHITECTURE.md §5). Tanpa ini browser
+ * boleh membuang IndexedDB - termasuk database kunci - saat ruang perangkat menipis atau (Safari)
+ * karena situs lama tidak dibuka. `ensureStorageProtection` melewati permintaan kalau sudah persistent.
+ *
+ * Tidak menunggu hasilnya: penolakan browser bukan error, hanya berarti data tetap bisa di-evict
+ * (statusnya terlihat di kartu Penyimpanan pada halaman Akun).
+ */
+onMounted(() => {
+  void ensureStorageProtection()
+})
 </script>
 
 <template>

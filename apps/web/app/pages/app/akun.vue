@@ -9,6 +9,7 @@
  * dan kode pemulihan dalam SATU string (`iprk1.*`). Server hanya menyimpan envelope passkey.
  */
 import RecoveryBackupCard from '~/components/features/account/RecoveryBackupCard.vue'
+import StorageCard from '~/components/features/account/StorageCard.vue'
 import { BRAND } from '#shared/brand'
 
 definePageMeta({ layout: 'dashboard' })
@@ -80,6 +81,8 @@ async function activatePasskey(): Promise<void> {
     </article>
 
     <RecoveryBackupCard />
+
+    <StorageCard />
 
     <article class="card">
       <h2 class="card-title">{{ t('account.pairing.title') }}</h2>
