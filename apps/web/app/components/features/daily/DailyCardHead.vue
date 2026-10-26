@@ -97,4 +97,20 @@ const {
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
+
+/* QA #93 (temuan #91): judul + link `nowrap` butuh ~120px, sedangkan sisa baris setelah tile
+   38px dan progres ~148px tinggal ~101px saat isi kartu 311px (viewport 375px, padding layout
+   14px + kartu 18px) - judul lalu menimpa bar progres (QA #91 mengukur -4,1px @375, -59,1px
+   @320). Di <=400px progres turun ke baris kedua (selebar baris, tetap rata kanan seperti
+   design); di atas 400px baris tetap satu seperti sekarang. */
+@media (max-width: 400px) {
+  .head {
+    flex-wrap: wrap;
+  }
+
+  .progress {
+    flex-basis: 100%;
+    justify-content: flex-end;
+  }
+}
 </style>
