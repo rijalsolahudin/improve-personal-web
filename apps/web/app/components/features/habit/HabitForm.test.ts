@@ -3,16 +3,22 @@ import { flushPromises, type VueWrapper } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { resetHabitsHydrationForTest } from '~/composables/useHabits'
+import { resetLocalDataSessionForTest } from '~/composables/useLocalData'
 import type { Habit } from '~/utils/habits'
 
+import { TEST_USER_A, signIn } from '../../../../tests/nuxt/local-session'
 import HabitForm from './HabitForm.vue'
 
 /**
  * Form habit: menyimpan MENUNGGU tulisan ke penyimpanan selesai, jadi form hanya boleh tertutup kalau
  * tulisannya berhasil (QA F6 - dulu form tertutup seolah sukses lalu habit hilang setelah reload).
  *
- * Test ini berjalan tanpa sesi data lokal, yaitu kondisi nyata "penyimpanan belum bisa dibuka"
- * (SSR / perangkat terkunci). Karena itu jalur gagal bisa diuji tanpa mem-mock composable.
+ * Kondisi gagal dibuat EKSPLISIT di test ini: penyimpanan lokal milik akun uji tidak bisa dibuka
+ * (perangkat terkunci / storage tidak tersedia), sehingga `useLocalData.ensure()` mengembalikan `null`
+ * dan setiap tulis dilaporkan gagal. Sebelumnya test ini mengandalkan keadaan kebetulan "tidak ada sesi
+ * auth" - hasilnya bergantung timing request sesi dan gagal saat file dijalankan sendiri (Ergonio #86).
+ * Semua jalur gagal (simpan/arsip/hapus) memakai satu sesi yang sama; jalur sukses diuji di
+ * `useHabits.qa.test.ts` dengan sesi memori.
  */
 const EXISTING_ID = '018f2c4e-0000-7000-8000-0000000000aa'
 
@@ -27,6 +33,19 @@ const EXISTING: Habit = {
   goalId: null,
   isArchived: false,
 }
+
+/**
+ * Pembuka penyimpanan lokal yang SELALU gagal.
+ *
+ * Di-mock di batas penyimpanan (bukan composable internal): sesi data lokal memang tidak bisa dibuka,
+ * jadi `save`/`remove`/`setArchived` harus melaporkan gagal - bukan seolah sukses.
+ */
+const openSession = vi.hoisted(() => vi.fn())
+
+vi.mock('~/utils/storage/session', () => ({
+  LocalKeyMissingError: class LocalKeyMissingError extends Error {},
+  openLocalDataSession: openSession,
+}))
 
 let mounted: VueWrapper | null = null
 
@@ -53,23 +72,36 @@ function alertText(wrapper: VueWrapper): string {
 /**
  * Tunggu pesan gagal benar-benar mendarat.
  *
- * Jalur gagal menunggu penolakan sesi auth, yang di test tidak punya server - `flushPromises` bisa
- * selesai sebelum request ditolak, jadi assertion bisa membaca DOM kosong (flaky). Tidak memakai
- * delay tetap: `waitFor` berhenti begitu pesannya tampil.
+ * `waitFor` berhenti begitu pesannya tampil (tanpa delay tetap), jadi test tetap cepat sekaligus tidak
+ * rapuh terhadap jumlah microtask antrean tulis.
  */
 async function expectWriteError(wrapper: VueWrapper, text: string): Promise<void> {
   await vi.waitFor(() => expect(alertText(wrapper)).toBe(text))
 }
 
 beforeEach(() => {
-  clearNuxtState(['habits', 'habitsCheckIns', 'habitsStatus', 'habitsError', 'localData'])
+  clearNuxtState([
+    'habits',
+    'habitsCheckIns',
+    'habitsStatus',
+    'habitsError',
+    'localData',
+    'auth-session',
+    'auth-session-pending',
+    'auth-session-error',
+  ])
   resetHabitsHydrationForTest()
+  resetLocalDataSessionForTest()
+  openSession.mockReset()
+  openSession.mockRejectedValue(new Error('penyimpanan tidak bisa dibuka'))
+  signIn(TEST_USER_A)
 })
 
 afterEach(async () => {
   mounted?.unmount()
   mounted = null
   await flushPromises()
+  resetLocalDataSessionForTest()
 })
 
 describe('form habit', () => {
@@ -83,6 +115,8 @@ describe('form habit', () => {
     expect(mounted.find('form').exists()).toBe(true)
     expect(mounted.emitted('saved')).toBeUndefined()
     expect(mounted.emitted('close')).toBeUndefined()
+    // Tulisan yang gagal tidak boleh meninggalkan habit "hantu" di daftar.
+    expect(useState<Habit[]>('habits').value).toEqual([])
   })
 
   it('nama kosong: pesan validasi tampil dan form tidak tertutup', async () => {
