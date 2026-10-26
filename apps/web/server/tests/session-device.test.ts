@@ -74,6 +74,34 @@ async function waitForBlockedDeviceUpdate(sql: TestSql): Promise<void> {
   throw new Error('UPDATE adopsi tidak pernah menunggu lock: interleaving TOCTOU tidak terbentuk')
 }
 
+/**
+ * Tunggu sampai Postgres MENAHAN `SELECT ... FOR KEY SHARE` milik `issueSession` di baris perangkat.
+ *
+ * Sama seperti `waitForBlockedDeviceUpdate`: bukti interleaving datang dari `pg_stat_activity`, bukan
+ * `sleep` yang menebak-nebak. Dipakai untuk membuktikan revoke (FOR UPDATE) benar-benar MENGANTREKAN
+ * penerbitan sesi, bukan sekadar "kebetulan revoke-nya sudah selesai lebih dulu".
+ */
+async function waitForBlockedKeyShare(sql: TestSql): Promise<void> {
+  const deadline = Date.now() + BLOCKED_QUERY_TIMEOUT_MS
+
+  while (Date.now() < deadline) {
+    const rows = await sql<{ waiting: number }[]>`
+      select count(*)::int as waiting
+      from pg_stat_activity
+      where datname = current_database()
+        and wait_event_type = 'Lock'
+        and query ilike '%for key share%'
+    `
+    if ((rows[0]?.waiting ?? 0) > 0) return
+
+    await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS))
+  }
+
+  throw new Error(
+    'SELECT ... FOR KEY SHARE tidak pernah menunggu lock: serialisasi tidak terbentuk',
+  )
+}
+
 afterEach(async () => {
   await scope.dispose()
 })
@@ -734,6 +762,59 @@ describe('race revoke vs penerbitan sesi & batas perangkat atomik', () => {
       .from(sessions)
       .where(eq(sessions.deviceId, adoptedId))
     expect(rows).toHaveLength(0)
+  })
+
+  it('revoke memegang lock perangkat -> issueSession MENUNGGU lalu gagal, tanpa sesi terbit', async () => {
+    const fixture = scope.fixture({ prefix: 'device-issue-lock' })
+    const ctx = fixture.ctx()
+    const user = await findOrCreateUserByEmail(ctx, fixture.email)
+    const installationId = randomUUID()
+    const deviceId = await resolveDeviceForLogin(ctx, user.id, {
+      name: SAME_NAME,
+      platform: 'web',
+      installationId,
+    })
+
+    const racingSql = postgres(TEST_DATABASE_URL, { max: 2 })
+    const tx = await racingSql.reserve()
+
+    try {
+      // Revoke "sedang berjalan": `revokeDevice` mengunci baris dengan FOR UPDATE.
+      await tx`begin`
+      await tx`select id from devices where id = ${deviceId} for update`
+
+      // `issueSession` harus MENGANTRE di FOR KEY SHARE (bukan lolos membaca baris yang masih aktif).
+      const pending = issueSession(ctx, {
+        userId: user.id,
+        deviceId,
+        client: 'web',
+        installationId,
+      }).then(
+        (value) => ({ ok: true as const, value }),
+        (error: unknown) => ({ ok: false as const, error }),
+      )
+
+      await waitForBlockedKeyShare(racingSql)
+
+      // Revoke menang: commit, lalu issueSession dilanjutkan dan harus melihat baris yang sudah mati.
+      await tx`update devices set revoked_at = now() where id = ${deviceId}`
+      await tx`commit`
+
+      const result = await pending
+
+      expect(result.ok).toBe(false)
+      if (result.ok) throw new Error('issueSession menerbitkan sesi di atas perangkat revoked')
+      expect(result.error).toBeInstanceOf(DeviceNotActiveError)
+
+      const rows = await ctx.db
+        .select({ id: sessions.id })
+        .from(sessions)
+        .where(eq(sessions.deviceId, deviceId))
+      expect(rows).toHaveLength(0)
+    } finally {
+      await tx.release()
+      await racingSql.end({ timeout: 5 })
+    }
   })
 
   it('revoke yang menang sebelum issueSession -> loginDevice memakai perangkat BARU, bukan baris mati', async () => {
