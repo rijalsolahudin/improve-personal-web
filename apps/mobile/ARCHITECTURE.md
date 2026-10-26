@@ -10,7 +10,7 @@ Android (APK) + iOS. Dokumen ini **cuma** soal `apps/mobile`.
 
 `docs/PRD.md` di folder ini **symlink** ke `../../docs/PRD.md`, bukan salinan. Jangan diganti jadi file biasa - dua salinan pasti divergen.
 
-> **Status: belum ada kode.** `apps/mobile` baru berisi aturan (`.claude/rules/`) + dokumen ini. Isinya target, bukan deskripsi kode yang jalan. Bagian "Keputusan tertunda" di bawah wajib diberesin sebelum baris pertama ditulis.
+> **Status: belum ada kode.** `apps/mobile` baru berisi aturan (`.claude/rules/`) + dokumen ini. Isinya target, bukan deskripsi kode yang jalan. Keputusan arsitektur yang dulu tertunda sudah ditetapkan di §7 (task #59, 26 Oktober 2026).
 
 ---
 
@@ -19,28 +19,35 @@ Android (APK) + iOS. Dokumen ini **cuma** soal `apps/mobile`.
 | Hal | Keputusan | Sumber |
 |---|---|---|
 | Framework | Expo (dev build, bukan Expo Go buat rilis) | ADR Q4 |
-| Routing | Expo Router | ADR Q4 |
+| Routing | Expo Router (file-based, route group `(auth)`/`(app)`, typed routes) | ADR Q4 / §7 |
+| State | Zustand 5 - cermin reaktif `core`, bukan pemilik data | §7 |
 | Runtime | New Architecture (Fabric + TurboModules) + Hermes | `.claude/rules/performance.md` |
 | Bahasa | TypeScript strict, tanpa `any` | `.claude/rules/code-quality.md` |
 | Storage | SQLite + SQLCipher | §5 / §6 |
-| Kunci | `expo-secure-store` (Keychain / Keystore) | §5 / §7 |
+| Kunci | `expo-secure-store` (Keychain / Keystore) | §3 / §4 |
 | OTA | EAS Update, channel per env + code signing | §12 |
 
 ## 2. Struktur
 
 ```
-app/                    # Expo Router: file = route, tipis (susun komponen + hook)
+app/                    # Expo Router: file = route, tipis (≤ 40 baris)
 src/
-├── features/<domain>/  # screens, components, hooks per fitur
-├── platform/           # adapter: SQLite, SecureStore, biometrik, AppState
+├── features/<domain>/  # screens, components, hooks, store opsional + index.ts
+├── platform/           # adapter: SQLite, SecureStore, biometrik, HTTP, AppState
+├── providers/          # provider React lintas fitur (theme, session)
+├── stores/             # Zustand lintas fitur (session, sync, prefs)
 ├── components/ui/      # primitif UI reusable
+├── hooks/              # hook lintas domain
 ├── theme/              # dari packages/tokens
 └── utils/              # fungsi murni
+assets/                 # font, gambar, ikon
 docs/                   # symlink ke docs/ root
 ```
 
-- Organisasi per fitur, bukan per tipe. Import antar-feature ke internal feature lain dilarang - yang dipakai bareng naik ke `components/ui/` atau paket shared.
-- Arah dependensi ikut root §3: `apps/mobile` → `packages/core` + `packages/tokens`; nggak boleh import `apps/web`.
+- `app/` cuma route: import screen, validasi param, `_layout` yang menyusun provider. DILARANG logika bisnis, fetch, atau akses `core`/SQLite di `app/**`.
+- Organisasi per domain produk, bukan per tipe atau per layar. Import antar-feature ke internal feature lain dilarang - lewat `features/<domain>/index.ts`; yang dipakai bareng naik ke `components/ui/`, `hooks/`, `stores/`, atau paket shared.
+- `src/platform/` satu-satunya tempat import modul native (`expo-sqlite`, `expo-secure-store`, `expo-local-authentication`, `expo-notifications`, `react-native-libsodium`).
+- Arah dependensi ikut root §3: `apps/mobile` → `packages/core` + `packages/contracts` + `packages/tokens`; nggak boleh import `apps/web`.
 - Konvensi nama & ukuran file: [`.claude/rules/code-quality.md`](.claude/rules/code-quality.md).
 
 ## 3. Adapter native
@@ -50,7 +57,7 @@ docs/                   # symlink ke docs/ root
 | Port | Implementasi mobile |
 |---|---|
 | `StorageAdapter` | SQLite via `expo-sqlite` + SQLCipher (isi = ciphertext, sama seperti IndexedDB di web) |
-| `SecureKeyStore` | `expo-secure-store` (Keychain / Keystore), kunci non-extractable, aksesibilitas `WHEN_UNLOCKED_THIS_DEVICE_ONLY` |
+| `SecureKeyStore` | `expo-secure-store` (Keychain / Keystore), material kunci tidak pernah ke disk polos, aksesibilitas `WHEN_UNLOCKED_THIS_DEVICE_ONLY` |
 | `CryptoProvider` | `react-native-libsodium` - primitive identik web (ADR 8) |
 | `Clock` | jam perangkat + HLC |
 | `HttpClient` | `fetch` |
@@ -79,10 +86,20 @@ docs/                   # symlink ke docs/ root
 - Keystore Android & sertifikat iOS di luar repo (EAS credentials / secret CI).
 - Budget TTI, FPS, ukuran bundle: [`.claude/rules/performance.md`](.claude/rules/performance.md).
 
-## 7. Keputusan tertunda
+## 7. Keputusan arsitektur (ditetapkan 26 Oktober 2026)
 
-Belum diputusin, dan salah satu ini harus diberesin sebelum implementasi:
+Tiga keputusan yang dulu tertunda sudah final. Detail opsi, alasan, dan konsekuensi: [`reports/mobile-decisions.md`](../../reports/mobile-decisions.md).
 
-1. **Library state mobile.** Prinsipnya sama dengan web (ADR 9): store = cermin reaktif `core`, bukan pemilik data - `core` tetap satu-satunya jalur tulis. Yang belum ada: lib-nya apa. Kandidat `Zustand` (selector sempit, sesuai aturan re-render), tapi ini belum diputusin dan belum ada ADR-nya.
-2. **Bentuk navigasi.** ADR Q4 milih Expo Router (`app/` = route), tapi `.claude/rules/code-quality.md` bagian Navigasi masih berbentuk React Navigation (`src/navigation/`, `RootStackParamList`, `ParamList` per navigator). Pilih satu bentuk, lalu samain aturannya.
-3. **Posisi file fitur.** Aturan menyebut `src/features/<domain>/`, sedangkan root §10 sebelumnya nulis `src/features/<fitur>/` + `app/` untuk route. Struktur di §2 di atas udah gabungan keduanya - konfirmasi kalau maksudnya beda.
+| # | Keputusan | Ringkas |
+|---|---|---|
+| 1 | State | **Zustand 5** (`zustand@5.0.16`). Store = cermin reaktif `core`, bukan pemilik data. Domain data tetap dari repository/SQLite; dilarang cache domain kedua. TanStack Query belum dipasang; kalau nanti dipakai, hanya untuk data milik server (akun/perangkat). |
+| 2 | Navigasi | **Expo Router** (`expo-router@58.0.26`, SDK 58), file-based, route group `(auth)`/`(app)`, typed routes (`experiments.typedRoutes`). Tidak ada `src/navigation/`, `RootStackParamList`, atau import `@react-navigation/*` langsung. |
+| 3 | Posisi fitur | `app/` **hanya route**; logika/UI di `src/features/<domain>/`; adapter native di `src/platform/`; store lintas fitur di `src/stores/`; provider di `src/providers/`. Struktur §2 final. |
+
+Aturan turunan:
+
+- Semua tulis data lewat use case/repository `core`. Store tidak menulis DB, tidak fetch sendiri, tidak menyimpan token/master key.
+- `app/**` maksimal: import screen, validasi param (zod), `_layout` yang menyusun provider. Tidak ada logika bisnis/fetch/akses SQLite.
+- Satu library navigasi. React Navigation hanya dependency transitif Expo Router; kode app memakai API `expo-router`.
+- Import antar-fitur lewat `features/<domain>/index.ts`; yang dipakai bersama naik ke `components/ui`, `hooks`, `stores`, `platform`, atau paket shared.
+- Aturan kode yang mengikat: [`.claude/rules/code-quality.md`](.claude/rules/code-quality.md) (Struktur folder & Navigasi).
