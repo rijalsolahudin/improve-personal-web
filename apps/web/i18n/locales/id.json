@@ -163,6 +163,7 @@
     "nowMeta": "{done}/{total} selesai · {range}",
     "markDone": "Tandai selesai",
     "allDone": "Blok ini beres semua. Mantap!",
+    "noItems": "Belum ada jadwal atau langkah untuk blok ini.",
     "next": "Next",
     "nextIn": {
       "hours": "{h} jam {m} mnt lagi",

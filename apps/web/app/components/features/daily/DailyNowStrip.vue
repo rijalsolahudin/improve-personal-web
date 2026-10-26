@@ -29,6 +29,13 @@ const meta = computed(() =>
     range: `${formatMinutes(current.from * 60)}–${formatMinutes(current.to * 60 - 1)}`,
   }),
 )
+/**
+ * Blok tanpa item sama sekali bukan "selesai" - belum ada jadwal/langkah yang bisa dikerjakan.
+ *
+ * `nextItem === null` saja tidak cukup: nilainya juga `null` saat semua item sudah selesai, dan kedua
+ * keadaan itu butuh copy berbeda (Ergonio #89 - user baru melihat "beres semua" padahal daftar kosong).
+ */
+const isBlockEmpty = computed(() => current.total === 0)
 const nextIn = computed(() => {
   if (!next) return ''
   const { hours, minutes } = splitMinutes(next.minutesUntil)
@@ -59,6 +66,7 @@ const nextIn = computed(() => {
           <span class="step-title">{{ current.nextItem.title }}</span>
           <span class="visually-hidden">· {{ $t('daily.markDone') }}</span>
         </button>
+        <span v-else-if="isBlockEmpty" class="hand">{{ $t('daily.noItems') }}</span>
         <span v-else class="hand">{{ $t('daily.allDone') }}</span>
       </div>
     </div>
