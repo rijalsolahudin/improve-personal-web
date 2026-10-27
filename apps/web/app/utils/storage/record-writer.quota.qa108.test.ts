@@ -23,6 +23,7 @@ import { loadSodium } from '../crypto/sodium'
 import { writeRecord } from './record-writer'
 import { StorageQuotaError } from './quota'
 import { resetStorageQuotaForTest, storageQuotaState } from './pressure'
+import { TEST_USER_ID } from '../../../tests/nuxt/record-key'
 
 const START_MS = 1_700_000_000_000
 const DEVICE_ID = '018f2c4e-0000-7000-8000-0000000000d1'
@@ -55,7 +56,7 @@ describe('probe writeRecord + kuota', () => {
     const sodium = await loadSodium()
     const clock = createManualClock(START_MS)
     const provider = await createSodiumCryptoProvider()
-    const dataKey: SecureKeyMaterial = deriveDataKey(sodium, createMasterKey(sodium))
+    const dataKey: SecureKeyMaterial = deriveDataKey(sodium, createMasterKey(sodium), TEST_USER_ID)
 
     // Adapter tiruan: transaksi tulis selalu gagal karena kuota.
     const storage: StorageAdapter = {

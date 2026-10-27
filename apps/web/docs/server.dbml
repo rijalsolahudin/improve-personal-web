@@ -275,6 +275,26 @@ Table key_transfers {
   '''
 }
 
+// Identitas kunci akun (spec #120 §2.1): SATU baris per akun, selamanya (tanpa status/retire).
+Table account_keys {
+  id                      uuid        [pk, not null]
+  user_id                 uuid        [not null]
+  kid                     bytea       [not null, note: '16 byte; CHECK (octet_length(kid) = 16) — Postgres tidak punya bytea(16). Pengenal pseudonim, bukan kunci: DILARANG di-log']
+  claimed_at              timestamptz [not null, default: `now()`]
+  claimed_by_device_label text        [null, note: 'snapshot nama perangkat pengklaim (bukan FK), untuk layar split-brain']
+
+  indexes {
+    user_id [unique, name: 'uq_account_keys_user']
+  }
+
+  Note: '''
+  Klaim = INSERT ... ON CONFLICT (user_id) DO NOTHING: unique user_id itulah compare-and-set, jadi dua
+  perangkat yang mengklaim bersamaan tidak mungkin sama-sama menang. KID sama = klaim ulang idempoten;
+  KID beda = 409 KEY_IDENTITY_CONFLICT. Server TIDAK pernah memperlakukan "mengirim KID yang benar"
+  sebagai bukti memegang kunci.
+  '''
+}
+
 Table records {
   user_id     uuid        [not null]
   id          uuid        [not null, note: 'UUID v7 dibuat client']
@@ -283,7 +303,8 @@ Table records {
   hlc_counter int         [not null]
   hlc_device  text        [not null, note: 'deviceId lowercase tanpa dash, biar urutan leksikografis konsisten']
   deleted     bool        [not null, default: false, note: 'tombstone']
-  blob        bytea       [not null, note: 'XChaCha20-Poly1305(type + schemaVersion + data), AAD = id']
+  blob        bytea       [not null, note: 'XChaCha20-Poly1305(type + schemaVersion + data); header v2 ipr+0x02+KID, AAD kanonik (ARCHITECTURE ADR 13)']
+  kid         bytea       [null, note: 'KID dari header blob, diisi tiap push (push dengan KID selain account_keys.kid ditolak). CHECK (kid IS NULL OR octet_length(kid) = 16)']
   server_seq  bigint      [not null, note: 'nextval(records_seq) — cursor pull']
   created_at  timestamptz [not null, default: `now()`]
   updated_at  timestamptz [not null, default: `now()`, note: 'dipakai job purge tombstone']
@@ -343,6 +364,7 @@ Ref: key_envelopes.user_id > users.id
 
 Ref: key_transfers.user_id > users.id
 Ref: key_transfers.device_id > devices.id
+Ref: account_keys.user_id > users.id [delete: cascade]
 
 Ref: records.user_id > users.id
 

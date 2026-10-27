@@ -52,6 +52,20 @@ import type { RecordIndexEntry, SyncOp, SyncStatus } from './domain/storage.ts'
  */
 export const RECORD_INDEX_KEEP = 'keep'
 
+/**
+ * Keputusan pull untuk blob yang TIDAK boleh dipakai (spec #120 §4.4). Berbeda dari
+ * `RECORD_INDEX_KEEP`, dua nilai ini tidak pernah sampai ke `RecordWrite.index`: `pullDelta`
+ * memakainya untuk memutuskan apakah record ditulis sama sekali.
+ *
+ * - `'reject'`  : blob berstatus tidak sah (KID kita tapi AEAD gagal, v1 sesudah `v1Closed`, v1 di
+ *   atas cutoff, v1 menimpa v2 lokal). TIDAK ditulis, TIDAK di-`observe`, tapi DIKARANTINA lewat
+ *   `onReject` - bukan dibuang.
+ * - `'foreign'` : blob v2 milik KID lain. Seperti `'keep'`, tapi tombstone-nya juga tidak boleh
+ *   menimpa versi lokal, dan HLC-nya tidak pernah di-`observe`.
+ */
+export const RECORD_PULL_REJECT = 'reject'
+export const RECORD_PULL_FOREIGN = 'foreign'
+
 /** Satu baris `record` + `record_index` yang ditulis atomik bersama outbox. */
 export type RecordWrite = {
   /** Envelope ter-seal (`ARCHITECTURE.md` §6) - ciphertext + metadata plaintext. */
@@ -75,6 +89,13 @@ export type RecordWrite = {
    *   kehilangan record dari UI.
    */
   readonly index: RecordIndexEntry | null | typeof RECORD_INDEX_KEEP
+  /**
+   * `true` kalau blob ini disimpan tanpa bisa dibuka (`'keep'`/`'foreign'` dari pull). Adapter
+   * menyimpannya apa adanya dan menghapusnya (tidak ada) saat record ditimpa tulisan biasa. Dipakai
+   * `decideMerge`: remote yang terautentikasi menang atas record `opaque` berapa pun HLC-nya, supaya
+   * HLC tinggi dari blob yang tidak terbukti tidak membayangi versi sah selamanya (spec #120 M3).
+   */
+  readonly opaque?: boolean
   /** Operasi yang diantre untuk dikirim ke server (`put` = upsert, `delete` = tombstone). */
   readonly op: SyncOp
   /** Baris outbox baru; `id` dan `queuedAt` diisi core supaya adapter tidak perlu jam sendiri. */
@@ -245,6 +266,8 @@ export type StoredRecord = {
   readonly hlc: string
   readonly deleted: boolean
   readonly blob: string
+  /** Lihat `RecordWrite.opaque`. Tidak ada = blob ini pernah dibuka perangkat ini. */
+  readonly opaque?: boolean
   /** Pembukuan lokal, tidak disync. */
   readonly createdAtMs: number
   readonly updatedAtMs: number
@@ -345,22 +368,37 @@ export type SecureKeyMaterial = {
  * ditukar. DILARANG mengirim kunci polos ke jaringan (ARCHITECTURE.md §7).
  */
 export interface CryptoProvider {
-  /** Enkripsi plaintext JSON jadi `blob` ciphertext (XChaCha20-Poly1305, AAD = `recordId`). */
+  /**
+   * Enkripsi plaintext JSON jadi `blob` v2 (XChaCha20-Poly1305, AAD biner kanonik yang mengikat KID,
+   * akun, record, HLC, dan `deleted` - lihat `encodeRecordAadV2` di contracts).
+   */
   sealRecord: (input: SealRecordInput) => Promise<string>
   /** Buka `blob`; mengembalikan plaintext JSON. Melempar bila AAD/kunci tidak cocok. */
   openRecord: (input: OpenRecordInput) => Promise<string>
 }
 
-export type SealRecordInput = {
+/**
+ * Metadata record yang ikut diautentikasi AEAD (AAD v2). Nilainya HARUS sama persis saat seal dan
+ * open: mengubah `hlc`/`deleted` di luar blob membuat blob gagal dibuka.
+ *
+ * `userId` dan KID tidak ada di sini: keduanya melekat pada `dataKey` (bahan kunci terikat akun),
+ * sehingga pemanggil tidak bisa menyegel dengan akun yang berbeda dari pemilik kuncinya.
+ */
+export type RecordAadFields = {
   readonly recordId: string
-  /** Kunci data yang sudah ada di memori (hasil unlock). */
+  /** String HLC record (`wallMs-counter-deviceId`). */
+  readonly hlc: string
+  readonly deleted: boolean
+}
+
+export type SealRecordInput = RecordAadFields & {
+  /** Kunci data terikat akun yang sudah ada di memori (hasil unlock). */
   readonly dataKey: SecureKeyMaterial
   /** Plaintext JSON dari `{ type, schemaVersion, data }`. */
   readonly plaintext: string
 }
 
-export type OpenRecordInput = {
-  readonly recordId: string
+export type OpenRecordInput = RecordAadFields & {
   readonly dataKey: SecureKeyMaterial
   /** Ciphertext base64 dari `record.blob`. */
   readonly blob: string

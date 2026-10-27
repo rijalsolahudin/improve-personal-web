@@ -107,7 +107,7 @@ describe('pullDelta: tulisan lokal yang mendarat selama indexFor (M2)', () => {
 })
 
 describe("pullDelta: indexFor 'keep' (M3)", () => {
-  it('mempertahankan baris record_index lama saat blob tidak bisa didekripsi', async () => {
+  it('tidak menimpa record lokal dan index lamanya saat blob remote tidak bisa didekripsi', async () => {
     const clock = createManualClock(START_MS)
     const storage = createMemoryStorage({ clock })
     const hlc = createHlcGenerator({ deviceId: 'device-a', clock })
@@ -132,9 +132,11 @@ describe("pullDelta: indexFor 'keep' (M3)", () => {
       indexFor: () => 'keep',
     })
 
-    expect(summary.applied).toBe(1)
-    expect((await storage.getRecord(RECORD_ID))?.blob).toBe('AAAAAAAA')
-    // Inilah inti M3: record tetap bisa ditemukan lewat index lamanya.
+    // Blob remote tidak terbaca: versi lokal yang masih terbaca tidak boleh diganti olehnya.
+    expect(summary.applied).toBe(0)
+    expect(summary.skipped).toBe(1)
+    expect((await storage.getRecord(RECORD_ID))?.blob).toBe('LAMA')
+    // Inti M3: record tetap bisa ditemukan lewat index lamanya.
     await expect(storage.listIndexByType('todo')).resolves.toEqual([INDEX])
   })
 

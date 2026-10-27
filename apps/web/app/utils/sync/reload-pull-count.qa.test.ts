@@ -1,5 +1,5 @@
 import type { HttpClient } from '@improve-personal/core'
-import { mountSuspended } from '@nuxt/test-utils/runtime'
+import { mockNuxtImport, mountSuspended } from '@nuxt/test-utils/runtime'
 import { flushPromises, type VueWrapper } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -13,6 +13,14 @@ import { notifyRemoteApplied } from '~/utils/sync/events'
 import { registerSyncReloader, resetSyncReloadersForTest } from '~/utils/sync/refresh'
 
 import { TEST_USER_A, createMemoryLocalSession, signIn } from '../../../tests/nuxt/local-session'
+// Klaim identitas kunci (`PUT /v1/keys/identity`) berjalan sebelum `ready`; jaringan dimock di batas.
+mockNuxtImport('$fetch', () => async () => ({
+  data: {
+    kid: 'LBaTVGaXKfW710NOCIXptA',
+    claimedAt: '2026-10-27T00:00:00.000Z',
+    claimedByDeviceLabel: null,
+  },
+}))
 
 /**
  * Bukti level controller untuk security review #77 M1/AC "satu event = satu siklus sync".

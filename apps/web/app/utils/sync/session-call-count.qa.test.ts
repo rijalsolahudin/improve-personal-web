@@ -1,4 +1,4 @@
-import { mountSuspended } from '@nuxt/test-utils/runtime'
+import { mockNuxtImport, mountSuspended } from '@nuxt/test-utils/runtime'
 import { flushPromises, type VueWrapper } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { watch } from 'vue'
@@ -17,6 +17,14 @@ import { persistTask } from '~/utils/tasks/persistence'
 import type { Task } from '~/utils/tasks'
 
 import { TEST_USER_A, createMemoryLocalSession, signIn } from '../../../tests/nuxt/local-session'
+// Klaim identitas kunci (`PUT /v1/keys/identity`) berjalan sebelum `ready`; jaringan dimock di batas.
+mockNuxtImport('$fetch', () => async () => ({
+  data: {
+    kid: 'LBaTVGaXKfW710NOCIXptA',
+    claimedAt: '2026-10-27T00:00:00.000Z',
+    claimedByDeviceLabel: null,
+  },
+}))
 
 /**
  * Security review #77 M1: satu event reload pernah menghasilkan 6-9 siklus sync.

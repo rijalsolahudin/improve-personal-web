@@ -42,7 +42,7 @@ export type {
   StorageAdapter,
 } from './ports.ts'
 
-export { HttpError, RECORD_INDEX_KEEP } from './ports.ts'
+export { HttpError, RECORD_INDEX_KEEP, RECORD_PULL_FOREIGN, RECORD_PULL_REJECT } from './ports.ts'
 
 // -----------------------------------------------------------------------------
 // Domain, recurrence, calc, repository, io, sync, adapters

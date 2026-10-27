@@ -176,6 +176,8 @@ describe('persistensi task', () => {
     expect(
       await session.provider.openRecord({
         recordId: storedPlacement!.id,
+        hlc: storedPlacement!.hlc,
+        deleted: storedPlacement!.deleted,
         dataKey: session.dataKey,
         blob: storedPlacement!.blob,
       }),

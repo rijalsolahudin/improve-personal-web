@@ -1,4 +1,3 @@
-import { BRAND } from '#shared/brand'
 import {
   BackupCodeFormatError,
   BackupPassphraseError,
@@ -12,11 +11,7 @@ import { KeysRequestError, createKeysGateway } from '~/utils/crypto/keys-gateway
 import { PASSKEY_KDF, type PasskeyEnvelope } from '~/utils/crypto/passkey'
 import { createWebKeyStore } from '~/utils/crypto/key-store'
 import { createRecoveryGuard } from '~/utils/crypto/recovery-guard'
-import {
-  createWebAuthnAuthenticator,
-  createWebAuthnUserId,
-  isWebAuthnAvailable,
-} from '~/utils/crypto/webauthn'
+import { createWebAuthnAuthenticator, isWebAuthnAvailable } from '~/utils/crypto/webauthn'
 import { keyDatabaseName } from '~/utils/storage/database-names'
 import type { LocalDataSession } from '~/utils/storage/session'
 
@@ -139,13 +134,8 @@ export function useKeyRecovery() {
       const envelope = passkeyEnvelopeFrom(await keys.listEnvelopes())
       if (envelope === null) throw new NoPasskeyEnvelopeError()
 
-      const name = session.value?.user.email ?? BRAND.passkeyName
-      const prf = createWebAuthnAuthenticator({
-        rpName: BRAND.passkeyName,
-        userName: name,
-        userDisplayName: name,
-        userId: createWebAuthnUserId(),
-      })
+      // get() tidak butuh data user: passkey ditemukan sebagai discoverable credential.
+      const prf = createWebAuthnAuthenticator()
 
       await unlockWithPasskey({ envelope, prf, keyStore: stores().keyStore })
     })

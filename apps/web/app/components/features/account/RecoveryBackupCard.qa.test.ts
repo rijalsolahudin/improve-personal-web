@@ -74,7 +74,17 @@ async function createCode(wrapper: VueWrapper): Promise<string> {
 
 beforeEach(() => {
   fetchSpy.mockReset()
-  fetchSpy.mockResolvedValue({ data: { envelopes: [] } })
+  fetchSpy.mockImplementation(async (path: string) =>
+    path === '/v1/keys/identity'
+      ? {
+          data: {
+            kid: 'LBaTVGaXKfW710NOCIXptA',
+            claimedAt: '2026-10-27T00:00:00.000Z',
+            claimedByDeviceLabel: null,
+          },
+        }
+      : { data: { envelopes: [] } },
+  )
   shareSpy.mockClear()
   clipboardSpy.mockClear()
 

@@ -9,6 +9,7 @@ import { randomUUID } from 'node:crypto'
 
 import {
   compareHlc,
+  RECORD_V2_CIPHERTEXT_OFFSET,
   SEALED_RECORD_MAX_BLOB_BYTES,
   SYNC_MAX_BATCH,
   SYNC_MAX_PULL_BYTES,
@@ -22,11 +23,17 @@ import { afterAll, afterEach, describe, expect, it } from 'vitest'
 import { pullRecords, pushRecords } from '../services/sync'
 import { base64ToBytes, bytesToBase64 } from '../utils/crypto'
 import { records, syncWatermarks } from '../db/schema'
-import { closeTestDb, FIXED_NOW, informationSchemaColumns, testDb } from './helpers/harness'
+import {
+  claimedUserId,
+  closeTestDb,
+  FIXED_NOW,
+  informationSchemaColumns,
+  sealedBlobBase64,
+  testDb,
+} from './helpers/harness'
 import { captureProblem, testScope } from './helpers/scope'
 
 const scope = testScope()
-const encoder = new TextEncoder()
 
 function sealedRecord(input: {
   readonly id: string
@@ -39,7 +46,7 @@ function sealedRecord(input: {
     id: input.id,
     hlc: input.hlc,
     deleted: input.deleted ?? false,
-    blob: input.blob ?? bytesToBase64(encoder.encode(input.text ?? `ciphertext-${input.id}`)),
+    blob: input.blob ?? sealedBlobBase64(input.text ?? `ciphertext-${input.id}`),
   }
 }
 
@@ -68,7 +75,7 @@ describe('POST /v1/sync/push - LWW', () => {
     expect(compareHlc('999-0-a', '1000-0-b')).toBe(-1)
 
     const fixture = scope.fixture({ prefix: 'sync-hlc-trap' })
-    const userId = await fixture.userId()
+    const userId = await claimedUserId(fixture)
     const id = randomUUID()
 
     const olderFirst = await pushRecords(fixture.ctx(), userId, [
@@ -88,14 +95,12 @@ describe('POST /v1/sync/push - LWW', () => {
     expect(stored?.hlc).toBe('1000-0-b')
     expect(stored?.hlcWallMs).toBe(1000)
     expect(stored?.hlcDevice).toBe('b')
-    expect(bytesToBase64(stored?.blob ?? new Uint8Array())).toBe(
-      bytesToBase64(encoder.encode('versi-b')),
-    )
+    expect(bytesToBase64(stored?.blob ?? new Uint8Array())).toBe(sealedBlobBase64('versi-b'))
   })
 
   it('hlc lebih lama -> stale, dan data yang tersimpan TIDAK berubah (server_seq tetap)', async () => {
     const fixture = scope.fixture({ prefix: 'sync-stale' })
-    const userId = await fixture.userId()
+    const userId = await claimedUserId(fixture)
     const id = randomUUID()
 
     const winner = await pushRecords(fixture.ctx(), userId, [
@@ -113,14 +118,12 @@ describe('POST /v1/sync/push - LWW', () => {
     const stored = await storedRecord(userId, id)
     expect(stored?.hlc).toBe('1000-0-b')
     expect(stored?.serverSeq).toBe(winnerSeq)
-    expect(bytesToBase64(stored?.blob ?? new Uint8Array())).toBe(
-      bytesToBase64(encoder.encode('versi-baru')),
-    )
+    expect(bytesToBase64(stored?.blob ?? new Uint8Array())).toBe(sealedBlobBase64('versi-baru'))
   })
 
   it('hlc sama -> stale (tie-break tidak membuat dua perangkat saling menimpa)', async () => {
     const fixture = scope.fixture({ prefix: 'sync-tie' })
-    const userId = await fixture.userId()
+    const userId = await claimedUserId(fixture)
     const id = randomUUID()
 
     await pushRecords(fixture.ctx(), userId, [
@@ -132,14 +135,12 @@ describe('POST /v1/sync/push - LWW', () => {
 
     expect(tied.results.at(0)).toMatchObject({ status: 'stale', serverHlc: '1500-0-a' })
     const stored = await storedRecord(userId, id)
-    expect(bytesToBase64(stored?.blob ?? new Uint8Array())).toBe(
-      bytesToBase64(encoder.encode('pemenang')),
-    )
+    expect(bytesToBase64(stored?.blob ?? new Uint8Array())).toBe(sealedBlobBase64('pemenang'))
   })
 
   it('record yang menang lagi dapat `server_seq` BARU supaya perangkat lain menariknya', async () => {
     const fixture = scope.fixture({ prefix: 'sync-reseq' })
-    const userId = await fixture.userId()
+    const userId = await claimedUserId(fixture)
     const id = randomUUID()
 
     const first = await pushRecords(fixture.ctx(), userId, [
@@ -156,10 +157,10 @@ describe('POST /v1/sync/push - LWW', () => {
 
   it('ciphertext tersimpan apa adanya: server tidak mengubah dan tidak mendekripsi apa pun', async () => {
     const fixture = scope.fixture({ prefix: 'sync-ciphertext' })
-    const userId = await fixture.userId()
+    const userId = await claimedUserId(fixture)
     const id = randomUUID()
     const plaintextLikePayload = 'XChaCha20-Poly1305|type=memo|isi=yang-tidak-boleh-dibaca-server'
-    const blob = bytesToBase64(encoder.encode(plaintextLikePayload))
+    const blob = sealedBlobBase64(plaintextLikePayload)
 
     await pushRecords(fixture.ctx(), userId, [{ id, hlc: '1000-0-a', deleted: false, blob }])
 
@@ -174,7 +175,7 @@ describe('POST /v1/sync/push - LWW', () => {
 
   it('hlc rusak ditolak SATU record saja (`rejected`), record lain dalam batch tetap masuk', async () => {
     const fixture = scope.fixture({ prefix: 'sync-rejected' })
-    const userId = await fixture.userId()
+    const userId = await claimedUserId(fixture)
     const goodId = randomUUID()
     const badId = randomUUID()
 
@@ -184,7 +185,7 @@ describe('POST /v1/sync/push - LWW', () => {
         id: badId,
         hlc: 'bukan-hlc-sama-sekali',
         deleted: false,
-        blob: bytesToBase64(encoder.encode('x')),
+        blob: sealedBlobBase64('x'),
       },
       sealedRecord({ id: goodId, hlc: '1000-0-a' }),
     ])
@@ -195,7 +196,7 @@ describe('POST /v1/sync/push - LWW', () => {
 
   it('blob melebihi batas ditolak permanen (`rejected`), bukan disimpan setengah', async () => {
     const fixture = scope.fixture({ prefix: 'sync-oversize' })
-    const userId = await fixture.userId()
+    const userId = await claimedUserId(fixture)
     const id = randomUUID()
     const tooBig = bytesToBase64(new Uint8Array(SEALED_RECORD_MAX_BLOB_BYTES + 1))
 
@@ -209,7 +210,7 @@ describe('POST /v1/sync/push - LWW', () => {
 
   it('deviceId di HLC dinormalkan (lowercase, tanpa dash) supaya tie-break konsisten', async () => {
     const fixture = scope.fixture({ prefix: 'sync-hlc-normalize' })
-    const userId = await fixture.userId()
+    const userId = await claimedUserId(fixture)
     const id = randomUUID()
 
     await pushRecords(fixture.ctx(), userId, [sealedRecord({ id, hlc: '1000-0-ABCD-1234' })])
@@ -243,8 +244,8 @@ describe('POST /v1/sync/push - LWW', () => {
   it('user lain tidak bisa menimpa record user ini walau `id`-nya sama', async () => {
     const alice = scope.fixture({ prefix: 'sync-alice' })
     const bob = scope.fixture({ prefix: 'sync-bob' })
-    const aliceId = await alice.userId()
-    const bobId = await bob.userId()
+    const aliceId = await claimedUserId(alice)
+    const bobId = await claimedUserId(bob)
     const sharedId = randomUUID()
 
     await pushRecords(bob.ctx(), bobId, [
@@ -256,10 +257,10 @@ describe('POST /v1/sync/push - LWW', () => {
 
     expect(alicePush.results.at(0)?.status).toBe('applied')
     expect(bytesToBase64((await storedRecord(bobId, sharedId))?.blob ?? new Uint8Array())).toBe(
-      bytesToBase64(encoder.encode('milik-bob')),
+      sealedBlobBase64('milik-bob'),
     )
     expect(bytesToBase64((await storedRecord(aliceId, sharedId))?.blob ?? new Uint8Array())).toBe(
-      bytesToBase64(encoder.encode('milik-alice')),
+      sealedBlobBase64('milik-alice'),
     )
   })
 })
@@ -267,7 +268,7 @@ describe('POST /v1/sync/push - LWW', () => {
 describe('GET /v1/sync/pull - delta berhalaman', () => {
   it('hanya record setelah cursor, urut server_seq, dan nextCursor = posisi record terakhir', async () => {
     const fixture = scope.fixture({ prefix: 'sync-pull' })
-    const userId = await fixture.userId()
+    const userId = await claimedUserId(fixture)
     const first = randomUUID()
     const second = randomUUID()
     const third = randomUUID()
@@ -303,7 +304,7 @@ describe('GET /v1/sync/pull - delta berhalaman', () => {
 
   it('tombstone ikut tersimpan dan ikut terkirim (delete tidak hilang diam-diam)', async () => {
     const fixture = scope.fixture({ prefix: 'sync-tombstone' })
-    const userId = await fixture.userId()
+    const userId = await claimedUserId(fixture)
     const id = randomUUID()
 
     await pushRecords(fixture.ctx(), userId, [sealedRecord({ id, hlc: '1000-0-a', text: 'hidup' })])
@@ -322,8 +323,8 @@ describe('GET /v1/sync/pull - delta berhalaman', () => {
   it('pull user A tidak pernah memuat record user B', async () => {
     const alice = scope.fixture({ prefix: 'pull-alice' })
     const bob = scope.fixture({ prefix: 'pull-bob' })
-    const aliceId = await alice.userId()
-    const bobId = await bob.userId()
+    const aliceId = await claimedUserId(alice)
+    const bobId = await claimedUserId(bob)
     const bobRecordId = randomUUID()
 
     await pushRecords(bob.ctx(), bobId, [sealedRecord({ id: bobRecordId, hlc: '1000-0-a' })])
@@ -336,7 +337,7 @@ describe('GET /v1/sync/pull - delta berhalaman', () => {
 
   it('cursor di bawah purged_seq -> 409 SYNC_RESET_REQUIRED; cursor di atasnya aman', async () => {
     const fixture = scope.fixture({ prefix: 'sync-reset' })
-    const userId = await fixture.userId()
+    const userId = await claimedUserId(fixture)
 
     const pushed = await pushRecords(fixture.ctx(), userId, [
       sealedRecord({ id: randomUUID(), hlc: '1000-0-a' }),
@@ -380,7 +381,10 @@ describe('GET /v1/sync/pull - plafon BYTE halaman (H2)', () => {
     userId: string,
     count: number,
   ) {
-    const blob = bytesToBase64(new Uint8Array(SEALED_RECORD_MAX_BLOB_BYTES))
+    // Blob v2 sah yang panjangnya TEPAT batas maksimum (header + nonce = offset ciphertext).
+    const blob = sealedBlobBase64(
+      'x'.repeat(SEALED_RECORD_MAX_BLOB_BYTES - RECORD_V2_CIPHERTEXT_OFFSET),
+    )
     const ids = Array.from({ length: count }, () => randomUUID())
 
     await pushRecords(
@@ -394,7 +398,7 @@ describe('GET /v1/sync/pull - plafon BYTE halaman (H2)', () => {
 
   it('halaman dipotong supaya total byte tidak pernah melewati plafon, dan tidak ada record terlewat', async () => {
     const fixture = scope.fixture({ prefix: 'sync-pull-bytes' })
-    const userId = await fixture.userId()
+    const userId = await claimedUserId(fixture)
     const totalRecords = 6
     const { ids, blob } = await seedLargeRecords(fixture, userId, totalRecords)
     const perRecordBytes = base64ToBytes(blob).byteLength
@@ -435,7 +439,7 @@ describe('GET /v1/sync/pull - plafon BYTE halaman (H2)', () => {
 
   it('permintaan maksimum (`limit=500`) tetap tidak bisa membangun respons ratusan MB', async () => {
     const fixture = scope.fixture({ prefix: 'sync-pull-bytes-max' })
-    const userId = await fixture.userId()
+    const userId = await claimedUserId(fixture)
     const { blob } = await seedLargeRecords(fixture, userId, 6)
     const perRecordBytes = base64ToBytes(blob).byteLength
 
@@ -449,7 +453,7 @@ describe('GET /v1/sync/pull - plafon BYTE halaman (H2)', () => {
 
   it('halaman selalu berisi MINIMAL satu record (klien tidak bisa macet di cursor yang sama)', async () => {
     const fixture = scope.fixture({ prefix: 'sync-pull-bytes-progress' })
-    const userId = await fixture.userId()
+    const userId = await claimedUserId(fixture)
     const { ids } = await seedLargeRecords(fixture, userId, 1)
 
     const page = await pullRecords(fixture.ctx(), userId, { cursor: 0, limit: 1 })
@@ -478,6 +482,7 @@ describe('bukti zero-knowledge pada skema DB', () => {
         'hlc_device',
         'hlc_wall_ms',
         'id',
+        'kid',
         'server_seq',
         'updated_at',
         'user_id',

@@ -64,6 +64,42 @@ describe('ERROR_CODES', () => {
     expect(ERROR_HTTP_STATUS.METHOD_NOT_ALLOWED).toBe(405)
     expect(ERROR_HTTP_STATUS.METHOD_NOT_ALLOWED).not.toBe(ERROR_HTTP_STATUS.INTERNAL)
   })
+
+  it('kode identitas kunci (#120) punya status sesuai spec dan tidak menumpang kode lama', () => {
+    expect(ERROR_HTTP_STATUS.KEY_IDENTITY_CONFLICT).toBe(409)
+    expect(ERROR_HTTP_STATUS.KEY_IDENTITY_CONFLICT).not.toBe(ERROR_HTTP_STATUS.FORBIDDEN)
+  })
+
+  it('kode lama tidak berubah arti: tidak ada yang bergeser status atau urutan', () => {
+    expect(ERROR_CODES.slice(0, 12)).toEqual([
+      'VALIDATION_FAILED',
+      'UNAUTHENTICATED',
+      'FORBIDDEN',
+      'NOT_FOUND',
+      'RATE_LIMITED',
+      'OTP_INVALID',
+      'OTP_EXPIRED',
+      'OAUTH_INVALID',
+      'SYNC_RESET_REQUIRED',
+      'PAYLOAD_TOO_LARGE',
+      'DEVICE_LIMIT_REACHED',
+      'METHOD_NOT_ALLOWED',
+    ])
+    expect(ERROR_HTTP_STATUS.FORBIDDEN).toBe(403)
+    expect(ERROR_HTTP_STATUS.DEVICE_LIMIT_REACHED).toBe(409)
+    expect(ERROR_HTTP_STATUS.INTERNAL).toBe(500)
+  })
+
+  it('pesan kode baru generik: tanpa KID, email, atau fakta akun', () => {
+    for (const code of ['KEY_IDENTITY_CONFLICT'] as const) {
+      const pesan = GENERIC_ERROR_MESSAGES[code]
+
+      expect(pesan.length).toBeGreaterThan(0)
+      expect(pesan.length).toBeLessThanOrEqual(300)
+      expect(pesan).not.toMatch(/[A-Za-z0-9_-]{22}/)
+      expect(pesan).not.toMatch(/@/)
+    }
+  })
 })
 
 describe('amplop error `{ error: { code, message, details? } }`', () => {

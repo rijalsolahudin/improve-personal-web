@@ -1,5 +1,7 @@
 import { z } from 'zod'
 
+import { deviceNameSchema } from './devices.ts'
+import { kidSchema } from './record-format.ts'
 import {
   base64MaxLengthForBytes,
   base64WithinBytesSchema,
@@ -179,3 +181,65 @@ export const keyTransferClaimResultSchema = z
   .strict()
 
 export type KeyTransferClaimResult = z.infer<typeof keyTransferClaimResultSchema>
+
+// -----------------------------------------------------------------------------
+// Identitas kunci akun (spec #120 §2.1): satu KID per akun
+// -----------------------------------------------------------------------------
+
+/**
+ * Endpoint identitas kunci. Server menyimpan KID (pengenal pseudonim, bukan kunci) supaya perangkat
+ * baru tahu "akun ini sudah punya kunci" dan tidak diam-diam membuat master key kedua (split-brain).
+ *
+ *   - GET /v1/keys/identity  -> keyIdentityDtoSchema (200)
+ *   - PUT /v1/keys/identity  keyIdentityClaimInputSchema -> keyIdentityDtoSchema
+ *                            (201 baru, 200 klaim ulang KID yang sama; 409 KEY_IDENTITY_CONFLICT)
+ *
+ * Klaim bersifat sekali-seumur-akun: tidak ada jalur ganti/reset KID. Akun yang kehilangan kuncinya
+ * dihapus lalu dibuat ulang (belum ada data produksi saat desain ini dikunci).
+ *
+ * KID DILARANG di-log, dikirim ke analytics, atau ditaruh di URL (itu sebabnya KID lewat body, bukan
+ * path/query). KID juga BUKAN bukti kepemilikan kunci: server tidak boleh menganggap "mengirim KID
+ * yang benar" sebagai autentikasi.
+ */
+
+/** `PUT /v1/keys/identity` - klaim KID untuk akun. `userId` tidak ada di body: selalu dari sesi. */
+export const keyIdentityClaimInputSchema = z.object({ kid: kidSchema }).strict()
+
+export type KeyIdentityClaimInput = z.infer<typeof keyIdentityClaimInputSchema>
+
+/**
+ * Identitas kunci seperti yang dilihat client: dipakai `GET` dan hasil `PUT` (200/201).
+ *
+ * `kid: null` = akun belum pernah mengklaim; field turunannya ikut `null`. `claimedByDeviceLabel` ikut
+ * `null` bila perangkat pengklaim tidak punya label. Label dan waktu ini yang nanti ditampilkan di
+ * layar split-brain supaya user bisa mengenali klaim yang bukan miliknya.
+ */
+export const keyIdentityDtoSchema = z
+  .object({
+    kid: kidSchema.nullable(),
+    claimedAt: isoInstantSchema.nullable(),
+    claimedByDeviceLabel: deviceNameSchema.nullable(),
+  })
+  .strict()
+  .refine(
+    (identity) =>
+      identity.kid === null
+        ? identity.claimedAt === null && identity.claimedByDeviceLabel === null
+        : identity.claimedAt !== null,
+    'tanpa kid, field klaim harus null; dengan kid, claimedAt wajib ada',
+  )
+
+export type KeyIdentityDto = z.infer<typeof keyIdentityDtoSchema>
+
+/**
+ * `details` untuk `409 KEY_IDENTITY_CONFLICT`. Sengaja TANPA KID lawan: KID pseudonim, dan klien yang
+ * kalah cukup tahu siapa/kapan pengklaimnya, sedangkan KID yang benar ia baca dari `GET`.
+ */
+export const keyIdentityConflictDetailsSchema = z
+  .object({
+    claimedAt: isoInstantSchema,
+    claimedByDeviceLabel: deviceNameSchema.nullable(),
+  })
+  .strict()
+
+export type KeyIdentityConflictDetails = z.infer<typeof keyIdentityConflictDetailsSchema>

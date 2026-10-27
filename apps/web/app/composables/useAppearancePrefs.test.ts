@@ -24,6 +24,7 @@ import {
   toPrefStyle,
   useAppearancePrefs,
 } from './useAppearancePrefs'
+import { TEST_KID_WIRE } from '../../tests/nuxt/record-key'
 
 /**
  * Preferensi tampilan di atas `user_prefs` (F16, AC3).
@@ -52,6 +53,7 @@ function memorySession(userId = '018f2c4e-0000-7000-8000-00000000000a'): LocalDa
     provider: fakeProvider,
     clock,
     dataKey: DATA_KEY,
+    kid: TEST_KID_WIRE,
     hlc,
     deviceId: '018f2c4e-0000-7000-8000-0000000000d1',
     userId,

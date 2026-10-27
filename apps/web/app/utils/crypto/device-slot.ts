@@ -1,3 +1,5 @@
+import { TECH_IDENTITY } from '#shared/tech-identity'
+
 import type { SecureKeyMaterial, SecureKeyStore } from '@improve-personal/core'
 
 import { assertMasterKey } from './master-key'
@@ -44,6 +46,53 @@ const AES_KW = 'AES-KW'
 
 /** Panjang kunci pembuka (bit). 256 adalah maksimum yang didukung AES-KW. */
 const DEVICE_KEY_BITS = 256
+
+/**
+ * Nama Web Lock untuk "cek slot kosong -> tulis" slot `device`.
+ *
+ * Sengaja SATU nama untuk semua akun, bukan per akun: port `SecureKeyStore` tidak membuka nama
+ * databasenya, sedangkan lock harus bernama sama di semua tab yang menyentuh database yang sama. Yang
+ * dikunci hanya dua operasi IndexedDB kecil (tanpa jaringan, tanpa kripto), jadi akun lain yang
+ * kebetulan menunggu hanya tertahan beberapa milidetik.
+ */
+const DEVICE_SLOT_LOCK_NAME = `${TECH_IDENTITY.keyDatabasePrefix}-device-slot`
+
+/**
+ * Slot `device` sudah terisi saat hendak ditulis.
+ *
+ * Dibuat bertipe (bukan `Error` biasa) supaya pemanggil bisa membedakan "tab lain sudah lebih dulu
+ * menyimpan pembuka" - yang jalan keluarnya membuka kunci yang tersimpan - dari kegagalan sungguhan.
+ */
+export class DeviceSlotOccupiedError extends Error {
+  constructor() {
+    super(
+      'slot device sudah terisi: pembuka perangkat tidak boleh ditimpa diam-diam (pakai rotasi eksplisit)',
+    )
+    this.name = 'DeviceSlotOccupiedError'
+  }
+}
+
+/**
+ * Jalankan `work` sambil memegang lock slot `device` secara eksklusif lintas tab.
+ *
+ * Tanpa Web Locks fungsi ini MENOLAK bekerja, sama seperti penulis record (`createWebLocksRunner`):
+ * fallback "jalan tanpa lock" justru membuka lagi balapan dua tab yang membuat kunci utama berbeda.
+ * `openLocalDataSession` sudah memeriksa syarat ini lebih dulu (`checkLocalDataEnvironment`), jadi di
+ * jalur normal error ini tidak pernah terlihat user.
+ */
+async function withDeviceSlotLock<T>(work: () => Promise<T>): Promise<T> {
+  // `null` juga dianggap tidak ada: sebagian runtime (mis. happy-dom) mengisi properti ini dengan null.
+  const locks = globalThis.navigator?.locks
+  if (locks === undefined || locks === null) {
+    throw new Error(
+      `Web Locks API tidak tersedia: slot device butuh lock "${DEVICE_SLOT_LOCK_NAME}" supaya dua tab tidak menyimpan kunci utama berbeda`,
+    )
+  }
+
+  // Tanpa opsi: mode default Web Locks sudah `exclusive`, dan bentuk dua argumen ini sama dengan
+  // penulis record - jadi stub lock di test komponen berlaku untuk keduanya.
+  return locks.request(DEVICE_SLOT_LOCK_NAME, work)
+}
 
 /**
  * Salin byte ke `ArrayBuffer` baru untuk WebCrypto.
@@ -118,9 +167,14 @@ export async function unwrapMasterKeyWithDevice(
 /**
  * Simpan pembuka perangkat untuk kunci utama ini.
  *
- * MENOLAK menimpa slot yang sudah terisi: menimpa berarti kunci utama lama kehilangan satu-satunya
- * pembukanya tanpa peringatan apa pun. Rotasi kunci harus jadi tindakan eksplisit, bukan efek samping
- * dari pemanggilan fungsi ini dua kali.
+ * MENOLAK menimpa slot yang sudah terisi (`DeviceSlotOccupiedError`): menimpa berarti kunci utama lama
+ * kehilangan satu-satunya pembukanya tanpa peringatan apa pun. Rotasi kunci harus jadi tindakan
+ * eksplisit, bukan efek samping dari pemanggilan fungsi ini dua kali.
+ *
+ * Cek "slot kosong" dan penulisannya dijalankan di bawah satu Web Lock eksklusif: tanpa itu, dua tab
+ * yang sama-sama melihat slot kosong akan menulis bergantian, dan tulisan terakhir diam-diam membuang
+ * kunci tab lain - padahal tab itu mungkin sudah menyegel record dengan kunci tersebut. Pembungkusan
+ * kunci dikerjakan SEBELUM lock diambil supaya bagian yang dikunci sependek mungkin.
  */
 export async function saveDeviceUnlock(
   keyStore: SecureKeyStore,
@@ -128,18 +182,16 @@ export async function saveDeviceUnlock(
 ): Promise<void> {
   assertMasterKey(masterKey)
 
-  if (await keyStore.has(DEVICE_SLOT)) {
-    throw new Error(
-      'slot device sudah terisi: pembuka perangkat tidak boleh ditimpa diam-diam (pakai rotasi eksplisit)',
-    )
-  }
-
   const wrappingKey = await createDeviceWrappingKey()
   const wrappedMasterKey = await wrapMasterKeyWithDevice(masterKey, wrappingKey)
 
-  await keyStore.put(DEVICE_SLOT, {
-    kind: DEVICE_MATERIAL_KIND,
-    handle: { wrappingKey, wrappedMasterKey },
+  await withDeviceSlotLock(async () => {
+    if (await keyStore.has(DEVICE_SLOT)) throw new DeviceSlotOccupiedError()
+
+    await keyStore.put(DEVICE_SLOT, {
+      kind: DEVICE_MATERIAL_KIND,
+      handle: { wrappingKey, wrappedMasterKey },
+    })
   })
 }
 
@@ -163,9 +215,13 @@ export async function unlockMasterKeyWithDevice(keyStore: SecureKeyStore): Promi
   return unwrapMasterKeyWithDevice(wrappedMasterKey, wrappingKey)
 }
 
-/** Cabut pembuka perangkat (mis. saat user mencabut akses perangkat ini). */
+/**
+ * Cabut pembuka perangkat (mis. saat user mencabut akses perangkat ini, atau membuang kunci baru yang
+ * ditolak server). Di bawah lock slot yang sama dengan `saveDeviceUnlock`, supaya tidak berpapasan
+ * dengan tab lain yang sedang mengisi slot.
+ */
 export async function removeDeviceUnlock(keyStore: SecureKeyStore): Promise<void> {
-  await keyStore.remove(DEVICE_SLOT)
+  await withDeviceSlotLock(() => keyStore.remove(DEVICE_SLOT))
 }
 
 /**

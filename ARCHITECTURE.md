@@ -191,7 +191,25 @@ type SealedRecord = {
 ```
 
 - `type` ikut dienkripsi - server nggak tahu record itu memo atau todo.
-- AAD = `id` → blob nggak bisa dipindah ke record lain.
+- AAD v1 = `id` → blob nggak bisa dipindah ke record lain. Sejak blob v2 (ADR 13) AAD juga mengikat `userId`, `hlc`, dan `deleted`, jadi isi lama nggak bisa di-rollback dan tombstone nggak bisa dipalsukan.
+
+**Blob v2** (detail & alasan: ADR 13, spec `reports/spec-120-key-identity.md` §4). Kontrak byte-nya dikunci di `packages/contracts/src/record-format.ts` + vektor emas `record-format.test.ts`; seal/open sungguhan tetap di client.
+
+```
+offset 0  : magic   3 B  = "ipr" (0x69 0x70 0x72)
+offset 3  : version 1 B  = 0x02
+offset 4  : kid    16 B
+offset 20 : nonce  24 B  (XChaCha20-Poly1305 IETF, acak)
+offset 44 : ciphertext(pad(plaintext, 256)) || tag 16 B
+AAD = "ip-record" || 0x00 || header[0..20) || userId || recordId
+      || wallMs (u64 BE) || counter (u32 BE) || len(devId) (u8) || devId || deleted (u8)
+```
+
+- Header (`magic+versi+KID`) ikut AAD; nonce di luar AAD. Overhead tetap 60 B, panjang blob `60 + 256 * ceil((n + 1) / 256)`.
+- Padding ISO/IEC 7816-4 (`sodium.pad`, bucket 256 B) ada di dalam plaintext sebelum seal, jadi panjang yang bocor ke server cuma per bucket. HLC dan pola aktivitas tetap kelihatan (metadata polos).
+- Encoding AAD injektif dan memakai tuple HLC yang sudah dinormalisasi: string HLC berbeda dengan tuple sama menghasilkan AAD identik.
+- Blob v1 (tanpa header) tetap terbaca selama masa transisi. Parser header mengembalikan `null` (tanpa throw) untuk blob < 60 B atau versi tak dikenal.
+
 - Index lokal untuk query rentang tanggal (kalender, overview) disimpan di **tabel index terpisah yang juga terenkripsi di disk** atau dibangun di memori saat unlock. Jalur panas = query index, bukan decrypt semua record.
 
 ### Entitas utama
@@ -207,7 +225,10 @@ devices(id, user_id, name, last_seen_at, last_ip_city, revoked_at)
 sessions(id, device_id, token_hash, expires_at)
 otp_challenges(id, email_hash, code_hash, expires_at, attempts)
 key_envelopes(id, user_id, kind[passkey], wrapped_key, kdf_params, created_at)   -- ADR 10-11: cuma passkey
-records(user_id, id, hlc, deleted, blob, server_seq BIGSERIAL)   -- PK (user_id, id)
+records(user_id, id, hlc, deleted, blob, server_seq BIGSERIAL, kid NULL)   -- PK (user_id, id); kid = KID dari header blob v2 (v1 = NULL)
+account_keys(user_id, kid, status[active|retired], created_by_device_id, created_at, retired_at, retire_after, retire_requested_by_device_id)   -- PK (user_id, kid); unik parsial: 1 baris active per user
+account_key_devices(user_id, kid, device_id, confirmed_at)   -- perangkat yang sudah memverifikasi KID itu
+record_format_state(id=1, phase 1..3, v1_cutoff_ms NULL)   -- fase rollout format record; tanpa baris = fase 1 (tulis v1, tanpa 426)
 ```
 
 `server_seq` = cursor pull. Nggak ada kolom plaintext data user.
@@ -230,6 +251,10 @@ flowchart TD
 - Envelope `recovery` IKUT tersimpan di berkas backup user, bukan di server (ADR 11). 24 kata saja tidak cukup: MK dibuat acak, jadi tanpa envelope-nya recovery tidak bisa memulihkan apa pun.
 - Recovery key salah → rate limit DI PERANGKAT (max 5x lalu lock sebentar). Server tidak mengirim envelope recovery, jadi jalur ini jalan tanpa server.
 - QR tambah perangkat: perangkat baru tampilkan QR berisi public key ephemeral + nonce; perangkat lama scan, kirim MK terenkripsi lewat server (relay), TTL ≤ 2 menit, sekali pakai.
+- **Identitas kunci (KID).** `kid = crypto_kdf_derive_from_key(16, 1, "ip-keyid", MK)`, dikirim sebagai base64url 22 karakter. KID cuma pengenal: bukan bukti memegang kunci (siapa pun yang melihat satu blob tahu KID-nya), jadi server dilarang memakainya sebagai autentikasi. KID pengenal pseudonim (UU PDP): dilarang di-log, dikirim ke analytics, atau ditaruh di URL.
+- **Registry & klaim.** Server menjaga tepat satu KID `active` per akun (`account_keys`, unique index parsial). `PUT /v1/keys/identity {kid, otp?}` adalah compare-and-set: pemenang `201`, KID sama `200` (idempoten), KID lain `409 KEY_IDENTITY_CONFLICT` (body hanya waktu + label perangkat pengklaim, tanpa KID). Perangkat yang tidak pegang kunci akun masuk layar pemulihan, tidak membuat MK baru. `GET /v1/keys/identity` membaca KID aktif + petunjuk `recordFormat`; petunjuk itu bukan sumber tepercaya (client menyimpan nilai monoton).
+- **Step-up.** Klaim pada akun yang sudah berisi data (>= 1 record atau envelope) wajib OTP `purpose = key_identity` (`POST /v1/keys/identity/otp`, email dari sesi, <= 10 menit), kalau tidak `403 STEP_UP_REQUIRED`. Tanpa ini pemegang cookie curian bisa mengunci akun lama secara permanen. Akun kosong tidak butuh OTP.
+- **Retire (reset identitas).** `POST /v1/keys/identity/retirement {otp}` hanya jalan kalau OTP valid **dan** 0 record ber-KID itu (`records.kid`); kalau masih ada, `409 KEY_IDENTITY_IN_USE`. Hasilnya `202` dengan cooldown 24 jam + email pemberitahuan; `DELETE .../retirement` membatalkan, hanya dari perangkat yang tercatat di `account_key_devices` untuk KID itu. KID yang sudah di-retire tidak bisa diklaim ulang.
 - **Dilarang** bikin algoritma sendiri, log kunci/OTP/recovery key, atau kirim MK polos ke mana pun.
 - Lupa semua pembuka = data hilang. Dijelaskan jujur di onboarding + Panduan.
 
@@ -282,8 +307,12 @@ DELETE /v1/devices/:id         GET/PUT /v1/keys/envelopes
 POST /v1/keys/transfer         POST /v1/keys/transfer/:id
 POST /v1/sync/push             GET  /v1/sync/pull
 POST /v1/account/deletion-otp  DELETE /v1/account
+GET/PUT /v1/keys/identity      POST /v1/keys/identity/otp
+POST/DELETE /v1/keys/identity/retirement
 GET  /health
 ```
+
+Identitas kunci (ADR 13): `PUT` = klaim compare-and-set (`201` baru, `200` KID sama, `409 KEY_IDENTITY_CONFLICT`, `403 STEP_UP_REQUIRED` untuk akun berisi data tanpa OTP); `POST .../retirement` = minta reset (`202`, cooldown 24 jam, `409 KEY_IDENTITY_IN_USE` kalau masih ada record ber-KID); `DELETE .../retirement` = batal (`204`, hanya perangkat ber-`confirmedKid`). Semuanya `keys:identity` rate-limited per user; klien cookie wajib mengirim `x-expected-user-id`. Header `X-IP-Record-Format: 2` dikirim di push dan pull: sejak F2 (fase di tabel `record_format_state`, dibaca per request) request tanpa header dijawab `426 CLIENT_UPGRADE_REQUIRED`, dan guard KID push hanya berlaku untuk client yang mengirimnya.
 
 Bentuk respons seragam untuk SEMUA endpoint: sukses `{ data: <DTO> }`, gagal `{ error: { code, message, details? } }` dengan status dari `ERROR_HTTP_STATUS`; endpoint yang memang nggak punya body (logout, revoke perangkat, hapus akun, permintaan OTP) balas `204` tanpa body. Pembungkusan sukses terpusat di `apps/web/server/utils/api-error.ts` (bukan diulang di tiap route), dan schema-nya satu sumber di `packages/contracts/src/protocol.ts` (`apiDataEnvelopeSchema`, `apiErrorBodySchema`, `apiResponseSchema`) supaya web & mobile nggak merakit amplop sendiri.
 
@@ -384,3 +413,4 @@ E2E (T16): Playwright (web/PWA) + Maestro (mobile), termasuk skenario 2 perangka
 | 10 | Server **tidak** menyimpan envelope yang digembok OTP (PRD F15 "Salinan 1" dihapus) | OTP dibuat server, jadi server tahu pembukanya; ruang OTP cuma 10⁶ sehingga brute-force offline praktis instan walau Argon2id. Menyimpannya menurunkan keamanan total ke titik terlemah | Perangkat baru tidak bisa pulih lewat OTP - wajib lewat passkey, QR dari perangkat lama, atau recovery key |
 | 11 | Server **tidak** menyimpan recovery key sama sekali | "Dienkripsi dengan kunci terpisah yang dipegang server" tetap bisa dibuka server, jadi klaim zero-knowledge-nya gugur | Envelope recovery harus ikut di berkas backup user; format backup yang cuma memuat 24 kata tidak bisa berdiri sendiri; kehilangan semua backup = data hilang permanen |
 | 12 | Format backup yang membawa envelope kunci: **QR cetak** dan **berkas terenkripsi** | Server tidak menyimpan envelope recovery (ADR 11), jadi envelope harus ikut terbawa di backup user. 24 kata saja tidak cukup karena MK dibuat acak | Onboarding wajib MENOLAK kalau user hanya memilih format yang tidak membawa envelope; "salin manual" dan "password manager" tidak bisa berdiri sendiri |
+| 13 | **KID + blob record v2**: identitas kunci per akun (satu KID aktif, klaim CAS dengan step-up OTP) dan blob ber-header `ipr\x02 \|\| KID` dengan AAD kanonik (`userId`, `recordId`, tuple HLC, `deleted`) serta padding 256 B (`reports/spec-120-key-identity.md`) | Akar masalahnya tiga: perangkat kedua tanpa passkey membuat MK baru lalu menimpa envelope (split-brain); AAD v1 cuma `recordId` sehingga server bisa me-rollback isi atau membalik `deleted`; tanpa KID "kunci lain" tak bisa dibedakan dari "data rusak". Versi dan KID ditaruh di dalam blob (opak bagi server), bukan field DTO baru, karena DTO sync `.strict()` dan client lama akan menolak seluruh halaman pull; jadi tidak perlu `/v2/sync` | Rollout bertahap F0-F3 dengan 426 dan job re-seal blob v1 dorman; v1 yang belum di-re-seal masih bisa di-rollback sampai selesai; server yang jahat tetap bisa withholding/snapshot lama seluruh akun, dan pola aktivitas lewat HLC tetap bocor; rotasi MK ditunda; reset identitas butuh OTP + cooldown 24 jam |

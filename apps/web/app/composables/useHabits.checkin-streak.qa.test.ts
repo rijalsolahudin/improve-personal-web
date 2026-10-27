@@ -25,6 +25,7 @@ import { createUuidV7Generator } from '~/utils/storage/uuid'
 import { MS_PER_HOUR, addDays, fromIsoDate } from '~/utils/time'
 
 import { resetHabitsHydrationForTest, useHabits, type UseHabitsOptions } from './useHabits'
+import { TEST_KID_WIRE } from '../../tests/nuxt/record-key'
 
 /**
  * QA T10 - celah yang belum ditutup test lain: AC "check-in hari ini mengubah streak dengan benar"
@@ -67,6 +68,7 @@ function memorySession(startMs: number): MemorySession {
     provider: fakeProvider,
     clock,
     dataKey: DATA_KEY,
+    kid: TEST_KID_WIRE,
     hlc,
     deviceId: USER_ID,
     userId: USER_ID,

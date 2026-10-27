@@ -1,3 +1,10 @@
+import {
+  KID_BYTES,
+  KID_KDF_CONTEXT,
+  KID_KDF_SUBKEY_ID,
+  encodeKid,
+} from '@improve-personal/contracts'
+
 import { loadSodium, type SodiumModule } from './sodium'
 import { rawDataKeyMaterial, type RawDataKeyMaterial } from './provider'
 
@@ -50,7 +57,11 @@ export function createMasterKey(sodium: SodiumModule): Uint8Array {
  * Hasilnya berbentuk bahan kunci yang siap dipakai `CryptoProvider.sealRecord`/`openRecord`, sehingga
  * tidak ada tempat lain yang perlu tahu bagaimana kunci data dibuat.
  */
-export function deriveDataKey(sodium: SodiumModule, masterKey: Uint8Array): RawDataKeyMaterial {
+export function deriveDataKey(
+  sodium: SodiumModule,
+  masterKey: Uint8Array,
+  userId: string,
+): RawDataKeyMaterial {
   assertMasterKey(masterKey)
 
   const derived = sodium.crypto_kdf_derive_from_key(
@@ -60,7 +71,24 @@ export function deriveDataKey(sodium: SodiumModule, masterKey: Uint8Array): RawD
     masterKey,
   )
 
-  return rawDataKeyMaterial(derived)
+  return rawDataKeyMaterial(derived, { kid: deriveKid(sodium, masterKey), userId })
+}
+
+/**
+ * KID (identitas kunci) akun: fingerprint 16 byte turunan kunci utama (spec #120 §2.1).
+ *
+ * Deterministik untuk kunci utama yang sama, jadi semua perangkat satu akun menghitung KID yang
+ * sama. Non-rahasia (tidak bisa dibalik ke kunci utama), tetapi pseudonim: jangan di-log.
+ */
+export function deriveKid(sodium: SodiumModule, masterKey: Uint8Array): Uint8Array {
+  assertMasterKey(masterKey)
+
+  return sodium.crypto_kdf_derive_from_key(KID_BYTES, KID_KDF_SUBKEY_ID, KID_KDF_CONTEXT, masterKey)
+}
+
+/** KID dalam bentuk wire (base64url 22 karakter) untuk dikirim ke server. */
+export function deriveKidWire(sodium: SodiumModule, masterKey: Uint8Array): string {
+  return encodeKid(deriveKid(sodium, masterKey))
 }
 
 /**
@@ -80,6 +108,9 @@ export function assertMasterKey(bytes: Uint8Array): void {
 }
 
 /** Muat libsodium lalu siapkan turunan - dipakai pemanggil yang tidak mau mengurus modul sodium. */
-export async function deriveDataKeyFromMaster(masterKey: Uint8Array): Promise<RawDataKeyMaterial> {
-  return deriveDataKey(await loadSodium(), masterKey)
+export async function deriveDataKeyFromMaster(
+  masterKey: Uint8Array,
+  userId: string,
+): Promise<RawDataKeyMaterial> {
+  return deriveDataKey(await loadSodium(), masterKey, userId)
 }

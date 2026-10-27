@@ -10,11 +10,15 @@ import {
   type StorageAdapter,
 } from '@improve-personal/core'
 
-import { saveDeviceUnlock, unlockMasterKeyWithDevice } from '../crypto/device-slot'
+import {
+  DeviceSlotOccupiedError,
+  saveDeviceUnlock,
+  unlockMasterKeyWithDevice,
+} from '../crypto/device-slot'
 import { createWebKeyStore } from '../crypto/key-store'
-import { createMasterKey, deriveDataKey, zeroKey } from '../crypto/master-key'
+import { createMasterKey, deriveDataKey, deriveKidWire, zeroKey } from '../crypto/master-key'
 import { createSodiumCryptoProvider } from '../crypto/provider'
-import { loadSodium } from '../crypto/sodium'
+import { loadSodium, type SodiumModule } from '../crypto/sodium'
 
 import {
   assertUserId,
@@ -58,6 +62,10 @@ import { createRecordWriter, type RecordWriter } from './record-writer'
  *    UI bisa memperingatkan bahwa recovery key BELUM diatur. Selama peringatan itu ada, jangan pakai
  *    untuk data sungguhan: kalau perangkat ini hilang sebelum envelope recovery dibuat, datanya hilang
  *    - dan itu memang konsekuensi jujur dari E2EE, bukan bug.
+ *    Dua tab yang membuka sesi bersamaan di perangkat kosong sama-sama membuat kandidat kunci, tapi
+ *    hanya SATU yang tersimpan (`saveDeviceUnlock` = sisip-jika-kosong di bawah Web Lock). Tab yang
+ *    kalah membuang kandidatnya dan membuka kunci milik pemenang, jadi kedua tab menyegel record
+ *    dengan kunci yang sama - lihat `createOrAdoptMasterKey`.
  * 2. **`deviceId` disiapkan di `sync_state`** (dibuat sekali, lalu dipakai terus). HLC butuh id
  *    perangkat sebagai tie-break; kalau id berubah tiap sesi, urutan tulisan jadi tidak stabil antar
  *    perangkat.
@@ -76,6 +84,11 @@ export type LocalDataSession = {
   /** Id perangkat yang dipakai HLC & sync. */
   readonly deviceId: string
   readonly dataKey: SecureKeyMaterial
+  /**
+   * KID akun ini dalam bentuk wire (base64url 22 karakter), turunan kunci utama. Non-rahasia; dipakai
+   * untuk mengklaim identitas kunci di server sebelum sync. Pseudonim: jangan di-log.
+   */
+  readonly kid: string
   /**
    * Penyimpanan kunci MILIK AKUN ini (nama database memuat `userId`).
    *
@@ -167,18 +180,19 @@ export async function openLocalDataSession(options: OpenSessionOptions): Promise
   })
   const provider = await createSodiumCryptoProvider()
 
-  const isFreshKey = !(await keyStore.has('device'))
+  const hasDeviceKey = await keyStore.has('device')
 
-  if (isFreshKey && (await hasStoredRecords(storage))) throw new LocalKeyMissingError()
-  if (isFreshKey && options.canCreateKey !== undefined && !(await options.canCreateKey())) {
+  if (!hasDeviceKey && (await hasStoredRecords(storage))) throw new LocalKeyMissingError()
+  if (!hasDeviceKey && options.canCreateKey !== undefined && !(await options.canCreateKey())) {
     throw new LocalKeyMissingError()
   }
 
-  const masterKey = isFreshKey ? createMasterKey(sodium) : await unlockMasterKeyWithDevice(keyStore)
+  const { masterKey, isFreshKey } = hasDeviceKey
+    ? { masterKey: await unlockMasterKeyWithDevice(keyStore), isFreshKey: false }
+    : await createOrAdoptMasterKey(sodium, keyStore)
 
-  if (isFreshKey) await saveDeviceUnlock(keyStore, masterKey)
-
-  const dataKey = deriveDataKey(sodium, masterKey)
+  const dataKey = deriveDataKey(sodium, masterKey, userId)
+  const kid = deriveKidWire(sodium, masterKey)
   // Kunci utama tidak dibutuhkan lagi setelah kunci data diturunkan: yang disimpan di perangkat adalah
   // bungkusnya, dan kunci polos tidak perlu hidup lebih lama dari yang perlu.
   zeroKey(masterKey)
@@ -193,6 +207,7 @@ export async function openLocalDataSession(options: OpenSessionOptions): Promise
     provider,
     clock,
     dataKey,
+    kid,
     hlc,
     deviceId,
     isFreshKey,
@@ -208,6 +223,34 @@ export async function openLocalDataSession(options: OpenSessionOptions): Promise
     },
     repos: createRepositorySet({ storage, provider, dataKey }),
     writer: createRecordWriter({ storage, provider, dataKey, hlc, clock }),
+  }
+}
+
+/**
+ * Buat kunci utama pertama perangkat ini - atau pakai kunci yang baru saja disimpan tab lain.
+ *
+ * Pemeriksaan slot di `openLocalDataSession` hanya petunjuk: di antara pemeriksaan itu dan penyimpanan,
+ * tab lain bisa lebih dulu menyimpan kuncinya. Yang menentukan adalah `saveDeviceUnlock`, yang memeriksa
+ * ulang di bawah lock. Kalau kalah, kandidat kita belum pernah dipakai menyegel apa pun (sesi belum
+ * dikembalikan), jadi aman dibuang; `isFreshKey` ikut false karena kunci ini bukan dibuat sesi ini.
+ *
+ * Lock sengaja tidak dipegang selama `canCreateKey`/pemeriksaan record di atas: `canCreateKey` bisa
+ * berupa panggilan jaringan, dan menahan lock selama itu membuat tab lain ikut menunggu jaringan.
+ */
+async function createOrAdoptMasterKey(
+  sodium: SodiumModule,
+  keyStore: SecureKeyStore,
+): Promise<{ readonly masterKey: Uint8Array; readonly isFreshKey: boolean }> {
+  const candidate = createMasterKey(sodium)
+
+  try {
+    await saveDeviceUnlock(keyStore, candidate)
+    return { masterKey: candidate, isFreshKey: true }
+  } catch (error) {
+    zeroKey(candidate)
+    if (!(error instanceof DeviceSlotOccupiedError)) throw error
+
+    return { masterKey: await unlockMasterKeyWithDevice(keyStore), isFreshKey: false }
   }
 }
 

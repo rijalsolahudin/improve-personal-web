@@ -1,5 +1,11 @@
 import { randomInt, randomUUID } from 'node:crypto'
 
+import {
+  decodeKid,
+  encodeSealedBlobHeaderV2,
+  RECORD_V2_NONCE_BYTES,
+  RECORD_V2_TAG_BYTES,
+} from '@improve-personal/contracts'
 import { eq, inArray } from 'drizzle-orm'
 import postgres from 'postgres'
 
@@ -9,9 +15,10 @@ import type { ServiceContext } from '../../services/context'
 import { resolveDeviceForLogin } from '../../services/device'
 import type { OtpMail, OtpMailer } from '../../services/mailer'
 import type { RateLimitScope } from '../../services/rate-limit'
+import { claimKeyIdentity } from '../../services/keys'
 import { issueSession } from '../../services/session'
 import { findOrCreateUserByEmail } from '../../services/user'
-import { hmacSha256 } from '../../utils/crypto'
+import { bytesToBase64, hmacSha256 } from '../../utils/crypto'
 import { resolveServerEnv, type ServerEnv } from '../../utils/env'
 
 export type { ServerEnv }
@@ -333,4 +340,43 @@ export async function informationSchemaColumns(): Promise<
   } finally {
     await sql.end({ timeout: 5 })
   }
+}
+
+/** KID uji (22 karakter base64url kanonik). Pengenal pseudonim, bukan kunci apa pun. */
+export const TEST_KID = 'LBaTVGaXKfW710NOCIXptA'
+
+/** KID uji kedua, berbeda dari `TEST_KID`. */
+export const OTHER_TEST_KID = 'AAECAwQFBgcICQoLDA0ODw'
+
+/**
+ * Blob berformat v2 (`"ipr" || 0x02 || kid || nonce || ciphertext`) yang LOLOS pemeriksaan header
+ * server. Isinya bukan ciphertext sungguhan: server hanya membaca header (blob opak baginya), dan
+ * AEAD dibuktikan di sisi client.
+ */
+export function sealedBlobBytes(text: string, kid: string = TEST_KID): Uint8Array {
+  const kidBytes = decodeKid(kid)
+  if (!kidBytes) throw new Error('KID uji tidak kanonik')
+
+  const header = encodeSealedBlobHeaderV2(kidBytes)
+  const body = new TextEncoder().encode(text)
+  const ciphertext = new Uint8Array(Math.max(body.length, RECORD_V2_TAG_BYTES))
+  ciphertext.set(body)
+
+  const blob = new Uint8Array(header.length + RECORD_V2_NONCE_BYTES + ciphertext.length)
+  blob.set(header, 0)
+  blob.set(ciphertext, header.length + RECORD_V2_NONCE_BYTES)
+
+  return blob
+}
+
+export function sealedBlobBase64(text: string, kid: string = TEST_KID): string {
+  return bytesToBase64(sealedBlobBytes(text, kid))
+}
+
+/** User fixture yang SUDAH mengklaim `kid` - syarat server menerima push apa pun. */
+export async function claimedUserId(fixture: Fixture, kid: string = TEST_KID): Promise<string> {
+  const userId = await fixture.userId()
+  await claimKeyIdentity(fixture.ctx(), userId, { kid }, 'Perangkat uji')
+
+  return userId
 }

@@ -15,6 +15,7 @@ import { emptyGoalDraft } from '~/utils/goals'
 import { loadGoalRecords } from '~/utils/goals/persistence'
 
 import { resetGoalsHydrationForTest, useGoals } from './useGoals'
+import { TEST_KID_WIRE } from '../../tests/nuxt/record-key'
 
 const NOW_MS = 1_700_000_000_000
 const DATA_KEY: SecureKeyMaterial = { kind: 'raw-32', handle: new Uint8Array(32) }
@@ -34,6 +35,7 @@ function memorySession(): LocalDataSession {
     provider: fakeProvider,
     clock,
     dataKey: DATA_KEY,
+    kid: TEST_KID_WIRE,
     hlc,
     deviceId: '018f2c4e-0000-7000-8000-0000000000d1',
     userId: '018f2c4e-0000-7000-8000-00000000000a',

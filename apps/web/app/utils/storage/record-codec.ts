@@ -83,7 +83,14 @@ export async function encodeRecord(
     id: record.id,
     hlc: record.hlc,
     deleted: record.deleted,
-    blob: await provider.sealRecord({ recordId: record.id, dataKey, plaintext: payload }),
+    // `hlc` & `deleted` ikut AAD: nilainya harus yang SAMA dengan yang disimpan di luar blob.
+    blob: await provider.sealRecord({
+      recordId: record.id,
+      hlc: record.hlc,
+      deleted: record.deleted,
+      dataKey,
+      plaintext: payload,
+    }),
   }
 }
 
@@ -151,7 +158,13 @@ async function openPlaintext(
   stored: StoredRecord,
 ): Promise<string> {
   try {
-    return await provider.openRecord({ recordId: stored.id, dataKey, blob: stored.blob })
+    return await provider.openRecord({
+      recordId: stored.id,
+      hlc: stored.hlc,
+      deleted: stored.deleted,
+      dataKey,
+      blob: stored.blob,
+    })
   } catch (error) {
     throw new RecordKeyError(
       stored.id,

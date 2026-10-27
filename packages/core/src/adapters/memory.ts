@@ -105,6 +105,8 @@ function applyPutRecord(tables: MemoryTables, write: RecordWrite, clock: Clock):
     hlc: write.sealed.hlc,
     deleted: write.sealed.deleted,
     blob: write.sealed.blob,
+    // Hanya ditulis kalau `true`: record biasa tidak boleh membawa kunci `opaque` sama sekali.
+    ...(write.opaque === true ? { opaque: true } : {}),
     createdAtMs: previous?.createdAtMs ?? nowMs,
     // Index yang ditulis bersama record membawa `updatedAtMs` versi data; record tanpa index (dan
     // record `'keep'`, yang index-nya tidak kita sentuh) memakai jam adapter. Keduanya "pembukuan

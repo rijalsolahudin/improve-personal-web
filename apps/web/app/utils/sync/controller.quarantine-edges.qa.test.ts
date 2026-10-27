@@ -5,6 +5,7 @@ import { runSync, startSync, stopSync } from './controller'
 import { clearQuarantineForTest, isQuarantined, quarantinedCount } from './quarantine'
 
 import type { LocalDataSession } from '../storage/session'
+import { TEST_KID_WIRE, TEST_V2_BLOB } from '../../../tests/nuxt/record-key'
 
 /**
  * QA T78 putaran 2 - bentuk data lain di sekitar pemulihan record gagal-dekripsi (AC #2).
@@ -73,7 +74,7 @@ function pageOf(ids: readonly string[], nextCursor: number): Page {
       id,
       hlc: `${1_000 + index}-0-deviceb`,
       deleted: false,
-      blob: 'AAAA',
+      blob: TEST_V2_BLOB,
       serverSeq: nextCursor,
     })),
     nextCursor,
@@ -116,6 +117,7 @@ function fakeSession(
 
   return {
     userId: options.userId ?? USER_A,
+    kid: TEST_KID_WIRE,
     isFreshKey: options.isFreshKey ?? false,
     storage: {
       listOutbox: vi.fn(async () => []),

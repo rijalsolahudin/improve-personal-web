@@ -11,6 +11,7 @@ import { createRecordWriter } from '~/utils/storage/record-writer'
 import { createRepositorySet } from '~/utils/storage/repository'
 import type { LocalDataSession } from '~/utils/storage/session'
 import { createUuidV7Generator } from '~/utils/storage/uuid'
+import { TEST_KID_WIRE } from './record-key'
 
 /**
  * Sesi data lokal in-memory untuk test yang perlu sesi SUNGGUHAN terbuka lewat `useLocalData`.
@@ -44,6 +45,7 @@ export function createMemoryLocalSession(
     provider: fakeProvider,
     clock,
     dataKey: DATA_KEY,
+    kid: TEST_KID_WIRE,
     hlc,
     deviceId: DEVICE_ID,
     userId,

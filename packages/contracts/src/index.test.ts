@@ -7,6 +7,7 @@ import * as hlcModule from './hlc.ts'
 import * as contracts from './index.ts'
 import * as keysModule from './keys.ts'
 import * as protocolModule from './protocol.ts'
+import * as recordFormatModule from './record-format.ts'
 import * as syncModule from './sync.ts'
 
 /**
@@ -56,6 +57,12 @@ const NAMA_WAJIB = [
   'KEY_TRANSFER_TTL_SECONDS',
   'otpPurposeSchema',
   'deleteAccountInputSchema',
+  'kidSchema',
+  'encodeRecordAadV2',
+  'parseSealedBlobHeader',
+  'keyIdentityClaimInputSchema',
+  'keyIdentityDtoSchema',
+  'keyIdentityConflictDetailsSchema',
 ] as const
 
 /**
@@ -73,6 +80,7 @@ const MODULES = {
   'hlc.ts': hlcModule,
   'keys.ts': keysModule,
   'protocol.ts': protocolModule,
+  'record-format.ts': recordFormatModule,
   'sync.ts': syncModule,
 } as const
 
@@ -86,7 +94,7 @@ describe('permukaan publik index.ts', () => {
   it('nilai runtime yang jadi patokan lintas paket', () => {
     expect(contracts.API_VERSION).toBe('v1')
     expect(contracts.API_PREFIX).toBe('/v1')
-    expect(contracts.ERROR_CODES).toHaveLength(13)
+    expect(contracts.ERROR_CODES).toHaveLength(14)
     expect(contracts.KEY_SLOTS).toEqual(['passkey'])
     expect(contracts.SYNC_MAX_BATCH).toBe(500)
     expect(contracts.KEY_TRANSFER_TTL_SECONDS).toBe(120)

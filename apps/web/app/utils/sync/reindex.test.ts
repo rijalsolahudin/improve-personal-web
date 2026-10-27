@@ -23,6 +23,7 @@ import {
   quarantineRecord,
   quarantinedCount,
 } from './quarantine'
+import { TEST_KID_WIRE } from '../../../tests/nuxt/record-key'
 
 /**
  * `reindexQuarantined()` - satu-satunya jalan pulih untuk record yang dulu dikarantina.
@@ -96,6 +97,7 @@ function createHarness(): Harness {
     provider,
     clock,
     dataKey: DATA_KEY,
+    kid: TEST_KID_WIRE,
     hlc,
     deviceId: DEVICE_ID,
     isFreshKey: false,

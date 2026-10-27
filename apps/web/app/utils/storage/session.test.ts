@@ -15,6 +15,7 @@ import { createWebKeyStore } from '../crypto/key-store'
 import { deriveDataKey } from '../crypto/master-key'
 import { loadSodium } from '../crypto/sodium'
 import { LocalKeyMissingError, openLocalDataSession } from './session'
+import { TEST_USER_ID } from '../../../tests/nuxt/record-key'
 
 const START_MS = 1_700_000_000_000
 /** Akun uji: penyimpanan lokal sekarang dipisah per akun (lihat `account-scope.test.ts`). */
@@ -209,6 +210,43 @@ describe('sesi data lokal', () => {
     expect(second.isFreshKey).toBe(false)
   })
 
+  it('dua tab membuka sesi pertama bersamaan: satu kunci akhir, keduanya membaca data yang sama', async () => {
+    // Regresi #113: tanpa sisip-jika-kosong yang atomik, dua tab sama-sama membuat kunci utama dan
+    // yang tersimpan terakhir menang - record tab lain jadi tidak bisa dibuka lagi.
+    const dbNames = names()
+    const clock = createManualClock(START_MS)
+
+    const [first, second] = await Promise.all([
+      openLocalDataSession({ userId: USER_ID, clock, ...dbNames }),
+      openLocalDataSession({ userId: USER_ID, clock, ...dbNames }),
+    ])
+
+    // Hanya pemenang yang boleh bilang "kunci baru": peringatan recovery key milik satu sesi saja.
+    expect([first.isFreshKey, second.isFreshKey].filter(Boolean)).toHaveLength(1)
+    expect(Buffer.from(second.dataKey.handle as Uint8Array)).toEqual(
+      Buffer.from(first.dataKey.handle as Uint8Array),
+    )
+
+    const fromFirst = await first.writer.write({
+      type: 'todo',
+      data: (recordId) => todoPayload(recordId, 'Ditulis tab pertama'),
+    })
+    const fromSecond = await second.writer.write({
+      type: 'todo',
+      data: (recordId) => todoPayload(recordId, 'Ditulis tab kedua'),
+    })
+
+    // Sesi ketiga (reload) memakai kunci yang tersimpan: kedua record harus tetap terbuka.
+    const reopened = await openLocalDataSession({ userId: USER_ID, clock, ...dbNames })
+    expect(reopened.isFreshKey).toBe(false)
+    expect(((await reopened.repos.todo.getById(fromFirst.id))?.data as Todo).title).toBe(
+      'Ditulis tab pertama',
+    )
+    expect(((await reopened.repos.todo.getById(fromSecond.id))?.data as Todo).title).toBe(
+      'Ditulis tab kedua',
+    )
+  })
+
   it('withMasterKey membuka kunci utama dari perangkat dan mengosongkannya lagi', async () => {
     const session = await openLocalDataSession({
       userId: USER_ID,
@@ -220,7 +258,7 @@ describe('sesi data lokal', () => {
       // Kunci yang dibuka harus kunci yang sama dengan yang dipakai sesi ini: kunci data turunannya
       // harus identik, kalau tidak, seluruh data akan tampak rusak.
       const sodium = await loadSodium()
-      const dataKey = deriveDataKey(sodium, masterKey)
+      const dataKey = deriveDataKey(sodium, masterKey, TEST_USER_ID)
 
       return Buffer.from(dataKey.handle as Uint8Array)
     })

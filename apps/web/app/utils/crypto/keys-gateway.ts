@@ -2,11 +2,13 @@ import {
   apiDataEnvelopeSchema,
   keyEnvelopeDtoSchema,
   keyEnvelopeListResultSchema,
+  keyIdentityDtoSchema,
   keyTransferClaimResultSchema,
   keyTransferCreateResultSchema,
   type ErrorCode,
   type KeyEnvelopeDto,
   type KeyEnvelopePutInput,
+  type KeyIdentityDto,
   type KeyTransferClaimResult,
   type KeyTransferCreateResult,
 } from '@improve-personal/contracts'
@@ -27,6 +29,7 @@ import { errorCodeFrom, failureOf, isNetworkFailure, type JsonFetch } from '../h
 
 const ENVELOPES_PATH = '/v1/keys/envelopes'
 const TRANSFER_PATH = '/v1/keys/transfer'
+const IDENTITY_PATH = '/v1/keys/identity'
 
 export type KeysGateway = {
   /** Simpan/timpa envelope slot `passkey`. Server membalas envelope yang tersimpan. */
@@ -40,6 +43,13 @@ export type KeysGateway = {
   }) => Promise<KeyTransferCreateResult>
   /** Perangkat target mengklaim kiriman (sekali pakai, TTL ditentukan server). */
   claimTransfer: (id: string) => Promise<KeyTransferClaimResult>
+  /** Identitas kunci (KID) yang sudah diklaim akun ini; `kid: null` = belum ada klaim. */
+  getIdentity: () => Promise<KeyIdentityDto>
+  /**
+   * Klaim KID untuk akun. Idempoten untuk KID yang sama; KID berbeda dari klaim yang ada ditolak
+   * dengan `KeysRequestError` berkode `KEY_IDENTITY_CONFLICT`.
+   */
+  claimIdentity: (kid: string) => Promise<KeyIdentityDto>
 }
 
 /** Kegagalan request keys, selalu membawa `code` kontrak. Pesan server tidak pernah jadi teks UI. */
@@ -65,6 +75,7 @@ const putEnvelopeResponseSchema = apiDataEnvelopeSchema(keyEnvelopeDtoSchema)
 const listEnvelopesResponseSchema = apiDataEnvelopeSchema(keyEnvelopeListResultSchema)
 const createTransferResponseSchema = apiDataEnvelopeSchema(keyTransferCreateResultSchema)
 const claimTransferResponseSchema = apiDataEnvelopeSchema(keyTransferClaimResultSchema)
+const identityResponseSchema = apiDataEnvelopeSchema(keyIdentityDtoSchema)
 
 export function createKeysGateway(request: JsonFetch): KeysGateway {
   /** Baca `{ data: T }`; bentuk yang menyimpang dari kontrak dilaporkan sebagai `INTERNAL`. */
@@ -131,6 +142,24 @@ export function createKeysGateway(request: JsonFetch): KeysGateway {
         `${TRANSFER_PATH}/${encodeURIComponent(id)}`,
         { method: 'POST' },
         readData(claimTransferResponseSchema),
+      )
+      return data
+    },
+
+    async getIdentity() {
+      const { data } = await call(
+        IDENTITY_PATH,
+        { method: 'GET' },
+        readData(identityResponseSchema),
+      )
+      return data
+    },
+
+    async claimIdentity(kid) {
+      const { data } = await call(
+        IDENTITY_PATH,
+        { method: 'PUT', body: { kid } },
+        readData(identityResponseSchema),
       )
       return data
     },

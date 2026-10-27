@@ -4,7 +4,7 @@ import type { SecureKeyMaterial, SecureKeyStore } from '@improve-personal/core'
 import { TECH_IDENTITY } from '#shared/tech-identity'
 
 import { aadFor, openWithKey, sealWithKey } from './envelope'
-import { assertMasterKey } from './master-key'
+import { assertMasterKey, zeroKey } from './master-key'
 import { loadSodium, type SodiumModule } from './sodium'
 
 /**
@@ -56,6 +56,12 @@ export type PasskeyPrfResult = {
   readonly credentialId: string
   /** Output PRF dari authenticator. TIDAK PERNAH dikirim ke mana pun. */
   readonly prfOutput: Uint8Array
+  /**
+   * `true` = output ini dari get() (assertion, UV wajib) - jalur yang sama dengan pemulihan di
+   * perangkat baru. Output dari create() tidak dijamin sama, jadi hanya yang ini yang boleh dipakai
+   * ulang saat verifikasi tanpa meminta sentuhan lagi.
+   */
+  readonly isAssertion?: boolean
 }
 
 /**
@@ -175,6 +181,70 @@ export async function unlockMasterKeyWithPasskey(input: {
   assertMasterKey(masterKey)
 
   return masterKey
+}
+
+/** Envelope passkey baru tidak bisa dibuka kembali - JANGAN dikirim ke server. */
+export class PasskeyVerificationError extends Error {
+  constructor(options?: { cause?: unknown }) {
+    super(
+      'passkey baru tidak bisa membuka kunci kembali, jadi tidak disimpan. Coba lagi, atau pakai passkey/perangkat lain',
+      options,
+    )
+  }
+}
+
+/**
+ * Buat envelope passkey, lalu BUKTIKAN envelope itu bisa dibuka sebelum diserahkan ke pemanggil.
+ *
+ * Kenapa wajib: envelope passkey adalah satu-satunya yang ada di server dan jalur pemulihan default.
+ * Envelope yang tidak bisa dibuka (PRF create() berbeda dengan get(), UV berbeda, kredensial lain)
+ * baru ketahuan saat perangkat hilang - saat itu datanya sudah tidak bisa diselamatkan. Kalau verifikasi
+ * gagal, fungsi ini melempar `PasskeyVerificationError` dan tidak mengembalikan envelope apa pun, jadi
+ * pemanggil tidak punya apa-apa untuk dikirim.
+ *
+ * Verifikasinya lewat `unlockMasterKeyWithPasskey` - jalur yang sama dengan pemulihan:
+ * - PRF registrasi dari create(): `authenticate` dipanggil (get() sungguhan, satu sentuhan) supaya
+ *   terbukti assertion menghasilkan PRF yang sama.
+ * - PRF registrasi sudah dari get() (`isAssertion`): assertion-nya sudah terjadi dengan salt & UV yang
+ *   sama, jadi output itu dipakai ulang - tidak perlu sentuhan ketiga.
+ *
+ * Salinan kunci utama hasil buka kembali di-zero di sini; kunci utama milik pemanggil tetap milik
+ * pemanggil (`withMasterKey` yang mengosongkannya).
+ */
+export async function createVerifiedPasskeyEnvelope(input: {
+  readonly masterKey: Uint8Array
+  readonly register: PasskeyPrfProvider
+  readonly authenticate: PasskeyPrfProvider
+}): Promise<{ envelope: PasskeyEnvelope; material: PasskeyMaterial }> {
+  const captured: { registration: PasskeyPrfResult | null } = { registration: null }
+  const created = await createPasskeyEnvelope(input.masterKey, async (request) => {
+    captured.registration = await input.register(request)
+    return captured.registration
+  })
+
+  const { registration } = captured
+  const verifier: PasskeyPrfProvider =
+    registration?.isAssertion === true ? async () => registration : input.authenticate
+
+  let reopened: Uint8Array
+  try {
+    reopened = await unlockMasterKeyWithPasskey({
+      envelope: created.envelope,
+      prf: verifier,
+      credentialId: created.material.handle.credentialId,
+    })
+  } catch (cause) {
+    throw new PasskeyVerificationError({ cause })
+  }
+
+  try {
+    const sodium = await loadSodium()
+    if (!sodium.memcmp(reopened, input.masterKey)) throw new PasskeyVerificationError()
+  } finally {
+    zeroKey(reopened)
+  }
+
+  return created
 }
 
 /** Bentuk input yang dikirim ke `PUT /v1/keys/envelopes` - slot selalu `passkey`. */

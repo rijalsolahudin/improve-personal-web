@@ -30,6 +30,7 @@ import { saveDeviceUnlock, unlockMasterKeyWithDevice } from '../crypto/device-sl
 import { createIndexedDbStorage } from './indexeddb'
 import { deleteRecord, updateRecord, writeRecord, type RecordWriterDeps } from './record-writer'
 import { createRepositorySet } from './repository'
+import { TEST_HLC, TEST_USER_ID } from '../../../tests/nuxt/record-key'
 
 const START_MS = 1_700_000_000_000
 const DEVICE_ID = '018f2c4e-0000-7000-8000-0000000000d1'
@@ -69,7 +70,7 @@ async function makeHarness(
     runExclusive: (work) => work(),
   })
   const provider = await createSodiumCryptoProvider()
-  const dataKey = options.dataKey ?? deriveDataKey(sodium, createMasterKey(sodium))
+  const dataKey = options.dataKey ?? deriveDataKey(sodium, createMasterKey(sodium), TEST_USER_ID)
   const hlc = createHlcGenerator({ deviceId: DEVICE_ID, clock })
 
   return {
@@ -142,7 +143,10 @@ describe('penulis record + repository', () => {
 
     // Sesi pertama: kunci utama disimpan lewat pembuka perangkat, lalu data ditulis.
     await saveDeviceUnlock(createWebKeyStore({ databaseName: keysDatabaseName }), masterKey)
-    const first = await makeHarness({ databaseName, dataKey: deriveDataKey(sodium, masterKey) })
+    const first = await makeHarness({
+      databaseName,
+      dataKey: deriveDataKey(sodium, masterKey, TEST_USER_ID),
+    })
 
     const { id } = await writeRecord(first, {
       type: 'todo',
@@ -156,7 +160,7 @@ describe('penulis record + repository', () => {
     )
     const reopened = await makeHarness({
       databaseName,
-      dataKey: deriveDataKey(sodium, unlocked),
+      dataKey: deriveDataKey(sodium, unlocked, TEST_USER_ID),
     })
 
     const record = await reopened.repos.todo.getById(id)
@@ -286,6 +290,8 @@ describe('penulis record + repository', () => {
     // dipahami build ini - dan menebaknya jauh lebih berbahaya daripada menolaknya.
     const blob = await harness.provider.sealRecord({
       recordId: id,
+      hlc: TEST_HLC,
+      deleted: false,
       dataKey: harness.dataKey,
       plaintext: JSON.stringify({ type: 'todo', schemaVersion: 99, data: todoPayload(id) }),
     })

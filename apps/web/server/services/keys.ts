@@ -1,16 +1,20 @@
 import {
+  decodeKid,
+  encodeKid,
   KEY_TRANSFER_TTL_SECONDS,
   type KeyEnvelopeDto,
   type KeyEnvelopeListResult,
   type KeyEnvelopePutInput,
+  type KeyIdentityClaimInput,
+  type KeyIdentityDto,
   type KeyTransferClaimResult,
   type KeyTransferCreateResult,
 } from '@improve-personal/contracts'
 import { and, eq, gt, isNull, lt } from 'drizzle-orm'
 
-import { devices, keyEnvelopes, keyTransfers } from '../db/schema'
+import { accountKeys, devices, keyEnvelopes, keyTransfers } from '../db/schema'
 import { apiProblem } from '../utils/api-error'
-import { base64ToBytes, bytesToBase64, createKeyTransferId } from '../utils/crypto'
+import { base64ToBytes, bytesToBase64, createKeyTransferId, toBytes } from '../utils/crypto'
 import { secondsToMs, uuidv7 } from '../utils/uuid'
 import type { ServiceContext } from './context'
 
@@ -193,4 +197,101 @@ export async function deleteExpiredKeyTransfers(ctx: ServiceContext): Promise<nu
     .returning({ id: keyTransfers.id })
 
   return deleted.length
+}
+
+// -----------------------------------------------------------------------------
+// Identitas kunci akun (KID)
+// -----------------------------------------------------------------------------
+
+const NO_KEY_IDENTITY: KeyIdentityDto = { kid: null, claimedAt: null, claimedByDeviceLabel: null }
+
+function toKeyIdentityDto(row: {
+  kid: Uint8Array
+  claimedAt: Date
+  claimedByDeviceLabel: string | null
+}): KeyIdentityDto {
+  return {
+    kid: encodeKid(toBytes(row.kid)),
+    claimedAt: row.claimedAt.toISOString(),
+    claimedByDeviceLabel: row.claimedByDeviceLabel,
+  }
+}
+
+/** KID akun ini, atau identitas kosong (`kid: null`) kalau belum pernah diklaim. */
+export async function getActiveKeyIdentity(
+  ctx: ServiceContext,
+  userId: string,
+): Promise<KeyIdentityDto> {
+  const rows = await ctx.db
+    .select({
+      kid: accountKeys.kid,
+      claimedAt: accountKeys.claimedAt,
+      claimedByDeviceLabel: accountKeys.claimedByDeviceLabel,
+    })
+    .from(accountKeys)
+    .where(eq(accountKeys.userId, userId))
+    .limit(1)
+
+  const row = rows[0]
+
+  return row ? toKeyIdentityDto(row) : NO_KEY_IDENTITY
+}
+
+export type KeyIdentityClaimResult = {
+  readonly identity: KeyIdentityDto
+  /** `true` = klaim pertama (201); `false` = KID yang sama sudah terklaim (200, idempoten). */
+  readonly created: boolean
+}
+
+/**
+ * Klaim KID untuk akun: pemenang pertama menang, selamanya.
+ *
+ * Atomiknya dari unique `user_id` + `ON CONFLICT DO NOTHING`: statement kedua yang bersaing menunggu
+ * yang pertama commit lalu tidak menyisipkan apa-apa, jadi tidak perlu transaksi, isolation level
+ * khusus, atau retry. Klaim ulang dengan KID yang sama (perangkat yang sudah tahu KID-nya) sukses
+ * idempoten; KID berbeda dijawab `KEY_IDENTITY_CONFLICT`.
+ */
+export async function claimKeyIdentity(
+  ctx: ServiceContext,
+  userId: string,
+  input: KeyIdentityClaimInput,
+  deviceLabel: string,
+): Promise<KeyIdentityClaimResult> {
+  const kid = decodeKid(input.kid)
+  // Schema kontrak sudah menolak KID tak kanonik; ini hanya mempersempit tipe `Uint8Array | null`.
+  if (!kid) throw apiProblem('VALIDATION_FAILED')
+
+  const inserted = await ctx.db
+    .insert(accountKeys)
+    .values({
+      id: uuidv7(ctx.now.getTime()),
+      userId,
+      kid,
+      claimedAt: ctx.now,
+      claimedByDeviceLabel: deviceLabel,
+    })
+    .onConflictDoNothing({ target: accountKeys.userId })
+    .returning({
+      kid: accountKeys.kid,
+      claimedAt: accountKeys.claimedAt,
+      claimedByDeviceLabel: accountKeys.claimedByDeviceLabel,
+    })
+
+  const created = inserted[0]
+  if (created) return { identity: toKeyIdentityDto(created), created: true }
+
+  const existing = await getActiveKeyIdentity(ctx, userId)
+  // Baris hilang di antara dua statement hanya mungkin kalau akunnya dihapus bersamaan.
+  if (existing.kid === null || existing.claimedAt === null) throw apiProblem('NOT_FOUND')
+
+  if (existing.kid !== input.kid) {
+    throw apiProblem('KEY_IDENTITY_CONFLICT', {
+      details: {
+        claimedAt: existing.claimedAt,
+        claimedByDeviceLabel: existing.claimedByDeviceLabel,
+      },
+    })
+  }
+
+  return { identity: existing, created: false }
 }

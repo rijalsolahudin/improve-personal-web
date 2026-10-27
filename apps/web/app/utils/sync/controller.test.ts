@@ -7,6 +7,7 @@ import { clearQuarantineForTest, isQuarantined, quarantinedCount } from './quara
 import { resetStorageQuotaForTest, storageQuotaState } from '../storage/pressure'
 
 import type { LocalDataSession } from '../storage/session'
+import { TEST_KID_WIRE, TEST_V2_BLOB } from '../../../tests/nuxt/record-key'
 
 const USER_A = '11111111-1111-4111-8111-111111111111'
 const USER_B = '22222222-2222-4222-8222-222222222222'
@@ -14,7 +15,7 @@ const RECORD_ID = '018f2c4e-0000-7000-8000-00000000000b'
 
 /** Record pull yang lolos `syncPullResultSchema` (hlc & base64-nya harus sah). */
 function remoteRecord() {
-  return { id: RECORD_ID, hlc: '1000-0-deviceb', deleted: false, blob: 'AAAA', serverSeq: 1 }
+  return { id: RECORD_ID, hlc: '1000-0-deviceb', deleted: false, blob: TEST_V2_BLOB, serverSeq: 1 }
 }
 
 /** Satu record tersegel lokal - dipakai test yang perlu push benar-benar menembak jaringan. */
@@ -22,7 +23,7 @@ const STORED_RECORD = {
   id: RECORD_ID,
   hlc: '1000-0-devicea',
   deleted: false,
-  blob: 'AAAA',
+  blob: TEST_V2_BLOB,
   createdAtMs: 1_000,
   updatedAtMs: 1_000,
 }
@@ -57,6 +58,7 @@ function fakeSession(options: FakeSessionOptions = {}): LocalDataSession {
 
   return {
     userId: options.userId ?? USER_A,
+    kid: TEST_KID_WIRE,
     storage: {
       listOutbox: vi.fn(async () => outbox),
       countOutbox: vi.fn(async () => outbox.length),
@@ -490,7 +492,7 @@ describe('sync controller: karantina record gagal didekripsi', () => {
         id,
         hlc: `${1_000 + index}-0-deviceb`,
         deleted: false,
-        blob: 'AAAA',
+        blob: TEST_V2_BLOB,
         serverSeq: index + 1,
       })),
       nextCursor: 9,
@@ -545,7 +547,7 @@ describe('sync controller: karantina record gagal didekripsi', () => {
 
     // Blob record rusak TETAP ditulis (tidak ada data yang dibuang), index lamanya tidak disentuh.
     const bad = writes.find((write) => write.sealed.id === BAD_ID)
-    expect(bad?.sealed.blob).toBe('AAAA')
+    expect(bad?.sealed.blob).toBe(TEST_V2_BLOB)
     expect(bad?.index).toBe('keep')
 
     const good = writes.find((write) => write.sealed.id === GOOD_ID)

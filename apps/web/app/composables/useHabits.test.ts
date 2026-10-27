@@ -21,6 +21,7 @@ import { MS_PER_DAY, MS_PER_HOUR, addDays, fromIsoDate } from '~/utils/time'
 
 import type { LocalDataState } from './useLocalData'
 import { resetHabitsHydrationForTest, useHabits, type UseHabitsOptions } from './useHabits'
+import { TEST_KID_WIRE } from '../../tests/nuxt/record-key'
 
 /** 2026-10-19 = Senin; akhir pekan 17–18 tidak terjadwal untuk habit Senin–Jumat. */
 const TODAY = '2026-10-19'
@@ -58,6 +59,7 @@ function memorySession(startMs: number = NOW_MS): MemorySession {
     provider: fakeProvider,
     clock,
     dataKey: DATA_KEY,
+    kid: TEST_KID_WIRE,
     hlc,
     deviceId: USER_ID,
     userId: USER_ID,

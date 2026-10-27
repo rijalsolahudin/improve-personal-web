@@ -16,6 +16,13 @@ import { useDevicePairing } from './useDevicePairing'
  * ditolak (sekali pakai) - bukan hanya "tombolnya ada".
  */
 
+// happy-dom tidak punya Web Locks, padahal `saveDeviceUnlock` mewajibkannya (cek-lalu-tulis slot device
+// atomik lintas tab, #113). Diteruskan apa adanya: yang diuji alur pairing, bukan lock browser.
+Object.defineProperty(globalThis.navigator, 'locks', {
+  value: { request: (_name: string, work: () => unknown) => work() },
+  configurable: true,
+})
+
 const NOW = Date.parse('2026-10-23T09:00:00.000Z')
 const TTL_MS = 120_000
 

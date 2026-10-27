@@ -16,6 +16,7 @@ import { KEY_SLOTS_LOCAL } from '@improve-personal/core'
 import { createWebKeyStore } from './key-store'
 import {
   DEVICE_MATERIAL_KIND,
+  DeviceSlotOccupiedError,
   hasDeviceUnlock,
   removeDeviceUnlock,
   saveDeviceUnlock,
@@ -24,6 +25,7 @@ import {
 import { createMasterKey, deriveDataKey } from './master-key'
 import { createSodiumCryptoProvider } from './provider'
 import { loadSodium } from './sodium'
+import { TEST_HLC, TEST_USER_ID } from '../../../tests/nuxt/record-key'
 
 const RECORD_ID = '018f2c4e-0000-7000-8000-00000000000b'
 
@@ -140,13 +142,21 @@ describe('slot device', () => {
     const plaintext = JSON.stringify({ type: 'todo', schemaVersion: 1, data: { title: 'jalan' } })
     const blob = await provider.sealRecord({
       recordId: RECORD_ID,
-      dataKey: deriveDataKey(sodium, masterKey),
+      hlc: TEST_HLC,
+      deleted: false,
+      dataKey: deriveDataKey(sodium, masterKey, TEST_USER_ID),
       plaintext,
     })
 
     const unlocked = await unlockMasterKeyWithDevice(createWebKeyStore({ databaseName }))
-    const dataKey = deriveDataKey(sodium, unlocked)
-    const opened = await provider.openRecord({ recordId: RECORD_ID, dataKey, blob })
+    const dataKey = deriveDataKey(sodium, unlocked, TEST_USER_ID)
+    const opened = await provider.openRecord({
+      recordId: RECORD_ID,
+      hlc: TEST_HLC,
+      deleted: false,
+      dataKey,
+      blob,
+    })
 
     expect(opened).toBe(plaintext)
   })
@@ -157,13 +167,38 @@ describe('slot device', () => {
 
     await saveDeviceUnlock(keyStore, createMasterKey(sodium))
 
-    await expect(saveDeviceUnlock(keyStore, createMasterKey(sodium))).rejects.toThrow(
-      /sudah terisi/,
+    await expect(saveDeviceUnlock(keyStore, createMasterKey(sodium))).rejects.toBeInstanceOf(
+      DeviceSlotOccupiedError,
     )
 
     // Kunci lama tetap utuh: kegagalan tidak boleh setengah jalan mengganti pembuka.
     const stillUnlocks = await unlockMasterKeyWithDevice(keyStore)
     expect(stillUnlocks).toHaveLength(32)
+  })
+
+  it('dua tab menyimpan bersamaan ke slot kosong: hanya SATU yang menang, kuncinya tidak tertimpa', async () => {
+    // Regresi #113: dulu `has()` dan `put()` berjalan di dua langkah terpisah, jadi dua tab yang
+    // sama-sama melihat slot kosong saling menimpa - dan record tab yang kalah tidak bisa dibuka lagi.
+    const sodium = await loadSodium()
+    const databaseName = freshDatabaseName()
+    const firstKey = createMasterKey(sodium)
+    const secondKey = createMasterKey(sodium)
+
+    // Dua instance = dua tab: tidak ada cache bersama di antara keduanya selain database itu sendiri.
+    const results = await Promise.allSettled([
+      saveDeviceUnlock(createWebKeyStore({ databaseName }), firstKey),
+      saveDeviceUnlock(createWebKeyStore({ databaseName }), secondKey),
+    ])
+
+    const fulfilled = results.filter((result) => result.status === 'fulfilled')
+    const rejected = results.filter((result) => result.status === 'rejected')
+    expect(fulfilled).toHaveLength(1)
+    expect(rejected).toHaveLength(1)
+    expect((rejected[0] as PromiseRejectedResult).reason).toBeInstanceOf(DeviceSlotOccupiedError)
+
+    const winner = results[0]?.status === 'fulfilled' ? firstKey : secondKey
+    const stored = await unlockMasterKeyWithDevice(createWebKeyStore({ databaseName }))
+    expect(Buffer.from(stored)).toEqual(Buffer.from(winner))
   })
 
   it('perangkat tanpa pembuka: error yang menyebut jalan keluarnya, bukan gagal misterius', async () => {

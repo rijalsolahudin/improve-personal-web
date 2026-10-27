@@ -14,6 +14,15 @@ import {
   createMemoryLocalSession,
   signIn,
 } from '../../../tests/nuxt/local-session'
+import { mockNuxtImport } from '@nuxt/test-utils/runtime'
+// Klaim identitas kunci (`PUT /v1/keys/identity`) berjalan sebelum `ready`; jaringan dimock di batas.
+mockNuxtImport('$fetch', () => async () => ({
+  data: {
+    kid: 'LBaTVGaXKfW710NOCIXptA',
+    claimedAt: '2026-10-27T00:00:00.000Z',
+    claimedByDeviceLabel: null,
+  },
+}))
 
 /**
  * Security review #77 L1: `reload()` menulis state setelah beberapa `await`, tanpa memeriksa bahwa

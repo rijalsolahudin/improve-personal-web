@@ -25,6 +25,8 @@ import { z } from 'zod'
  *   GET    /v1/sync/pull               sync.ts     syncPullQuerySchema -> syncPullResultSchema
  *   POST   /v1/account/deletion-otp    account.ts  (tanpa body; email dari SESI; 204)
  *   DELETE /v1/account                 account.ts  deleteAccountInputSchema
+ *   GET    /v1/keys/identity           keys.ts     keyIdentityDtoSchema
+ *   PUT    /v1/keys/identity           keys.ts     keyIdentityClaimInputSchema -> keyIdentityDtoSchema
  *
  * Dua endpoint terakhir adalah SATU alur (PRD F15 "Hapus Akun Permanen"): `deletion-otp` yang mengirim
  * kode konfirmasi ke email sesi, lalu `DELETE /v1/account` dengan kode itu. Tanpa yang pertama, kode
@@ -98,6 +100,12 @@ export const ERROR_CODES = [
    * kegagalan server, padahal ini 4xx alur normal.
    */
   'METHOD_NOT_ALLOWED',
+  /**
+   * Akun ini sudah punya identitas kunci (KID) lain: klaim `PUT /v1/keys/identity` kalah dari klaim
+   * yang lebih dulu. Kode sendiri (bukan `FORBIDDEN`/`DEVICE_LIMIT_REACHED`) karena client memetakannya
+   * ke layar pemulihan, bukan ke "coba lagi".
+   */
+  'KEY_IDENTITY_CONFLICT',
   'INTERNAL',
 ] as const
 
@@ -127,6 +135,9 @@ export const ERROR_HTTP_STATUS = {
   // memakai 10 slot perangkat aktif). Bukan 403 - user tidak kehilangan hak, cuma kehabisan jatah.
   DEVICE_LIMIT_REACHED: 409,
   METHOD_NOT_ALLOWED: 405,
+  // 409 Conflict: KID lain sudah terklaim untuk akun ini - bertentangan dengan keadaan
+  // resource, bukan masalah hak akses.
+  KEY_IDENTITY_CONFLICT: 409,
   INTERNAL: 500,
 } as const satisfies Record<ErrorCode, number>
 
@@ -155,6 +166,7 @@ export const GENERIC_ERROR_MESSAGES = {
   DEVICE_LIMIT_REACHED:
     'Jumlah perangkat aktif sudah mencapai batas. Hapus salah satu perangkat lalu coba lagi.',
   METHOD_NOT_ALLOWED: 'Metode permintaan ini tidak dilayani untuk alamat tersebut.',
+  KEY_IDENTITY_CONFLICT: 'Akun ini sudah punya kunci dari perangkat lain.',
   INTERNAL: 'Terjadi kesalahan di server.',
 } as const satisfies Record<ErrorCode, string>
 

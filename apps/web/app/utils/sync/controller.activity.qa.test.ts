@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { LocalDataSession } from '../storage/session'
 import { isSyncRunning, resetSyncActivityForTest } from './activity'
 import { runSync, startSync, stopSync } from './controller'
+import { TEST_KID_WIRE } from '../../../tests/nuxt/record-key'
 
 /**
  * Regresi T105 (AC6): sinyal "sedang sync" yang menghidupkan pill "Menyinkronkan…" harus seimbang.
@@ -27,6 +28,7 @@ function fakeSession(): LocalDataSession {
 
   return {
     userId: USER_A,
+    kid: TEST_KID_WIRE,
     storage: {
       listOutbox: vi.fn(async () => []),
       countOutbox: vi.fn(async () => 0),

@@ -25,6 +25,7 @@ import { resetGoalsHydrationForTest, useGoals } from './useGoals'
 import { resetHabitsHydrationForTest } from './useHabits'
 import { resetSchedulesHydrationForTest } from './useSchedules'
 import { resetTasksHydrationForTest } from './useTasks'
+import { TEST_KID_WIRE } from '../../tests/nuxt/record-key'
 
 /**
  * Urutan `RELOAD_ORDER` (goalLinks -> goals -> tasks) hanya benar kalau presentation goal dihitung
@@ -55,6 +56,7 @@ function memorySession(): LocalDataSession {
     provider: fakeProvider,
     clock,
     dataKey: DATA_KEY,
+    kid: TEST_KID_WIRE,
     hlc,
     deviceId: DEVICE_ID,
     userId: '018f2c4e-0000-7000-8000-00000000000a',

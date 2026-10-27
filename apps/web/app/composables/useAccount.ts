@@ -10,7 +10,8 @@ import { KeysRequestError, createKeysGateway, type KeysGateway } from '~/utils/c
 import { buildBackupCode } from '~/utils/account/backup-code'
 import { RECOVERY_MATERIAL_KIND } from '~/utils/account/recovery-file'
 import {
-  createPasskeyEnvelope,
+  createVerifiedPasskeyEnvelope,
+  readPasskeyMaterial,
   savePasskeyMaterial,
   toEnvelopePutInput,
 } from '~/utils/crypto/passkey'
@@ -20,8 +21,9 @@ import {
   type RecoveryEnvelope,
 } from '~/utils/crypto/recovery'
 import {
+  createWebAuthnAuthenticator,
   createWebAuthnRegistrar,
-  createWebAuthnUserId,
+  deriveWebAuthnUserHandle,
   isWebAuthnAvailable,
 } from '~/utils/crypto/webauthn'
 import { BRAND } from '#shared/brand'
@@ -138,6 +140,10 @@ export function useAccount(options: UseAccountOptions = {}) {
    *
    * Butuh WebAuthn nyata: di luar browser (SSR, test, browser tanpa secure context) aksinya MENOLAK
    * dengan pesan jelas - tidak ada jalur cadangan ke pembuka yang lebih lemah.
+   *
+   * Urutannya penting karena slot server cuma satu dan `putEnvelope` MENIMPA envelope yang ada:
+   * envelope baru baru dikirim SETELAH terbukti bisa dibuka kembali (`createVerifiedPasskeyEnvelope`).
+   * Verifikasi gagal = envelope lama di server tetap utuh, dan petunjuk lokal tidak ditulis.
    */
   async function activatePasskey(input: {
     readonly userName: string
@@ -153,20 +159,28 @@ export function useAccount(options: UseAccountOptions = {}) {
       const session = await localData.ensure()
       if (session === null) throw new Error('data lokal belum bisa dibuka')
 
-      const registrar = createWebAuthnRegistrar({
+      const keyStore = await resolveKeyStore()
+      const known = await knownCredentialId(keyStore)
+
+      const register = createWebAuthnRegistrar({
         rpName: BRAND.passkeyName,
         userName: input.userName,
         userDisplayName: input.userDisplayName,
-        userId: createWebAuthnUserId(),
+        userHandle: await deriveWebAuthnUserHandle(session.userId),
+        excludeCredentialIds: known === null ? [] : [known],
       })
 
       const { envelope, material } = await session.withMasterKey((masterKey) =>
-        createPasskeyEnvelope(masterKey, registrar),
+        createVerifiedPasskeyEnvelope({
+          masterKey,
+          register,
+          authenticate: createWebAuthnAuthenticator(),
+        }),
       )
 
       // Envelope ke SERVER (satu-satunya slot yang boleh), petunjuk kredensial ke perangkat.
       await keys.putEnvelope(toEnvelopePutInput(envelope))
-      await savePasskeyMaterial(await resolveKeyStore(), toStorable(material))
+      await savePasskeyMaterial(keyStore, toStorable(material))
 
       await load()
     } catch (cause) {
@@ -284,6 +298,18 @@ export function useAccount(options: UseAccountOptions = {}) {
     activatePasskey,
     revokeDevice,
   }
+}
+
+/**
+ * Kredensial yang sudah dikenal perangkat ini, untuk `excludeCredentials`.
+ *
+ * Petunjuk yang rusak dianggap tidak ada, bukan menggagalkan aktivasi: gunanya hanya mencegah passkey
+ * ganda, dan aktivasi yang berhasil menimpanya dengan petunjuk baru - menolak di sini malah mengunci
+ * user dari satu-satunya jalan memperbaikinya.
+ */
+async function knownCredentialId(keyStore: SecureKeyStore): Promise<string | null> {
+  const handle = await readPasskeyMaterial(keyStore).catch(() => null)
+  return handle?.credentialId ?? null
 }
 
 /**

@@ -88,6 +88,43 @@ async function isFirstDeviceOfAccount(): Promise<boolean> {
   return (await keys.listEnvelopes()).length === 0
 }
 
+/**
+ * Pesan error state saat server menolak klaim KID (`KEY_IDENTITY_CONFLICT`): akun ini sudah dipegang
+ * kunci utama LAIN. Tidak ada resolusi otomatis - sync tidak boleh jalan dengan KID yang ditolak.
+ * Ditampilkan apa adanya oleh `KeyStatusNotice` (pesan dari kode kita, bukan dari server).
+ */
+export const KEY_IDENTITY_CONFLICT_MESSAGE =
+  'akun ini sudah terikat ke kunci enkripsi lain (KEY_IDENTITY_CONFLICT): sinkronisasi dihentikan'
+
+/**
+ * Klaim KID di server sebelum sesi dianggap siap. Idempoten untuk KID yang sama.
+ *
+ * Sync hanya mulai setelah status `ready` (`sync.client.ts`), jadi klaim yang ditaruh sebelum `ready`
+ * otomatis menahan sync sampai KID diterima. `import()` dinamis karena alasan yang sama dengan
+ * `isFirstDeviceOfAccount`.
+ */
+class KeyIdentityConflictError extends Error {
+  constructor(options: { cause: unknown }) {
+    super(KEY_IDENTITY_CONFLICT_MESSAGE, options)
+    this.name = 'KeyIdentityConflictError'
+  }
+}
+
+async function claimKeyIdentity(kid: string): Promise<void> {
+  const { createKeysGateway, KeysRequestError } = await import('~/utils/crypto/keys-gateway')
+  const keys = createKeysGateway((path, init) => $fetch(path, init))
+
+  try {
+    await keys.claimIdentity(kid)
+  } catch (error) {
+    if (error instanceof KeysRequestError && error.code === 'KEY_IDENTITY_CONFLICT') {
+      throw new KeyIdentityConflictError({ cause: error })
+    }
+
+    throw error
+  }
+}
+
 export function useLocalData() {
   const auth = useAuthSession()
 
@@ -142,9 +179,32 @@ export function useLocalData() {
       // di perangkat yang belum punya pembuka.
       cached ??= {
         userId,
-        promise: loadSessionModule().then((module) =>
-          module.openLocalDataSession({ userId, canCreateKey: isFirstDeviceOfAccount }),
-        ),
+        promise: loadSessionModule().then(async (module) => {
+          const session = await module.openLocalDataSession({
+            userId,
+            canCreateKey: isFirstDeviceOfAccount,
+          })
+
+          // Di dalam promise bersama: pemanggil `ensure()` yang berbarengan menunggu klaim yang sama.
+          try {
+            await claimKeyIdentity(session.kid)
+          } catch (error) {
+            // Kunci yang BARU dibuat di pemanggilan ini ditolak server (akun sudah dipegang kunci lain):
+            // slot `device`-nya sudah tertulis, dan tanpa dibuang retry akan memakai kunci salah yang
+            // sama selamanya, sementara semua jalur pemulihan menolak slot yang terisi. Belum ada record
+            // yang disegel dengan kunci ini, jadi aman dibuang -> status `locked` (layar pemulihan).
+            // Perangkat yang kuncinya sudah mapan (`isFreshKey === false`) TIDAK disentuh.
+            if (error instanceof KeyIdentityConflictError && session.isFreshKey) {
+              const { removeDeviceUnlock } = await import('~/utils/crypto/device-slot')
+              await removeDeviceUnlock(session.keyStore)
+              throw new module.LocalKeyMissingError()
+            }
+
+            throw error
+          }
+
+          return session
+        }),
       }
 
       const session = await cached.promise

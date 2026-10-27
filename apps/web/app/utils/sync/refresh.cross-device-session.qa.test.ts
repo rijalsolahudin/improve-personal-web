@@ -6,7 +6,7 @@ import {
   type HttpClient,
   type SecureKeyMaterial,
 } from '@improve-personal/core'
-import { mountSuspended } from '@nuxt/test-utils/runtime'
+import { mockNuxtImport, mountSuspended } from '@nuxt/test-utils/runtime'
 import { flushPromises, type VueWrapper } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { watch } from 'vue'
@@ -26,6 +26,15 @@ import { persistTask, removeTask } from '~/utils/tasks/persistence'
 import type { Task } from '~/utils/tasks'
 
 import { TEST_USER_A, signIn } from '../../../tests/nuxt/local-session'
+import { TEST_KID_WIRE, fakeV2Open, fakeV2Seal } from '../../../tests/nuxt/record-key'
+// Klaim identitas kunci (`PUT /v1/keys/identity`) berjalan sebelum `ready`; jaringan dimock di batas.
+mockNuxtImport('$fetch', () => async () => ({
+  data: {
+    kid: 'LBaTVGaXKfW710NOCIXptA',
+    claimedAt: '2026-10-27T00:00:00.000Z',
+    claimedByDeviceLabel: null,
+  },
+}))
 
 /**
  * AC1-AK3 lewat jalur produksi `useLocalData` (bukan sesi suntikan): sesi perangkat B dibuka oleh
@@ -61,8 +70,8 @@ const IDLE_STATE: LocalDataState = {
 
 /** Kripto tiruan: yang diuji wiring, bukan libsodium (jalur asli diuji di test persistence). */
 const fakeProvider: CryptoProvider = {
-  sealRecord: async ({ plaintext }) => Buffer.from(plaintext, 'utf8').toString('base64'),
-  openRecord: async ({ blob }) => Buffer.from(blob, 'base64').toString('utf8'),
+  sealRecord: async ({ plaintext }) => fakeV2Seal(plaintext),
+  openRecord: async ({ blob }) => fakeV2Open(blob),
 }
 
 function device(deviceId: string, startMs: number): LocalDataSession {
@@ -75,6 +84,7 @@ function device(deviceId: string, startMs: number): LocalDataSession {
     provider: fakeProvider,
     clock,
     dataKey: DATA_KEY,
+    kid: TEST_KID_WIRE,
     hlc,
     deviceId,
     userId: TEST_USER_A,

@@ -17,6 +17,21 @@ export type RecordVersion = {
   readonly id: string
   readonly hlc: string
   readonly deleted: boolean
+  /**
+   * `true` kalau blob versi ini tersimpan tanpa pernah bisa dibuka perangkat ini (`StoredRecord.opaque`).
+   * Hanya relevan untuk sisi lokal; lihat `DecideMergeOptions.incomingAuthenticated`.
+   */
+  readonly opaque?: boolean
+}
+
+export type DecideMergeOptions = {
+  /**
+   * Versi masuk TERBUKTI sah: blob-nya dibuka dengan kunci perangkat ini (v2 KID sendiri/legacy, atau
+   * v1 terbuka sebelum `v1Closed`). Versi sah menang atas record lokal `opaque` berapa pun HLC-nya
+   * (spec #120 M3): HLC milik blob yang tidak terbukti tidak boleh membayangi versi sah selamanya.
+   * Default `false` - tanpa bukti, LWW biasa; ini menjaga perilaku tombstone `'keep'` (#111).
+   */
+  readonly incomingAuthenticated?: boolean
 }
 
 /** `insert` = record baru; `replace` = versi masuk menang; `skip` = versi lokal (atau sama) menang. */
@@ -27,6 +42,8 @@ export type MergeReason =
   | 'incoming_newer'
   | 'local_newer'
   | 'same_hlc'
+  /** Lokal `opaque`, masuk terautentikasi: menang tanpa membandingkan HLC (M3). */
+  | 'local_opaque'
   /**
    * HLC versi masuk tidak bisa dibaca. `compareHlc` memperlakukan HLC rusak sebagai paling kecil,
    * jadi keputusannya `skip` - record rusak tidak boleh menimpa data sehat.
@@ -44,7 +61,11 @@ export type MergeDecision = {
   readonly winner: 'local' | 'incoming' | 'none'
 }
 
-export function decideMerge(local: RecordVersion | null, incoming: RecordVersion): MergeDecision {
+export function decideMerge(
+  local: RecordVersion | null,
+  incoming: RecordVersion,
+  options: DecideMergeOptions = {},
+): MergeDecision {
   if (local === null) {
     return { action: 'insert', reason: 'local_missing', winner: 'incoming' }
   }
@@ -54,6 +75,11 @@ export function decideMerge(local: RecordVersion | null, incoming: RecordVersion
   // situ hasilnya tidak berarti apa-apa. Lebih jujur: versi masuk yang rusak tidak pernah menang.
   if (!isValidHlc(incoming.hlc)) {
     return { action: 'skip', reason: 'incoming_invalid', winner: 'local' }
+  }
+
+  // Sesudah guard HLC rusak: versi sah dengan HLC tak terbaca tetap tidak boleh ditulis.
+  if (local.opaque === true && options.incomingAuthenticated === true) {
+    return { action: 'replace', reason: 'local_opaque', winner: 'incoming' }
   }
 
   const order = compareHlc(incoming.hlc, local.hlc)

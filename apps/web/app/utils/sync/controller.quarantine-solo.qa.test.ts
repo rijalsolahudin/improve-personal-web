@@ -5,6 +5,7 @@ import { runSync, startSync, stopSync } from './controller'
 import { clearQuarantineForTest, isQuarantined, quarantinedCount } from './quarantine'
 
 import type { LocalDataSession } from '../storage/session'
+import { TEST_KID_WIRE, TEST_V2_BLOB } from '../../../tests/nuxt/record-key'
 
 /**
  * QA T78 - jalur pemulihan record gagal-dekripsi yang sendirian di halamannya (AC #2).
@@ -66,7 +67,7 @@ function pageOf(ids: readonly string[], nextCursor: number): Page {
       id,
       hlc: `${1_000 + index}-0-deviceb`,
       deleted: false,
-      blob: 'AAAA',
+      blob: TEST_V2_BLOB,
       serverSeq: nextCursor,
     })),
     nextCursor,
@@ -94,6 +95,7 @@ function fakeSession(
 
   return {
     userId: USER_A,
+    kid: TEST_KID_WIRE,
     isFreshKey,
     storage: {
       listOutbox: vi.fn(async () => []),
@@ -164,7 +166,7 @@ describe('QA T78: record rusak tanpa record sehat di halaman yang sama', () => {
 
     // Blob record rusak TETAP disimpan (tidak ada data yang dibuang); index lamanya tidak disentuh.
     const bad = writes.find((write) => write.sealed.id === BAD_ID)
-    expect(bad?.sealed.blob).toBe('AAAA')
+    expect(bad?.sealed.blob).toBe(TEST_V2_BLOB)
     expect(bad?.index).toBe('keep')
   })
 

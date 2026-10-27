@@ -4,6 +4,7 @@
  * Isinya:
  * - `hlc.ts`      : generator HLC (jam fisik dari `Clock`, counter, tie-break deviceId)
  * - `merge.ts`    : keputusan LWW - satu tempat, dipakai push/pull/import
+ * - `blob-origin.ts`: tabel keputusan (prefix, KID) blob remote - murni, kripto lewat callback
  * - `outbox.ts`   : penyusunan baris outbox + penulisan record dalam satu transaksi
  * - `push.ts`     : batch ≤ `SYNC_MAX_BATCH`, status `applied|stale|rejected`
  * - `pull.ts`     : pull delta berhalaman dari cursor + reset saat `SYNC_RESET_REQUIRED`
@@ -15,11 +16,37 @@
  * menunggu waktu nyata.
  */
 
-export { createHlcGenerator, type HlcGenerator, type HlcGeneratorOptions } from './hlc.ts'
+export {
+  createHlcGenerator,
+  minimalSuccessorHlc,
+  type HlcGenerator,
+  type HlcGeneratorOptions,
+  type SuccessorHlcResult,
+} from './hlc.ts'
+
+export {
+  classifyBlobPrefix,
+  hasRecordBlobMagic,
+  isAuthenticatedV2Local,
+  isV1DowngradeOfV2,
+  isWellFormedV2CiphertextLength,
+  kidOwnerOf,
+  peekBlobPrefix,
+  resolveBlobVerdict,
+  type BlobKeyIdentity,
+  type BlobOrigin,
+  type BlobPrefix,
+  type BlobRejectReason,
+  type BlobVerdict,
+  type KidOwner,
+  type OpenOutcome,
+  type ResolveBlobInput,
+} from './blob-origin.ts'
 
 export {
   decideMerge,
   pickWinner,
+  type DecideMergeOptions,
   type MergeAction,
   type MergeDecision,
   type MergeReason,

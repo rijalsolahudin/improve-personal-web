@@ -20,6 +20,7 @@ import { resetHabitsHydrationForTest } from './useHabits'
 import type { LocalDataState } from './useLocalData'
 import { resetSchedulesHydrationForTest } from './useSchedules'
 import { resetTasksHydrationForTest } from './useTasks'
+import { TEST_KID_WIRE } from '../../tests/nuxt/record-key'
 
 /**
  * Sumber data Goals di atas penyimpanan sungguhan (T18, catatan QA #31 N5/B6).
@@ -50,6 +51,7 @@ function memorySession(userId: string): LocalDataSession {
     provider: fakeProvider,
     clock,
     dataKey: DATA_KEY,
+    kid: TEST_KID_WIRE,
     hlc,
     deviceId: '018f2c4e-0000-7000-8000-0000000000d1',
     userId,

@@ -1,4 +1,10 @@
-import { HLC_MAX_COUNTER, formatHlc, tryParseHlc, type HlcTuple } from '@improve-personal/contracts'
+import {
+  HLC_MAX_COUNTER,
+  HLC_MAX_WALL_MS,
+  formatHlc,
+  tryParseHlc,
+  type HlcTuple,
+} from '@improve-personal/contracts'
 
 import type { Clock } from '../ports.ts'
 
@@ -103,4 +109,39 @@ export function createHlcGenerator(options: HlcGeneratorOptions): HlcGenerator {
 
     peek: () => currentTuple(),
   }
+}
+
+/**
+ * Hasil `minimalSuccessorHlc`. `exhausted`/`invalid` adalah sinyal untuk pemanggil: record itu
+ * DIKARANTINA (`tamper`), bukan di-re-seal dengan HLC yang dipaksakan.
+ */
+export type SuccessorHlcResult =
+  | { readonly ok: true; readonly hlc: string }
+  | { readonly ok: false; readonly reason: 'invalid' | 'exhausted' }
+
+/**
+ * Penerus minimal sebuah HLC untuk re-seal v1 -> v2 (spec #120 §4.5): `wallMs` sama dan `counter + 1`,
+ * dengan `deviceId` perangkat yang me-re-seal. Bukan `hlc.now()`: jam sekarang bisa mengalahkan edit
+ * offline sah dari perangkat lain yang `wallMs`-nya lebih tua, padahal re-seal bukan edit.
+ *
+ * Kalau `counter` sudah di `HLC_MAX_COUNTER` (batas kolom `int4` server), counter TIDAK dibiarkan
+ * melewati batas: `wallMs` dimajukan satu dan counter mulai dari 0 - aturan yang sama dengan
+ * `createHlcGenerator`. Kalau `wallMs` pun sudah di `HLC_MAX_WALL_MS`, penerus tidak ada
+ * (`formatHlc` menolak tuple itu); hasilnya `exhausted` dan pemanggil wajib mengarantina record-nya.
+ * HLC masukan yang tidak terbaca (server/DB memberi data rusak) menghasilkan `invalid`.
+ */
+export function minimalSuccessorHlc(hlc: string, deviceId: string): SuccessorHlcResult {
+  const parsed = tryParseHlc(hlc)
+  if (!parsed.ok) return { ok: false, reason: 'invalid' }
+
+  if (parsed.counter < HLC_MAX_COUNTER) {
+    return {
+      ok: true,
+      hlc: formatHlc({ wallMs: parsed.wallMs, counter: parsed.counter + 1, deviceId }),
+    }
+  }
+
+  if (parsed.wallMs >= HLC_MAX_WALL_MS) return { ok: false, reason: 'exhausted' }
+
+  return { ok: true, hlc: formatHlc({ wallMs: parsed.wallMs + 1, counter: 0, deviceId }) }
 }

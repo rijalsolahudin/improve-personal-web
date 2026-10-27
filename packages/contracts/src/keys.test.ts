@@ -9,6 +9,9 @@ import {
   keyEnvelopeDtoSchema,
   keyEnvelopeListResultSchema,
   keyEnvelopePutInputSchema,
+  keyIdentityClaimInputSchema,
+  keyIdentityConflictDetailsSchema,
+  keyIdentityDtoSchema,
   keySlotSchema,
   keyTransferClaimParamsSchema,
   keyTransferClaimResultSchema,
@@ -18,6 +21,8 @@ import {
 } from './keys.ts'
 
 const WRAPPED_KEY = 'AAAA'
+const KID = 'LBaTVGaXKfW710NOCIXptA'
+const INSTAN = '2026-10-27T01:02:03.000Z'
 
 describe('keySlotSchema', () => {
   it('HANYA passkey: satu-satunya envelope yang boleh ada di server', () => {
@@ -179,5 +184,68 @@ describe('transfer kunci', () => {
     expect(keyTransferClaimResultSchema.safeParse({ blob: WRAPPED_KEY, userId: 'x' }).success).toBe(
       false,
     )
+  })
+})
+
+describe('identitas kunci', () => {
+  const identitasKosong = { kid: null, claimedAt: null, claimedByDeviceLabel: null }
+  const identitasAktif = { kid: KID, claimedAt: INSTAN, claimedByDeviceLabel: 'Laptop kantor' }
+
+  describe('keyIdentityClaimInputSchema', () => {
+    it('menerima KID kanonik saja', () => {
+      expect(keyIdentityClaimInputSchema.parse({ kid: KID })).toEqual({ kid: KID })
+    })
+
+    it('menolak KID tak kanonik/salah panjang, body kosong, dan field asing', () => {
+      for (const kid of [
+        '',
+        'pendek',
+        `${KID}A`,
+        'LBaTVGaXKfW710NOCIXptB',
+        'LBaTVGaXKfW710NOCIXpt=',
+      ]) {
+        expect(keyIdentityClaimInputSchema.safeParse({ kid }).success, kid).toBe(false)
+      }
+      expect(keyIdentityClaimInputSchema.safeParse({}).success).toBe(false)
+      expect(keyIdentityClaimInputSchema.safeParse({ kid: KID, userId: 'x' }).success).toBe(false)
+      expect(keyIdentityClaimInputSchema.safeParse({ kid: KID, otp: '123456' }).success).toBe(false)
+    })
+  })
+
+  describe('keyIdentityDtoSchema', () => {
+    it('menerima identitas kosong dan identitas aktif', () => {
+      expect(keyIdentityDtoSchema.parse(identitasKosong)).toEqual(identitasKosong)
+      expect(keyIdentityDtoSchema.parse(identitasAktif)).toEqual(identitasAktif)
+      expect(
+        keyIdentityDtoSchema.safeParse({ ...identitasAktif, claimedByDeviceLabel: null }).success,
+      ).toBe(true)
+    })
+
+    it('menolak kombinasi tak konsisten', () => {
+      expect(
+        keyIdentityDtoSchema.safeParse({ ...identitasKosong, claimedAt: INSTAN }).success,
+      ).toBe(false)
+      expect(
+        keyIdentityDtoSchema.safeParse({ ...identitasKosong, claimedByDeviceLabel: 'x' }).success,
+      ).toBe(false)
+      expect(keyIdentityDtoSchema.safeParse({ ...identitasAktif, claimedAt: null }).success).toBe(
+        false,
+      )
+    })
+
+    it('menolak field asing', () => {
+      expect(keyIdentityDtoSchema.safeParse({ ...identitasAktif, userId: 'x' }).success).toBe(false)
+    })
+  })
+
+  describe('keyIdentityConflictDetailsSchema', () => {
+    it('memuat waktu + label pengklaim dan menolak KID lawan', () => {
+      const details = { claimedAt: INSTAN, claimedByDeviceLabel: null }
+
+      expect(keyIdentityConflictDetailsSchema.parse(details)).toEqual(details)
+      expect(keyIdentityConflictDetailsSchema.safeParse({ ...details, kid: KID }).success).toBe(
+        false,
+      )
+    })
   })
 })

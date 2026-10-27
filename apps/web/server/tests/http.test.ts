@@ -18,6 +18,8 @@ import {
   deviceListResultSchema,
   GENERIC_ERROR_MESSAGES,
   keyEnvelopeListResultSchema,
+  keyIdentityConflictDetailsSchema,
+  keyIdentityDtoSchema,
   sessionDtoSchema,
   SYNC_MAX_BATCH,
   syncPullResultSchema,
@@ -31,15 +33,25 @@ import { setup, url } from '@nuxt/test-utils/e2e'
 
 import { FIXED_OTP_CODE } from '../services/otp'
 import { findSessionByToken } from '../services/session'
-import { bytesToBase64, hmacSha256, sha256Hex } from '../utils/crypto'
+import { hmacSha256, sha256Hex } from '../utils/crypto'
 import { rateLimits, sessions as sessionsTable, syncWatermarks } from '../db/schema'
-import { closeTestDb, rateLimitCount, seedSession, testDb, type Fixture } from './helpers/harness'
+import type { ServiceContext } from '../services/context'
+import { claimKeyIdentity } from '../services/keys'
+import {
+  closeTestDb,
+  OTHER_TEST_KID,
+  rateLimitCount,
+  sealedBlobBase64,
+  seedSession,
+  TEST_KID,
+  testDb,
+  type Fixture,
+} from './helpers/harness'
 import { testScope } from './helpers/scope'
 
 await setup({ server: true })
 
 const scope = testScope()
-const encoder = new TextEncoder()
 
 /** Origin server test. Dibaca lazily: `url()` baru tersedia setelah `setup()` menjalankan beforeAll. */
 function serverOrigin(): string {
@@ -48,7 +60,7 @@ function serverOrigin(): string {
 
 /** Blob base64 "ciphertext" yang dipakai test sync. */
 function blobOf(text: string): string {
-  return bytesToBase64(encoder.encode(text))
+  return sealedBlobBase64(text)
 }
 
 type ApiRequest = {
@@ -265,6 +277,17 @@ function liveCtx(fixture: Fixture) {
   return fixture.ctx({ now: new Date() })
 }
 
+/** Sesi seed yang akunnya SUDAH mengklaim `TEST_KID` - syarat server menerima push. */
+async function seedClaimedSession(
+  ctx: ServiceContext,
+  options: Parameters<typeof seedSession>[1],
+): ReturnType<typeof seedSession> {
+  const session = await seedSession(ctx, options)
+  await claimKeyIdentity(ctx, session.userId, { kid: TEST_KID }, 'Perangkat uji')
+
+  return session
+}
+
 /** Login lewat jalur produksi (OTP) dan kembalikan token mentah + cookie-nya. */
 async function loginOverHttp(
   fixture: Fixture,
@@ -321,6 +344,8 @@ describe('authz: tanpa sesi => 401 untuk semua endpoint non-publik', () => {
     ['GET', '/v1/devices'],
     ['DELETE', `/v1/devices/${randomUUID()}`],
     ['GET', '/v1/keys/envelopes'],
+    ['GET', '/v1/keys/identity'],
+    ['PUT', '/v1/keys/identity', { kid: TEST_KID }],
     ['PUT', '/v1/keys/envelopes', { slot: 'passkey', wrappedKey: 'AAAA', kdfParams: {} }],
     ['POST', '/v1/keys/transfer', { targetDeviceId: randomUUID(), blob: 'AAAA' }],
     ['POST', `/v1/keys/transfer/${'a'.repeat(22)}`],
@@ -700,6 +725,7 @@ describe('authz per-resource (IDOR) lewat HTTP', () => {
     })
 
     // Pull user A tidak memuat record user B.
+    await claimKeyIdentity(liveCtx(bob), bobSession.userId, { kid: TEST_KID }, 'Bob Laptop')
     const bobRecordId = randomUUID()
     const bobPush = await api('/v1/sync/push', {
       method: 'POST',
@@ -724,10 +750,87 @@ describe('authz per-resource (IDOR) lewat HTTP', () => {
   })
 })
 
+describe('identitas kunci lewat HTTP', () => {
+  it('GET kosong -> PUT baru 201 -> PUT ulang 200 -> PUT KID lain 409 dengan details tanpa KID', async () => {
+    const fixture = scope.fixture({ prefix: 'http-identity' })
+    const session = await seedSession(liveCtx(fixture), {
+      email: fixture.email,
+      deviceName: 'Laptop uji',
+    })
+    const cookie = cookieFor(session.token)
+    const put = (kid: string) => api('/v1/keys/identity', { method: 'PUT', cookie, body: { kid } })
+
+    const empty = await api('/v1/keys/identity', { cookie })
+    expect(empty.status).toBe(200)
+    expect(apiDataEnvelopeSchema(keyIdentityDtoSchema).parse(empty.body).data).toEqual({
+      kid: null,
+      claimedAt: null,
+      claimedByDeviceLabel: null,
+    })
+
+    const first = await put(TEST_KID)
+    expect(first.status).toBe(201)
+    expect(apiDataEnvelopeSchema(keyIdentityDtoSchema).parse(first.body).data).toMatchObject({
+      kid: TEST_KID,
+      claimedByDeviceLabel: 'Laptop uji',
+    })
+
+    expect((await put(TEST_KID)).status).toBe(200)
+
+    const conflict = await put(OTHER_TEST_KID)
+    expect(conflict.status).toBe(409)
+    const problem = problemOf(conflict).error
+    expect(problem.code).toBe('KEY_IDENTITY_CONFLICT')
+    expect(keyIdentityConflictDetailsSchema.parse(problem.details)).toMatchObject({
+      claimedByDeviceLabel: 'Laptop uji',
+    })
+    expect(JSON.stringify(conflict.body)).not.toContain(TEST_KID)
+
+    const read = await api('/v1/keys/identity', { cookie })
+    expect(apiDataEnvelopeSchema(keyIdentityDtoSchema).parse(read.body).data.kid).toBe(TEST_KID)
+  })
+
+  it('KID tak kanonik dan field asing ditolak 400', async () => {
+    const fixture = scope.fixture({ prefix: 'http-identity-invalid' })
+    const session = await seedSession(liveCtx(fixture), { email: fixture.email })
+    const cookie = cookieFor(session.token)
+
+    for (const body of [{ kid: 'pendek' }, { kid: TEST_KID, userId: randomUUID() }, {}]) {
+      const response = await api('/v1/keys/identity', { method: 'PUT', cookie, body })
+
+      expect(response.status, JSON.stringify(body)).toBe(400)
+    }
+  })
+
+  it('identitas satu akun tidak terlihat dan tidak menghalangi akun lain', async () => {
+    const alice = scope.fixture({ prefix: 'http-identity-alice' })
+    const bob = scope.fixture({ prefix: 'http-identity-bob' })
+    const aliceSession = await seedSession(liveCtx(alice), { email: alice.email })
+    const bobSession = await seedSession(liveCtx(bob), { email: bob.email })
+
+    await api('/v1/keys/identity', {
+      method: 'PUT',
+      cookie: cookieFor(aliceSession.token),
+      body: { kid: TEST_KID },
+    })
+
+    const bobRead = await api('/v1/keys/identity', { cookie: cookieFor(bobSession.token) })
+    expect(apiDataEnvelopeSchema(keyIdentityDtoSchema).parse(bobRead.body).data.kid).toBeNull()
+
+    const bobClaim = await api('/v1/keys/identity', {
+      method: 'PUT',
+      cookie: cookieFor(bobSession.token),
+      body: { kid: OTHER_TEST_KID },
+    })
+    expect(bobClaim.status).toBe(201)
+  })
+})
+
 describe('sync lewat HTTP (T21)', () => {
   it('push -> pull: ciphertext & tombstone kembali apa adanya, nextCursor benar', async () => {
     const fixture = scope.fixture({ prefix: 'http-sync' })
     const session = await seedSession(liveCtx(fixture), { email: fixture.email })
+    await claimKeyIdentity(liveCtx(fixture), session.userId, { kid: TEST_KID }, 'Laptop uji')
     const cookie = cookieFor(session.token)
     const liveId = randomUUID()
     const deletedId = randomUUID()
@@ -931,7 +1034,7 @@ describe('sync: penanda pemilik request `x-expected-user-id` (H1 + L1)', () => {
 
   /** Sesi milik user fixture ini, siap dipakai lewat cookie (HTTP nyata). */
   async function sessionOf(fixture: Fixture) {
-    return await seedSession(liveCtx(fixture), { email: fixture.email })
+    return await seedClaimedSession(liveCtx(fixture), { email: fixture.email })
   }
 
   it('cookie sesi + header cocok -> push & pull diproses seperti biasa', async () => {
@@ -1005,7 +1108,10 @@ describe('sync: penanda pemilik request `x-expected-user-id` (H1 + L1)', () => {
     // Klien bearer tidak punya cookie jar: tidak ada kredensial ambient yang bisa dipinjam tab lain,
     // jadi header ini memang tidak diwajibkan untuknya. `transport: 'node'` mengirim request tanpa
     // Fetch Metadata sama sekali - membuktikan penentunya cookie, bukan penanda browser.
-    const session = await seedSession(liveCtx(fixture), { email: fixture.email, client: 'mobile' })
+    const session = await seedClaimedSession(liveCtx(fixture), {
+      email: fixture.email,
+      client: 'mobile',
+    })
     const id = randomUUID()
 
     const pushed = await api('/v1/sync/push', {
@@ -1032,7 +1138,10 @@ describe('sync: penanda pemilik request `x-expected-user-id` (H1 + L1)', () => {
     const fixture = scope.fixture({ prefix: 'http-sync-bearer-web' })
     // `sessions.client` mencatat kanal LOGIN, sedangkan yang berbahaya adalah kanal TRANSPORT request
     // ini: selama tidak ada cookie yang ikut terkirim, tidak ada sesi tab-shared untuk dilindungi.
-    const session = await seedSession(liveCtx(fixture), { email: fixture.email, client: 'web' })
+    const session = await seedClaimedSession(liveCtx(fixture), {
+      email: fixture.email,
+      client: 'web',
+    })
     const id = randomUUID()
 
     const pushed = await api('/v1/sync/push', {
@@ -1057,7 +1166,10 @@ describe('sync: penanda pemilik request `x-expected-user-id` (H1 + L1)', () => {
 
   it('bearer sah + cookie `ip_session` pendek/asing -> tetap dilayani tanpa header (A2)', async () => {
     const fixture = scope.fixture({ prefix: 'http-sync-bearer-stray-cookie' })
-    const session = await seedSession(liveCtx(fixture), { email: fixture.email, client: 'mobile' })
+    const session = await seedClaimedSession(liveCtx(fixture), {
+      email: fixture.email,
+      client: 'mobile',
+    })
     const id = randomUUID()
     // Cookie asing yang TIDAK mungkin token sah (3 < `SESSION_TOKEN_MIN_LENGTH` = 32): sisa domain
     // lain, cookie rusak, atau sisa `Set-Cookie` pembersihan. `readSessionToken` melewatinya dan
@@ -1088,8 +1200,14 @@ describe('sync: penanda pemilik request `x-expected-user-id` (H1 + L1)', () => {
   it('bearer sah + cookie VALID milik user lain -> cookie menang, tanpa header 403 (A2)', async () => {
     const alice = scope.fixture({ prefix: 'http-sync-cookie-wins-alice' })
     const bob = scope.fixture({ prefix: 'http-sync-cookie-wins-bob' })
-    const aliceSession = await seedSession(liveCtx(alice), { email: alice.email, client: 'web' })
-    const bobSession = await seedSession(liveCtx(bob), { email: bob.email, client: 'mobile' })
+    const aliceSession = await seedClaimedSession(liveCtx(alice), {
+      email: alice.email,
+      client: 'web',
+    })
+    const bobSession = await seedClaimedSession(liveCtx(bob), {
+      email: bob.email,
+      client: 'mobile',
+    })
     const cookie = cookieFor(aliceSession.token)
     const id = randomUUID()
 

@@ -1,4 +1,4 @@
-import { mountSuspended } from '@nuxt/test-utils/runtime'
+import { mockNuxtImport, mountSuspended } from '@nuxt/test-utils/runtime'
 import { flushPromises, type VueWrapper } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -10,6 +10,15 @@ import { resetSyncReloadersForTest } from '~/utils/sync/refresh'
 import ShellSyncStatus from './ShellSyncStatus.vue'
 
 import { TEST_USER_A, createMemoryLocalSession, signIn } from '../../../../tests/nuxt/local-session'
+
+// Klaim identitas kunci (`PUT /v1/keys/identity`) berjalan sebelum `ready`; jaringan dimock di batas.
+mockNuxtImport('$fetch', () => async () => ({
+  data: {
+    kid: 'LBaTVGaXKfW710NOCIXptA',
+    claimedAt: '2026-10-27T00:00:00.000Z',
+    claimedByDeviceLabel: null,
+  },
+}))
 
 /**
  * Dua hal di indikator status yang belum ter-cover (review #76, bagian "test plugin + retry"):

@@ -7,7 +7,7 @@
 //
 // Yang TIDAK diuji di sini, dan tidak diklaim: cerita WebAuthn sendiri (`navigator.credentials` +
 // ekstensi `prf`). Itu butuh authenticator nyata - lihat catatan di `webauthn.ts`.
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import { kdfParamsSchema, type ErrorCode } from '@improve-personal/contracts'
 import type { SecureKeyStore } from '@improve-personal/core'
@@ -16,7 +16,9 @@ import { createMasterKey } from './master-key'
 import { loadSodium } from './sodium'
 import {
   PASSKEY_MATERIAL_KIND,
+  PasskeyVerificationError,
   createPasskeyEnvelope,
+  createVerifiedPasskeyEnvelope,
   readPasskeyMaterial,
   savePasskeyMaterial,
   toEnvelopePutInput,
@@ -138,6 +140,80 @@ describe('passkey', () => {
 
     await keyStore.put('passkey', { kind: PASSKEY_MATERIAL_KIND, handle: {} } as PasskeyMaterial)
     await expect(readPasskeyMaterial(keyStore)).rejects.toThrow(/rusak/)
+  })
+})
+
+describe('createVerifiedPasskeyEnvelope', () => {
+  it('PRF dari create(): dibuktikan lewat get() sungguhan ke kredensial yang sama', async () => {
+    const sodium = await loadSodium()
+    const masterKey = createMasterKey(sodium)
+    const authenticate = vi.fn(fakeAuthenticator('cred-1'))
+
+    const { envelope, material } = await createVerifiedPasskeyEnvelope({
+      masterKey,
+      register: fakeAuthenticator('cred-1'),
+      authenticate,
+    })
+
+    expect(authenticate).toHaveBeenCalledTimes(1)
+    expect(authenticate.mock.calls[0]?.[0].credentialId).toBe('cred-1')
+    expect(material.handle.credentialId).toBe('cred-1')
+    const recovered = await unlockMasterKeyWithPasskey({ envelope, prf: fakeAuthenticator() })
+    expect(Buffer.from(recovered)).toEqual(Buffer.from(masterKey))
+  })
+
+  it('PRF sudah dari get() (isAssertion): dipakai ulang, tanpa sentuhan ketiga', async () => {
+    const sodium = await loadSodium()
+    const assertion = fakeAuthenticator('cred-1')
+    const authenticate = vi.fn(fakeAuthenticator('cred-1'))
+
+    await createVerifiedPasskeyEnvelope({
+      masterKey: createMasterKey(sodium),
+      register: async (request) => ({ ...(await assertion(request)), isAssertion: true }),
+      authenticate,
+    })
+
+    expect(authenticate).not.toHaveBeenCalled()
+  })
+
+  it('PRF get() berbeda dari create() (mis. UV beda): DITOLAK, tidak ada envelope dikembalikan', async () => {
+    const sodium = await loadSodium()
+
+    await expect(
+      createVerifiedPasskeyEnvelope({
+        masterKey: createMasterKey(sodium),
+        register: fakeAuthenticator('cred-create'),
+        authenticate: fakeAuthenticator('cred-get'),
+      }),
+    ).rejects.toBeInstanceOf(PasskeyVerificationError)
+  })
+
+  it('get() verifikasi gagal/dibatalkan: DITOLAK sebagai kegagalan verifikasi', async () => {
+    const sodium = await loadSodium()
+
+    await expect(
+      createVerifiedPasskeyEnvelope({
+        masterKey: createMasterKey(sodium),
+        register: fakeAuthenticator(),
+        authenticate: async () => {
+          throw new Error('permintaan passkey dibatalkan')
+        },
+      }),
+    ).rejects.toThrow(/tidak bisa membuka kunci kembali/)
+  })
+
+  it('kunci utama milik pemanggil tidak dikosongkan oleh verifikasi', async () => {
+    const sodium = await loadSodium()
+    const masterKey = createMasterKey(sodium)
+    const copy = new Uint8Array(masterKey)
+
+    await createVerifiedPasskeyEnvelope({
+      masterKey,
+      register: fakeAuthenticator(),
+      authenticate: fakeAuthenticator(),
+    })
+
+    expect(Buffer.from(masterKey)).toEqual(Buffer.from(copy))
   })
 })
 

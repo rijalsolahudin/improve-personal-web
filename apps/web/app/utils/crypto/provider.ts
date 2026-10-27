@@ -1,3 +1,14 @@
+import {
+  KID_BYTES,
+  RECORD_PAD_BLOCK_BYTES,
+  RECORD_V2_CIPHERTEXT_OFFSET,
+  RECORD_V2_NONCE_BYTES,
+  RECORD_V2_NONCE_OFFSET,
+  SEALED_RECORD_V2_MAX_PLAINTEXT_BYTES,
+  encodeRecordAadV2,
+  encodeSealedBlobHeaderV2,
+  parseSealedBlobHeader,
+} from '@improve-personal/contracts'
 import type {
   CryptoProvider,
   OpenRecordInput,
@@ -5,8 +16,7 @@ import type {
   SecureKeyMaterial,
 } from '@improve-personal/core'
 
-import { openWithKey, sealWithKey } from './envelope'
-import { loadSodium } from './sodium'
+import { loadSodium, type SodiumModule } from './sodium'
 
 /**
  * `CryptoProvider` web: XChaCha20-Poly1305 lewat libsodium (ARCHITECTURE §5 & §6, ADR 4).
@@ -17,15 +27,14 @@ import { loadSodium } from './sodium'
  * Yang tidak boleh dikompromikan adalah perilakunya - karena itu kontraknya tetap `CryptoProvider`
  * dari core, bukan interface buatan sendiri.
  *
- * Bentuk `blob` (sama untuk web & native, supaya record bisa dibuka di perangkat lain nanti):
+ * Provider ini hanya MEMPRODUKSI dan MEMBUKA blob v2 (spec #120 §2.1, §4.1-4.2). Layout, AAD, dan
+ * konstanta berasal dari `@improve-personal/contracts` (dikunci vektor emas), bukan ditulis ulang:
  *
- *   base64( nonce[24] || ciphertext||tag )
+ *   "ipr" || 0x02 || KID[16] || nonce[24] || AEAD(pad(plaintext, 256))   -> base64 standar
  *
- * - XChaCha20-Poly1305 IETF: nonce 24 byte, jadi nonce acak per record aman tanpa penghitung.
- * - AAD = `recordId`: blob tidak bisa dipindah ke record lain - dipindah = gagal dibuka, bukan
- *   terbuka dengan isi yang salah.
- * - Base64 standar (bukan URL-safe) supaya `blob` aman disimpan sebagai `text` di IndexedDB dan
- *   dikirim sebagai JSON ke server.
+ * - AAD mengikat KID, akun, record, HLC, dan `deleted`: blob tidak bisa dipindah ke record/akun lain
+ *   dan metadata sync tidak bisa diubah server tanpa membuat blob gagal dibuka.
+ * - Padding 256 byte: panjang plaintext hanya bocor per bucket.
  * - DILARANG ada kunci, nonce, atau plaintext di log. Fungsi ini tidak mencatat apa pun.
  */
 
@@ -36,41 +45,138 @@ export const RAW_DATA_KEY_KIND = 'raw-32'
 const DATA_KEY_BYTES = 32
 
 /**
- * Bahan kunci berupa byte mentah.
+ * Identitas kunci yang melekat pada kunci data: KID (fingerprint non-rahasia turunan kunci utama) dan
+ * akun pemilik. Keduanya masuk AAD, jadi dibawa BERSAMA kuncinya - tidak ada jalur untuk menyegel
+ * dengan kunci milik akun A tetapi mengaku akun B.
+ */
+export type RecordKeyIdentity = {
+  readonly kid: Uint8Array
+  readonly userId: string
+}
+
+/**
+ * Bahan kunci berupa byte mentah, terikat ke identitas kunci.
  *
  * Dipakai setelah unlock (kunci utama sudah dibuka di memori) dan di test. Sengaja BUKAN bentuk yang
  * disimpan di perangkat: `SecureKeyStore` yang menyimpan handle non-extractable, dan kunci utama
  * tidak pernah ditulis mentah ke disk.
  */
-export type RawDataKeyMaterial = SecureKeyMaterial & { readonly kind: typeof RAW_DATA_KEY_KIND }
+export type RawDataKeyMaterial = SecureKeyMaterial & {
+  readonly kind: typeof RAW_DATA_KEY_KIND
+  readonly identity: RecordKeyIdentity
+}
 
-/** Bungkus byte kunci jadi bahan kunci yang bisa dipakai `CryptoProvider`. */
-export function rawDataKeyMaterial(bytes: Uint8Array): RawDataKeyMaterial {
+/** Bungkus byte kunci + identitasnya jadi bahan kunci yang bisa dipakai `CryptoProvider`. */
+export function rawDataKeyMaterial(
+  bytes: Uint8Array,
+  identity: RecordKeyIdentity,
+): RawDataKeyMaterial {
   if (bytes.length !== DATA_KEY_BYTES) {
     throw new Error(`kunci data harus ${DATA_KEY_BYTES} byte, dapat ${bytes.length}`)
   }
+  if (identity.kid.length !== KID_BYTES) {
+    throw new Error(`KID harus ${KID_BYTES} byte, dapat ${identity.kid.length}`)
+  }
 
-  return { kind: RAW_DATA_KEY_KIND, handle: bytes }
+  return { kind: RAW_DATA_KEY_KIND, handle: bytes, identity }
 }
 
+type ReadKey = { readonly key: Uint8Array; readonly identity: RecordKeyIdentity }
+
 /**
- * Baca byte kunci dari bahan kunci.
+ * Baca byte kunci + identitas dari bahan kunci.
  *
  * Bahan kunci yang tidak dikenal DITOLAK dengan pesan jelas, bukan ditebak: slot passkey/recovery
  * belum ada implementasinya, dan "menganggap" sebuah handle sebagai byte kunci adalah cara paling
  * halus untuk merusak data user.
  */
-function readDataKey(material: SecureKeyMaterial): Uint8Array {
+function readDataKey(material: SecureKeyMaterial): ReadKey {
   if (material.kind !== RAW_DATA_KEY_KIND) {
     throw new Error(`jenis bahan kunci "${material.kind}" belum didukung provider ini`)
   }
 
-  const handle = material.handle
+  const { handle, identity } = material as Partial<RawDataKeyMaterial>
   if (!(handle instanceof Uint8Array) || handle.length !== DATA_KEY_BYTES) {
     throw new Error('bahan kunci rusak: handle bukan byte kunci 32')
   }
+  if (identity === undefined || identity.kid.length !== KID_BYTES) {
+    throw new Error('bahan kunci rusak: identitas kunci (KID) tidak ada')
+  }
 
-  return handle
+  return { key: handle, identity }
+}
+
+function sameBytes(a: Uint8Array, b: Uint8Array): boolean {
+  return a.length === b.length && a.every((byte, index) => byte === b[index])
+}
+
+function aadOf(
+  identity: RecordKeyIdentity,
+  input: { recordId: string; hlc: string; deleted: boolean },
+): Uint8Array {
+  return encodeRecordAadV2({
+    kid: identity.kid,
+    userId: identity.userId,
+    recordId: input.recordId,
+    hlc: input.hlc,
+    deleted: input.deleted,
+  })
+}
+
+function sealV2(sodium: SodiumModule, input: SealRecordInput): string {
+  const { key, identity } = readDataKey(input.dataKey)
+  const plaintext = encode(input.plaintext)
+
+  // Writer sudah memeriksa batas ini; di sini jaring pengaman, karena blob yang kelewat besar ditolak
+  // server dan record-nya macet di outbox selamanya.
+  if (plaintext.length > SEALED_RECORD_V2_MAX_PLAINTEXT_BYTES) {
+    throw new RangeError('plaintext record melebihi batas blob v2')
+  }
+
+  const nonce = sodium.randombytes_buf(RECORD_V2_NONCE_BYTES)
+  const sealed = sodium.crypto_aead_xchacha20poly1305_ietf_encrypt(
+    sodium.pad(plaintext, RECORD_PAD_BLOCK_BYTES),
+    aadOf(identity, input),
+    null,
+    nonce,
+    key,
+  )
+
+  const blob = new Uint8Array(RECORD_V2_CIPHERTEXT_OFFSET + sealed.length)
+  blob.set(encodeSealedBlobHeaderV2(identity.kid), 0)
+  blob.set(nonce, RECORD_V2_NONCE_OFFSET)
+  blob.set(sealed, RECORD_V2_CIPHERTEXT_OFFSET)
+
+  return sodium.to_base64(blob, sodium.base64_variants.ORIGINAL)
+}
+
+function openV2(sodium: SodiumModule, input: OpenRecordInput): Uint8Array {
+  const { key, identity } = readDataKey(input.dataKey)
+  const raw = sodium.from_base64(input.blob, sodium.base64_variants.ORIGINAL)
+
+  const header = parseSealedBlobHeader(raw)
+  if (header === null) {
+    throw new Error('blob tidak valid: bukan blob v2 atau terlalu pendek')
+  }
+  // KID di header bukan rahasia dan bukan bukti apa pun; pemeriksaan ini hanya memberi pesan yang
+  // jelas sebelum AEAD. Yang menentukan tetap AAD (KID ikut di dalamnya).
+  if (!sameBytes(header.kid, identity.kid)) {
+    throw new Error('blob tidak bisa dibuka: kunci atau tujuan tidak cocok')
+  }
+
+  try {
+    const padded = sodium.crypto_aead_xchacha20poly1305_ietf_decrypt(
+      null,
+      header.ciphertext,
+      aadOf(identity, input),
+      header.nonce,
+      key,
+    )
+
+    return sodium.unpad(padded, RECORD_PAD_BLOCK_BYTES)
+  } catch (error) {
+    throw new Error('blob tidak bisa dibuka: kunci atau tujuan tidak cocok', { cause: error })
+  }
 }
 
 /**
@@ -88,18 +194,11 @@ export async function createSodiumCryptoProvider(): Promise<CryptoProvider> {
 
   return {
     async sealRecord(input: SealRecordInput): Promise<string> {
-      // AAD = `recordId`: blob terikat ke record-nya (ADR 4), dan bentuknya sama dengan envelope kunci
-      // lain - lihat `envelope.ts`.
-      return sealWithKey(
-        sodium,
-        readDataKey(input.dataKey),
-        input.recordId,
-        encode(input.plaintext),
-      )
+      return sealV2(sodium, input)
     },
 
     async openRecord(input: OpenRecordInput): Promise<string> {
-      return decode(openWithKey(sodium, readDataKey(input.dataKey), input.recordId, input.blob))
+      return decode(openV2(sodium, input))
     },
   }
 }

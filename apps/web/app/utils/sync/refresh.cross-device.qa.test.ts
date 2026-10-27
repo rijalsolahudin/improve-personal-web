@@ -24,6 +24,7 @@ import type { LocalDataSession } from '~/utils/storage/session'
 import { createUuidV7Generator } from '~/utils/storage/uuid'
 import { persistTask, removeTask } from '~/utils/tasks/persistence'
 import type { Task } from '~/utils/tasks'
+import { TEST_KID_WIRE, fakeV2Open, fakeV2Seal } from '../../../tests/nuxt/record-key'
 
 /**
  * AC T77 dibuktikan sebagai alur lintas perangkat, bukan hanya "reload() menulis state".
@@ -54,8 +55,8 @@ const STATE_KEYS = ['tasks', 'tasksStatus', 'tasksError', 'localData', 'goalLink
 
 /** Kripto tiruan: yang diuji wiring, bukan libsodium (jalur asli diuji di test persistence). */
 const fakeProvider: CryptoProvider = {
-  sealRecord: async ({ plaintext }) => Buffer.from(plaintext, 'utf8').toString('base64'),
-  openRecord: async ({ blob }) => Buffer.from(blob, 'base64').toString('utf8'),
+  sealRecord: async ({ plaintext }) => fakeV2Seal(plaintext),
+  openRecord: async ({ blob }) => fakeV2Open(blob),
 }
 
 function device(deviceId: string, startMs: number): LocalDataSession {
@@ -68,6 +69,7 @@ function device(deviceId: string, startMs: number): LocalDataSession {
     provider: fakeProvider,
     clock,
     dataKey: DATA_KEY,
+    kid: TEST_KID_WIRE,
     hlc,
     deviceId,
     userId: USER_ID,

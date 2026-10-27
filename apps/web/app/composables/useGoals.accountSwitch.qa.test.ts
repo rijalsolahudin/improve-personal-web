@@ -16,6 +16,7 @@ import { persistGoal } from '~/utils/goals/persistence'
 
 import { useGoals } from './useGoals'
 import type { LocalDataState } from './useLocalData'
+import { TEST_KID_WIRE } from '../../tests/nuxt/record-key'
 
 /**
  * Ganti akun tanpa reload halaman (T18): goal akun sebelumnya tidak boleh terlihat di akun baru.
@@ -42,6 +43,7 @@ function memorySession(userId: string): LocalDataSession {
     provider: fakeProvider,
     clock,
     dataKey: DATA_KEY,
+    kid: TEST_KID_WIRE,
     hlc,
     deviceId: '018f2c4e-0000-7000-8000-0000000000d1',
     userId,

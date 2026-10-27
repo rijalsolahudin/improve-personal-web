@@ -12,6 +12,7 @@ import {
 } from './quarantine'
 
 import type { LocalDataSession } from '../storage/session'
+import { TEST_KID_WIRE, TEST_V2_BLOB } from '../../../tests/nuxt/record-key'
 
 /**
  * Pemulihan record terkarantina.
@@ -67,7 +68,7 @@ function pageOf(ids: readonly string[], nextCursor: number): Page {
       id,
       hlc: `${1_000 + index}-0-deviceb`,
       deleted: false,
-      blob: 'AAAA',
+      blob: TEST_V2_BLOB,
       serverSeq: nextCursor,
     })),
     nextCursor,
@@ -97,6 +98,7 @@ function fakeSession(
 
   return {
     userId: USER_A,
+    kid: TEST_KID_WIRE,
     isFreshKey: false,
     storage: {
       listOutbox: vi.fn(async () => []),

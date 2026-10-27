@@ -8,8 +8,16 @@
 import { describe, expect, it } from 'vitest'
 
 import { createSodiumCryptoProvider } from './provider'
-import { assertMasterKey, createMasterKey, deriveDataKey, zeroKey } from './master-key'
+import {
+  assertMasterKey,
+  createMasterKey,
+  deriveDataKey,
+  deriveKid,
+  deriveKidWire,
+  zeroKey,
+} from './master-key'
 import { loadSodium } from './sodium'
+import { TEST_HLC, TEST_USER_ID } from '../../../tests/nuxt/record-key'
 
 const RECORD_ID = '018f2c4e-0000-7000-8000-00000000000a'
 
@@ -44,8 +52,8 @@ describe('turunan kunci data', () => {
     const sodium = await loadSodium()
     const masterKey = createMasterKey(sodium)
 
-    const first = deriveDataKey(sodium, masterKey)
-    const second = deriveDataKey(sodium, masterKey)
+    const first = deriveDataKey(sodium, masterKey, TEST_USER_ID)
+    const second = deriveDataKey(sodium, masterKey, TEST_USER_ID)
 
     expect(first.kind).toBe('raw-32')
     expect(Buffer.from(first.handle as Uint8Array)).toEqual(
@@ -57,8 +65,8 @@ describe('turunan kunci data', () => {
   it('kunci utama berbeda -> kunci data berbeda (tidak ada tabrakan yang diasumsikan)', async () => {
     const sodium = await loadSodium()
 
-    const a = deriveDataKey(sodium, createMasterKey(sodium))
-    const b = deriveDataKey(sodium, createMasterKey(sodium))
+    const a = deriveDataKey(sodium, createMasterKey(sodium), TEST_USER_ID)
+    const b = deriveDataKey(sodium, createMasterKey(sodium), TEST_USER_ID)
 
     expect(Buffer.from(a.handle as Uint8Array)).not.toEqual(Buffer.from(b.handle as Uint8Array))
   })
@@ -66,7 +74,7 @@ describe('turunan kunci data', () => {
   it('kunci utama dengan panjang salah ditolak, bukan diturunkan diam-diam', async () => {
     const sodium = await loadSodium()
 
-    expect(() => deriveDataKey(sodium, new Uint8Array(31))).toThrow(/32 byte/)
+    expect(() => deriveDataKey(sodium, new Uint8Array(31), TEST_USER_ID)).toThrow(/32 byte/)
   })
 
   it('rantai MK -> kunci data -> record: blob yang disegel bisa dibuka lagi', async () => {
@@ -75,22 +83,73 @@ describe('turunan kunci data', () => {
     const sodium = await loadSodium()
     const provider = await createSodiumCryptoProvider()
     const masterKey = createMasterKey(sodium)
-    const dataKey = deriveDataKey(sodium, masterKey)
+    const dataKey = deriveDataKey(sodium, masterKey, TEST_USER_ID)
 
     const plaintext = JSON.stringify({ type: 'todo', schemaVersion: 1, data: { title: 'belajar' } })
-    const blob = await provider.sealRecord({ recordId: RECORD_ID, dataKey, plaintext })
+    const blob = await provider.sealRecord({
+      recordId: RECORD_ID,
+      hlc: TEST_HLC,
+      deleted: false,
+      dataKey,
+      plaintext,
+    })
 
     // Sesi berikutnya: yang tersedia hanya kunci utama (kunci data diturunkan ulang).
     const reopened = await provider.openRecord({
       recordId: RECORD_ID,
-      dataKey: deriveDataKey(sodium, masterKey),
+      hlc: TEST_HLC,
+      deleted: false,
+      dataKey: deriveDataKey(sodium, masterKey, TEST_USER_ID),
       blob,
     })
     expect(reopened).toBe(plaintext)
 
-    const otherKey = deriveDataKey(sodium, createMasterKey(sodium))
+    const otherKey = deriveDataKey(sodium, createMasterKey(sodium), TEST_USER_ID)
     await expect(
-      provider.openRecord({ recordId: RECORD_ID, dataKey: otherKey, blob }),
+      provider.openRecord({
+        recordId: RECORD_ID,
+        hlc: TEST_HLC,
+        deleted: false,
+        dataKey: otherKey,
+        blob,
+      }),
     ).rejects.toThrow(/tidak cocok/)
+  })
+})
+
+describe('KID (identitas kunci)', () => {
+  // Vektor emas dari contracts (`record-format.test.ts`): MK = byte 0..31 -> KID ini, di web DAN mobile.
+  const GOLDEN_MASTER_KEY = Uint8Array.from({ length: 32 }, (_, index) => index)
+  const GOLDEN_KID_HEX = '2c169354669729f5bbd7434e0885e9b4'
+  const GOLDEN_KID_WIRE = 'LBaTVGaXKfW710NOCIXptA'
+
+  it('cocok dengan vektor emas contracts', async () => {
+    const sodium = await loadSodium()
+
+    expect(sodium.to_hex(deriveKid(sodium, GOLDEN_MASTER_KEY))).toBe(GOLDEN_KID_HEX)
+    expect(deriveKidWire(sodium, GOLDEN_MASTER_KEY)).toBe(GOLDEN_KID_WIRE)
+  })
+
+  it('deterministik per kunci utama, beda antar kunci, dan tidak sama dengan kunci data', async () => {
+    const sodium = await loadSodium()
+    const masterKey = createMasterKey(sodium)
+
+    expect(deriveKid(sodium, masterKey)).toEqual(deriveKid(sodium, masterKey))
+    expect(deriveKid(sodium, masterKey)).not.toEqual(deriveKid(sodium, createMasterKey(sodium)))
+    expect(deriveKid(sodium, masterKey)).toHaveLength(16)
+  })
+
+  it('menolak kunci utama dengan panjang salah', async () => {
+    const sodium = await loadSodium()
+
+    expect(() => deriveKid(sodium, new Uint8Array(31))).toThrow(/32 byte/)
+  })
+
+  it('kunci data memuat KID & akun, jadi KID di blob = KID turunan kunci utama', async () => {
+    const sodium = await loadSodium()
+    const dataKey = deriveDataKey(sodium, GOLDEN_MASTER_KEY, TEST_USER_ID)
+
+    expect(sodium.to_hex(dataKey.identity.kid)).toBe(GOLDEN_KID_HEX)
+    expect(dataKey.identity.userId).toBe(TEST_USER_ID)
   })
 })

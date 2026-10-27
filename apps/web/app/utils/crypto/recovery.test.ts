@@ -19,6 +19,7 @@ import {
 import { createMasterKey, deriveDataKey } from './master-key'
 import { createSodiumCryptoProvider } from './provider'
 import { loadSodium } from './sodium'
+import { TEST_HLC, TEST_USER_ID } from '../../../tests/nuxt/record-key'
 
 const RECORD_ID = '018f2c4e-0000-7000-8000-00000000000c'
 
@@ -148,7 +149,9 @@ describe('envelope recovery', () => {
     const plaintext = JSON.stringify({ type: 'todo', schemaVersion: 1, data: { title: 'pulih' } })
     const blob = await provider.sealRecord({
       recordId: RECORD_ID,
-      dataKey: deriveDataKey(sodium, masterKey),
+      hlc: TEST_HLC,
+      deleted: false,
+      dataKey: deriveDataKey(sodium, masterKey, TEST_USER_ID),
       plaintext,
     })
 
@@ -156,7 +159,9 @@ describe('envelope recovery', () => {
     const recoveredMasterKey = await unwrapMasterKeyWithRecovery(words, envelope)
     const opened = await provider.openRecord({
       recordId: RECORD_ID,
-      dataKey: deriveDataKey(sodium, recoveredMasterKey),
+      hlc: TEST_HLC,
+      deleted: false,
+      dataKey: deriveDataKey(sodium, recoveredMasterKey, TEST_USER_ID),
       blob,
     })
 

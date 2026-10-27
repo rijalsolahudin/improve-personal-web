@@ -37,6 +37,7 @@ import {
   listQuarantined,
   quarantineRecord,
 } from './quarantine'
+import { TEST_KID_WIRE, testKeyIdentity } from '../../../tests/nuxt/record-key'
 
 const USER_A = '018f2c4e-0000-7000-8000-00000000000a'
 const USER_B = '018f2c4e-0000-7000-8000-00000000000b'
@@ -106,6 +107,7 @@ function createHarness(
     provider,
     clock,
     dataKey,
+    kid: TEST_KID_WIRE,
     hlc,
     deviceId: DEVICE_ID,
     isFreshKey: false,
@@ -198,8 +200,8 @@ beforeEach(async () => {
   clearQuarantineForTest()
   resetSyncReloadersForTest()
   provider = await createSodiumCryptoProvider()
-  dataKey = rawDataKeyMaterial(new Uint8Array(32).fill(7))
-  wrongKey = rawDataKeyMaterial(new Uint8Array(32).fill(9))
+  dataKey = rawDataKeyMaterial(new Uint8Array(32).fill(7), testKeyIdentity(1))
+  wrongKey = rawDataKeyMaterial(new Uint8Array(32).fill(9), testKeyIdentity(1))
 })
 
 afterEach(() => {

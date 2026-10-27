@@ -43,6 +43,13 @@
       "when": 1792979956980,
       "tag": "0005_zippy_firebird",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1793069314985,
+      "tag": "0006_account_keys",
+      "breakpoints": true
     }
   ]
 }

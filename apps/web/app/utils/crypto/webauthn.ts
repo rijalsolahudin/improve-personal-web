@@ -4,14 +4,16 @@ import type { PasskeyPrfProvider, PasskeyPrfResult } from './passkey'
  * Batas WebAuthn nyata: `navigator.credentials` + ekstensi `prf` (ARCHITECTURE §7, §5 tabel port).
  *
  * ============================  PERINGATAN JUJUR  ============================
- * Berkas ini TIDAK diuji di node, dan tidak diklaim teruji. `navigator.credentials.create/get`
- * membutuhkan authenticator nyata (platform authenticator / security key) plus ekstensi `prf`, jadi
- * verifikasinya harus lewat browser: Playwright dengan virtual authenticator (CDP
- * `WebAuthn.addVirtualAuthenticator`, mendukung `prf`), atau perangkat sungguhan.
+ * Berkas ini TIDAK teruji terhadap authenticator nyata, dan tidak diklaim begitu.
+ * `webauthn.test.ts` memakai `navigator.credentials` PALSU: ia mengunci opsi yang kita kirim (UV &
+ * discoverable wajib, `excludeCredentials`, user handle) dan cabang hasil `prf` (results / hanya
+ * `enabled` / tidak ada). Apakah authenticator sungguhan memberi PRF yang sama di create() dan get(),
+ * dan apakah passkey-nya benar-benar ditemukan di perangkat lain, hanya terbukti lewat browser:
+ * Playwright dengan virtual authenticator (CDP `WebAuthn.addVirtualAuthenticator`, mendukung `prf`),
+ * atau perangkat sungguhan.
  *
- * Yang SUDAH teruji (di `passkey.test.ts`) adalah logika pembungkusan kuncinya, lewat seam
- * `PasskeyPrfProvider` yang disuntik. Artinya: kalau bagian ini salah, yang salah adalah pemanggilan
- * WebAuthn-nya - bukan cara kunci dibungkus/dibuka.
+ * Logika pembungkusan kunci + verifikasi round trip teruji di `passkey.test.ts` lewat seam
+ * `PasskeyPrfProvider`.
  * ============================================================================
  *
  * `prf` menghasilkan nilai rahasia yang stabil untuk pasangan (kredensial, salt). Nilai itu TIDAK
@@ -29,15 +31,42 @@ const CHALLENGE_BYTES = 32
 /** Salt PRF yang dipakai di sini selalu 32 byte (dibuat `createPasskeySalt` di `passkey.ts`). */
 const PRF_SALT_BYTES = 32
 
-export type WebAuthnOptions = {
-  /** Relying party id - domain tempat passkey didaftarkan (`window.location.hostname` di produksi). */
+/** Panjang output PRF yang dipakai sebagai bahan kunci (byte). */
+const PRF_OUTPUT_BYTES = 32
+
+/** Batas waktu satu upacara WebAuthn (ms). */
+const CEREMONY_TIMEOUT_MS = 60_000
+
+/** COSE: ES256 (-7) lalu RS256 (-257) sebagai cadangan authenticator lama. */
+const COSE_ES256 = -7
+const COSE_RS256 = -257
+
+/**
+ * Konteks pemisah domain untuk user handle WebAuthn.
+ *
+ * JANGAN DIUBAH: berubah = user handle berubah = passkey baru TIDAK lagi menimpa passkey lama akun yang
+ * sama di authenticator yang sama, sehingga picker kembali berisi passkey yang tidak berlaku.
+ */
+const USER_HANDLE_CONTEXT = 'ip-webauthn-user-handle:v1:'
+
+/**
+ * Opsi bersama yang memang dibutuhkan semua upacara.
+ *
+ * `rpId` kosong = browser memakai domain halaman ini - itu yang diinginkan di produksi.
+ */
+export type WebAuthnAuthenticatorOptions = {
   readonly rpId?: string
+}
+
+export type WebAuthnRegistrarOptions = WebAuthnAuthenticatorOptions & {
   readonly rpName: string
   /** Nama akun di authenticator (biasanya email). Bukan rahasia, tapi jangan taruh lebih dari perlu. */
   readonly userName: string
   readonly userDisplayName: string
-  /** Id user WebAuthn (byte acak, TIDAK boleh mengandung PII). Dibuat sekali per akun. */
-  readonly userId: Uint8Array
+  /** User handle dari `deriveWebAuthnUserHandle` - stabil per akun, tanpa PII. */
+  readonly userHandle: Uint8Array
+  /** Kredensial yang sudah dikenal perangkat ini (base64url), supaya tidak dibuat passkey ganda. */
+  readonly excludeCredentialIds?: readonly string[]
 }
 
 /** Apakah WebAuthn tersedia di konteks ini (client, secure context, API ada). */
@@ -51,41 +80,58 @@ export function isWebAuthnAvailable(): boolean {
 }
 
 /**
+ * User handle WebAuthn (`user.id`) untuk satu akun: SHA-256(konteks || id akun server).
+ *
+ * Kenapa diturunkan, bukan acak per aktivasi: authenticator memakai pasangan (rpId, user handle) untuk
+ * menentukan "passkey akun ini". Handle acak membuat setiap aktivasi menambah passkey BARU, sementara
+ * server hanya menyimpan satu envelope - passkey lama tetap tampil di picker tapi tidak lagi membuka apa
+ * pun. Dengan handle stabil, registrasi ulang di authenticator yang sama menimpa passkey lama.
+ *
+ * Kenapa diturunkan, bukan disimpan: tidak ada state tambahan yang bisa hilang atau berbeda antar
+ * perangkat - perangkat mana pun menghasilkan handle yang sama dari id akun yang sama.
+ *
+ * Kenapa di-hash, bukan id akun mentah: spesifikasi melarang PII di user handle, dan handle ini disimpan
+ * authenticator (bisa ikut tersinkron ke pengelola passkey pihak ketiga). Id akun memang bukan
+ * email/nama, tapi ia pengenal yang sama dengan di server dan log; hash dengan konteks tetap memutus
+ * kaitan langsung itu tanpa butuh rahasia. Handle bukan rahasia - ia tidak membuka apa pun.
+ */
+export async function deriveWebAuthnUserHandle(
+  accountId: string,
+): Promise<Uint8Array<ArrayBuffer>> {
+  if (accountId.length === 0)
+    throw new Error('id akun kosong: user handle passkey tidak bisa dibuat')
+
+  const input = new TextEncoder().encode(USER_HANDLE_CONTEXT + accountId)
+  return new Uint8Array(await crypto.subtle.digest('SHA-256', input))
+}
+
+/**
  * Pembuat kredensial baru (registrasi) yang sekaligus mengevaluasi PRF.
  *
- * Dipakai saat onboarding: satu kali sentuhan user menghasilkan kredensial + kunci pembungkus.
+ * Satu sentuhan kalau authenticator mengembalikan `prf.results` saat create(). Banyak authenticator
+ * hanya melaporkan `prf.enabled` saat registrasi; untuk itu dilakukan get() langsung terhadap kredensial
+ * baru dengan salt yang sama (satu sentuhan tambahan). Hasil get() ditandai `isAssertion` - itu jalur
+ * yang sama persis dengan yang dipakai perangkat baru saat memulihkan.
  */
-export function createWebAuthnRegistrar(options: WebAuthnOptions): PasskeyPrfProvider {
+export function createWebAuthnRegistrar(options: WebAuthnRegistrarOptions): PasskeyPrfProvider {
   return async ({ salt }) => {
     assertAvailable()
     assertSalt(salt)
 
-    const credential = (await navigator.credentials.create({
-      publicKey: {
-        challenge: randomBytes(CHALLENGE_BYTES),
-        rp: { id: options.rpId, name: options.rpName },
-        user: {
-          id: toBytes(options.userId),
-          name: options.userName,
-          displayName: options.userDisplayName,
-        },
-        pubKeyCredParams: [
-          { type: 'public-key', alg: -7 },
-          { type: 'public-key', alg: -257 },
-        ],
-        authenticatorSelection: { residentKey: 'preferred', userVerification: 'preferred' },
-        timeout: 60_000,
-        attestation: 'none',
-        extensions: { prf: { eval: { first: toBytes(salt) } } },
-      },
-    })) as PublicKeyCredential | null
+    const credential = await createCredential(options, salt)
+    const extensions = credential.getClientExtensionResults()
+    const prfOutput = prfOutputOf(extensions)
 
-    if (credential === null) throw new Error('registrasi passkey dibatalkan')
+    if (prfOutput !== null) return { credentialId: credential.id, prfOutput }
 
-    return {
-      credentialId: credential.id,
-      prfOutput: readPrfOutput(credential.getClientExtensionResults(), 'registrasi'),
+    if (!isPrfEnabled(extensions)) {
+      throw new Error(
+        'authenticator ini tidak mendukung prf: passkey tidak bisa dipakai sebagai pembuka',
+      )
     }
+
+    const assertion = await requestAssertion(options.rpId, new Uint8Array(credential.rawId), salt)
+    return { ...assertion, isAssertion: true }
   }
 }
 
@@ -96,32 +142,104 @@ export function createWebAuthnRegistrar(options: WebAuthnOptions): PasskeyPrfPro
  * discoverable credential-lah yang menemukannya - itu yang dipakai perangkat BARU, yang belum pernah
  * menyimpan petunjuk lokal.
  */
-export function createWebAuthnAuthenticator(options: WebAuthnOptions): PasskeyPrfProvider {
+export function createWebAuthnAuthenticator(
+  options: WebAuthnAuthenticatorOptions = {},
+): PasskeyPrfProvider {
   return async ({ credentialId, salt }) => {
     assertAvailable()
     assertSalt(salt)
 
-    const credential = (await navigator.credentials.get({
+    return requestAssertion(
+      options.rpId,
+      credentialId === undefined ? undefined : base64UrlToBytes(credentialId),
+      salt,
+    )
+  }
+}
+
+async function createCredential(
+  options: WebAuthnRegistrarOptions,
+  salt: Uint8Array,
+): Promise<PublicKeyCredential> {
+  let credential: PublicKeyCredential | null
+
+  try {
+    credential = (await navigator.credentials.create({
       publicKey: {
         challenge: randomBytes(CHALLENGE_BYTES),
-        rpId: options.rpId,
-        allowCredentials:
-          credentialId === undefined
-            ? []
-            : [{ type: 'public-key', id: toBytes(base64UrlToBytes(credentialId)) }],
-        userVerification: 'preferred',
-        timeout: 60_000,
+        rp: { id: options.rpId, name: options.rpName },
+        user: {
+          id: toBytes(options.userHandle),
+          name: options.userName,
+          displayName: options.userDisplayName,
+        },
+        pubKeyCredParams: [
+          { type: 'public-key', alg: COSE_ES256 },
+          { type: 'public-key', alg: COSE_RS256 },
+        ],
+        excludeCredentials: (options.excludeCredentialIds ?? []).map((id) => ({
+          type: 'public-key' as const,
+          id: base64UrlToBytes(id),
+        })),
+        authenticatorSelection: {
+          // WAJIB discoverable: `credentialId` hanya disimpan di perangkat ini, jadi perangkat BARU
+          // menemukan passkey tanpa `allowCredentials` - kredensial non-discoverable tidak akan pernah
+          // muncul di sana. `requireResidentKey` untuk browser/authenticator yang hanya mengenal L1.
+          residentKey: 'required',
+          requireResidentKey: true,
+          // WAJIB UV: hmac-secret (dasar `prf`) memakai rahasia BERBEDA dengan vs tanpa verifikasi
+          // user. Kalau registrasi berjalan tanpa UV tapi pemulihan dengan UV (atau sebaliknya),
+          // output PRF-nya beda dan envelope tidak akan pernah terbuka.
+          userVerification: 'required',
+        },
+        timeout: CEREMONY_TIMEOUT_MS,
+        attestation: 'none',
         extensions: { prf: { eval: { first: toBytes(salt) } } },
       },
     })) as PublicKeyCredential | null
-
-    if (credential === null) throw new Error('permintaan passkey dibatalkan')
-
-    return {
-      credentialId: credential.id,
-      prfOutput: readPrfOutput(credential.getClientExtensionResults(), 'permintaan'),
+  } catch (cause) {
+    // `excludeCredentials` cocok: authenticator ini sudah memegang passkey yang dikenal perangkat ini.
+    if (cause instanceof DOMException && cause.name === 'InvalidStateError') {
+      throw new Error(
+        'authenticator ini sudah menyimpan passkey akun ini: pakai passkey itu, atau hapus dulu dari pengelola passkey',
+        { cause },
+      )
     }
+    throw cause
   }
+
+  if (credential === null) throw new Error('registrasi passkey dibatalkan')
+  return credential
+}
+
+async function requestAssertion(
+  rpId: string | undefined,
+  credentialId: Uint8Array<ArrayBuffer> | undefined,
+  salt: Uint8Array,
+): Promise<PasskeyPrfResult> {
+  const credential = (await navigator.credentials.get({
+    publicKey: {
+      challenge: randomBytes(CHALLENGE_BYTES),
+      rpId,
+      allowCredentials:
+        credentialId === undefined ? [] : [{ type: 'public-key', id: credentialId }],
+      // WAJIB sama dengan registrasi: PRF dengan dan tanpa UV menghasilkan nilai berbeda.
+      userVerification: 'required',
+      timeout: CEREMONY_TIMEOUT_MS,
+      extensions: { prf: { eval: { first: toBytes(salt) } } },
+    },
+  })) as PublicKeyCredential | null
+
+  if (credential === null) throw new Error('permintaan passkey dibatalkan')
+
+  const prfOutput = prfOutputOf(credential.getClientExtensionResults())
+  if (prfOutput === null) {
+    throw new Error(
+      'authenticator ini tidak mengembalikan hasil prf saat permintaan: passkey tidak bisa dipakai sebagai pembuka',
+    )
+  }
+
+  return { credentialId: credential.id, prfOutput }
 }
 
 function assertAvailable(): void {
@@ -136,27 +254,27 @@ function assertSalt(salt: Uint8Array): void {
   }
 }
 
+type PrfClientOutput = {
+  readonly enabled?: boolean
+  readonly results?: { readonly first?: ArrayBuffer | null }
+}
+
 /**
- * Baca hasil PRF, ATAU menolak.
+ * Hasil PRF, atau `null` kalau authenticator tidak mengisinya.
  *
- * Bentuk responsnya `getClientExtensionResults().prf.results.first` (ArrayBuffer). Authenticator yang
- * tidak mendukung `prf` tidak mengisi field ini - dan itu bukan "sekadar kosong": tanpa PRF tidak ada
- * bahan kunci sama sekali, jadi menolak adalah satu-satunya jawaban yang jujur.
+ * Bentuknya `getClientExtensionResults().prf.results.first` (ArrayBuffer). `null` BUKAN "boleh lanjut":
+ * pemanggil yang memutuskan - get() susulan (registrasi) atau menolak (permintaan). Tanpa PRF tidak ada
+ * bahan kunci sama sekali, dan tidak ada jalur ke kunci yang lebih lemah.
  */
-function readPrfOutput(
-  extensions: AuthenticationExtensionsClientOutputs,
-  context: string,
-): Uint8Array {
-  const prf = extensions.prf as { results?: { first?: ArrayBuffer | null } } | undefined
-  const first = prf?.results?.first
+function prfOutputOf(extensions: AuthenticationExtensionsClientOutputs): Uint8Array | null {
+  const first = (extensions.prf as PrfClientOutput | undefined)?.results?.first
 
-  if (!(first instanceof ArrayBuffer) || first.byteLength < 32) {
-    throw new Error(
-      `authenticator ini tidak mengembalikan hasil prf saat ${context}: passkey tidak bisa dipakai sebagai pembuka`,
-    )
-  }
+  if (!(first instanceof ArrayBuffer) || first.byteLength < PRF_OUTPUT_BYTES) return null
+  return new Uint8Array(first.slice(0, PRF_OUTPUT_BYTES))
+}
 
-  return new Uint8Array(first.slice(0, 32))
+function isPrfEnabled(extensions: AuthenticationExtensionsClientOutputs): boolean {
+  return (extensions.prf as PrfClientOutput | undefined)?.enabled === true
 }
 
 /**
@@ -183,11 +301,6 @@ function base64UrlToBytes(value: string): Uint8Array<ArrayBuffer> {
   const bytes = new Uint8Array(new ArrayBuffer(binary.length))
   for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index)
   return bytes
-}
-
-/** Dipakai test/browser helper untuk membuat id user acak tanpa PII. */
-export function createWebAuthnUserId(): Uint8Array<ArrayBuffer> {
-  return randomBytes(16)
 }
 
 export type { PasskeyPrfResult }

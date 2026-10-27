@@ -15,6 +15,7 @@ import { createUuidV7Generator } from '~/utils/storage/uuid'
 import type { LocalDataSession } from '~/utils/storage/session'
 
 import { resetAppearancePrefsForTest, useAppearancePrefs } from './useAppearancePrefs'
+import { TEST_KID_WIRE } from '../../tests/nuxt/record-key'
 
 /**
  * QA T25 putaran 2 - verifikasi INDEPENDEN B1 (preferensi per akun di `user_prefs`, bukan localStorage).
@@ -45,6 +46,7 @@ function perangkat(userId: string): LocalDataSession {
     provider: fakeProvider,
     clock,
     dataKey: DATA_KEY,
+    kid: TEST_KID_WIRE,
     hlc,
     deviceId: '018f2c4e-0000-7000-8000-0000000000d1',
     userId,

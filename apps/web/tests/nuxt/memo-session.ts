@@ -10,6 +10,7 @@ import { createRecordWriter } from '~/utils/storage/record-writer'
 import { createRepositorySet } from '~/utils/storage/repository'
 import type { LocalDataSession } from '~/utils/storage/session'
 import { createUuidV7Generator } from '~/utils/storage/uuid'
+import { TEST_KID_WIRE } from './record-key'
 
 /**
  * Sesi data lokal untuk test halaman jurnal: adaptor penyimpanan in-memory milik core, repository &
@@ -36,6 +37,7 @@ export function createMemoryLocalSession(nowMs = 1_700_000_000_000): LocalDataSe
     provider: fakeProvider,
     clock,
     dataKey: DATA_KEY,
+    kid: TEST_KID_WIRE,
     hlc,
     deviceId: DEVICE_ID,
     userId: USER_ID,

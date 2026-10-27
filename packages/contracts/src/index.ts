@@ -15,7 +15,8 @@
  *
  *   protocol.ts -> devices.ts -> auth.ts -> account.ts
  *   protocol.ts -> sync.ts (juga memakai hlc.ts)
- *   protocol.ts -> keys.ts
+ *   hlc.ts + protocol.ts + sync.ts -> record-format.ts
+ *   protocol.ts + devices.ts + auth.ts + record-format.ts -> keys.ts
  *   hlc.ts      -> mandiri, tidak mengimpor modul lain di paket ini
  *
  * Aturan yang berlaku untuk semua schema request: `.strict()` (field asing ditolak) dan TIDAK ADA
@@ -202,6 +203,9 @@ export {
   keyEnvelopeDtoSchema,
   keyEnvelopeListResultSchema,
   keyEnvelopePutInputSchema,
+  keyIdentityClaimInputSchema,
+  keyIdentityConflictDetailsSchema,
+  keyIdentityDtoSchema,
   keySlotSchema,
   keyTransferClaimParamsSchema,
   keyTransferClaimResultSchema,
@@ -212,12 +216,52 @@ export {
   type KeyEnvelopeDto,
   type KeyEnvelopeListResult,
   type KeyEnvelopePutInput,
+  type KeyIdentityClaimInput,
+  type KeyIdentityConflictDetails,
+  type KeyIdentityDto,
   type KeySlot,
   type KeyTransferClaimParams,
   type KeyTransferClaimResult,
   type KeyTransferCreateInput,
   type KeyTransferCreateResult,
 } from './keys.ts'
+
+// -----------------------------------------------------------------------------
+// Format blob record v2 + KID (spec #120): layout, AAD biner kanonik, padding, batas plaintext
+// -----------------------------------------------------------------------------
+
+export {
+  KID_BYTES,
+  KID_KDF_CONTEXT,
+  KID_KDF_SUBKEY_ID,
+  KID_WIRE_LENGTH,
+  KID_WIRE_PATTERN,
+  RECORD_AAD_V2_LABEL,
+  RECORD_BLOB_MAGIC,
+  RECORD_BLOB_VERSION_V2,
+  RECORD_PAD_BLOCK_BYTES,
+  RECORD_V2_CIPHERTEXT_OFFSET,
+  RECORD_V2_HEADER_BYTES,
+  RECORD_V2_KID_OFFSET,
+  RECORD_V2_NONCE_BYTES,
+  RECORD_V2_NONCE_OFFSET,
+  RECORD_V2_TAG_BYTES,
+  RECORD_V2_VERSION_OFFSET,
+  SEALED_RECORD_V2_MAX_PLAINTEXT_BYTES,
+  SEALED_RECORD_V2_OVERHEAD_BYTES,
+  V1_CUTOFF_GRACE_MS,
+  V1_CUTOFF_MS,
+  decodeKid,
+  encodeKid,
+  encodeRecordAadV2,
+  encodeSealedBlobHeaderV2,
+  isPlaintextWithinV2Limit,
+  kidSchema,
+  parseSealedBlobHeader,
+  sealedRecordV2BlobBytes,
+  type RecordAadV2Input,
+  type SealedBlobHeaderV2,
+} from './record-format.ts'
 
 // -----------------------------------------------------------------------------
 // Akun: hapus akun permanen

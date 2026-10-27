@@ -95,8 +95,10 @@ export function openKeyDatabase(databaseName: string): Promise<IDBPDatabase<KeyD
  *
  * Transaksi tulis memakai durability `strict` dengan alasan yang sama seperti penyimpanan record: kunci
  * yang hilang karena commit terakhir tidak tersimpan berarti user kehilangan akses ke datanya.
- * Perhatikan: `put`/`remove` TIDAK memakai Web Locks - yang dikunci di §5 adalah penulis RECORD
- * (`ip-writer`). Kunci per slot ditulis oleh satu alur (onboarding/rotate), bukan dua tab bersamaan.
+ * Perhatikan: `put`/`remove` di sini TIDAK memakai Web Locks dan `put` menimpa tanpa bertanya. Jaminan
+ * "jangan timpa slot yang terisi" milik modul pembuka yang tahu arti slotnya - untuk slot `device`,
+ * `saveDeviceUnlock` memeriksa ulang dan menulis di bawah Web Lock eksklusif, karena dua tab yang
+ * membuka sesi pertama bersamaan memang bisa menulis slot itu berbarengan.
  */
 export function createWebKeyStore(options: WebKeyStoreOptions = {}): SecureKeyStore {
   const databaseName = options.databaseName ?? KEY_DATABASE_NAME

@@ -1,8 +1,12 @@
+import { V1_CUTOFF_MS, decodeKid } from '@improve-personal/contracts'
 import {
+  RECORD_PULL_FOREIGN,
+  RECORD_PULL_REJECT,
   SYNC_DEBOUNCE_MS,
   pullDelta,
   pushOutbox,
   readSyncStatus,
+  resolveBlobVerdict,
   type HttpClient,
   type StorageAdapter,
   type SyncStatus,
@@ -16,6 +20,7 @@ import { indexEntryForRecord } from '../io/index-entry'
 import { markSyncRunEnd, markSyncRunStart } from './activity'
 import { createSyncHttpClient } from './client'
 import { LOCAL_WRITE_EVENT, notifyRemoteApplied, notifySyncState } from './events'
+import { noteRejectedBlob, type RejectedBlobReason } from './rejected-blobs'
 import {
   QUARANTINE_MAX_RECORDS,
   isQuarantined,
@@ -61,6 +66,14 @@ const MAX_PUSH_BATCHES = 100
  * sedang sibuk) tanpa membuat user menunggu 5 menit x 3 sebelum datanya bisa masuk.
  */
 const QUARANTINE_AFTER_KEY_FAILURES = 3
+
+/**
+ * Pra-launch tidak ada blob v1 sama sekali dan provider hanya memahami v2, jadi `v1Closed` selalu true:
+ * blob tanpa prefix v2 ditolak (`v1_closed`), bukan dibiarkan `'keep'` sebagai blob "mungkin v1".
+ * Pembuka v1 sungguhan sengaja tidak ada (`openV1` selalu gagal, dan tidak pernah dipanggil selama
+ * `v1Closed`).
+ */
+const V1_CLOSED = true
 
 export type SyncOutcome = {
   readonly pushed: number
@@ -157,6 +170,25 @@ type PullKeyFailures = {
    * yang berhasil DI GENERASI INI (`buildIndex`).
    */
   keyProven: boolean
+}
+
+/**
+ * Konteks blob satu siklus pull: KID akun ini dan alasan penolakan per id record.
+ *
+ * `onReject` di core hanya menerima record mentah (tanpa alasan), sedangkan alasannya baru diketahui di
+ * `buildIndex`. Peta ini menjembatani keduanya; milik satu siklus, jadi tidak bocor antar generasi.
+ */
+type PullBlobContext = {
+  readonly ownKid: Uint8Array
+  readonly rejections: Map<string, RejectedBlobReason>
+}
+
+function newPullBlobContext(session: LocalDataSession): PullBlobContext {
+  const ownKid = decodeKid(session.kid)
+  // KID sesi diturunkan dari kunci utama, jadi bentuk yang tidak kanonik berarti bug, bukan input.
+  if (ownKid === null) throw new Error('KID sesi tidak valid')
+
+  return { ownKid, rejections: new Map() }
 }
 
 function newPullKeyFailures(ownerId: string, keyProven: boolean): PullKeyFailures {
@@ -352,6 +384,7 @@ async function execute(current: ActiveSync): Promise<SyncOutcome | null> {
   let pulled = 0
   /** Diisi selama pull; dipakai `catch` untuk tahu apakah karantina baru saja terjadi. */
   const keyFailures = newPullKeyFailures(mySession.userId, isSessionKeyProven(mySession))
+  const blobs = newPullBlobContext(mySession)
 
   try {
     // Push berulang: satu panggilan hanya mengirim maksimal satu batch. Import besar bisa
@@ -390,7 +423,17 @@ async function execute(current: ActiveSync): Promise<SyncOutcome | null> {
         nowMs: nowMs(),
         hlc: mySession.hlc,
         signal: abort.signal,
-        indexFor: (remote) => buildIndex(current, remote, keyFailures),
+        indexFor: (remote) => buildIndex(current, remote, keyFailures, blobs),
+        keyIdentity: { ownKid: blobs.ownKid },
+        onReject: (remote) => {
+          if (isStale()) return
+          noteRejectedBlob(
+            mySession.userId,
+            remote.id,
+            blobs.rejections.get(remote.id) ?? 'v1_downgrade',
+            nowMs(),
+          )
+        },
       })
 
       if (isStale()) return null
@@ -495,26 +538,70 @@ async function buildIndex(
     readonly blob: string
   },
   keyFailures: PullKeyFailures,
-): Promise<RecordIndexDecision> {
+  blobs: PullBlobContext,
+): Promise<RecordIndexDecision | typeof RECORD_PULL_REJECT | typeof RECORD_PULL_FOREIGN> {
   const session = current.session
 
-  if (isQuarantined(session.userId, remote.id)) return RECORD_INDEX_KEEP
+  // Hanya record HIDUP: tombstone harus selalu lewat `resolveBlobVerdict` penuh. Tombstone `'keep'`
+  // diterapkan core lewat LWW tanpa dekripsi, jadi id yang kebetulan sudah terkarantina tidak boleh
+  // jadi jalan pintas untuk menghapus record sah dengan blob yang tidak pernah lolos autentikasi.
+  if (!remote.deleted && isQuarantined(session.userId, remote.id)) return RECORD_INDEX_KEEP
 
   const now = session.clock.nowMs()
 
-  let record
-  try {
-    record = await decodeRecord(session.provider, session.dataKey, {
-      ...remote,
-      createdAtMs: now,
-      updatedAtMs: now,
-    })
-  } catch (error) {
-    if (!(error instanceof RecordKeyError)) return RECORD_INDEX_KEEP
+  // Urutan percobaan dan arti kegagalannya diputuskan core (`resolveBlobVerdict`, tabel M1), bukan
+  // di sini - supaya web dan mobile tidak bisa berbeda.
+  const outcome = await resolveBlobVerdict<Awaited<ReturnType<typeof decodeRecord>>>({
+    blob: decodeBlobBytes(remote.blob),
+    hlc: remote.hlc,
+    ownKid: blobs.ownKid,
+    v1Closed: V1_CLOSED,
+    v1CutoffMs: V1_CUTOFF_MS,
+    openV1: async () => ({ kind: 'failed' }),
+    openV2: async () => {
+      try {
+        return {
+          kind: 'opened',
+          value: await decodeRecord(session.provider, session.dataKey, {
+            ...remote,
+            createdAtMs: now,
+            updatedAtMs: now,
+          }),
+        }
+      } catch (error) {
+        if (error instanceof RecordKeyError) {
+          // Tombstone yang gagal autentikasi TIDAK boleh jadi `'keep'`: core menerapkan tombstone `'keep'`
+          // lewat LWW tanpa dekripsi, jadi blob sampah ber-KID kita dengan `deleted = true` bisa
+          // menghapus data (H1 spec #120). Ditolak (`reject`, dikarantina) - bukan dilewati diam-diam.
+          if (remote.deleted) return { kind: 'failed' }
 
-    keyFailures.failures.set(error.recordId, error)
-    return RECORD_INDEX_KEEP
+          // Record hidup: tetap jalur fail-closed T78 (dicatat, pull berhenti, dikarantina setelah tiga
+          // siklus berturut-turut dengan kunci terbukti). Menolaknya langsung akan memajukan cursor di
+          // atas record yang mungkin hanya gagal karena kunci sesi belum benar.
+          keyFailures.failures.set(error.recordId, error)
+          return { kind: 'unsupported' }
+        }
+
+        // Payload/skema tidak dikenal: AEAD lolos, hanya index yang tidak bisa dibangun.
+        return { kind: 'unsupported' }
+      }
+    },
+  })
+
+  if (outcome.verdict === RECORD_PULL_REJECT) {
+    blobs.rejections.set(remote.id, outcome.reason)
+    return RECORD_PULL_REJECT
   }
+
+  if (outcome.verdict === RECORD_PULL_FOREIGN) {
+    // Dicatat di sini (bukan di `onReject`): core tidak memanggil `onReject` untuk `'foreign'`.
+    if (!isGenerationStale(current)) {
+      noteRejectedBlob(session.userId, remote.id, 'foreign', now)
+    }
+    return RECORD_PULL_FOREIGN
+  }
+
+  if (outcome.verdict !== 'accept') return RECORD_INDEX_KEEP
 
   // Kunci generasi ini terbukti bisa membuka record: mulai sekarang kegagalan record LAIN boleh
   // dinilai sebagai "record itu rusak", bukan "kunci salah" (lihat `decidePullKeyFailures`).
@@ -527,7 +614,20 @@ async function buildIndex(
   // "3 kali seumur hidup", bukan berturut-turut.
   consecutiveKeyFailures.delete(remote.id)
 
-  return indexEntryForRecord(record, now)
+  return indexEntryForRecord(outcome.value, now)
+}
+
+/**
+ * Bytes mentah dari `blob` base64 standar. Masukan yang bukan base64 sah menjadi byte kosong, yang
+ * `resolveBlobVerdict` baca sebagai blob tanpa prefix v2 (ditolak) - bukan exception yang
+ * menghentikan seluruh halaman pull.
+ */
+function decodeBlobBytes(blobBase64: string): Uint8Array {
+  try {
+    return Uint8Array.from(atob(blobBase64), (char) => char.charCodeAt(0))
+  } catch {
+    return new Uint8Array(0)
+  }
 }
 
 /**
