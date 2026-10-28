@@ -50,9 +50,6 @@
     },
     "sticker": {
       "label": "Sticker"
-    },
-    "akun": {
-      "label": "Akun & perangkat"
     }
   },
   "shell": {
@@ -73,7 +70,8 @@
       "profile": "Edit profil",
       "preferences": "Preferensi",
       "guide": "Panduan",
-      "logout": "Logout"
+      "logout": "Logout",
+      "security": "Keamanan & perangkat"
     }
   },
   "storageQuota": {
@@ -141,7 +139,7 @@
       "sore": "Selamat sore",
       "malam": "Selamat malam"
     },
-    "greetingFriend": "{greeting}, Friend",
+    "greetingName": "{greeting}, {name}",
     "weather": {
       "label": "Cuaca hari ini",
       "cerah": "Cerah",
@@ -1187,38 +1185,33 @@
     "localDataErrorDetail": "Sebab teknis:"
   },
   "account": {
-    "title": "Akun & perangkat",
+    "title": "Keamanan & perangkat",
     "errorPrefix": "Gagal:",
     "keyStatus": {
-      "title": "Status kunci",
-      "passkey": "Passkey",
-      "set": "sudah diatur",
-      "unset": "belum diatur",
-      "hint": "Kunci utama tidak pernah dikirim ke server. Server hanya menyimpan envelope passkey, dan itu pun tidak bisa dibuka tanpa passkey kamu."
+      "set": "aktif",
+      "unset": "belum aktif"
     },
     "storage": {
       "title": "Penyimpanan",
-      "usageLabel": "Pemakaian",
       "usageValue": "{used} dari {total} ({pct}%)",
       "usageUnknown": "Browser tidak memberi angka pemakaian.",
       "protectionLabel": "Perlindungan",
       "protectionOn": "aktif",
       "protectionOff": "belum aktif",
       "protectionUnknown": "tidak diketahui",
-      "protectedHint": "Browser sudah menganggap data ini penting dan tidak akan membersihkannya otomatis saat ruang menipis.",
-      "unprotectedHint": "Tanpa perlindungan, browser bisa menghapus data lokal saat ruang perangkat menipis. Data tetap bisa dipulihkan selama passkey atau kode pemulihan masih ada.",
+      "unprotectedHint": "Browser bisa menghapus data lokal saat ruang perangkat menipis.",
       "nearFull": "Penyimpanan hampir penuh. Unduh backup dulu, lalu bersihkan data lama.",
       "protect": "Minta perlindungan",
       "backup": "Unduh backup",
       "compact": "Bersihkan riwayat terhapus",
-      "compactHint": "Tombstone lebih dari 90 hari yang sudah terkirim ke server dihapus permanen dari perangkat ini.",
+      "compactHint": "Hapus riwayat data terhapus yang berumur lebih dari 90 hari dan sudah tersinkron.",
       "compactDone": "{n} record dibersihkan.",
       "compactNone": "Tidak ada riwayat yang perlu dibersihkan.",
       "unsupported": "Browser ini tidak menyediakan informasi penyimpanan lokal."
     },
     "passkey": {
       "title": "Passkey",
-      "intro": "Passkey (sidik jari/Face ID/kunci keamanan) membuat login berikutnya tidak perlu OTP. Envelope kuncinya dititip ke server, tapi cuma bisa dibuka oleh passkey ini.",
+      "intro": "Masuk dan buka datamu pakai sidik jari atau Face ID, tanpa OTP.",
       "activate": "Aktifkan passkey",
       "replace": "Ganti passkey"
     },
@@ -1226,14 +1219,14 @@
       "title": "Perangkat",
       "empty": "Belum ada perangkat lain.",
       "current": "perangkat ini",
-      "lastSeen": "login terakhir",
+      "lastSeen": "aktif",
       "revoked": "sudah dicabut",
       "revoke": "Cabut akses"
     },
     "pairing": {
       "title": "Tambah perangkat",
       "open": "Tambah perangkat",
-      "cardHint": "Pindai QR dari perangkat baru yang sudah masuk, atau tampilkan QR di perangkat ini kalau perangkat ini yang baru. QR berlaku 2 menit dan hanya bisa dipakai sekali.",
+      "cardHint": "Pindai QR untuk membuka datamu di perangkat lain.",
       "intro": "Pilih peran perangkat ini. Arah QR-nya berlawanan, jadi kami tidak menebaknya.",
       "roles": {
         "new": "Perangkat ini yang baru (butuh kunci)",
@@ -1280,7 +1273,7 @@
     },
     "delete": {
       "cardTitle": "Hapus akun",
-      "cardHint": "Menghapus akun dan semua data di server secara permanen. Tidak bisa dibatalkan.",
+      "cardHint": "Semua data di server terhapus permanen.",
       "open": "Hapus akun",
       "title": "Hapus akun permanen",
       "warning": "Semua data akun di server dihapus permanen: perangkat, sesi, dan seluruh record. Tindakan ini tidak bisa dibatalkan.",
@@ -1306,7 +1299,7 @@
     },
     "backup": {
       "title": "Backup kode pemulihan",
-      "intro": "Cadangan kalau passkey hilang. Simpan kodenya di password manager atau cloud pribadimu - tidak ada yang perlu ditulis atau dihafal.",
+      "intro": "Cadangan kalau passkey hilang. Simpan di password manager.",
       "statusLabel": "Kode pemulihan",
       "status": {
         "set": "sudah disimpan",
@@ -1396,6 +1389,26 @@
         "network": "Server tidak terjangkau. Periksa koneksi, lalu coba lagi.",
         "fileTooLarge": "Berkas terlalu besar untuk berisi kode pemulihan."
       }
+    }
+  },
+  "profile": {
+    "title": "Edit profil",
+    "addPhoto": "Tambah foto",
+    "changePhoto": "Ganti foto",
+    "removePhoto": "Hapus foto",
+    "nameLabel": "Nama",
+    "namePlaceholder": "Nama panggilanmu",
+    "emailNote": "Masuk sebagai {email}",
+    "locked": "Buka datamu di perangkat ini dulu untuk mengubah profil.",
+    "cancel": "Batal",
+    "save": "Simpan",
+    "saving": "Menyimpan…",
+    "errors": {
+      "notImage": "Pilih berkas gambar PNG, JPEG, atau WebP.",
+      "tooLarge": "Fotonya terlalu besar. Pilih yang di bawah 15 MB.",
+      "decode": "Foto ini tidak bisa dibuka. Coba foto lain.",
+      "encode": "Foto ini tidak bisa diproses. Coba foto lain.",
+      "save": "Profil gagal disimpan. Coba lagi."
     }
   }
 }

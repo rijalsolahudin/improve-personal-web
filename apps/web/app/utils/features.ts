@@ -1,8 +1,11 @@
 import type { IconName } from './icons'
 
 /**
- * Registri 15 fitur (docs/PRD F1–F15) → route, ikon, dan grup navigasi.
+ * Registri fitur ber-halaman (docs/PRD F1–F14) → route, ikon, dan grup navigasi.
  * Label diambil dari i18n `feature.<id>.label`. Urutan, warna & ikon mengikuti Desktop.dc.html.
+ *
+ * F15 (akun: profil, keamanan & perangkat) sengaja tidak ada di sini: isinya modal yang dibuka dari
+ * menu akun (`useAccountDialogs`), bukan route.
  */
 
 export const FEATURE_IDS = [
@@ -20,7 +23,6 @@ export const FEATURE_IDS = [
   'panduan',
   'import-export',
   'sticker',
-  'akun',
 ] as const
 
 export type FeatureId = (typeof FEATURE_IDS)[number]
@@ -83,7 +85,6 @@ export const FEATURES: readonly Feature[] = [
   feature('panduan', 'F9', '?', 'circle-help', '--cat-diri', 'lainnya'),
   feature('import-export', 'F10', '⇅', 'cloud-upload', '--cat-keuangan', 'lainnya'),
   feature('sticker', 'F14', '✿', 'circle', '--cat-karier', 'lainnya'),
-  feature('akun', 'F15', '☺', 'circle', '--cat-kerja', 'lainnya'),
 ]
 
 export const NAV_GROUPS: readonly FeatureGroup[] = ['utama', 'rencana', 'fokus']
@@ -98,7 +99,7 @@ export const MOBILE_TAB_IDS: readonly FeatureId[] = ['home', 'kalender', 'to-do'
  * `import-export` WAJIB ada di sini - di desktop pintunya menu akun, dan tanpa entri ini pengguna HP
  * tidak punya jalan ke halaman backup sama sekali.
  */
-export const MOBILE_MENU_EXTRA_IDS: readonly FeatureId[] = ['import-export', 'panduan', 'akun']
+export const MOBILE_MENU_EXTRA_IDS: readonly FeatureId[] = ['import-export', 'panduan']
 
 export function isFeatureId(value: unknown): value is FeatureId {
   return typeof value === 'string' && (FEATURE_IDS as readonly string[]).includes(value)

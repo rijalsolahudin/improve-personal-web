@@ -1,7 +1,27 @@
 <script setup lang="ts">
+import type { AccountDialog } from '~/composables/useAccountDialogs'
+import type { IconName } from '~/utils/icons'
+
 const emit = defineEmits<{ close: [] }>()
 
 const route = useRoute()
+const accountDialogs = useAccountDialogs()
+
+/** Profil & keamanan berupa modal, bukan halaman: di HP pintunya grup "Akun" di menu ini. */
+const accountItems: readonly {
+  key: AccountDialog
+  icon: IconName
+  color: string
+  label: string
+}[] = [
+  { key: 'profile', icon: 'smile', color: '--cat-kerja', label: 'shell.user.profile' },
+  { key: 'security', icon: 'eye-off', color: '--cat-diri', label: 'shell.user.security' },
+]
+
+function openDialog(key: AccountDialog): void {
+  emit('close')
+  accountDialogs.open(key)
+}
 const groups = [
   ...(['utama', 'rencana', 'fokus'] as const).map((group) => ({
     group,
@@ -35,6 +55,21 @@ const groups = [
             />
             <span class="label">{{ $t(`feature.${feature.id}.label`) }}</span>
           </NuxtLink>
+        </div>
+      </section>
+      <section class="group">
+        <h3 class="group-title">{{ $t('shell.user.label') }}</h3>
+        <div class="grid">
+          <button
+            v-for="item in accountItems"
+            :key="item.key"
+            type="button"
+            class="item item-button"
+            @click="openDialog(item.key)"
+          >
+            <AppIcon :icon="item.icon" :color="item.color" :size="38" />
+            <span class="label">{{ $t(item.label) }}</span>
+          </button>
         </div>
       </section>
     </div>
@@ -77,6 +112,11 @@ const groups = [
   border-radius: var(--radius-row);
   border: var(--border) solid transparent;
   color: var(--ink);
+}
+
+.item-button {
+  background: none;
+  font: inherit;
 }
 
 .item:hover {

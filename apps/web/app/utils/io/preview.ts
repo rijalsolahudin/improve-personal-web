@@ -38,6 +38,7 @@ const ENTITY_TYPE_LABELS = {
   goal_link: 'tautan goal',
   decoration: 'hiasan',
   user_prefs: 'preferensi',
+  user_profile: 'profil',
 } as const satisfies Record<EntityType, string>
 
 export type BackupPreviewRow = {

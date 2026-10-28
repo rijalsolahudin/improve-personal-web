@@ -25,6 +25,8 @@ watch(
   },
 )
 
+const accountDialogs = useAccountDialogs()
+
 const deco = useDeco()
 const { scope } = useDecoScope()
 // Lapisan hias (+ katalog sticker) baru dimuat kalau memang ada yang perlu ditampilkan.
@@ -42,7 +44,7 @@ function toggleDeco(): void {
  * karena situs lama tidak dibuka. `ensureStorageProtection` melewati permintaan kalau sudah persistent.
  *
  * Tidak menunggu hasilnya: penolakan browser bukan error, hanya berarti data tetap bisa di-evict
- * (statusnya terlihat di kartu Penyimpanan pada halaman Akun).
+ * (statusnya terlihat di kartu Penyimpanan pada modal Keamanan & perangkat).
  */
 onMounted(() => {
   void ensureStorageProtection()
@@ -65,6 +67,17 @@ onMounted(() => {
     <!-- Perangkat tanpa pembuka kunci (perangkat baru / data situs terhapus): buka lewat passkey atau kode.
          Lazy dengan alasan yang sama: jalur pemulihan (BIP39 + envelope) hanya dibutuhkan perangkat baru. -->
     <LazyAccountKeyRecoveryGate />
+    <!-- Modal akun dari menu sidebar / menu HP. Lazy + v-if: kodenya baru dimuat saat dibuka. -->
+    <LazyAccountProfileDialog
+      v-if="accountDialogs.current.value === 'profile'"
+      open
+      @close="accountDialogs.close"
+    />
+    <LazyAccountSecurityDialog
+      v-if="accountDialogs.current.value === 'security'"
+      open
+      @close="accountDialogs.close"
+    />
     <LazyDecoLayer v-if="isDecoMounted" />
     <div class="fab-dock" data-deco-ui>
       <ShellPomodoroPill />

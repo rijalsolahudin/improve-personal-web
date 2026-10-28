@@ -1,5 +1,7 @@
 <script setup lang="ts">
-/** Kaki sidebar Desktop.dc.html: kartu akun + menu (Edit profil, Preferensi, Panduan, Logout). */
+/** Kaki sidebar Desktop.dc.html: kartu akun + menu (profil, keamanan, preferensi, panduan, logout). */
+import type { AccountDialog } from '~/composables/useAccountDialogs'
+
 const { collapsed = false } = defineProps<{ collapsed?: boolean }>()
 
 const isOpen = ref(false)
@@ -8,14 +10,21 @@ useDismiss(root, isOpen)
 
 const { isPickerOpen } = useAppearance()
 const { logout } = useLogout()
+const accountDialogs = useAccountDialogs()
+const { profile } = useProfile()
 
-// Identitas kartu dari sesi asli (email); tanpa request - guard halaman sudah memuatnya.
+// Email dari sesi asli (tanpa request - guard halaman sudah memuatnya); nama & foto dari profil terenkripsi.
 const { session } = useAuthSession()
 const accountEmail = computed(() => session.value?.user.email ?? '')
-const accountInitial = computed(() => accountEmail.value.slice(0, 1).toUpperCase())
+const displayName = computed(() => profile.value.displayName)
 
-const items = [
-  { key: 'profile', glyph: '☺', to: getFeature('akun').path, label: 'shell.user.profile' },
+/** Modal akun: dibuka lewat state bersama, dirender di layout. */
+const dialogItems: readonly { key: AccountDialog; glyph: string; label: string }[] = [
+  { key: 'profile', glyph: '☺', label: 'shell.user.profile' },
+  { key: 'security', glyph: '⚿', label: 'shell.user.security' },
+]
+
+const linkItems = [
   { key: 'preferences', glyph: '⚙', to: APP_HOME_PATH, label: 'shell.user.preferences' },
   { key: 'guide', glyph: '?', to: getFeature('panduan').path, label: 'shell.user.guide' },
   // Import & Export tidak punya baris sendiri di sidebar (grup `lainnya`): pintunya menu akun.
@@ -27,7 +36,12 @@ const items = [
   },
 ] as const
 
-function onItem(key: (typeof items)[number]['key']): void {
+function openDialog(key: AccountDialog): void {
+  isOpen.value = false
+  accountDialogs.open(key)
+}
+
+function onLink(key: (typeof linkItems)[number]['key']): void {
   isOpen.value = false
   // Preferensi = popover "Tampilan" di header Daily (design).
   if (key === 'preferences') isPickerOpen.value = true
@@ -37,12 +51,22 @@ function onItem(key: (typeof items)[number]['key']): void {
 <template>
   <div ref="root" class="user" :class="{ collapsed }">
     <div v-if="isOpen" id="user-menu" class="menu">
+      <button
+        v-for="item in dialogItems"
+        :key="item.key"
+        type="button"
+        class="item item-button"
+        @click="openDialog(item.key)"
+      >
+        <span class="item-icon" aria-hidden="true">{{ item.glyph }}</span>
+        <span>{{ $t(item.label) }}</span>
+      </button>
       <NuxtLink
-        v-for="item in items"
+        v-for="item in linkItems"
         :key="item.key"
         :to="item.to"
         class="item"
-        @click="onItem(item.key)"
+        @click="onLink(item.key)"
       >
         <span class="item-icon" aria-hidden="true">{{ item.glyph }}</span>
         <span>{{ $t(item.label) }}</span>
@@ -61,12 +85,10 @@ function onItem(key: (typeof items)[number]['key']): void {
       aria-controls="user-menu"
       @click="isOpen = !isOpen"
     >
-      <span class="avatar" aria-hidden="true">{{
-        accountInitial || $t('shell.user.initial')
-      }}</span>
+      <AccountProfileAvatar :src="profile.avatar" :label="displayName || accountEmail" />
       <span v-if="!collapsed" class="who">
-        <span class="name">{{ accountEmail || $t('shell.user.name') }}</span>
-        <span class="sub">{{ $t('feature.akun.label') }}</span>
+        <span class="name">{{ displayName || accountEmail || $t('shell.user.name') }}</span>
+        <span class="sub">{{ displayName ? accountEmail : $t('shell.user.label') }}</span>
       </span>
       <span v-if="!collapsed" class="caret" aria-hidden="true">{{ isOpen ? '▾' : '▴' }}</span>
       <span v-else class="visually-hidden">{{ $t('shell.user.label') }}</span>
@@ -103,22 +125,6 @@ function onItem(key: (typeof items)[number]['key']): void {
 .card:hover,
 .card.on {
   background: var(--alt);
-}
-
-.avatar {
-  width: 38px;
-  height: 38px;
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: var(--border) solid var(--outline);
-  border-radius: 50%;
-  background: var(--accent);
-  color: var(--paper);
-  font-family: var(--font-display);
-  font-weight: var(--fw-display);
-  font-size: 17px;
 }
 
 .who {
@@ -159,7 +165,8 @@ function onItem(key: (typeof items)[number]['key']): void {
   bottom: -6px;
   left: calc(100% + 22px);
   z-index: 120;
-  width: 220px;
+  min-width: 220px;
+  width: max-content;
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -187,11 +194,15 @@ function onItem(key: (typeof items)[number]['key']): void {
   color: var(--ink);
 }
 
+.item-button,
 .logout {
   border: 0;
   background: none;
-  color: var(--danger);
   text-align: left;
+}
+
+.logout {
+  color: var(--danger);
 }
 
 .logout:hover {

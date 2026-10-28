@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { AccountDevice } from '~/composables/useAccount'
 
-import AkunPage from './akun.vue'
+import SecurityPanel from './SecurityPanel.vue'
 
 // Jaringan di-mock di BATAS (`$fetch`), bukan composable-nya: halaman memakai `useAccount` asli.
 const { fetchSpy } = vi.hoisted(() => ({ fetchSpy: vi.fn() }))
@@ -37,7 +37,7 @@ function device(overrides: Partial<AccountDevice> = {}): AccountDevice {
 let mounted: VueWrapper | null = null
 
 async function mount(): Promise<VueWrapper> {
-  mounted = await mountSuspended(AkunPage)
+  mounted = await mountSuspended(SecurityPanel)
   return mounted
 }
 
@@ -85,7 +85,9 @@ describe('halaman Akun & perangkat', () => {
 
     const text = wrapper.text()
     expect(text).toContain('Pixel di Jakarta')
-    expect(text).toContain('2026-10-22T09:15:00.000Z')
+    // Waktu tampil dalam bahasa sehari-hari; nilai persisnya tetap ada di atribut `datetime`.
+    expect(wrapper.find('time[datetime="2026-10-22T09:15:00.000Z"]').exists()).toBe(true)
+    expect(text).not.toContain('2026-10-22T09:15:00.000Z')
     expect(text).toContain('Jakarta')
     expect(text).toContain('perangkat ini')
   })

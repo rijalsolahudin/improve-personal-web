@@ -138,6 +138,7 @@ export type RepositorySet = {
   goal: Repository<unknown>
   decoration: Repository<unknown>
   userPrefs: Repository<unknown>
+  userProfile: Repository<unknown>
 }
 
 /** Opsi umum query; di-re-export supaya adapter tidak perlu impor `ports.ts` untuk hal sepele. */

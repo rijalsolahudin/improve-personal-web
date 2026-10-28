@@ -16,6 +16,9 @@ const { t } = useI18n()
 const { longDate } = useDateFormat()
 
 const greeting = computed(() => t(`daily.greeting.${greetingPeriod(new Date(now).getHours())}`))
+// Nama dari profil terenkripsi; sebelum diisi (atau sebelum data lokal terbuka) pakai sapaan umum.
+const { profile } = useProfile()
+const greetingName = computed(() => profile.value.displayName || t('shell.user.name'))
 const progressLabel = computed(() =>
   t('daily.progressValue', {
     done: progress.done,
@@ -46,7 +49,7 @@ const links = computed(() => [
   <header class="header">
     <div class="titles">
       <p class="date">{{ longDate(now) }}</p>
-      <h1 class="greeting">{{ $t('daily.greetingFriend', { greeting }) }}</h1>
+      <h1 class="greeting">{{ $t('daily.greetingName', { greeting, name: greetingName }) }}</h1>
       <div class="tools">
         <DailyWeatherPicker v-model="weather" />
         <span class="divider" aria-hidden="true" />

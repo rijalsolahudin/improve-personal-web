@@ -30,6 +30,7 @@ export const ENTITY_TYPES = [
   'goal_link',
   'decoration',
   'user_prefs',
+  'user_profile',
 ] as const
 
 export type EntityType = (typeof ENTITY_TYPES)[number]

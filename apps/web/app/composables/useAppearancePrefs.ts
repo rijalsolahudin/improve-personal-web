@@ -14,6 +14,7 @@ import {
   type ThemeName,
 } from '@improve-personal/tokens'
 
+import { newestRecord } from '~/utils/storage/newest-record'
 import type { LocalDataSession } from '~/utils/storage/session'
 import {
   isReloadSessionActive,
@@ -74,21 +75,6 @@ export function fromPrefStyle(style: unknown): StyleName | null {
 }
 
 type AppearancePrefs = { readonly theme: ThemeName; readonly style: StyleName }
-
-function updatedAtOf(data: unknown): number {
-  if (typeof data !== 'object' || data === null) return 0
-  const value = (data as Record<string, unknown>)['updatedAt']
-  return typeof value === 'number' ? value : 0
-}
-
-function newestRecord(
-  records: readonly { readonly id: string; readonly data: unknown }[],
-): { readonly id: string; readonly data: unknown } | null {
-  return records.reduce<{ id: string; data: unknown } | null>((newest, record) => {
-    if (newest === null) return record
-    return updatedAtOf(record.data) > updatedAtOf(newest.data) ? record : newest
-  }, null)
-}
 
 export function useAppearancePrefs(options: UseAppearancePrefsOptions = {}) {
   const localData = useLocalData()

@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { AccountDevice } from '~/composables/useAccount'
 
-import AkunPage from './akun.vue'
+import SecurityPanel from './SecurityPanel.vue'
 
 /**
  * Dialog di halaman Akun: yang diuji adalah "benar-benar muncul dan berisi", bukan sekadar tombolnya ada.
@@ -42,7 +42,7 @@ function device(overrides: Partial<AccountDevice> = {}): AccountDevice {
 let mounted: VueWrapper | null = null
 
 async function open(devices: AccountDevice[]): Promise<VueWrapper> {
-  mounted = await mountSuspended(AkunPage)
+  mounted = await mountSuspended(SecurityPanel)
   useState<'set' | 'unset'>('accountPasskey').value = 'set'
   useState<'set' | 'unset'>('accountRecovery').value = 'unset'
   useState<'idle' | 'loading' | 'ready' | 'error'>('accountStatus').value = 'ready'

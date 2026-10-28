@@ -20,6 +20,7 @@ import {
 } from './schedule.ts'
 import { eisenhowerPlacementSchema, todoSchema } from './todo.ts'
 import { userPrefsSchema } from './user-prefs.ts'
+import { userProfileSchema } from './user-profile.ts'
 
 /**
  * Registry tipe entitas -> schema payload.
@@ -74,6 +75,7 @@ export const ENTITY_PAYLOAD_SCHEMAS = {
   goal_link: goalLinkSchema,
   decoration: decorationSchema,
   user_prefs: userPrefsSchema,
+  user_profile: userProfileSchema,
 } as const satisfies Record<EntityType, z.ZodTypeAny>
 
 /** Hasil validasi payload: berhasil dengan data, atau gagal dengan masalah yang bisa dibaca. */
@@ -130,4 +132,5 @@ export {
   scheduleSchema,
   todoSchema,
   userPrefsSchema,
+  userProfileSchema,
 }

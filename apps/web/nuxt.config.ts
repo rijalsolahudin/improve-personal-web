@@ -160,6 +160,10 @@ export default defineNuxtConfig({
   },
   $development: {
     runtimeConfig: { appEnv: 'development', public: { appEnv: 'development' } },
+    // `localhost` dikecualikan browser dari `upgrade-insecure-requests`, tapi dev server yang dibuka
+    // lewat IP LAN (`http://192.168.x.x:3700`, uji dari laptop/HP lain) ikut dipaksa `https://`.
+    // Server dev tidak punya TLS, jadi semua CSS/JS gagal dimuat. Production (HTTPS) tetap aktif.
+    security: { headers: { contentSecurityPolicy: { 'upgrade-insecure-requests': false } } },
   },
 
   routeRules: {

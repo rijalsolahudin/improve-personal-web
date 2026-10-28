@@ -25,6 +25,7 @@ export type SyncReloadKey =
   | 'memos'
   | 'pomodoro'
   | 'appearance'
+  | 'profile'
 
 /**
  * Urutan muat ulang. Hiasan halaman (`useDeco`) sengaja TIDAK ada di sini: itemnya disimpan di
@@ -40,6 +41,7 @@ export const RELOAD_ORDER: readonly SyncReloadKey[] = [
   'memos',
   'pomodoro',
   'appearance',
+  'profile',
 ]
 
 const reloaders = new Map<SyncReloadKey, () => Promise<void>>()

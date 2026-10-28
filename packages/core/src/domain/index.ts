@@ -273,6 +273,15 @@ export {
 } from './entities/user-prefs.ts'
 
 export {
+  PROFILE_AVATAR_MAX_LENGTH,
+  PROFILE_AVATAR_SIZE_PX,
+  PROFILE_DISPLAY_NAME_MAX_LENGTH,
+  profileAvatarSchema,
+  userProfileSchema,
+  type UserProfile,
+} from './entities/user-profile.ts'
+
+export {
   addLocalDays,
   boolLikeSchema,
   dayNumberToLocalDate,

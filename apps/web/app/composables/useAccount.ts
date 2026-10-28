@@ -29,6 +29,7 @@ import {
 import { BRAND } from '#shared/brand'
 import type { JsonFetch } from '~/utils/http/json-fetch'
 
+import { useAuthSession } from './useAuthSession'
 import { useLocalData } from './useLocalData'
 
 /**
@@ -58,6 +59,7 @@ export type UseAccountOptions = {
 
 export function useAccount(options: UseAccountOptions = {}) {
   const localData = useLocalData()
+  const auth = useAuthSession()
   const request: JsonFetch = options.request ?? ((path, init) => $fetch(path, init))
   const keys: KeysGateway = createKeysGateway(request)
   const devices: DevicesGateway = createDevicesGateway(request)
@@ -122,10 +124,13 @@ export function useAccount(options: UseAccountOptions = {}) {
       passkey.value = (await keyStore.has('passkey')) ? 'set' : 'unset'
       recovery.value = (await keyStore.has('recovery')) ? 'set' : 'unset'
 
+      // Id baris `devices` di server ada di sesi auth. `session.deviceId` milik data lokal adalah id
+      // HLC perangkat - identitas lain, tidak pernah sama dengan id di daftar ini.
+      const currentDeviceId = auth.session.value?.device.id ?? null
       const rows = await devices.list()
       deviceList.value = rows.map((device) => ({
         ...device,
-        isCurrent: device.id === session.deviceId,
+        isCurrent: device.id === currentDeviceId,
       }))
       error.value = null
       status.value = 'ready'

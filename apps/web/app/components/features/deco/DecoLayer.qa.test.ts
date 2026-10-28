@@ -197,12 +197,11 @@ function pointer(type: string, x: number, y: number): Event {
   return event
 }
 
-describe('QA T24 · layer hias dipakai ulang di Overview, Daily, Goals, Akun', () => {
+describe('QA T24 · layer hias dipakai ulang di Overview, Daily, Goals', () => {
   const CASES = [
     { route: '/app', page: 'home', anchor: 'daily-todo' },
     { route: '/app/overview', page: 'overview', anchor: 'overview-focus' },
     { route: '/app/goals', page: 'goals', anchor: 'goals-list' },
-    { route: '/app/akun', page: 'akun', anchor: 'page' },
   ] as const
 
   for (const testCase of CASES) {

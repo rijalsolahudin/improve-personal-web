@@ -253,17 +253,16 @@ export const GUIDE_FEATURES: readonly GuideFeature[] = [
     id: 'account',
     code: 'F15',
     group: 'lainnya',
-    title: 'Akun & perangkat',
+    title: 'Profil, keamanan & perangkat',
     status: 'partial',
     summary:
-      'Login tanpa password (email OTP atau Google), passkey sebagai pembuka utama, kode pemulihan, dan berkas terenkripsi kata sandi. Ada juga tambah perangkat lewat QR, daftar perangkat dengan logout jarak jauh, hapus akun permanen, dan indikator status sinkronisasi di shell. Yang belum: sinkronisasi otomatis antar perangkat, jadi indikator itu baru menunjukkan antrean perubahan di perangkat ini.',
+      'Dibuka dari menu akun di kaki sidebar (di HP: Menu, grup Akun): Edit profil untuk nama dan foto, Keamanan & perangkat untuk sisanya. Login tanpa password (email OTP atau Google), passkey sebagai pembuka utama, kode pemulihan, dan berkas terenkripsi kata sandi. Ada juga tambah perangkat lewat QR, daftar perangkat dengan logout jarak jauh, hapus akun permanen, dan indikator status sinkronisasi di shell. Yang belum: sinkronisasi otomatis antar perangkat, jadi indikator itu baru menunjukkan antrean perubahan di perangkat ini.',
     tips: [
       'Kalau email tidak bisa dibuka, tautan "Tidak bisa menerima kode?" di halaman login menawarkan passkey, kode pemulihan, atau berkas terenkripsi. Di perangkat yang belum punya sesi, masuk dulu atau tambahkan perangkat lewat QR.',
       'Tambah perangkat: perangkat baru menampilkan QR, perangkat lama memindainya, lalu QR balasan membawa kunci utama terenkripsi. QR berlaku 2 menit dan hanya bisa dipakai sekali.',
       'Hapus akun butuh konfirmasi email plus kode 6 digit; seluruh data di server dihapus permanen dan tindakan ini tidak bisa dibatalkan.',
       'Perangkat yang hilang bisa dicabut dari daftar perangkat. Indikator sinkronisasi menunjukkan perubahan yang masih menunggu dikirim, bukan data yang sudah sampai di perangkat lain.',
     ],
-    href: getFeature('akun').path,
   },
   {
     id: 'appearance',

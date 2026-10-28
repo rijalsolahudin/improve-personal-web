@@ -13,10 +13,10 @@ import {
 } from './features'
 
 describe('registri fitur', () => {
-  it('mencakup tepat 15 fitur PRD (F1–F15), masing-masing sekali', () => {
+  it('mencakup tepat 14 fitur PRD ber-halaman (F1–F14), masing-masing sekali', () => {
     expect(FEATURES.map((feature) => feature.id).sort()).toEqual([...FEATURE_IDS].sort())
     const codes = FEATURES.map((feature) => Number(feature.code.slice(1))).sort((a, b) => a - b)
-    expect(codes).toEqual(Array.from({ length: 15 }, (_, index) => index + 1))
+    expect(codes).toEqual(Array.from({ length: 14 }, (_, index) => index + 1))
   })
 
   it('path unik dan semuanya di bawah /app', () => {

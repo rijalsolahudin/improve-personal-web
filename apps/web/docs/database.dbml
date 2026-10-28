@@ -66,6 +66,7 @@ Enum entity_type {
   goal_link
   decoration
   user_prefs
+  user_profile
 }
 
 Enum sync_op {
@@ -800,6 +801,19 @@ Table user_prefs {
   Default pertama kali: Cute + Kuning.
   Nilai tak dikenal (mis. dari sync/import versi lain) -> kembalikan ke default
   TANPA error. Ini bukan cuma soal sanitasi input, tapi jalur upgrade lintas versi.
+  '''
+}
+
+Table user_profile {
+  id            uuid    [pk, note: 'singleton per akun']
+  display_name  text    [not null, default: '', note: 'maks 60 karakter; kosong = sapaan umum']
+  avatar        text    [null, note: 'data URL WebP/JPEG/PNG 256px; SVG ditolak']
+  updated_at    bigint  [not null]
+
+  Note: '''
+  Nama tampilan & foto profil. Record terenkripsi yang ikut sync, BUKAN kolom server:
+  server tidak bisa membaca PII ini (minimisasi data, UU PDP). Dipisah dari user_prefs
+  supaya foto tidak ditulis ulang setiap kali tema diganti.
   '''
 }
 

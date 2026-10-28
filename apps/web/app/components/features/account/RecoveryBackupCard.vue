@@ -92,14 +92,13 @@ async function confirmSaved(): Promise<void> {
 <template>
   <article class="card" :class="{ 'card--embedded': isEmbedded }">
     <template v-if="!isEmbedded">
-      <h2 class="card-title">{{ t('account.backup.title') }}</h2>
-      <p class="hint">{{ t('account.backup.intro') }}</p>
-      <p class="status">
-        <span>{{ t('account.backup.statusLabel') }}</span>
+      <header class="card-head">
+        <h2 class="card-title">{{ t('account.backup.title') }}</h2>
         <span :class="['badge', isSaved ? 'badge--ok' : 'badge--warn']">
           {{ t(`account.backup.status.${isSaved ? 'set' : 'unset'}`) }}
         </span>
-      </p>
+      </header>
+      <p class="hint">{{ t('account.backup.intro') }}</p>
       <!-- Kegagalan (mis. data lokal tidak bisa dibuka) HARUS terlihat: dulu kartu ini diam saja, jadi
            tombolnya terasa rusak padahal kode pemulihan satu-satunya jalan pulih kalau passkey hilang. -->
       <p v-if="account.error.value" class="error" role="alert">
@@ -174,7 +173,7 @@ async function confirmSaved(): Promise<void> {
 .card {
   display: flex;
   flex-direction: column;
-  gap: var(--space-11);
+  gap: var(--space-8);
   padding: var(--space-10);
   background: var(--surface-card);
   border: var(--border) solid var(--outline);
@@ -202,21 +201,16 @@ async function confirmSaved(): Promise<void> {
 .error {
   padding: var(--space-5) var(--space-7);
   border-radius: var(--radius-inner);
-  background: #ffe1da;
-  color: var(--danger, #b0283e);
+  background: var(--prio-urgent-bg);
+  color: var(--danger);
   font-size: var(--fs-body-sm);
 }
 
-.status {
+.card-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-6);
-  padding: var(--space-6) var(--space-8);
-  background: var(--surface-inset);
-  border-radius: var(--radius-inner);
-  font-weight: var(--fw-medium);
-  font-size: var(--fs-body-sm);
 }
 
 .badge {

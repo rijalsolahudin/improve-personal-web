@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { AccountDevice } from '~/composables/useAccount'
 
-import AkunPage from './akun.vue'
+import SecurityPanel from './SecurityPanel.vue'
 
 /**
  * Bukti UI untuk dua AC T22 yang sebelumnya hanya diperiksa lewat teks halaman:
@@ -43,7 +43,7 @@ const DEVICE: AccountDevice = {
 let mounted: VueWrapper | null = null
 
 async function mount(): Promise<VueWrapper> {
-  mounted = await mountSuspended(AkunPage)
+  mounted = await mountSuspended(SecurityPanel)
   return mounted
 }
 

@@ -152,6 +152,7 @@ export function createRepositorySet(deps: RepositoryDeps): RepositorySet {
     goal: createRepository(deps, 'goal'),
     decoration: createRepository(deps, 'decoration'),
     userPrefs: createRepository(deps, 'user_prefs'),
+    userProfile: createRepository(deps, 'user_profile'),
   }
 }
 

@@ -59,12 +59,20 @@ const protectionLabel = computed(() => {
 
 <template>
   <article class="card">
-    <h2 class="card-title">{{ t('account.storage.title') }}</h2>
+    <header class="card-head">
+      <h2 class="card-title">{{ t('account.storage.title') }}</h2>
+      <span
+        v-if="isSupported"
+        :class="['badge', persisted === true ? 'ok' : persisted === false ? 'warn' : 'muted']"
+        :title="t('account.storage.protectionLabel')"
+      >
+        {{ t('account.storage.protectionLabel') }} {{ protectionLabel }}
+      </span>
+    </header>
 
     <template v-if="isSupported">
-      <p class="row">
-        <span class="label">{{ t('account.storage.usageLabel') }}</span>
-        <span v-if="ratio !== null">
+      <div class="usage">
+        <p v-if="ratio !== null" class="usage-value">
           {{
             t('account.storage.usageValue', {
               used: formattedUsage,
@@ -72,30 +80,17 @@ const protectionLabel = computed(() => {
               pct: percent,
             })
           }}
-        </span>
-        <span v-else class="muted">{{ t('account.storage.usageUnknown') }}</span>
-      </p>
+        </p>
+        <p v-else class="hint">{{ t('account.storage.usageUnknown') }}</p>
+        <ProgressBar
+          v-if="ratio !== null"
+          :pct="percent"
+          :color="isLow ? 'var(--danger)' : 'var(--accent)'"
+          :height="8"
+        />
+      </div>
 
-      <ProgressBar
-        v-if="ratio !== null"
-        :pct="percent"
-        :color="isLow ? 'var(--danger, #b0283e)' : 'var(--accent, #2f6f4e)'"
-        :height="8"
-      />
-
-      <p class="row">
-        <span class="label">{{ t('account.storage.protectionLabel') }}</span>
-        <span
-          :class="['badge', persisted === true ? 'ok' : persisted === false ? 'warn' : 'muted']"
-        >
-          {{ protectionLabel }}
-        </span>
-      </p>
-
-      <p class="hint">
-        {{ persisted ? t('account.storage.protectedHint') : t('account.storage.unprotectedHint') }}
-      </p>
-
+      <p v-if="persisted === false" class="hint">{{ t('account.storage.unprotectedHint') }}</p>
       <p v-if="isLow" class="warning" role="status">{{ t('account.storage.nearFull') }}</p>
 
       <div class="actions">
@@ -112,6 +107,7 @@ const protectionLabel = computed(() => {
           v-if="canCompact"
           variant="outline"
           size="sm"
+          :title="t('account.storage.compactHint')"
           :disabled="busy || cleaning"
           @click="cleanTombstones"
         >
@@ -122,7 +118,6 @@ const protectionLabel = computed(() => {
         </NuxtLink>
       </div>
 
-      <p v-if="canCompact" class="hint">{{ t('account.storage.compactHint') }}</p>
       <p v-if="cleaned !== null" class="hint" role="status">
         {{
           cleaned > 0
@@ -138,79 +133,84 @@ const protectionLabel = computed(() => {
 
 <style scoped>
 .card {
-  padding: 1rem;
-  border: 1px solid #e6ded1;
-  border-radius: 0.8rem;
-  background: #fffdf8;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  padding: var(--space-10);
+  background: var(--surface-card);
+  border: var(--border) solid var(--outline);
+  border-radius: var(--radius-card);
+}
+
+.card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-6);
 }
 
 .card-title {
-  margin: 0 0 0.6rem;
-  font-size: 1rem;
+  font-family: var(--font-display);
+  font-weight: var(--fw-display);
+  font-size: var(--fs-h3);
 }
 
-.row {
-  display: flex;
-  gap: 0.6rem;
-  align-items: center;
-  margin: 0.2rem 0;
-  flex-wrap: wrap;
+.usage {
+  display: grid;
+  gap: var(--space-4);
 }
 
-.label {
-  min-width: 9rem;
-}
-
-.muted {
-  color: var(--mute-2, #6b5e4b);
+.usage-value {
+  font-weight: var(--fw-strong);
+  font-size: var(--fs-body);
 }
 
 .badge {
-  padding: 0.1rem 0.5rem;
-  border-radius: 999px;
-  font-size: 0.75rem;
+  padding: var(--space-1) var(--space-5);
+  border-radius: var(--radius-pill);
+  font-size: var(--fs-caption);
+  white-space: nowrap;
 }
 
 .badge.ok {
-  background: #dff2e3;
-  color: #1d6b34;
+  background: var(--success-soft);
+  color: var(--success);
 }
 
 .badge.warn {
-  background: #fff0c8;
-  color: #8a5a00;
+  background: var(--prio-medium-bg);
+  color: var(--prio-medium-fg);
 }
 
 .badge.muted {
-  background: #efe8db;
-  color: #6b5e4b;
+  background: var(--chip);
+  color: var(--mute-2);
 }
 
 .hint {
-  margin: 0.4rem 0;
-  font-size: 0.85rem;
-  opacity: 0.8;
+  color: var(--text-muted);
+  font-size: var(--fs-body-sm);
+  line-height: var(--lh-body);
 }
 
 .warning {
-  margin: 0.5rem 0;
-  padding: 0.4rem 0.6rem;
-  border-radius: 0.5rem;
-  background: #fff0c8;
-  color: #8a5a00;
-  font-size: 0.85rem;
+  padding: var(--space-5) var(--space-8);
+  border-radius: var(--radius-inner);
+  background: var(--prio-medium-bg);
+  color: var(--prio-medium-fg);
+  font-size: var(--fs-body-sm);
 }
 
 .actions {
   display: flex;
-  gap: 0.75rem;
-  align-items: center;
   flex-wrap: wrap;
-  margin-top: 0.6rem;
+  align-items: center;
+  gap: var(--space-6);
 }
 
 .backup-link {
-  font-size: 0.85rem;
-  color: inherit;
+  color: var(--accent);
+  font-weight: var(--fw-strong);
+  font-size: var(--fs-caption);
 }
 </style>

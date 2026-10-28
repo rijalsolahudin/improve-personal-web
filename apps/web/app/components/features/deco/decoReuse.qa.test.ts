@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 /**
- * AC T24 "picker & layer dipakai ulang di Overview, Daily, Goals, Akun" + "aset lazy-load per pack
+ * AC T24 "picker & layer dipakai ulang di Overview, Daily, Goals" + "aset lazy-load per pack
  * & tersedia offline".
  *
  * Yang diuji behaviour: memilih sticker lewat picker di form habit & countdown (ikon item bisa
@@ -84,25 +84,23 @@ describe('QA T24 · picker dipakai ulang: ikon habit & countdown bisa diganti', 
 })
 
 describe('QA T24 · layer hias dipakai ulang di semua halaman dashboard', () => {
-  it('layout dashboard memasang layer sekali (berlaku untuk Overview, Daily, Goals, Akun, jurnal)', () => {
+  it('layout dashboard memasang layer sekali (berlaku untuk Overview, Daily, Goals, jurnal)', () => {
     const layout = source('../../../layouts/dashboard.vue')
     expect(layout).toContain('<LazyDecoLayer')
     expect(layout).toContain('data-anchor="page"')
   })
 
-  it('Overview, Daily, Goals, Akun, jurnal semuanya memakai layout dashboard', () => {
-    for (const page of ['index', 'overview', 'goals', 'akun', 'memo']) {
+  it('Overview, Daily, Goals, jurnal semuanya memakai layout dashboard', () => {
+    for (const page of ['index', 'overview', 'goals', 'memo']) {
       const text = source(`../../../pages/app/${page}.vue`)
       expect(text, page).toContain("layout: 'dashboard'")
     }
   })
 
-  it('halaman punya anchor tempelan (Akun memakai anchor halaman dari layout)', () => {
+  it('halaman punya anchor tempelan', () => {
     for (const page of ['index', 'overview', 'goals', 'memo']) {
       expect(source(`../../../pages/app/${page}.vue`), page).toContain('data-anchor=')
     }
-    // Akun tidak punya anchor sendiri → sticker jatuh ke anchor `page` (tetap bisa dihias).
-    expect(source('../../../pages/app/akun.vue')).not.toContain('data-anchor=')
   })
 
   it('picker di-lazy-load di semua pemakainya, bukan diimpor langsung', () => {
@@ -149,7 +147,6 @@ describe('QA T24 · aset sticker offline (precache service worker)', () => {
       '../../../pages/app/overview.vue',
       '../../../pages/app/goals.vue',
       '../../../pages/app/memo.vue',
-      '../../../pages/app/akun.vue',
     ]) {
       const text = source(file)
       expect(text, file).not.toContain('utils/stickerCatalog')
