@@ -1,9 +1,9 @@
 import { createTransport } from 'nodemailer'
 
-import { MAIL_SUBJECTS } from '#shared/brand'
 import type { OtpPurpose } from '@improve-personal/contracts'
 
 import type { ServerEnv } from '../utils/env'
+import { renderOtpEmail } from './otp-email'
 
 /**
  * Pengiriman email OTP.
@@ -36,14 +36,6 @@ const RESEND_ENDPOINT = 'https://api.resend.com/emails'
 /** Batas waktu panggilan keluar. Email yang lambat tidak boleh menahan request login. */
 const REQUEST_TIMEOUT_MS = 5_000
 
-const SUBJECT_BY_PURPOSE: Record<OtpPurpose, string> = MAIL_SUBJECTS
-
-const TEXT_BY_PURPOSE: Record<OtpPurpose, (code: string) => string> = {
-  login: (code) => `Kode masuk kamu: ${code}\n\nBerlaku sebentar dan hanya bisa dipakai sekali.`,
-  delete_account: (code) =>
-    `Kode konfirmasi hapus akun: ${code}\n\nBerlaku sebentar dan hanya bisa dipakai sekali.`,
-}
-
 /**
  * Mailer non-production TANPA transport email.
  *
@@ -67,6 +59,7 @@ type FetchLike = (input: string, init: RequestInit) => Promise<Response>
 export function createResendOtpMailer(env: ServerEnv, fetchImpl: FetchLike): OtpMailer {
   return {
     async sendOtp(mail: OtpMail): Promise<void> {
+      const email = renderOtpEmail({ code: mail.code, purpose: mail.purpose })
       const controller = new AbortController()
       const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
 
@@ -80,8 +73,10 @@ export function createResendOtpMailer(env: ServerEnv, fetchImpl: FetchLike): Otp
           body: JSON.stringify({
             from: env.mailFrom,
             to: mail.to,
-            subject: SUBJECT_BY_PURPOSE[mail.purpose],
-            text: TEXT_BY_PURPOSE[mail.purpose](mail.code),
+            subject: email.subject,
+            // `text` tetap dikirim sebagai fallback klien yang memblokir HTML.
+            text: email.text,
+            html: email.html,
           }),
           signal: controller.signal,
         })
@@ -102,7 +97,13 @@ export type SmtpMessage = {
   readonly from: string
   readonly to: string
   readonly subject: string
+  /** Teks polos: fallback klien yang memblokir HTML. */
   readonly text: string
+  /**
+   * HTML lengkap. Wajib (bukan opsional): email OTP yang jatuh ke teks polos doang adalah regresi
+   * tampilan yang harus ketahuan saat compile/test, bukan saat user membuka inbox.
+   */
+  readonly html: string
 }
 
 /** Batas keluar SMTP yang disuntik - satu-satunya seam yang dibutuhkan test. */
@@ -117,13 +118,16 @@ export type SmtpSend = (message: SmtpMessage) => Promise<unknown>
 export function createSmtpOtpMailer(env: ServerEnv, send: SmtpSend): OtpMailer {
   return {
     async sendOtp(mail: OtpMail): Promise<void> {
+      const email = renderOtpEmail({ code: mail.code, purpose: mail.purpose })
+
       await send({
         // `mailFrom` dijamin non-kosong saat `smtpUrl` diisi (dicek `resolveServerEnv`), jadi tidak ada
         // cabang "pengirim kosong" yang bisa lolos ke SMTP dan baru ketahuan saat user pertama login.
         from: env.mailFrom,
         to: mail.to,
-        subject: SUBJECT_BY_PURPOSE[mail.purpose],
-        text: TEXT_BY_PURPOSE[mail.purpose](mail.code),
+        subject: email.subject,
+        text: email.text,
+        html: email.html,
       })
     },
   }

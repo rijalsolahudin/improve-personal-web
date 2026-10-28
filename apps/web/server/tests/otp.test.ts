@@ -8,6 +8,8 @@ import { eq } from 'drizzle-orm'
 import { afterAll, afterEach, describe, expect, it, vi } from 'vitest'
 
 import { createOtpMailer, noopOtpMailer } from '../services/mailer'
+import { escapeHtml } from '../services/email-layout'
+import { renderOtpEmail } from '../services/otp-email'
 import { FIXED_OTP_CODE, OTP_MAX_ATTEMPTS, requestOtp, verifyOtp } from '../services/otp'
 import { consumeRateLimit, RATE_LIMIT_RULES } from '../services/rate-limit'
 import { ApiProblem } from '../utils/api-error'
@@ -452,7 +454,8 @@ describe('pemilihan mailer (batas keluar email: Resend / SMTP - tidak ada yang m
   })
 
   it('non-production + `NUXT_SMTP_URL`: email BENAR-BENAR dikirim, dan kode fix mati di env itu', async () => {
-    const sent: Array<{ from: string; to: string; subject: string; text: string }> = []
+    const sent: Array<{ from: string; to: string; subject: string; text: string; html: string }> =
+      []
     const env = makeEnv({
       appEnv: 'development',
       smtpUrl: 'smtp://127.0.0.1:1025',
@@ -476,6 +479,10 @@ describe('pemilihan mailer (batas keluar email: Resend / SMTP - tidak ada yang m
     })
     expect(sent.at(0)?.subject.length ?? 0).toBeGreaterThan(0)
     expect(sent.at(0)?.text).toContain('123456')
+    // Jalur SMTP juga mengirim HTML, bukan cuma teks polos: Mailpit/staging harus menampilkan
+    // kartu yang sama dengan production (Resend).
+    expect(sent.at(0)?.html).toContain('123456')
+    expect(sent.at(0)?.html).toContain('<!DOCTYPE html>')
 
     // Keterkaitan yang mudah terlewat: begitu transport ada, `fixedOtpEnabled` HARUS false. Kalau
     // tetap true, `requestOtp` akan mengirim kode fix sementara `verifyOtp` membandingkan dengan kode
@@ -485,7 +492,7 @@ describe('pemilihan mailer (batas keluar email: Resend / SMTP - tidak ada yang m
   })
 
   it('subject mengikuti purpose, jadi kode hapus akun tidak tertukar dengan kode login', async () => {
-    const sent: Array<{ subject: string; text: string }> = []
+    const sent: Array<{ subject: string; text: string; html: string }> = []
     const mailer = createOtpMailer(
       makeEnv({
         appEnv: 'staging',
@@ -533,7 +540,94 @@ describe('pemilihan mailer (batas keluar email: Resend / SMTP - tidak ada yang m
 
     expect(calls).toHaveLength(1)
     expect(calls.at(0)?.url).toBe('https://api.resend.com/emails')
-    expect(calls.at(0)?.body).toContain('123456')
     expect(calls.at(0)?.authorization).toBe('Bearer qa-resend-key')
+
+    const body = JSON.parse(calls.at(0)?.body ?? '{}') as {
+      text?: string
+      html?: string
+      subject?: string
+    }
+    // `text` tetap ada sebagai fallback, dan `html` tidak menggantikannya.
+    expect(body.text).toContain('123456')
+    expect(body.html).toContain('123456')
+    // Struktur layout benar-benar terkirim, bukan cuma kode di dalam <pre>.
+    expect(body.html).toContain('Improve')
+    expect(body.html).toContain('Courier New')
+    expect(body.html).toContain('KODE MASUK · SEKALI PAKAI')
+    expect(body.html).toMatch(/<html[\s>]/)
+    expect(body.subject?.length ?? 0).toBeGreaterThan(0)
+  })
+})
+
+describe('template email OTP (HTML): layout reusable, copy per purpose, escaping', () => {
+  it(`durasi berlaku dihitung dari OTP_TTL_SECONDS (${OTP_TTL_SECONDS} detik), bukan angka hardcode`, () => {
+    const email = renderOtpEmail({ code: '482913', purpose: 'login' })
+
+    expect(email.html).toContain(`${OTP_TTL_SECONDS / 60} menit`)
+    expect(email.text).toContain(`${OTP_TTL_SECONDS / 60} menit`)
+  })
+
+  it('durasi ikut parameter `ttlSeconds`, jadi tidak ada "10 menit" yang ditempel manual', () => {
+    const tigaMenit = renderOtpEmail({ code: '482913', purpose: 'login', ttlSeconds: 180 })
+    expect(tigaMenit.html).toContain('3 menit')
+    expect(tigaMenit.html).not.toContain('10 menit')
+    expect(tigaMenit.text).toContain('3 menit')
+
+    // Detik yang tidak bulat ke menit tetap dilaporkan jujur, bukan dibulatkan ke atas.
+    const sembilanPuluhDetik = renderOtpEmail({ code: '482913', purpose: 'login', ttlSeconds: 90 })
+    expect(sembilanPuluhDetik.html).toContain('90 detik')
+  })
+
+  it('kedua purpose memakai layout yang sama (brand + footer) tapi copy tidak tertukar', () => {
+    const login = renderOtpEmail({ code: '111111', purpose: 'login' })
+    const deletion = renderOtpEmail({ code: '222222', purpose: 'delete_account' })
+
+    for (const email of [login, deletion]) {
+      expect(email.html).toContain('<!DOCTYPE html>')
+      expect(email.html).toContain('>ip</td>')
+      expect(email.html).toContain('Improve')
+      expect(email.html).toContain('Personal')
+      expect(email.html).toContain('border:3px dashed')
+      expect(email.html).toContain('user-select:all')
+      expect(email.html).toContain('Email otomatis karena')
+      expect(email.html).toContain('Jakarta, Indonesia')
+      expect(email.html).toContain('<!--[if mso]>')
+      expect(email.html).toContain('prefers-color-scheme:dark')
+      expect(email.html).toContain('max-width:620px')
+      expect(email.html).toContain('mailto:halo@improvepersonal.app')
+    }
+
+    expect(login.html).toContain('KODE MASUK · SEKALI PAKAI')
+    expect(login.html).not.toContain('KONFIRMASI HAPUS AKUN')
+    expect(login.html).toContain('Nggak merasa minta kode')
+    expect(login.html).not.toContain('Nggak merasa minta hapus akun')
+
+    expect(deletion.html).toContain('KONFIRMASI HAPUS AKUN · SEKALI PAKAI')
+    expect(deletion.html).not.toContain('KODE MASUK · SEKALI PAKAI')
+    expect(deletion.html).toContain('Nggak merasa minta hapus akun')
+    expect(deletion.html).not.toContain('Nggak merasa minta kode')
+
+    // Kode masing-masing hanya ada di emailnya sendiri - tidak ada template yang tertukar.
+    expect(login.html).toContain('111111')
+    expect(login.html).not.toContain('222222')
+    expect(deletion.html).toContain('222222')
+    expect(deletion.html).not.toContain('111111')
+
+    expect(login.subject).not.toBe(deletion.subject)
+  })
+
+  it('nilai dinamis di-escape: kode bertanda HTML tidak lolos jadi markup', () => {
+    const email = renderOtpEmail({ code: '<script>&', purpose: 'login' })
+
+    expect(email.html).not.toContain('<script>')
+    expect(email.html).toContain('&lt;script&gt;&amp;')
+    // Teks polos sengaja apa adanya - escaping hanya urusan HTML.
+    expect(email.text).toContain('<script>&')
+  })
+
+  it('escapeHtml menutup semua karakter yang bisa memutus struktur email', () => {
+    expect(escapeHtml(`<b>"x"&'y'</b>`)).toBe('&lt;b&gt;&quot;x&quot;&amp;&#39;y&#39;&lt;/b&gt;')
+    // `&` di-escape SEKALI; kalau dobel, user membaca `&amp;lt;` di inbox.
+    expect(escapeHtml('a & b')).toBe('a &amp; b')
   })
 })
