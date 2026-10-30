@@ -2,19 +2,27 @@
 // pakai string ISO lokal `YYYY-MM-DD` supaya cocok dengan <input type="date">.
 
 import {
+  GENERAL_GOAL_CATEGORY_KEY,
   chapterProgressPercent,
   chapterStatus as coreChapterStatus,
   clampPercent,
   mainGoalProgressPercent,
   taskProgressPercent,
   type ChapterStatus as CoreChapterStatus,
+  type GoalCategoryKey,
   type ProgressSlice,
 } from '@improve-personal/core'
 
 import { addDays, addMonths, daysBetween, isIsoDate } from './time'
 
-export const GOAL_CATEGORIES = ['karier', 'kesehatan', 'keuangan', 'diri', 'relasi'] as const
-export type GoalCategory = (typeof GOAL_CATEGORIES)[number]
+/**
+ * Kunci kategori yang dipakai goal (`goal_category.key`), bukan enum.
+ *
+ * Alias `GoalCategory` dipertahankan supaya tipe presentasi/form tidak perlu berubah nama; nilainya
+ * string, jadi kategori buatan user sah. Daftar kategorinya DATA (`goal_category`) - UI memakai
+ * `useGoalCategories()`, bukan konstanta di file ini.
+ */
+export type GoalCategory = GoalCategoryKey
 
 export const GOAL_STATUSES = ['aktif', 'ditunda', 'selesai', 'dibatalkan'] as const
 export type GoalStatus = (typeof GOAL_STATUSES)[number]
@@ -51,15 +59,6 @@ export const ITEM_TONE: Record<GoalItemKind, GoalTone> = {
   task: 'purple',
   habit: 'green',
   jadwal: 'yellow',
-}
-
-/** Glyph tile kategori (design), dipakai kalau goal belum punya sticker sampul. */
-export const GOAL_CATEGORY_GLYPH: Record<GoalCategory, string> = {
-  karier: '◎',
-  kesehatan: '♥',
-  keuangan: '$',
-  diri: '★',
-  relasi: '☺',
 }
 
 export const GOAL_TITLE_MAX = 120
@@ -321,7 +320,8 @@ export function emptyGoalDraft(today: string): GoalDraft {
   return {
     title: '',
     why: '',
-    category: 'karier',
+    // `general` selalu ada (tidak bisa dihapus), jadi aman jadi pilihan awal sebelum katalog dimuat.
+    category: GENERAL_GOAL_CATEGORY_KEY,
     status: 'aktif',
     start: today,
     end: addMonths(today, 3),

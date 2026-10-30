@@ -297,3 +297,68 @@ describe('T9 navigasi view & tanggal', () => {
     expect(mounted.findAll('.col')[0]?.text()).toContain('Kelas AWS')
   })
 })
+
+/** Slot ke-`index` (15 menit) di kolom ke-`col`; index 36 = 09:00. */
+const slotAt = (wrapper: VueWrapper, index: number, col = 0) =>
+  wrapper.findAll('.col')[col]?.findAll('.slot')[index]
+
+/** Nilai input jam di form jadwal: [mulai, selesai]. */
+const timeInputs = (wrapper: VueWrapper): string[] =>
+  wrapper.findAll('input[type="time"]').map((input) => (input.element as HTMLInputElement).value)
+
+describe('T9 seret slot -> jadwal baru', () => {
+  it('klik slot tanpa geser membuka form 60 menit', async () => {
+    seedCalendar('hari', '2025-09-10', '2025-09-10')
+    mounted = await mountCalendar()
+
+    await slotAt(mounted, 36)?.trigger('pointerdown')
+    window.dispatchEvent(new PointerEvent('pointerup'))
+    await flushPromises()
+
+    expect(timeInputs(mounted)).toEqual(['09:00', '10:00'])
+  })
+
+  it('seret 3 slot memakai durasi hasil seret, dan klik sesudahnya tidak menimpanya', async () => {
+    seedCalendar('hari', '2025-09-10', '2025-09-10')
+    mounted = await mountCalendar()
+
+    await slotAt(mounted, 36)?.trigger('pointerdown')
+    await slotAt(mounted, 38)?.trigger('pointerenter')
+
+    // Pratinjau putus-putus tampil selama pointer masih ditekan.
+    expect(mounted.find('.draft').text()).toBe('09:00–09:45')
+
+    window.dispatchEvent(new PointerEvent('pointerup'))
+    await flushPromises()
+
+    expect(mounted.find('.draft').exists()).toBe(false)
+    expect(timeInputs(mounted)).toEqual(['09:00', '09:45'])
+
+    // `click` yang menyusul drag bukan jadwal kedua (guard `isJustDragged`).
+    await slotAt(mounted, 36)?.trigger('click')
+    await flushPromises()
+    expect(timeInputs(mounted)).toEqual(['09:00', '09:45'])
+    expect(mounted.findAll('[role="dialog"]')).toHaveLength(1)
+  })
+
+  it('klik papan tanpa pointer (mis. pembaca layar) tetap membuat jadwal 60 menit', async () => {
+    seedCalendar('hari', '2025-09-10', '2025-09-10')
+    mounted = await mountCalendar()
+
+    await slotAt(mounted, 40)?.trigger('click')
+    await flushPromises()
+
+    expect(timeInputs(mounted)).toEqual(['10:00', '11:00'])
+  })
+})
+
+describe('T9 gulir ke jam sekarang', () => {
+  it('grid digulir sekali saat dipasang supaya penanda "sekarang" terlihat', async () => {
+    seedCalendar('pekan', '2025-09-10', '2025-09-10')
+    mounted = await mountCalendar()
+
+    const body = mounted.find('.body').element as HTMLElement
+    // NOW = 10:00; grid 00:00-24:00 lebih tinggi dari layar, jadi scrollTop > 0.
+    expect(body.scrollTop).toBeGreaterThan(0)
+  })
+})

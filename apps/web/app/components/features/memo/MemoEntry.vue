@@ -63,10 +63,12 @@ const style = computed(() => ({
 </template>
 
 <style scoped>
+/* Design v2 (`mm.entries`): halaman jurnal tersimpan = kertas diam, garis `--line` tipis
+   tanpa bayangan keras. Stempel mood tetap 2.5px karena itu elemen dekoratif yang menonjol. */
 .entry {
   position: relative;
   padding: 26px 26px 22px 66px;
-  border: var(--border) solid var(--outline);
+  border: var(--border-thin) solid var(--line);
   border-radius: calc(22px * var(--rk)) calc(22px * var(--rk)) calc(22px * var(--rk))
     calc(8px * var(--rk));
   background-color: var(--paper-2);
@@ -74,8 +76,6 @@ const style = computed(() => ({
     linear-gradient(90deg, transparent 46px, #f3b8aa 46px, #f3b8aa 48px, transparent 48px),
     repeating-linear-gradient(transparent 0, transparent 31px, var(--mline) 31px, var(--mline) 32px);
   background-position: 0 22px;
-  box-shadow: calc(5px * var(--sx)) calc(5px * var(--sy)) calc(5px * var(--sbl))
-    var(--shadow-color, rgb(47 42 36 / 0.1));
 }
 
 .stamp {

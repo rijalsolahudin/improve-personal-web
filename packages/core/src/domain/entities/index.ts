@@ -2,6 +2,7 @@ import type { z } from 'zod'
 
 import { type EntityType, entityTypeSchema } from '../envelope.ts'
 import { decorationSchema } from './decoration.ts'
+import { goalCategorySchema } from './goal-category.ts'
 import { goalChapterSchema, goalLinkSchema, goalSchema } from './goal.ts'
 import { countdownSchema, habitCheckinSchema, habitSchema } from './habit.ts'
 import {
@@ -73,6 +74,7 @@ export const ENTITY_PAYLOAD_SCHEMAS = {
   goal: goalSchema,
   goal_chapter: goalChapterSchema,
   goal_link: goalLinkSchema,
+  goal_category: goalCategorySchema,
   decoration: decorationSchema,
   user_prefs: userPrefsSchema,
   user_profile: userProfileSchema,
@@ -114,6 +116,7 @@ export {
   countdownSchema,
   decorationSchema,
   eisenhowerPlacementSchema,
+  goalCategorySchema,
   goalChapterSchema,
   goalLinkSchema,
   goalSchema,

@@ -101,7 +101,18 @@ export const backupRecordSchema = z
 
 export type BackupRecord = z.infer<typeof backupRecordSchema>
 
-const dataCountShape = Object.fromEntries(ENTITY_TYPES.map((type) => [type, z.int().min(0)]))
+/**
+ * Jumlah record per tipe entitas - semua tipe selalu ada (nilainya boleh 0).
+ *
+ * `.default(0)`: berkas backup yang dibuat SEBELUM ada tipe entitas baru tidak memuat kuncinya, dan
+ * berkas seperti itu harus tetap bisa diimpor (itu justru berkas yang paling mungkin dimiliki user).
+ * Nilai default 0 tidak melonggarkan pemeriksaan apa pun: `findDataCountIssues` tetap mencocokkan
+ * angka dengan isi `records`, jadi berkas yang benar-benar memuat record tipe itu tetap ditolak kalau
+ * hitungannya tidak cocok.
+ */
+const dataCountShape = Object.fromEntries(
+  ENTITY_TYPES.map((type) => [type, z.int().min(0).default(0)]),
+)
 
 /** Jumlah record per tipe entitas - semua tipe selalu ada (nilainya boleh 0). */
 export const backupDataCountSchema = z.object(dataCountShape)

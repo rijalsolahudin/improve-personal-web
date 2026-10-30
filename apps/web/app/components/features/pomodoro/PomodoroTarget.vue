@@ -150,7 +150,7 @@ function onFreeInput(value: string | number): void {
 .kind {
   flex-shrink: 0;
   font-weight: var(--fw-strong);
-  font-size: 11px;
+  font-size: 12px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--ph-deep);
@@ -245,7 +245,7 @@ function onFreeInput(value: string | number): void {
   border-radius: 50%;
   color: transparent;
   font-weight: var(--fw-strong);
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .option[aria-pressed='true'] .check {

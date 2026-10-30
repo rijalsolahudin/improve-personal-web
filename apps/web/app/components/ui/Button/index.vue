@@ -160,6 +160,15 @@ const {
 .chunky {
   border: var(--border-thick) solid var(--outline);
   box-shadow: var(--shadow-press);
+  transition:
+    translate 0.08s ease-out,
+    box-shadow 0.08s ease-out;
+}
+
+/* Design (`Desktop v2.dc.html` baris 28): CTA berbayang keras masuk ke bayangannya saat ditekan. */
+.chunky:active {
+  translate: calc(3px * var(--sx)) calc(3px * var(--sy));
+  box-shadow: 0 0 0 transparent;
 }
 
 .block {

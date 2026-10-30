@@ -1,19 +1,25 @@
 <script setup lang="ts">
 import { GOAL_STATUS_TONE, goalProgress, needsReview, type Goal } from '~/utils/goals'
+import type { GoalCategoryView } from '~/utils/goals/categories'
 import { fromIsoDate } from '~/utils/time'
 
-const { goal, today, isSelected } = defineProps<{
+const { goal, today, isSelected, category } = defineProps<{
   goal: Goal
   today: string
   isSelected: boolean
+  /** Kategori goal yang sudah di-resolve dari katalog; warna & label dipakai kartu ini. */
+  category: GoalCategoryView
 }>()
 defineEmits<{ select: [] }>()
 
 const { dayMonthYear } = useDateFormat()
 const progress = computed(() => goalProgress(goal))
+const isReview = computed(() => needsReview(goal, today))
+/** Status "aktif" adalah keadaan normal - chip-nya cuma menambah bising (design v2). */
+const hasChips = computed(() => goal.status !== 'aktif' || isReview.value)
 const palette = computed(() => ({
-  '--goal-solid': `var(--cat-${goal.category})`,
-  '--goal-tint': `var(--cat-${goal.category}-tint)`,
+  '--goal-solid': category.accent,
+  '--goal-tint': category.tint,
 }))
 </script>
 
@@ -27,22 +33,22 @@ const palette = computed(() => ({
     @click="$emit('select')"
   >
     <span class="row">
-      <GoalCoverTile :cover="goal.cover" :category="goal.category" />
+      <GoalCoverTile :cover="goal.cover" :category="category" />
       <span class="text">
         <span class="title">{{ goal.title }}</span>
         <span class="meta">
-          {{ $t(`goals.category.${goal.category}`) }} ·
+          {{ category.label }} ·
           {{ $t('goals.target', { date: dayMonthYear(fromIsoDate(goal.end).getTime()) }) }}
         </span>
       </span>
       <span class="pct">{{ progress }}%</span>
     </span>
     <ProgressBar class="bar" :pct="progress" color="var(--goal-solid)" track="var(--chip)" />
-    <span class="chips">
-      <GoalChip :tone="GOAL_STATUS_TONE[goal.status]">{{
+    <span v-if="hasChips" class="chips">
+      <GoalChip v-if="goal.status !== 'aktif'" :tone="GOAL_STATUS_TONE[goal.status]">{{
         $t(`goals.status.${goal.status}`)
       }}</GoalChip>
-      <GoalChip v-if="needsReview(goal, today)" tone="red">{{ $t('goals.needsReview') }}</GoalChip>
+      <GoalChip v-if="isReview" tone="red">{{ $t('goals.needsReview') }}</GoalChip>
     </span>
   </button>
 </template>
@@ -53,9 +59,9 @@ const palette = computed(() => ({
   flex-direction: column;
   gap: 10px;
   width: 100%;
-  padding: 16px 18px;
-  border: var(--border) solid var(--line);
-  border-radius: var(--radius-sticker);
+  padding: 14px 16px;
+  border: var(--border-thin) solid var(--line);
+  border-radius: calc(22px * var(--rk));
   background: var(--paper);
   text-align: left;
 }
@@ -94,7 +100,8 @@ const palette = computed(() => ({
 .pct {
   font-family: var(--font-display);
   font-weight: var(--fw-display);
-  font-size: 20px;
+  font-size: 18px;
+  font-variant-numeric: tabular-nums;
 }
 
 .chips {

@@ -81,6 +81,8 @@ export interface Schedule {
 }
 
 export const SCHEDULE_TITLE_MAX = 120
+/** Durasi jadwal baru saat user menekan satu slot tanpa menyeret (menit). */
+export const DEFAULT_SCHEDULE_MINUTES = 60
 export const DAILY_N_OPTIONS = [1, 2, 3, 4, 5, 6] as const
 /** Urutan hari di UI: Senin dulu. */
 export const WEEKDAY_ORDER = [1, 2, 3, 4, 5, 6, 0] as const
@@ -88,6 +90,9 @@ export const WEEKDAY_ORDER = [1, 2, 3, 4, 5, 6, 0] as const
 // ---- Waktu ---------------------------------------------------------------------------
 
 const pad = (value: number): string => String(value).padStart(2, '0')
+
+/** Menit terakhir yang masih bisa ditulis sebagai jam `HH:MM` (23:59). */
+const LAST_MINUTE_OF_DAY = 24 * 60 - 1
 
 export function toMinutes(time: string): number {
   const [hours = 0, minutes = 0] = time.split(':').map(Number)
@@ -599,15 +604,23 @@ export function endsFromDraft(draft: ScheduleDraft): EndRule {
 /** Minggu ke berapa (1–5) `iso` di bulannya, mis. tanggal 8–14 = minggu ke-2. */
 const weekOfMonth = (iso: string): number => Math.ceil(fromIsoDate(iso).getDate() / 7)
 
-export function newScheduleDraft(date: string, time = '09:00'): ScheduleDraft {
+export function newScheduleDraft(
+  date: string,
+  time = '09:00',
+  dur = DEFAULT_SCHEDULE_MINUTES,
+): ScheduleDraft {
+  const start = toMinutes(time)
+  // `end` berhenti di 23:59: input jam tidak menerima 24:00 dan `formatMinutes` memutarnya ke
+  // "00:00". `dur` dihitung dari `end` yang sudah dipotong supaya kedua mode waktu di form sama.
+  const end = Math.min(start + Math.max(dur, 1), LAST_MINUTE_OF_DAY)
   return {
     title: '',
     color: 0,
     date,
     time,
     timeMode: 'end',
-    end: formatMinutes(Math.min(toMinutes(time) + 60, 24 * 60 - 1)),
-    dur: 60,
+    end: formatMinutes(end),
+    dur: end - start,
     rec: 'once',
     dailyN: 1,
     weekDays: [fromIsoDate(date).getDay()],

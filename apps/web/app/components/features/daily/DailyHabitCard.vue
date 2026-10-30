@@ -1,8 +1,16 @@
 <script setup lang="ts">
 import type { Progress } from '~/utils/dailyRoutine'
-import { HABIT_COLORS, type Habit } from '~/utils/habits'
+import { countOn, HABIT_COLORS, pipCount, type Habit } from '~/utils/habits'
 
-/** Habit hari ini + quick check (PRD F12): 1 klik = check-in, habit multi-target pakai pip ikon habit. */
+/**
+ * Habit hari ini + check-in cepat (PRD F12, design v2 `Desktop v2.dc.html` 2264-2286).
+ *
+ * - Habit single: satu tombol sebaris dengan checkbox di KIRI; klik = tercapai / batal (`toggle`).
+ * - Habit multi: ikon polos tanpa tile + pip per langkah. Klik pip ke-N = SET ke N, klik pip yang
+ *   sedang menjadi hitungan terakhir = N-1.
+ * - Habit multi TIDAK punya tombol pembungkus: klik nama / area kosong tidak mengubah hitungan
+ *   (dulu seluruh baris satu tombol besar, jadi klik nama ikut menambah check-in).
+ */
 const { habits, progress } = defineProps<{
   habits: readonly { habit: Habit; count: number; isDone: boolean; streak: number }[]
   progress: Progress
@@ -10,23 +18,46 @@ const { habits, progress } = defineProps<{
 const emit = defineEmits<{ toggle: [id: string]; focus: [name: string] }>()
 
 const { t } = useI18n()
+/**
+ * Pip menyetel angka ABSOLUT, sedangkan kontrak halaman (`daily.toggleHabit`) hanya menambah satu -
+ * jadi pip membaca/menulis store habit langsung. `today` diambil dari `useNow` yang sama dengan
+ * halaman, jadi tanggalnya tidak bisa meleset dari `habits` yang diprop-kan.
+ */
+const { checkIns, setDayCount, today } = useHabits()
 
 /** Lebih dari ini pip-nya terlalu rapat; sisanya cukup angka N/target. */
 const MAX_PIPS = 12
 const PIP_ICON_PX = 20
-const HABIT_TILE_PX = 30
+const HABIT_ICON_PX = 22
 
 const rows = computed(() =>
-  habits.map((item) => ({
-    ...item,
-    color: (HABIT_COLORS[item.habit.color] ?? HABIT_COLORS[0])[0],
-    isMulti: item.habit.target > 1,
-    pips: Array.from({ length: Math.min(item.habit.target, MAX_PIPS) }, (_, index) => ({
-      key: `${item.habit.id}-${index}`,
-      isOn: index < item.count,
-    })),
-  })),
+  habits.map((item) => {
+    const color = (HABIT_COLORS[item.habit.color] ?? HABIT_COLORS[0])[0]
+    return {
+      ...item,
+      color,
+      isMulti: item.habit.target > 1,
+      /** Design: `streak > 0 ? 'N hari' : '0'`. Emoji 🔥 dihapus - angkanya yang dibaca. */
+      streakLabel: item.streak > 0 ? t('daily.habit.streak', { n: item.streak }) : '0',
+      pips: Array.from({ length: Math.min(item.habit.target, MAX_PIPS) }, (_, index) => ({
+        key: `${item.habit.id}-${index}`,
+        n: index + 1,
+        isOn: index < item.count,
+        label: t('daily.habit.pip', {
+          n: index + 1,
+          target: item.habit.target,
+          name: item.habit.name,
+        }),
+      })),
+    }
+  }),
 )
+
+/** Hitungan dibaca dari store (bukan props) supaya klik beruntun tidak memakai angka yang basi. */
+function setPip(habitId: string, n: number): void {
+  const day = today.value
+  setDayCount(habitId, day, pipCount(countOn(checkIns.value, habitId, day), n))
+}
 </script>
 
 <template>
@@ -50,29 +81,48 @@ const rows = computed(() =>
         class="row hover-reveal"
         :class="{ done: row.isDone }"
       >
+        <!-- Single: seluruh baris tetap satu tombol (design v2) dengan checkbox di kiri. -->
         <button
+          v-if="!row.isMulti"
           type="button"
           class="check-in"
           :aria-pressed="row.isDone"
           :aria-label="$t('daily.habit.toggle', { name: row.habit.name })"
           @click="emit('toggle', row.habit.id)"
         >
-          <HabitIcon :habit="row.habit" :size="HABIT_TILE_PX" is-plain />
+          <span
+            class="box"
+            :class="{ on: row.isDone }"
+            :style="{ '--pip-color': row.color }"
+            aria-hidden="true"
+            >{{ row.isDone ? '✓' : '' }}</span
+          >
           <span class="text">
             <span class="name">{{ row.habit.name }}</span>
-            <span v-if="row.isMulti" class="pips" aria-hidden="true">
-              <span
+          </span>
+        </button>
+        <!-- Multi: ikon polos + pip per langkah; nama & area kosong sengaja bukan target klik. -->
+        <template v-else>
+          <HabitIcon :habit="row.habit" :size="HABIT_ICON_PX" bare />
+          <span class="text">
+            <span class="name">{{ row.habit.name }}</span>
+            <span class="pips">
+              <button
                 v-for="pip in row.pips"
                 :key="pip.key"
+                type="button"
                 class="pip"
                 :class="{ on: pip.isOn }"
                 :style="{ '--pip-color': row.color }"
+                :aria-pressed="pip.isOn"
+                :aria-label="pip.label"
+                @click="setPip(row.habit.id, pip.n)"
               >
                 <Icon :name="row.habit.icon" :size="PIP_ICON_PX" :is-filled="pip.isOn" />
-              </span>
+              </button>
             </span>
           </span>
-        </button>
+        </template>
         <Button
           v-if="!row.isDone"
           variant="chip"
@@ -83,19 +133,9 @@ const rows = computed(() =>
         >
           {{ $t('daily.focus') }}
         </Button>
-        <span class="streak" :title="$t('daily.habit.streak', { n: row.streak })"
-          >🔥 {{ row.streak }}</span
-        >
+        <span class="streak">{{ row.streakLabel }}</span>
         <span v-if="row.isMulti" class="count" :style="{ '--pip-color': row.color }"
           >{{ row.count }}/{{ row.habit.target }}</span
-        >
-        <span
-          v-else
-          class="box"
-          :class="{ on: row.isDone }"
-          :style="{ '--pip-color': row.color }"
-          aria-hidden="true"
-          >{{ row.isDone ? '✓' : '' }}</span
         >
       </li>
     </ul>
@@ -141,6 +181,15 @@ const rows = computed(() =>
   background: var(--hover);
 }
 
+.text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+/* Single: tombol sebaris (design) - checkbox di kiri, nama setelahnya. */
 .check-in {
   flex: 1;
   min-width: 0;
@@ -152,13 +201,7 @@ const rows = computed(() =>
   background: none;
   color: var(--ink);
   text-align: left;
-}
-
-.text {
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
+  cursor: pointer;
 }
 
 .name {
@@ -176,27 +219,41 @@ const rows = computed(() =>
 .pips {
   display: flex;
   flex-wrap: wrap;
-  gap: 1px;
+  gap: 0;
 }
 
-/* Pip = ikon habit (design): slot 24x26, ikon 20px; belum tercapai = garis pudar & mengecil. */
+/*
+ * Pip = tombol per langkah (design: ikon habit, belum tercapai pudar & mengecil).
+ * Kotak 26px adalah target sentuh yang TIDAK ikut mengecil - yang di-scale hanya ikonnya, supaya
+ * area klik tetap >= 24px walau visualnya 16px.
+ */
 .pip {
-  width: 24px;
+  width: 26px;
   height: 26px;
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: calc(6px * var(--rk));
+  background: none;
   color: var(--dash);
   opacity: 0.8;
+  cursor: pointer;
+  transition: color var(--dur) var(--ease);
+}
+
+.pip svg {
   transform: scale(0.82);
-  transition:
-    transform var(--dur) var(--ease),
-    opacity var(--dur) var(--ease);
+  transition: transform var(--dur) var(--ease);
 }
 
 .pip.on {
   color: var(--pip-color);
   opacity: 1;
+}
+
+.pip.on svg {
   transform: none;
 }
 
@@ -208,9 +265,10 @@ const rows = computed(() =>
   font-variant-numeric: tabular-nums;
 }
 
+/* `--mute` (>= 5,9:1 di `--paper`): warna teks netral design, menggantikan 🔥 oranye. */
 .streak {
-  /* --streak terlalu terang untuk teks 12px; versi teks oranye lolos kontras AA. */
-  color: var(--cat-kesehatan-text);
+  color: var(--mute);
+  white-space: nowrap;
 }
 
 .count {

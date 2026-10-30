@@ -50,7 +50,14 @@ export interface DecoScope {
 
 export function useDeco() {
   const items = useState<DecoItem[]>('deco-items', () => parseDecoItems(readJson(DECO_STORAGE_KEY)))
-  const isHidden = useState<boolean>('deco-hidden', () => readJson(DECO_HIDDEN_STORAGE_KEY) === 1)
+  /**
+   * Default = TERSEMBUNYI (design v2): stiker baru tampil kalau user menyalakannya sendiri.
+   *
+   * Kunci yang belum pernah ditulis (`null`) berarti user belum memilih apa pun - itu default, bukan
+   * pilihan. `'0'`/`'1'` yang sudah tersimpan selalu dihormati, jadi user yang dulu menyalakan hiasan
+   * tidak kehilangan pilihannya setelah versi ini.
+   */
+  const isHidden = useState<boolean>('deco-hidden', () => readJson(DECO_HIDDEN_STORAGE_KEY) !== 0)
   const isEditing = useState<boolean>('deco-editing', () => false)
   const selectedId = useState<string | null>('deco-selected', () => null)
   const recent = useState<string[]>('sticker-recent', readRecent)
@@ -114,9 +121,14 @@ export function useDeco() {
     selectedId.value = null
   }
 
+  function setHidden(next: boolean): void {
+    if (isHidden.value === next) return
+    isHidden.value = next
+    write(DECO_HIDDEN_STORAGE_KEY, next ? '1' : '0')
+  }
+
   function toggleHidden(): void {
-    isHidden.value = !isHidden.value
-    write(DECO_HIDDEN_STORAGE_KEY, isHidden.value ? '1' : '0')
+    setHidden(!isHidden.value)
   }
 
   function select(id: string | null): void {
@@ -138,6 +150,7 @@ export function useDeco() {
     copyScope,
     rememberSticker,
     setEditing,
+    setHidden,
     toggleHidden,
     select,
   }

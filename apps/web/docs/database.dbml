@@ -64,6 +64,7 @@ Enum entity_type {
   goal
   goal_chapter
   goal_link
+  goal_category
   decoration
   user_prefs
   user_profile
@@ -297,6 +298,10 @@ Enum goal_category {
   diri
   relasi
 }
+
+// `goal_category` dipertahankan hanya sebagai daftar nilai LAMA (data v1 & kompatibilitas klien
+// lama). Sejak F13 kategori bisa dikelola user, jadi `goal.category` menyimpan
+// `goal_category.key` (teks), bukan nilai enum ini.
 
 Enum goal_status {
   aktif
@@ -676,7 +681,7 @@ Table goal {
   id              uuid          [pk]
   title           text          [not null]
   reason          text          [null, note: '"Kenapa penting?"']
-  category        goal_category [not null]
+  category        text          [not null, note: 'goal_category.key (bukan enum lagi); nilai lama tetap sah']
   cover_sticker   text          [null, note: 'sticker sampul / emoji']
   start_date      text          [not null, note: 'tanggal lokal YYYY-MM-DD']
   target_date     text          [not null]
@@ -692,6 +697,34 @@ Table goal {
   Note: '''
   PRD F13. Jumlah goal aktif bebas. Progress TIDAK disimpan — dihitung dari
   item di dalamnya, jadi selalu konsisten.
+
+  `category` adalah soft ref ke `goal_category.key`. Kategori yang sudah dihapus
+  tidak membuat goal error: goal tampil di kategori `general` (dan dipindah ke
+  sana saat kategorinya dihapus).
+  '''
+}
+
+Table goal_category {
+  id          uuid    [pk]
+  key         text    [not null, unique, name: 'uq_goal_category_key', note: 'dirujuk goal.category; tidak berubah saat rename']
+  label       text    [not null, note: 'maks 40 karakter; unik tanpa peduli huruf besar/kecil']
+  color       text    [not null, note: 'nama palet: pink/orange/green/purple/blue/yellow/red/navy/gray']
+  sort_order  int     [not null]
+  updated_at  bigint  [not null]
+
+  indexes {
+    sort_order [name: 'idx_goal_category_order']
+  }
+
+  Note: '''
+  Kategori goal yang bisa ditambah, diganti nama, diwarnai, dan dihapus user
+  (F13). Record tersendiri — bukan field di `user_prefs` — supaya hapus/ganti
+  satu kategori tidak menimpa seluruh daftar dan konflik sync tetap per record.
+
+  Bawaan: `general` (tidak bisa dihapus, fallback kategori tak dikenal) + lima
+  kategori lama. `key` bawaan memakai slug lama (`karier`, ...) supaya goal
+  yang sudah ada tidak perlu ditulis ulang; kategori buatan user memakai UUIDv7.
+  Hapus kategori -> goal-nya pindah ke `general` lebih dulu, lalu tombstone.
   '''
 }
 

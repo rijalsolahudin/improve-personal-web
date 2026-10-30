@@ -128,8 +128,13 @@ export function useAppearancePrefs(options: UseAppearancePrefsOptions = {}) {
   }
 
   /**
-   * Terapkan record terbaru ke store tampilan. `recordId`/`persisted` ikut disamakan supaya watcher
-   * di bawah tidak menulis balik nilai yang baru saja dibaca dari penyimpanan.
+   * Terapkan record terbaru ke store tampilan + state deco. `recordId`/`persisted` ikut disamakan
+   * supaya watcher di bawah tidak menulis balik nilai yang baru saja dibaca dari penyimpanan.
+   *
+   * `hideDecorations` dibaca balik di sini - bukan hanya ditulis - supaya status hiasan ikut akun
+   * (ganti perangkat tidak menghidupkan/mematikan stiker sendiri). Sumber kebenarannya tetap record:
+   * pilihan lokal yang belum pernah sync akan ditimpa saat hydrate, dan itu memang yang dijanjikan
+   * "preferensi per akun".
    */
   function applyRecord(
     record: { readonly id: string; readonly data: unknown },
@@ -141,6 +146,7 @@ export function useAppearancePrefs(options: UseAppearancePrefsOptions = {}) {
       style: fromPrefStyle(prefs.style) ?? DEFAULT_STYLE,
     }
     appearance.applyPrefs(next, userId)
+    deco.setHidden(prefs.hideDecorations)
     recordId = record.id
     persisted = next
   }
@@ -197,8 +203,8 @@ export function useAppearancePrefs(options: UseAppearancePrefsOptions = {}) {
    *
    * `status` tidak diubah ke `loading`. Bedanya dengan hydrate: akun tanpa record TIDAK di-seed di
    * sini - menulis default saat reload akan menimpa pilihan yang sedang tampil hanya karena record
-   * belum/tidak ada. `hideDecorations` juga bukan milik store ini (dibaca dari `useDeco` saat menulis),
-   * jadi tidak ikut diubah.
+   * belum/tidak ada. Kalau record ada, `applyRecord` ikut menerapkan `hideDecorations` dari perangkat
+   * lain (lewat `useDeco.setHidden`), sama seperti hydrate.
    */
   function reload(): Promise<void> {
     if (status.value === 'idle') return Promise.resolve()

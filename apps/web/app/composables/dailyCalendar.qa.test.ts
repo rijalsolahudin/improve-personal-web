@@ -133,6 +133,22 @@ describe('Jadwal hari ini di Daily (AC4)', () => {
     wrapper.unmount()
   })
 
+  it('deadline dini hari (00:00-05:00) tetap tampil: grid Daily mulai 00:00', async () => {
+    useState<Task[]>('tasks').value = [
+      task('subuh', { title: 'Bangun', deadline: START + 3 * MS_PER_HOUR }),
+    ]
+
+    const { grid, wrapper } = await mountGrid(TODAY)
+    const marker = grid.layout.value.columns[0]?.items.find((item) => item.kind === 'task')
+
+    expect(marker?.kind === 'task' && marker.start).toBe(3 * 60)
+    expect(grid.layout.value.hours[0]?.label).toBe('00:00')
+    expect(grid.layout.value.hours).toHaveLength(24)
+    expect(grid.layout.value.columns[0]?.slots).toHaveLength(96)
+
+    wrapper.unmount()
+  })
+
   it('edit deadline dari widget Daily langsung menggeser penanda di kalender hari ini (F6)', async () => {
     useState<Task[]>('tasks').value = [
       task('edit-1', { title: 'Kirim laporan', deadline: START + 14 * MS_PER_HOUR }),

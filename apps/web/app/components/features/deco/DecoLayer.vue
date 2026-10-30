@@ -280,7 +280,7 @@ const pickerCurrent = computed(() => {
   background: var(--accent);
   color: var(--paper);
   font-weight: var(--fw-strong);
-  font-size: 11px;
+  font-size: 12px;
   letter-spacing: 0.04em;
   white-space: nowrap;
 }

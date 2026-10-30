@@ -46,8 +46,8 @@ export function keyDatabaseName(userId: string): string {
  *
  * Port `StorageAdapter` sengaja tidak punya "hitung semua record" (menambahkannya berarti mengubah
  * kontrak bersama yang juga dipegang adapter mobile). Yang tersedia adalah index per tipe, jadi tipe
- * entitas diperiksa satu per satu: 20 pembacaan index kecil, sekali per sesi, dan hasilnya hanya
- * dipakai saat slot pembuka perangkat kosong.
+ * entitas diperiksa satu per satu: satu pembacaan index kecil per tipe, sekali per sesi, dan hasilnya
+ * hanya dipakai saat slot pembuka perangkat kosong.
  *
  * Diekspor karena alur tambah perangkat membutuhkan pertanyaan yang sama sebelum MENIMPA pembuka
  * perangkat yang sudah ada: menimpanya saat ada record berarti record itu tidak akan bisa dibuka lagi.

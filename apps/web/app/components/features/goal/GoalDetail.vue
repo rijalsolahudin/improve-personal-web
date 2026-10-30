@@ -12,8 +12,14 @@ import {
   type Goal,
 } from '~/utils/goals'
 import { fromIsoDate } from '~/utils/time'
+import type { GoalCategoryView } from '~/utils/goals/categories'
 
-const { goal, today } = defineProps<{ goal: Goal; today: string }>()
+const { goal, today, category } = defineProps<{
+  goal: Goal
+  today: string
+  /** Kategori goal yang sudah di-resolve: warna panel mengikuti kategori tersimpan. */
+  category: GoalCategoryView
+}>()
 defineEmits<{ edit: []; 'pick-cover': [] }>()
 
 const { t } = useI18n()
@@ -34,9 +40,9 @@ const toggle = (key: string): void => {
 }
 
 const palette = computed(() => ({
-  '--goal-solid': `var(--cat-${goal.category})`,
-  '--goal-tint': `var(--cat-${goal.category}-tint)`,
-  '--goal-text': `var(--cat-${goal.category}-text)`,
+  '--goal-solid': category.accent,
+  '--goal-tint': category.tint,
+  '--goal-text': category.text,
 }))
 
 const period = (chapter: Chapter): string =>
@@ -65,20 +71,16 @@ function review(chapterId: string, action: 'extend' | 'shift' | 'close'): void {
   }
   updateChapter(goal.id, chapterId, apply[action])
 }
-
-function openChapter(chapterId: string): void {
-  opened.value = { ...opened.value, [chapterId]: true }
-}
 </script>
 
 <template>
   <div class="detail" :style="palette">
-    <GoalHero :goal="goal" :today="today" @edit="$emit('edit')" @pick-cover="$emit('pick-cover')" />
-    <GoalStepper
-      v-if="goal.chapters.length"
-      :chapters="goal.chapters"
+    <GoalHero
+      :goal="goal"
       :today="today"
-      @open="openChapter"
+      :category="category"
+      @edit="$emit('edit')"
+      @pick-cover="$emit('pick-cover')"
     />
     <GoalSection
       v-if="goal.along.length"

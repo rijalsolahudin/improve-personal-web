@@ -8,6 +8,7 @@ import {
   emptyHabitDraft,
   monthDaysOf,
   nextCount,
+  pipCount,
   setCount,
   validateHabitDraft,
   type CheckIns,
@@ -73,6 +74,16 @@ describe('check-in', () => {
   it('setCount 0 menghapus entri', () => {
     const checkIns = setCount(done(FRI), 'h', FRI, 0)
     expect(checkIns.h).toEqual({})
+  })
+
+  // Design v2 (Daily): pip ke-N menyatakan "sudah N kali", jadi klik = lompat, bukan +1. Klik pip
+  // yang sedang menjadi hitungan terakhir menguranginya satu (batalkan satu langkah).
+  it('pip ke-N: set ke N, dan pip terakhir yang terisi mengurangi satu', () => {
+    expect(pipCount(0, 1)).toBe(1)
+    expect(pipCount(1, 3)).toBe(3)
+    expect(pipCount(2, 4)).toBe(4)
+    expect(pipCount(3, 3)).toBe(2)
+    expect(pipCount(1, 1)).toBe(0)
   })
 
   it('tingkat capaian cuma menghitung hari terjadwal', () => {

@@ -175,6 +175,16 @@ function onLink(key: (typeof linkItems)[number]['key']): void {
   border-radius: var(--radius-row);
   background: var(--paper);
   box-shadow: var(--shadow-drop);
+  /* Design: popover muncul cepat dari arah pemicunya - membesar sedikit, tanpa gerak naik. */
+  transform-origin: bottom left;
+  animation: user-menu-pop 0.12s ease-out both;
+}
+
+@keyframes user-menu-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
 }
 
 .item {

@@ -85,7 +85,7 @@ const visible = computed(() =>
   align-items: center;
   gap: 6px;
   font-weight: var(--fw-strong);
-  font-size: 12.5px;
+  font-size: var(--fs-caption);
   white-space: nowrap;
 }
 

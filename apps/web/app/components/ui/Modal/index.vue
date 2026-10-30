@@ -146,6 +146,8 @@ function trapFocus(event: KeyboardEvent): void {
   overflow-y: auto;
   /* Scroll di dalam dialog tidak boleh "tembus" ke halaman di belakang saat sudah mentok. */
   overscroll-behavior: contain;
+  /* Design: latar memudar masuk, panel menyusul turun 10px (baris 30-34 mockup). */
+  animation: modal-backdrop-in 0.14s ease-out both;
 }
 
 /* Form panjang: dialog menempel ke atas dengan jarak lega; yang di-scroll adalah latarnya. */
@@ -172,6 +174,28 @@ function trapFocus(event: KeyboardEvent): void {
   border: var(--border-thick) solid var(--outline);
   border-radius: var(--radius-panel);
   box-shadow: var(--shadow-drop);
+  animation: modal-panel-in 0.26s cubic-bezier(0.3, 1.3, 0.5, 1) both;
+}
+
+@keyframes modal-backdrop-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes modal-panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+
+  60% {
+    opacity: 1;
+  }
+
+  to {
+    transform: none;
+  }
 }
 
 .dialog.flush {

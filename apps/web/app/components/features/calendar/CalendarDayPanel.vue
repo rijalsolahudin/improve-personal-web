@@ -92,15 +92,15 @@ function timeLabel(occurrence: Occurrence): string {
       </div>
       <ul class="rows">
         <li v-for="occurrence in events" :key="occurrence.key" class="row event hover-reveal">
+          <!-- Design v2 (`cal.selEvents`): penanda warna jadwal = titik kecil, bukan tile
+               berbingkai tinta. Judul jadwal di sebelahnya tetap jadi teks penanda. -->
           <span
-            class="tile"
+            class="event-dot"
             :style="{
               background: (SCHEDULE_COLORS[occurrence.schedule.color] ?? SCHEDULE_COLORS[0])[0],
             }"
             aria-hidden="true"
-          >
-            <span />
-          </span>
+          />
           <button type="button" class="row-main" @click="emit('edit', occurrence)">
             <span class="row-title">
               {{ occurrence.schedule.title }}
@@ -351,10 +351,19 @@ function timeLabel(occurrence: Occurrence): string {
    bukan di-wrap flex yang membuat posisinya bergantung lebar teks. */
 .row.event {
   display: grid;
-  grid-template-columns: 34px minmax(0, 1fr) auto;
+  grid-template-columns: 12px minmax(0, 1fr) auto;
   column-gap: 10px;
   row-gap: 8px;
   align-items: start;
+}
+
+/* Titik warna jadwal (design v2): 12px bulat, disejajarkan ke tengah baris judul. */
+.event-dot {
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+  align-self: center;
+  border-radius: var(--radius-pill);
 }
 
 .linked {
@@ -372,27 +381,6 @@ function timeLabel(occurrence: Occurrence): string {
   font-weight: var(--fw-body);
   font-size: 14px;
   color: var(--mute);
-}
-
-.tile {
-  width: 34px;
-  height: 34px;
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: calc(12px * var(--rk)) calc(12px * var(--rk)) calc(12px * var(--rk))
-    calc(4px * var(--rk));
-  box-shadow: inset 0 calc(-3px * var(--bev)) 0 rgb(0 0 0 / 0.14);
-}
-
-.tile > span {
-  width: 18px;
-  height: 18px;
-  border: var(--border-thin) solid var(--outline);
-  border-radius: calc(6px * var(--rk));
-  background: var(--paper);
-  transform: rotate(calc(-6deg * var(--bev)));
 }
 
 .row-main {

@@ -29,9 +29,6 @@ const next = computed(() => {
       data-anchor="header"
       data-anchor-kind="header"
       :now="daily.now.value"
-      :focus-minutes="daily.focusMinutes.value"
-      :habits="daily.habitProgress.value"
-      :schedule-count="daily.scheduleCount.value"
       :progress="daily.progress.value"
     />
     <DailyNowStrip
@@ -40,6 +37,7 @@ const next = computed(() => {
       :current="daily.currentBlock.value"
       :next="next"
       @toggle-item="daily.toggleRoutineItem"
+      @focus="focus"
     />
     <div class="columns">
       <div class="side">

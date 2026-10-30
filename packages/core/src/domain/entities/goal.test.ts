@@ -162,8 +162,17 @@ describe('goalSchema - model main goal', () => {
     expect(goalSchema.safeParse(goalInput({ title: 'x'.repeat(301) })).success).toBe(false)
   })
 
-  it('menolak kategori & status di luar enum, dan tanggal lokal yang tidak ada', () => {
-    expect(goalSchema.safeParse(goalInput({ category: 'liburan' })).success).toBe(false)
+  it('menerima kategori buatan user, dan menormalkan kategori rusak ke general', () => {
+    // Kategori bukan enum lagi: kunci sah apa pun boleh (kategori bisa dibuat user).
+    expect(goalSchema.parse(goalInput({ category: 'liburan' })).category).toBe('liburan')
+
+    // Nilai rusak tidak boleh menggagalkan pembacaan goal - dipetakan ke general.
+    expect(goalSchema.parse(goalInput({ category: 'Liburan Sekali' })).category).toBe('general')
+    expect(goalSchema.parse(goalInput({ category: '' })).category).toBe('general')
+    expect(goalSchema.parse(goalInput({ category: 42 })).category).toBe('general')
+  })
+
+  it('menolak status di luar enum dan tanggal lokal yang tidak ada', () => {
     expect(goalSchema.safeParse(goalInput({ status: 'arsip' })).success).toBe(false)
     expect(goalSchema.safeParse(goalInput({ startDate: '2026-02-30' })).success).toBe(false)
   })

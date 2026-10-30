@@ -36,6 +36,7 @@ const ENTITY_TYPE_LABELS = {
   goal: 'goal',
   goal_chapter: 'chapter goal',
   goal_link: 'tautan goal',
+  goal_category: 'kategori goal',
   decoration: 'hiasan',
   user_prefs: 'preferensi',
   user_profile: 'profil',

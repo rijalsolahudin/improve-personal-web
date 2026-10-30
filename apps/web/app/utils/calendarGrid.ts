@@ -1,8 +1,10 @@
 // Layout timeline Kalender & "Jadwal hari ini" (Desktop.dc.html `buildGrid`). Fungsi murni.
-// Grid 05:00–24:00 dalam slot 15 menit; tinggi slot membesar supaya isi item (to-do tertaut,
-// judul) muat, dan tinggi itu dipakai bersama semua kolom supaya jam tetap sejajar.
+// Grid 00:00–24:00 (`G0 = 0` di design) dalam slot 15 menit; tinggi slot membesar supaya isi item
+// (to-do tertaut, judul) muat, dan tinggi itu dipakai bersama semua kolom supaya jam tetap sejajar.
 
-export const GRID_START_HOUR = 5
+import { DEFAULT_SCHEDULE_MINUTES, formatMinutes } from './schedule'
+
+export const GRID_START_HOUR = 0
 export const GRID_END_HOUR = 24
 export const SLOT_MINUTES = 15
 export const SLOTS_PER_HOUR = 60 / SLOT_MINUTES
@@ -24,6 +26,48 @@ export const LINKED_FRAME_PX = 20
 
 const GRID_START_MIN = GRID_START_HOUR * 60
 const GRID_END_MIN = GRID_END_HOUR * 60
+
+/**
+ * Jarak (px) penanda "sekarang" dari tepi atas grid saat halaman dibuka. Design `dlScroll`
+ * memakai 140px supaya konteks sebelum & sesudah jam sekarang ikut terlihat.
+ */
+export const NOW_SCROLL_OFFSET_PX = 140
+
+/** Label jam slot: `24:00` tetap "24:00" - `formatMinutes` memutar 1440 menit jadi "00:00". */
+export function minuteClock(minute: number): string {
+  return minute >= GRID_END_MIN ? '24:00' : formatMinutes(Math.max(GRID_START_MIN, minute))
+}
+
+export interface CreateRange {
+  /** Menit sejak 00:00. */
+  start: number
+  /** Durasi menit, kelipatan 15 dan tidak melewati 24:00. */
+  dur: number
+}
+
+/**
+ * Rentang jadwal baru dari dua slot yang ditekan/diseret (design `slotDown`): satu slot saja
+ * (klik tanpa geser) = 60 menit, geser >1 slot = panjang yang diseret. Ujung selalu dirapatkan
+ * ke slot 15 menit berikutnya dan dipotong di 24:00.
+ */
+export function createRange(a: number, b: number): CreateRange {
+  const start = Math.max(GRID_START_MIN, Math.min(a, b))
+  const span = Math.abs(b - a) + SLOT_MINUTES
+  const dur = span > SLOT_MINUTES ? span : DEFAULT_SCHEDULE_MINUTES
+  return { start, dur: Math.min(dur, GRID_END_MIN - start) }
+}
+
+/**
+ * `scrollTop` awal grid: penanda "sekarang" (atau jam sekarang sebagai cadangan kalau penanda
+ * tidak ada di kolom yang tampil) minus `NOW_SCROLL_OFFSET_PX`.
+ */
+export function scrollTopForNow(
+  nowTop: number | null,
+  nowMinute: number,
+  yAt: (minute: number) => number,
+): number {
+  return Math.max(0, (nowTop ?? yAt(nowMinute)) - NOW_SCROLL_OFFSET_PX)
+}
 
 export interface GridEntry {
   key: string

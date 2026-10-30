@@ -67,5 +67,19 @@ const style = computed(() => {
   border-radius: var(--radius-sticker);
   background: var(--paper-2);
   box-shadow: var(--shadow-drop-sm);
+  transition:
+    translate 0.08s ease-out,
+    box-shadow 0.08s ease-out;
+}
+
+/*
+ * Design (`Desktop v2.dc.html` baris 28): permukaan berbayang keras "masuk ke bayangannya"
+ * saat ditekan - bergeser mengikuti arah offset bayangan (`--sx`/`--sy`), lalu bayangannya
+ * dimatikan. 3px = separuh offset 6px, sama seperti mockup: kartu terlihat menempel, bukan
+ * hilang rata. `translate` dipakai supaya `transform` pemanggil tidak tertimpa.
+ */
+.card-sticker:active {
+  translate: calc(3px * var(--sx)) calc(3px * var(--sy));
+  box-shadow: 0 0 0 transparent;
 }
 </style>

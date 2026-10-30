@@ -3,13 +3,17 @@ import { describe, expect, it } from 'vitest'
 import {
   BASE_SLOT_PX,
   COMPACT_HEAD_PX,
+  NOW_SCROLL_OFFSET_PX,
   SLOT_COUNT,
+  createRange,
   entryNeed,
   focusPillStyle,
   gridScale,
   isVisible,
+  minuteClock,
   placeColumns,
   resizeEntry,
+  scrollTopForNow,
   slotHeights,
 } from './calendarGrid'
 
@@ -41,10 +45,11 @@ describe('slotHeights & gridScale', () => {
     expect(scale.height).toBe(SLOT_COUNT * BASE_SLOT_PX + 42 - BASE_SLOT_PX)
   })
 
-  it('yAt mulai dari 0 di 05:00', () => {
+  it('yAt mulai dari 0 di 00:00', () => {
     const scale = gridScale(slotHeights([[]]))
-    expect(scale.yAt(at(5))).toBe(0)
-    expect(scale.yAt(at(6))).toBe(4 * BASE_SLOT_PX)
+    expect(scale.yAt(at(0))).toBe(0)
+    expect(scale.yAt(at(1))).toBe(4 * BASE_SLOT_PX)
+    expect(scale.yAt(at(5))).toBe(20 * BASE_SLOT_PX)
   })
 })
 
@@ -58,9 +63,9 @@ describe('entryNeed & isVisible', () => {
     expect(entryNeed('task', 30, 0, false)).toBe(26)
   })
 
-  it('item yang selesai sebelum 05:00 tidak digambar', () => {
-    expect(isVisible({ start: at(4), dur: 30 })).toBe(false)
-    expect(isVisible({ start: at(4, 45), dur: 30 })).toBe(true)
+  it('grid menutup sehari penuh: item 00:00 ikut digambar, durasi 0 tidak', () => {
+    expect(isVisible({ start: at(0), dur: 15 })).toBe(true)
+    expect(isVisible({ start: at(0), dur: 0 })).toBe(false)
   })
 })
 
@@ -71,10 +76,51 @@ describe('resizeEntry', () => {
     expect(resizeEntry('bottom', at(23), 30, 8)).toEqual({ start: at(23), dur: 60 })
   })
 
-  it('tepi atas menggeser mulai, akhir tetap, tidak sebelum 05:00', () => {
+  it('tepi atas menggeser mulai, akhir tetap, tidak sebelum 00:00', () => {
     expect(resizeEntry('top', at(9), 60, -2)).toEqual({ start: at(8, 30), dur: 90 })
     expect(resizeEntry('top', at(9), 60, 10)).toEqual({ start: at(9, 45), dur: 15 })
-    expect(resizeEntry('top', at(5, 15), 60, -4)).toEqual({ start: at(5), dur: 75 })
+    expect(resizeEntry('top', at(0, 15), 60, -4)).toEqual({ start: at(0), dur: 75 })
+  })
+})
+
+describe('createRange', () => {
+  it('klik satu slot tanpa geser = 60 menit', () => {
+    expect(createRange(at(9), at(9))).toEqual({ start: at(9), dur: 60 })
+  })
+
+  it('seret 3 slot = 45 menit, arah ke atas dan ke bawah sama', () => {
+    expect(createRange(at(9), at(9, 30))).toEqual({ start: at(9), dur: 45 })
+    expect(createRange(at(9, 30), at(9))).toEqual({ start: at(9), dur: 45 })
+  })
+
+  it('ujung dipotong di 24:00, tidak pernah melewati akhir grid', () => {
+    expect(createRange(at(23), at(23, 45))).toEqual({ start: at(23), dur: 60 })
+    // Slot terakhir: 60 menit tidak muat lagi, jadi hanya selebar slotnya sendiri.
+    expect(createRange(at(23, 45), at(23, 45))).toEqual({ start: at(23, 45), dur: 15 })
+  })
+})
+
+describe('minuteClock', () => {
+  it('24:00 tetap "24:00", bukan "00:00"', () => {
+    expect(minuteClock(at(0))).toBe('00:00')
+    expect(minuteClock(at(9, 45))).toBe('09:45')
+    expect(minuteClock(24 * 60)).toBe('24:00')
+  })
+})
+
+describe('scrollTopForNow', () => {
+  const yAt = (minute: number): number => minute * 2
+
+  it('memakai posisi penanda sekarang, 140px di atasnya', () => {
+    expect(scrollTopForNow(600, at(10), yAt)).toBe(600 - NOW_SCROLL_OFFSET_PX)
+  })
+
+  it('tanpa penanda (hari ini tidak tampil) memakai jam sekarang relatif grid', () => {
+    expect(scrollTopForNow(null, at(10), yAt)).toBe(at(10) * 2 - NOW_SCROLL_OFFSET_PX)
+  })
+
+  it('jam terlalu pagi tidak menghasilkan scroll negatif', () => {
+    expect(scrollTopForNow(null, at(0, 30), yAt)).toBe(0)
   })
 })
 

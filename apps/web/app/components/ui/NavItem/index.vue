@@ -31,8 +31,11 @@ const emit = defineEmits<{ click: [event: MouseEvent] }>()
     :title="collapsed ? label : undefined"
   >
     <AppIcon :glyph="glyph" :icon="icon" :color="color" />
-    <span v-if="!collapsed" class="label">{{ label }}</span>
-    <span v-else class="visually-hidden">{{ label }}</span>
+    <!--
+      Label selalu dirender supaya collapse bisa memudarkannya (dulu `v-if` membuatnya lenyap
+      mendadak). Saat collapsed teksnya jadi nama aksesibel lewat `title`, jadi jangan dibaca dua kali.
+    -->
+    <span class="label" :aria-hidden="collapsed ? 'true' : undefined">{{ label }}</span>
   </NuxtLink>
   <button
     v-else
@@ -43,8 +46,7 @@ const emit = defineEmits<{ click: [event: MouseEvent] }>()
     @click="emit('click', $event)"
   >
     <AppIcon :glyph="glyph" :icon="icon" :color="color" />
-    <span v-if="!collapsed" class="label">{{ label }}</span>
-    <span v-else class="visually-hidden">{{ label }}</span>
+    <span class="label" :aria-hidden="collapsed ? 'true' : undefined">{{ label }}</span>
   </button>
 </template>
 
@@ -69,6 +71,19 @@ const emit = defineEmits<{ click: [event: MouseEvent] }>()
   font-weight: var(--fw-strong);
   font-size: 16px;
   white-space: nowrap;
+  /*
+   * Aturan global hanya menargetkan `button`/`.btn`/`[role=button]`, jadi link sidebar tidak dapat
+   * umpan balik hover/tekan. Properti `translate` dipakai (bukan `transform`) supaya varian tombol
+   * komponen ini tidak bergeser 2px saat ditekan - aturan global sudah memakai `translate`.
+   * `gap` ikut dianimasikan supaya ikon berhenti tepat di tengah saat label menyusut (collapse).
+   * Durasi diperpendek sama seperti aturan global; `prefers-reduced-motion` global sudah mematikan
+   * transisinya.
+   */
+  transition:
+    background-color 0.12s ease-out,
+    color 0.12s ease-out,
+    translate 0.08s ease-out,
+    gap var(--dur) var(--ease);
 }
 
 .nav-item:hover {
@@ -82,8 +97,31 @@ const emit = defineEmits<{ click: [event: MouseEvent] }>()
   background: var(--soft);
 }
 
+/* Design `Desktop v2.dc.html` baris 26: elemen yang ditekan turun 1px. */
+.nav-item:active {
+  translate: 0 1px;
+}
+
 .nav-item.collapsed {
   justify-content: center;
   padding: 8px 0;
+  gap: 0;
+}
+
+/*
+ * Lebar alami label tidak bisa dianimasikan, jadi dibatasi: collapse menyusutkannya sampai 0
+ * sambil memudar, bukan terpotong mendadak. Batasnya lebih lebar dari label terpanjang.
+ */
+.label {
+  overflow: hidden;
+  max-inline-size: 200px;
+  transition:
+    opacity var(--dur) var(--ease),
+    max-inline-size var(--dur) var(--ease);
+}
+
+.nav-item.collapsed .label {
+  opacity: 0;
+  max-inline-size: 0;
 }
 </style>

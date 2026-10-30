@@ -111,7 +111,7 @@ const items = computed(() =>
 
 .month {
   font-weight: var(--fw-strong);
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--mute-3);

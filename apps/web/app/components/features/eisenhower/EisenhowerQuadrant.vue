@@ -40,9 +40,9 @@ function add(id: string): void {
     :aria-labelledby="`${pickerId}-title`"
   >
     <header class="head">
-      <span class="tile" aria-hidden="true"
-        ><span>{{ style.glyph }}</span></span
-      >
+      <!-- Design v2: penanda kuadran = titik warna, bukan kotak ikon. Judul `<h2>` tetap
+           satu-satunya teks penanda, jadi titik ini dekoratif (`aria-hidden`). -->
+      <span class="quad-dot" aria-hidden="true" />
       <span class="titles">
         <h2 :id="`${pickerId}-title`" class="title">{{ $t(`eisenhower.quadrant.${quadrant}`) }}</h2>
         <span class="sub">{{ $t(`eisenhower.sub.${quadrant}`) }}</span>
@@ -112,31 +112,13 @@ function add(id: string): void {
   gap: 12px;
 }
 
-.tile {
-  width: 40px;
-  height: 40px;
+/* Titik warna kuadran (design v2): 12px bulat, warna solid kuadran. */
+.quad-dot {
+  width: 12px;
+  height: 12px;
   flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: var(--radius-leaf);
+  border-radius: var(--radius-pill);
   background: var(--q-solid);
-  box-shadow: inset 0 calc(-3px * var(--bev)) 0 rgb(0 0 0 / 0.14);
-}
-
-.tile > span {
-  width: 22px;
-  height: 22px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: var(--border-thin) solid var(--outline);
-  border-radius: calc(7px * var(--rk));
-  background: var(--paper);
-  font-family: var(--font-display);
-  font-weight: var(--fw-display);
-  font-size: 12px;
-  transform: rotate(calc(-6deg * var(--bev)));
 }
 
 .titles {

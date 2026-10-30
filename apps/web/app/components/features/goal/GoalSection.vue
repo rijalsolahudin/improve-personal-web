@@ -91,20 +91,24 @@ const bodyId = useId()
           class="item"
           :class="{ done: item.kind === 'task' && item.done }"
         >
-          <GoalChip class="kind" :tone="ITEM_TONE[item.kind]">{{
-            $t(`goals.kind.${item.kind}`)
-          }}</GoalChip>
-          <span class="item-text">
-            <span class="item-title">{{ item.title }}</span>
-            <span class="item-meta">{{ item.meta }}</span>
-          </span>
           <Checkbox
             v-if="item.kind === 'task'"
+            size="md"
             :checked="item.done"
             :label="$t('goals.toggleTask', { title: item.title })"
             @toggle="emit('toggle-item', item.id)"
           />
-          <span v-else class="rate" :class="item.kind">
+          <span v-else class="marker" aria-hidden="true">
+            <span class="dot" :class="item.kind" />
+          </span>
+          <span class="item-text">
+            <span class="item-title">{{ item.title }}</span>
+            <span class="item-meta">
+              <GoalChip :tone="ITEM_TONE[item.kind]">{{ $t(`goals.kind.${item.kind}`) }}</GoalChip>
+              <span class="item-meta-text">{{ item.meta }}</span>
+            </span>
+          </span>
+          <span v-if="item.kind !== 'task'" class="rate" :class="item.kind">
             {{ itemProgress(item) === null ? '–' : `${itemProgress(item)}%` }}
           </span>
         </li>
@@ -290,10 +294,26 @@ const bodyId = useId()
   color: var(--mute);
 }
 
-.kind {
-  width: 62px;
+/* Kolom tanda kiri selebar checkbox (22px) supaya judul item task & habit/jadwal sejajar. */
+.marker {
+  width: 22px;
   flex-shrink: 0;
-  text-align: center;
+  display: flex;
+  justify-content: center;
+}
+
+.dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.dot.habit {
+  background: #2e6a26;
+}
+
+.dot.jadwal {
+  background: #8a5a00;
 }
 
 .item-text {
@@ -301,11 +321,13 @@ const bodyId = useId()
   min-width: 0;
   display: flex;
   flex-direction: column;
+  gap: 3px;
 }
 
 .item-title {
   font-weight: var(--fw-strong);
   font-size: 15px;
+  line-height: 1.3;
 }
 
 .done .item-title {
@@ -314,9 +336,21 @@ const bodyId = useId()
   color: var(--mute-3);
 }
 
+/* Chip jenis pindah ke baris meta di bawah judul (design v2), bukan kolom tetap di kiri. */
 .item-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.item-meta :deep(.chip) {
+  padding: 1px 8px;
+}
+
+.item-meta-text {
   font-weight: var(--fw-body);
-  font-size: 12px;
+  font-size: 12.5px;
   color: var(--mute);
 }
 

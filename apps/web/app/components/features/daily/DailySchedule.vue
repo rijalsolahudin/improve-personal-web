@@ -43,8 +43,9 @@ function open(occurrence: Occurrence): void {
         :now="now"
         can-focus
         is-bare
+        scroll-to-now
         @focus="emit('focus', $event)"
-        @create="(day, time) => (form = { mode: 'new', date: day, time })"
+        @create="(day, time, dur) => (form = { mode: 'new', date: day, time, dur })"
         @open="open"
       />
     </div>
@@ -103,6 +104,8 @@ function open(occurrence: Occurrence): void {
 }
 
 .board {
+  /* Design `data-dl-sched`: timeline-nya sendiri yang menggulir, lebih tinggi dari layar. */
+  --grid-max-h: max(320px, calc(100vh - 230px));
   padding: 6px 6px 6px 0;
   overflow: hidden;
   border: var(--border) solid var(--outline);

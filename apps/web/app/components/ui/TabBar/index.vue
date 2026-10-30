@@ -129,7 +129,7 @@ function onTab(item: TabBarItem): void {
 
 .tab-label {
   font-weight: var(--fw-strong);
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .tab.on .tab-icon {

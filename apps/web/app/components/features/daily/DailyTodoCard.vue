@@ -85,7 +85,7 @@ const groups = computed<TodoGroup[]>(() => {
   return all.filter((group) => group.rows.length > 0)
 })
 
-/** Daftar panjang dilipat seperti Prioritas (PRD F12), bukan dipotong diam-diam. */
+/** Daftar panjang dilipat lewat "Lihat N lagi" (PRD F12), bukan dipotong diam-diam. */
 const hiddenCount = computed(() => Math.max(0, items.length - TODAY_TASK_LIMIT))
 const visibleRows = computed(() =>
   isExpanded.value ? rows.value : rows.value.slice(0, TODAY_TASK_LIMIT),
@@ -247,10 +247,19 @@ function submit(): void {
   border-color: var(--dash-2);
 }
 
-/* Bidang input global tidak pakai outline saat fokus, jadi wadah ini yang menandakannya (a11y). */
+/* Wadah pill yang menandai fokus (a11y), bukan <input> di dalamnya. */
 .add:focus-within {
   border-color: var(--outline);
   border-style: solid;
+}
+
+/*
+ * Ring fokus global mengikuti kotak `<input>`, bukan pill wadahnya - hasilnya persegi putus-putus
+ * di dalam pill (QA #136). Kolom ini sudah punya indikator fokus sendiri lewat `.add:focus-within`,
+ * jadi ring inputnya dimatikan agar bentuk aktifnya tetap pill.
+ */
+.add-input:focus-visible {
+  outline: none;
 }
 
 .plus {

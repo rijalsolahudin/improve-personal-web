@@ -3,16 +3,19 @@ import { HABIT_COLORS, type Habit } from '~/utils/habits'
 
 /**
  * Ikon habit: sticker kalau ada, kalau tidak tile warna + ikon (design).
- * Default: ikon di kotak kertas miring (tabel Habit); `isPlain`: ikon putih langsung di tile (Daily).
+ * Default: ikon di kotak kertas miring (tabel Habit); `isPlain`: ikon putih langsung di tile (Daily);
+ * `bare`: ikon polos berwarna habit tanpa tile/kotak/inset shadow (baris habit multi di Daily).
  */
 const {
   habit,
   size = 42,
   isPlain = false,
+  bare = false,
 } = defineProps<{
   habit: Pick<Habit, 'icon' | 'sticker' | 'color'>
   size?: number
   isPlain?: boolean
+  bare?: boolean
 }>()
 const solid = computed(() => (HABIT_COLORS[habit.color] ?? HABIT_COLORS[0])[0])
 /** Skala isi terhadap tile (design: tile 42 → ikon 16px berbingkai; tile 30 → ikon 17px polos). */
@@ -36,10 +39,19 @@ const tileStyle = computed(() => ({
   '--leaf-radius': `${leafRadius.value}px`,
   '--frame-radius': `${frameRadius.value}px`,
 }))
+/** `bare` = mask ikon: kotak seukuran ikon, diwarnai warna habit (bukan tile). */
+const bareStyle = computed(() => ({
+  color: solid.value,
+  width: `${size}px`,
+  height: `${size}px`,
+}))
 </script>
 
 <template>
   <LazyDecoStickerArt v-if="habit.sticker" :sid="habit.sticker" :size="size + 2" />
+  <span v-else-if="bare" class="bare" :style="bareStyle" aria-hidden="true">
+    <Icon :name="habit.icon" :size="size" />
+  </span>
   <span v-else class="tile" :class="{ plain: isPlain }" :style="tileStyle" aria-hidden="true">
     <span class="frame">
       <Icon :name="habit.icon" :size="iconSize" />
@@ -48,6 +60,13 @@ const tileStyle = computed(() => ({
 </template>
 
 <style scoped>
+.bare {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .tile {
   flex-shrink: 0;
   display: flex;

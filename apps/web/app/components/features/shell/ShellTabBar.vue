@@ -70,7 +70,7 @@ const activeKey = computed(() =>
 
 .menu-label {
   font-weight: var(--fw-strong);
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .menu.on .menu-icon {

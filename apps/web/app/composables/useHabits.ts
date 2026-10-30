@@ -398,6 +398,24 @@ export function useHabits(options: UseHabitsOptions = {}) {
     setDay(id, today.value, isMet(habit, checkIns.value, today.value) ? 0 : habit.target)
   }
 
+  /**
+   * Set total satu hari ke angka ABSOLUT - dipakai pip Daily, bukan tombol +1.
+   *
+   * Guard-nya sama dengan `toggleDay` (arsip, hari depan, hari bukan jadwal diabaikan) karena pip
+   * juga bisa diketuk pada hari yang tidak terjadwal kalau UI-nya salah. Nilai dijepit ke `0..target`
+   * supaya yang tersimpan selalu hitungan yang mungkin dicapai habit itu - `persistCheckin` menulis
+   * total apa adanya, jadi angka di luar jangkauan akan tersimpan sebagai data yang tidak bisa
+   * dibatalkan lewat UI.
+   */
+  function setDayCount(id: string, day: string, count: number): void {
+    const habit = findHabit(id)
+    if (!habit || habit.isArchived || day > today.value || !isScheduled(habit, day)) return
+
+    const next = Math.trunc(count)
+    if (!Number.isFinite(next)) return
+    setDay(id, day, Math.min(Math.max(next, 0), habit.target))
+  }
+
   /** Kembalikan entri yang gagal ditulis ke bentuk sebelumnya. Pemanggil yang memeriksa revisi. */
   function revertHabit(written: Habit, previous: Habit | null): void {
     habits.value =
@@ -532,6 +550,7 @@ export function useHabits(options: UseHabitsOptions = {}) {
     streakOf: (habit: Habit) => currentStreak(habit, checkIns.value, today.value),
     toggleDay,
     toggleToday,
+    setDayCount,
     save,
     remove,
     setArchived,

@@ -57,16 +57,14 @@ p {
   color: var(--placeholder);
 }
 
+/*
+ * Cincin fokus global: garis putus-putus tinta (design `Desktop v2.dc.html` baris 29).
+ * Bidang teks ikut memakainya - batas kolom yang tebal saja tidak cukup terlihat saat
+ * dinavigasi dengan keyboard, apalagi di permukaan `variant="bare"` yang tanpa garis.
+ */
 :focus-visible {
-  outline: 3px solid var(--accent);
-  outline-offset: 2px;
-}
-
-/* Bidang input tidak pakai outline tambahan saat fokus. */
-input:focus-visible,
-textarea:focus-visible,
-select:focus-visible {
-  outline: none;
+  outline: 2px dashed var(--ink);
+  outline-offset: 3px;
 }
 
 * {
@@ -154,6 +152,27 @@ select:focus-visible {
   clip: rect(0 0 0 0);
   white-space: nowrap;
   border: 0;
+}
+
+/*
+ * Umpan balik tekan untuk elemen yang bisa diklik (design `Desktop v2.dc.html` baris 26-27).
+ *
+ * Memakai properti `translate`, bukan `transform`: komponen yang sudah punya `transform`
+ * sendiri (mis. MoodPicker memutar emoji, Toggle menggeser knob) tetap mempertahankannya
+ * saat ditekan, karena `translate` disusun terpisah dari `transform`.
+ */
+:where(button, [role='button'], .btn, .chip, summary):not(:disabled) {
+  transition:
+    background-color 0.12s ease-out,
+    color 0.12s ease-out,
+    border-color 0.12s ease-out,
+    box-shadow 0.08s ease-out,
+    transform 0.08s ease-out,
+    translate 0.08s ease-out;
+}
+
+:where(button, [role='button'], .btn, .chip, summary):not(:disabled):active {
+  translate: 0 1px;
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -12,7 +12,14 @@ import { emptyTaskDraft } from '~/utils/tasks'
 
 /** Modal jadwal baru / edit satu kejadian (design: "Jadwal baru" / "Edit jadwal"). */
 export type ScheduleFormTarget =
-  { mode: 'new'; date: string; time?: string } | { mode: 'edit'; id: string; occurrence: string }
+  | {
+      mode: 'new'
+      date: string
+      time?: string
+      /** Durasi awal hasil seret slot (menit); tanpa ini form memakai 60 menit. */
+      dur?: number
+    }
+  | { mode: 'edit'; id: string; occurrence: string }
 
 const { target } = defineProps<{ target: ScheduleFormTarget }>()
 const emit = defineEmits<{ close: []; saved: [date: string] }>()
@@ -30,7 +37,7 @@ const original = target.mode === 'edit' ? findSchedule(target.id) : undefined
 const isRecurring = original !== undefined && original.rec.type !== 'once'
 
 function initialDraft(): ScheduleDraft {
-  if (target.mode === 'new') return newScheduleDraft(target.date, target.time)
+  if (target.mode === 'new') return newScheduleDraft(target.date, target.time, target.dur)
   return original
     ? draftFromSchedule(original, target.occurrence)
     : newScheduleDraft(target.occurrence)

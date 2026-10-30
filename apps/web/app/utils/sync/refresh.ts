@@ -16,6 +16,7 @@
 import type { LocalDataSession } from '~/utils/storage/session'
 
 export type SyncReloadKey =
+  | 'goalCategories'
   | 'goalLinks'
   | 'goals'
   | 'tasks'
@@ -32,6 +33,7 @@ export type SyncReloadKey =
  * `localStorage`, bukan record synced, jadi tidak ada yang perlu dibaca ulang setelah pull.
  */
 export const RELOAD_ORDER: readonly SyncReloadKey[] = [
+  'goalCategories',
   'goalLinks',
   'goals',
   'tasks',

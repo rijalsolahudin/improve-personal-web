@@ -2,12 +2,9 @@
 import type { Progress, WeatherKind } from '~/utils/dailyRoutine'
 import { greetingPeriod } from '~/utils/time'
 
-/** Header Daily Routine: tanggal, sapaan, cuaca + Tampilan, ringkasan, progres hari. */
-const { now, focusMinutes, habits, scheduleCount, progress } = defineProps<{
+/** Header Daily Routine: tanggal, sapaan, cuaca + Tampilan, dan satu ringkasan progres hari. */
+const { now, progress } = defineProps<{
   now: number
-  focusMinutes: number
-  habits: Pick<Progress, 'done' | 'total'>
-  scheduleCount: number
   progress: Progress
 }>()
 const weather = defineModel<WeatherKind | null>('weather', { required: true })
@@ -26,23 +23,6 @@ const progressLabel = computed(() =>
     percent: progress.percent,
   }),
 )
-const links = computed(() => [
-  {
-    key: 'focus',
-    to: getFeature('pomodoro').path,
-    value: t('daily.links.focusValue', { n: focusMinutes }),
-  },
-  {
-    key: 'habit',
-    to: getFeature('habit').path,
-    value: `${habits.done}/${habits.total}`,
-  },
-  {
-    key: 'schedule',
-    to: getFeature('kalender').path,
-    value: t('daily.links.scheduleValue', { n: scheduleCount }),
-  },
-])
 </script>
 
 <template>
@@ -57,10 +37,6 @@ const links = computed(() => [
       </div>
     </div>
     <div class="summary">
-      <NuxtLink v-for="link in links" :key="link.key" :to="link.to" class="chip">
-        <span class="chip-label">{{ $t(`daily.links.${link.key}`) }}</span>
-        <span class="chip-value">{{ link.value }}</span>
-      </NuxtLink>
       <div class="progress">
         <ProgressRing
           :percent="progress.percent"
@@ -127,43 +103,13 @@ const links = computed(() => [
   align-items: center;
   gap: 8px;
   max-width: 100%;
-  overflow-x: auto;
 }
 
-.chip {
-  display: flex;
-  flex-direction: column;
-  padding: 7px 12px;
-  border: var(--border-thin) solid var(--line-2);
-  border-radius: var(--radius-btn-sq);
-  background: var(--paper);
-  color: var(--ink);
-  line-height: 1.15;
-  white-space: nowrap;
-}
-
-.chip:hover {
-  background: var(--hover);
-  color: var(--ink);
-}
-
-.chip-label {
-  font-weight: var(--fw-strong);
-  font-size: 10.5px;
-  letter-spacing: var(--tracking-eyebrow);
-  text-transform: uppercase;
-  color: var(--mute-3);
-}
-
-.chip-value,
 .progress-value {
   font-weight: var(--fw-strong);
+  font-size: var(--fs-body-sm);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
-}
-
-.chip-value {
-  font-size: 15px;
 }
 
 .progress {
@@ -188,19 +134,14 @@ const links = computed(() => [
   color: var(--deep);
 }
 
-.progress-value {
-  font-size: var(--fs-body-sm);
-}
-
 @media (max-width: 599px) {
   .greeting {
     font-size: var(--fs-h1);
   }
 
+  /* HP: ringkasan progres turun ke baris sendiri, lebarnya mengikuti header. */
   .summary {
     width: 100%;
-    flex-wrap: wrap;
-    overflow: visible;
   }
 }
 </style>

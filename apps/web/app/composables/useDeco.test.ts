@@ -76,12 +76,47 @@ describe('useDeco', () => {
 
   it('sembunyikan hiasan & sticker terakhir dipakai tersimpan', () => {
     const deco = useDeco()
+    // Default (key belum pernah ditulis) = tersembunyi; toggle pertama menampilkannya.
+    expect(deco.isHidden.value).toBe(true)
+    deco.toggleHidden()
+    expect(deco.isHidden.value).toBe(false)
+    expect(localStorage.getItem(DECO_HIDDEN_STORAGE_KEY)).toBe('0')
     deco.toggleHidden()
     expect(localStorage.getItem(DECO_HIDDEN_STORAGE_KEY)).toBe('1')
+
     deco.rememberSticker('icon:hewan/kucing')
     expect(JSON.parse(localStorage.getItem(STICKER_RECENT_STORAGE_KEY) ?? '[]')).toEqual([
       'hewan/kucing',
     ])
+  })
+
+  // Design v2: hiasan mati secara default. Pilihan user yang sudah tersimpan tidak boleh ditimpa
+  // default itu - kalau tidak, user yang menyalakan stiker kehilangan pilihannya setelah reload.
+  it('key ip-deco-hidden belum ada → tersembunyi; pilihan tersimpan dihormati', () => {
+    expect(useDeco().isHidden.value).toBe(true)
+
+    clearNuxtState(['deco-hidden'])
+    localStorage.setItem(DECO_HIDDEN_STORAGE_KEY, '0')
+    expect(useDeco().isHidden.value).toBe(false)
+
+    clearNuxtState(['deco-hidden'])
+    localStorage.setItem(DECO_HIDDEN_STORAGE_KEY, '1')
+    expect(useDeco().isHidden.value).toBe(true)
+
+    // Nilai rusak tidak boleh menghidupkan hiasan: jatuh ke default (tersembunyi).
+    clearNuxtState(['deco-hidden'])
+    localStorage.setItem(DECO_HIDDEN_STORAGE_KEY, '{rusak')
+    expect(useDeco().isHidden.value).toBe(true)
+  })
+
+  it('setHidden menulis pilihan tanpa membalik nilainya dua kali', () => {
+    const deco = useDeco()
+    deco.setHidden(false)
+    expect(deco.isHidden.value).toBe(false)
+    expect(localStorage.getItem(DECO_HIDDEN_STORAGE_KEY)).toBe('0')
+
+    deco.setHidden(false)
+    expect(localStorage.getItem(DECO_HIDDEN_STORAGE_KEY)).toBe('0')
   })
 
   it('masuk/keluar mode hias melepas pilihan', () => {

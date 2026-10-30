@@ -160,7 +160,7 @@ const badge = computed(() => {
 
 .badge-l {
   font-weight: var(--fw-strong);
-  font-size: 9.5px;
+  font-size: 10.5px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   white-space: nowrap;

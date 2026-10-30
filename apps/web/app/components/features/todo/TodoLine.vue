@@ -40,7 +40,15 @@ const size = computed(() => {
       :label="$t('common.toggleDone', { title: task.title })"
       @toggle="emit('toggle')"
     />
-    <span class="title">{{ task.title }}</span>
+    <!-- Daily (design): judul di baris pertama, badge prioritas + jam di baris kedua. -->
+    <span v-if="!isDaily" class="title">{{ task.title }}</span>
+    <div v-else class="text">
+      <span class="title">{{ task.title }}</span>
+      <span class="meta-row">
+        <PriorityBadge :level="task.priority" size="sm" />
+        <span v-if="meta" class="meta" :class="{ overdue: isOverdue }">{{ meta }}</span>
+      </span>
+    </div>
     <Button
       v-if="!task.done"
       variant="chip"
@@ -62,8 +70,10 @@ const size = computed(() => {
     >
       <Icon name="pencil" :size="14" />
     </IconButton>
-    <PriorityBadge :level="task.priority" :size="size === 'lg' ? 'md' : 'sm'" />
-    <span v-if="meta" class="meta" :class="{ overdue: isOverdue }">{{ meta }}</span>
+    <template v-if="!isDaily">
+      <PriorityBadge :level="task.priority" :size="size === 'lg' ? 'md' : 'sm'" />
+      <span v-if="meta" class="meta" :class="{ overdue: isOverdue }">{{ meta }}</span>
+    </template>
   </div>
 </template>
 
@@ -105,8 +115,29 @@ const size = computed(() => {
 }
 
 .daily .title {
+  flex: none;
   font-weight: var(--fw-medium);
   font-size: 14.5px;
+}
+
+/* Design Daily: teks dua baris (judul + badge/jam), tombol tetap di kanan. */
+.daily .text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.daily .meta {
+  font-size: 12.5px;
 }
 
 .dense .title {

@@ -45,6 +45,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
   inset: 0;
   z-index: 96;
   background: var(--scrim);
+  animation: sheet-scrim-in 0.14s ease-out both;
 }
 
 .panel {
@@ -60,6 +61,22 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
   border: var(--border-thick) solid var(--outline);
   border-radius: calc(28px * var(--rk));
   box-shadow: 0 8px 0 rgba(47, 42, 36, 0.15);
+  /* Design: panel bawah muncul cepat dari bawah - membesar sedikit, tanpa meluncur jauh. */
+  transform-origin: bottom center;
+  animation: sheet-panel-in 0.12s ease-out both;
+}
+
+@keyframes sheet-scrim-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes sheet-panel-in {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
 }
 
 .grabber {

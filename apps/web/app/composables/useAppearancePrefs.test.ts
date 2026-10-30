@@ -24,6 +24,7 @@ import {
   toPrefStyle,
   useAppearancePrefs,
 } from './useAppearancePrefs'
+import { DECO_HIDDEN_STORAGE_KEY, useDeco } from './useDeco'
 import { TEST_KID_WIRE } from '../../tests/nuxt/record-key'
 
 /**
@@ -74,12 +75,13 @@ function memorySession(userId = '018f2c4e-0000-7000-8000-00000000000a'): LocalDa
 async function writePrefs(
   session: LocalDataSession,
   data: { themeColor: string; style: string },
+  hideDecorations = false,
 ): Promise<string> {
   const id = session.newId()
   await session.writer.write({
     type: 'user_prefs',
     id,
-    data: () => ({ id, hideDecorations: false, updatedAt: NOW_MS, ...data }),
+    data: () => ({ id, hideDecorations, updatedAt: NOW_MS, ...data }),
   })
   return id
 }
@@ -178,6 +180,39 @@ describe('useAppearancePrefs di atas repository user_prefs', () => {
     const store = useAppearanceStore()
     expect(store.theme).toBe('hijau')
     expect(store.style).toBe('elegan')
+  })
+
+  /**
+   * `hideDecorations` dulu hanya DITULIS (dari `useDeco`) dan tidak pernah dibaca balik, jadi status
+   * hiasan tidak ikut akun: ponsel bisa menampilkan stiker walau desktop mematikannya. Hydrate wajib
+   * menerapkannya seperti tema/gaya.
+   */
+  it('hideDecorations true dari record mematikan hiasan yang sedang tampil di perangkat ini', async () => {
+    const session = memorySession()
+    await writePrefs(session, { themeColor: 'kuning', style: 'cute' }, true)
+
+    // Perangkat ini terlanjur menyalakan hiasan; record akun bilang mati → hydrate yang menang.
+    localStorage.setItem(DECO_HIDDEN_STORAGE_KEY, '0')
+    clearNuxtState(['deco-hidden'])
+    expect(useDeco().isHidden.value).toBe(false)
+
+    await useAppearancePrefs({ session: async () => session }).hydrate()
+
+    expect(useDeco().isHidden.value).toBe(true)
+    expect(localStorage.getItem(DECO_HIDDEN_STORAGE_KEY)).toBe('1')
+  })
+
+  it('record dengan hideDecorations false menampilkan hiasan di perangkat yang default-nya mati', async () => {
+    const session = memorySession()
+    await writePrefs(session, { themeColor: 'kuning', style: 'cute' }, false)
+
+    localStorage.removeItem(DECO_HIDDEN_STORAGE_KEY)
+    clearNuxtState(['deco-hidden'])
+
+    await useAppearancePrefs({ session: async () => session }).hydrate()
+
+    expect(useDeco().isHidden.value).toBe(false)
+    expect(localStorage.getItem(DECO_HIDDEN_STORAGE_KEY)).toBe('0')
   })
 
   it('tema tak dikenal di record tidak mengarang pilihan: kembali ke default tema', async () => {

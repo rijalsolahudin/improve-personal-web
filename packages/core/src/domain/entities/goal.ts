@@ -1,6 +1,7 @@
 import { z } from 'zod'
 
-import { goalCategorySchema, goalStatusSchema, linkableItemTypeSchema } from '../enums.ts'
+import { goalCategoryKeySchema, goalStatusSchema, linkableItemTypeSchema } from '../enums.ts'
+import { normalizeGoalCategoryKey } from './goal-category.ts'
 import { epochMsSchema, localDateSchema, uuidV7Schema } from './primitives.ts'
 
 /**
@@ -28,7 +29,17 @@ export const goalSchema = z
     title: z.string().trim().min(1).max(300),
     /** "Kenapa penting?" */
     reason: z.string().max(4_000).nullable(),
-    category: goalCategorySchema,
+    /**
+     * `goal_category.key` (bukan enum lagi): kategori bisa dibuat/dihapus user.
+     *
+     * Nilai lama (`karier`..`relasi`) tetap sah dan tidak dimigrasikan. Nilai yang bentuknya rusak
+     * dinormalkan ke `general` - di jalur BACA ini yang mencegah satu nilai aneh menggagalkan hydrate
+     * seluruh daftar goal, dan di jalur tulis nilainya selalu datang dari katalog (`goal_category`).
+     */
+    category: z.preprocess(
+      (value: unknown) => normalizeGoalCategoryKey(value),
+      goalCategoryKeySchema,
+    ),
     /** Sticker sampul / emoji; ID tak dikenal -> placeholder, bukan error. */
     coverSticker: z.string().min(1).max(120).nullable(),
     /** Tanggal lokal YYYY-MM-DD. */

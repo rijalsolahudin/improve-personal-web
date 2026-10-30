@@ -2,6 +2,7 @@ import {
   checkGoalBundle,
   goalChapterSchema,
   goalSchema,
+  goalsInCategory,
   habitPeriodProgressPercent,
   resolveGoalLinks,
   schedulePeriodProgressPercent,
@@ -19,8 +20,9 @@ import type { Task } from '../tasks'
 import { createRepository } from '../storage/repository'
 import type { LocalDataSession } from '../storage/session'
 import { deviceTimeZone, fromIsoDate, toIsoDate } from '../time'
+import { normalizeStoredGoalCategoryKey } from './categories'
 import { loadGoalLinks, removeGoalLinks } from './links'
-import type { Chapter, Goal, GoalCategory, GoalItem, GoalStatus } from '../goals'
+import type { Chapter, Goal, GoalItem, GoalStatus } from '../goals'
 
 /**
  * Persistensi Goals: `Goal`/`Chapter` (bentuk UI) ↔ record `goal` + `goal_chapter` + `goal_link`.
@@ -31,6 +33,9 @@ import type { Chapter, Goal, GoalCategory, GoalItem, GoalStatus } from '../goals
  *   (task/habit/jadwal) dan persennya dihitung core - sumber tunggal yang sama dengan mobile.
  * - **Tautan yatim tidak dianggap 100%**: `resolveGoalLinks` memisahkannya, lalu item yang hilang
  *   dilewati. Item yang dihapus tidak pernah menghapus goal.
+ * - **Kategori dinormalkan di kedua arah**: nilai rusak dibaca sebagai `general` (schema core), dan
+ *   kategori yang sudah tidak ada di katalog tidak ditulis ulang saat goal disimpan
+ *   (`normalizeStoredGoalCategoryKey`).
  */
 
 export type GoalRecords = {
@@ -57,6 +62,8 @@ export async function loadGoalRecords(session: LocalDataSession): Promise<GoalRe
   ])
 
   return {
+    // `goalSchema` menormalkan kategori yang bentuknya rusak ke `general` (lihat catatan di core),
+    // jadi satu nilai aneh tidak menggagalkan seluruh daftar goal.
     goals: goalRecords.map((record) => goalSchema.parse(record.data)),
     chapters: chapterRecords.map((record) => goalChapterSchema.parse(record.data)),
   }
@@ -122,7 +129,11 @@ export async function persistGoal(
       .map((chapter) => [chapter.id, chapter] as const),
   )
 
-  const nextGoal = toCoreGoal(goal, nowMs, previous)
+  const nextGoal = toCoreGoal(
+    { ...goal, category: await normalizeStoredGoalCategoryKey(session, goal.category) },
+    nowMs,
+    previous,
+  )
   const chapters = toCoreChapters(goal, nowMs, previousChapters)
 
   const keptIds = new Set(chapters.map((chapter) => chapter.id))
@@ -191,6 +202,44 @@ async function moveLinksToSepanjang(
   return moved
 }
 
+/**
+ * Pindahkan semua goal dari satu kategori ke kategori lain (dipakai saat kategori dihapus).
+ *
+ * Ditulis per record lewat `writer` (tombstone/outbox tetap konsisten) dan TIDAK menyentuh daftar
+ * chapter/tautan: kategori tidak memengaruhi invarian goal, jadi tidak perlu validasi bundle.
+ *
+ * @returns id goal yang dipindah, supaya pemanggil bisa menyegarkan tampilan.
+ */
+export async function moveGoalsToCategory(
+  session: LocalDataSession,
+  fromCategory: string,
+  toCategory: string,
+  nowMs: number,
+): Promise<readonly string[]> {
+  if (fromCategory === toCategory) return []
+
+  const records = await session.repos.goal.listAll({ includeDeleted: false })
+  const goals = records.map((record) => goalSchema.parse(record.data))
+  const moved: string[] = []
+
+  for (const goal of goalsInCategory(goals, fromCategory)) {
+    const next: CoreGoal = { ...goal, category: toCategory, updatedAt: nowMs }
+    await session.writer.write({
+      id: next.id,
+      type: 'goal',
+      data: () => next,
+      // Rentang index = periode goal, sama seperti saat goal disimpan (dipakai Kalender/Overview).
+      index: {
+        rangeStartMs: fromIsoDate(next.startDate).getTime(),
+        rangeEndMs: fromIsoDate(next.targetDate).getTime(),
+      },
+    })
+    moved.push(next.id)
+  }
+
+  return moved
+}
+
 /** Hapus goal beserta chapter & tautannya; item (task/habit/jadwal) tidak ikut dihapus. */
 export async function removeGoal(session: LocalDataSession, goalId: string): Promise<void> {
   const chapterRecords = await chapterRepository(session).listAll({ includeDeleted: false })
@@ -246,7 +295,7 @@ function goalToPresentation(
     id: goal.id,
     title: goal.title,
     why: goal.reason ?? '',
-    category: goal.category as GoalCategory,
+    category: goal.category,
     status: goal.status as GoalStatus,
     start: goal.startDate,
     end: goal.targetDate,

@@ -100,6 +100,28 @@ describe('DailyPriorityList (AC1)', () => {
     expect(rows[1]?.text()).not.toContain('Penting & Mendesak')
     expect(rows[1]?.text()).toContain('Urgent')
   })
+
+  it('klik centang mengirim id task ke halaman, bukan menyalin atau mengubah task sendiri', async () => {
+    const wrapper = await mountSuspended(DailyPriorityList, {
+      props: { priorities, now: NOW },
+    })
+    mounted.push(wrapper)
+
+    // Baris pertama = "Penting" (kuadran do), baris kedua = "Urgent 0".
+    await wrapper.findAll('[role="checkbox"]')[1]?.trigger('click')
+
+    expect(wrapper.emitted('toggle')).toEqual([['urgent-0']])
+  })
+
+  it('daftar kosong menampilkan ajakan, bukan daftar kosong tanpa penjelasan', async () => {
+    const wrapper = await mountSuspended(DailyPriorityList, {
+      props: { priorities: [], now: NOW },
+    })
+    mounted.push(wrapper)
+
+    expect(wrapper.findAll('li')).toHaveLength(0)
+    expect(wrapper.text()).toContain('Belum ada task penting & mendesak atau urgent.')
+  })
 })
 
 describe('DailyTodoCard (AC3)', () => {

@@ -190,7 +190,7 @@ const tiles = computed(() => {
 .l {
   margin-top: 6px;
   font-weight: var(--fw-strong);
-  font-size: 11px;
+  font-size: 12px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--ink);

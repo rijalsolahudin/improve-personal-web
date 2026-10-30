@@ -147,13 +147,6 @@
       "mendung": "Mendung",
       "hujan": "Hujan"
     },
-    "links": {
-      "focus": "Fokus",
-      "focusValue": "{n} mnt",
-      "habit": "Habit",
-      "schedule": "Jadwal",
-      "scheduleValue": "{n} acara"
-    },
     "progress": "Progres",
     "progressValue": "{done}/{total} · {percent}%",
     "meta": "{done}/{total} selesai",
@@ -177,6 +170,8 @@
     "openCalendar": "Kalender →",
     "focus": "▶ Fokus",
     "focusLabel": "Fokus pakai Pomodoro: {title}",
+    "startFocus": "▶ Mulai fokus",
+    "startFocusLabel": "Mulai fokus: {title}",
     "editLabel": "Edit task: {title}",
     "prio": {
       "title": "Prioritas",
@@ -206,8 +201,9 @@
       "title": "Habit hari ini",
       "link": "Buka Habit →",
       "empty": "Nggak ada habit yang jatuh hari ini.",
-      "streak": "{n} hari beruntun",
-      "toggle": "Check-in: {name}"
+      "streak": "{n} hari",
+      "toggle": "Check-in: {name}",
+      "pip": "Ubah ke {n} dari {target}: {name}"
     },
     "schedule": {
       "title": "Jadwal hari ini"
@@ -567,19 +563,13 @@
     "filterStatus": "Filter status goal",
     "filterCategory": "Filter kategori goal",
     "allCategories": "Semua kategori",
+    "manageCategories": "Kelola kategori",
     "status": {
       "aktif": "Aktif",
       "selesai": "Selesai",
       "ditunda": "Ditunda",
       "semua": "Semua",
       "dibatalkan": "Dibatalkan"
-    },
-    "category": {
-      "karier": "Karier",
-      "kesehatan": "Kesehatan",
-      "keuangan": "Keuangan",
-      "diri": "Diri",
-      "relasi": "Relasi"
     },
     "target": "target {date}",
     "needsReview": "Perlu review",
@@ -593,7 +583,45 @@
     "progress": "progress",
     "makeCountdown": "Buat countdown",
     "edit": "Edit goal",
-    "journey": "Perjalanan chapter",
+    "categories": {
+      "title": "Kategori goal",
+      "intro": "Ganti nama, pilih warna, atau tambah kategori sendiri.",
+      "loading": "Memuat kategori…",
+      "new": "Kategori baru",
+      "placeholder": "Kategori baru, lalu Enter…",
+      "add": "Tambah",
+      "rename": "Nama kategori {label}",
+      "usage": "{n} goal",
+      "default": "Default",
+      "removeAction": "Hapus",
+      "remove": "Hapus kategori {label}",
+      "moveWarning": "{n} goal di kategori ini bakal pindah ke General.",
+      "confirmRemove": "Hapus & pindahkan",
+      "cancel": "Batal",
+      "generalHint": "General nggak bisa dihapus — jadi tempat goal dari kategori yang dihapus.",
+      "error": {
+        "required": "Nama kategori wajib diisi.",
+        "too_long": "Nama kategori maksimal 40 karakter.",
+        "duplicate": "Kategori dengan nama ini sudah ada.",
+        "too_many": "Kategori sudah maksimal. Hapus satu dulu.",
+        "duplicate_key": "Kategori ini sudah ada.",
+        "invalid_key": "Kategori gagal dibuat. Coba lagi.",
+        "not_found": "Kategori tidak ditemukan.",
+        "general": "General nggak bisa dihapus.",
+        "not_ready": "Kategori belum siap. Coba lagi sebentar."
+      },
+      "color": {
+        "pink": "Warna pink",
+        "orange": "Warna oranye",
+        "green": "Warna hijau",
+        "purple": "Warna ungu",
+        "blue": "Warna biru",
+        "yellow": "Warna kuning",
+        "red": "Warna merah",
+        "navy": "Warna biru tua",
+        "gray": "Warna abu-abu"
+      }
+    },
     "chapterStatus": {
       "belum-mulai": "belum mulai",
       "berjalan": "berjalan",

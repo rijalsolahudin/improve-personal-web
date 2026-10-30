@@ -549,10 +549,13 @@ Halaman utama (menggantikan "Home"; nama menu di sidebar: **Daily**): satu layar
 
 #### To-do Hari Ini
 - Task yang deadline-nya hari ini + task terlambat yang belum selesai (ditandai)
+- Task yang sudah tampil di Prioritas tidak diulang di sini
+- Pengelompokan tampilan: Terlambat → Hari ini → Selesai (yang selesai dicoret di grupnya)
 - Progress bar selesai / total ("5 dari 10 task")
 - Centang selesai langsung dari widget
 - **Bisa edit task langsung dari widget** (lihat [Edit Task dari Daily](#edit-task-dari-daily))
 - Quick add task (judul + prioritas default medium, tanpa deadline; tetap tampil di To-do hari itu via addedTaskIds) → masuk F2
+- Daftar panjang: 10 item pertama tampil, sisanya dilipat di "Lihat N lagi" (tetap ada, bukan dipotong)
 - Link "Lihat semua task" (F2)
 
 #### Edit Task dari Daily
@@ -585,7 +588,7 @@ Halaman utama (menggantikan "Home"; nama menu di sidebar: **Daily**): satu layar
 ### UI Layout
 - Responsive: stacked di HP, 2-col di tablet, 3-col di desktop (kalender hari ini mendapat kolom lebar)
 - Card per widget; urutan di HP: Prioritas → To-do → Jadwal → Habit → Cuaca
-- Sapaan + tanggal di header
+- Sapaan + tanggal di header, plus satu ringkasan progres hari (ring + "selesai/total · %")
 
 ### Performa
 - Load sekali (no polling), update real-time kalau ada perubahan dari tab lain

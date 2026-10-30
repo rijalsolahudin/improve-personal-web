@@ -276,6 +276,20 @@ describe('BUG-2: dataCount dicek silang dengan isi records', () => {
     const validation = validateBackupText(serializeBackup(document))
     expect(validation.ok).toBe(true)
   })
+
+  it('berkas lama tanpa kunci dataCount tipe entitas BARU tetap diterima (import tidak putus)', () => {
+    const document = documentOf([prefsRecord(recordIdFor(25))])
+    const withoutNewType: Record<string, number> = { ...document.dataCount }
+    delete withoutNewType['goal_category']
+
+    const validation = validateBackupText(
+      JSON.stringify({ ...document, dataCount: withoutNewType }),
+    )
+
+    expect(validation.ok).toBe(true)
+    if (!validation.ok) return
+    expect(validation.document.dataCount.goal_category).toBe(0)
+  })
 })
 
 describe('BUG-3: replace-all tidak menghapus data lama sebelum siap menulis', () => {

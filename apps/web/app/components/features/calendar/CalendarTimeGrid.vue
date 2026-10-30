@@ -1,12 +1,17 @@
 <script setup lang="ts">
 import type { GridEvent } from '~/composables/useTimeGrid'
-import type { ResizeEdge } from '~/utils/calendarGrid'
-import { SCHEDULE_COLORS, type Occurrence } from '~/utils/schedule'
+import {
+  DEFAULT_SCHEDULE_MINUTES,
+  SCHEDULE_COLORS,
+  formatMinutes,
+  type Occurrence,
+} from '~/utils/schedule'
+import { GRID_START_HOUR, SLOT_COUNT, SLOT_MINUTES, type ResizeEdge } from '~/utils/calendarGrid'
 import { fromIsoDate } from '~/utils/time'
 
 /**
- * Timeline 05:00–24:00 (Desktop.dc.html Kalender pekan/hari & "Jadwal hari ini"): klik slot
- * 15 menit = jadwal baru, klik item = edit, centang, tarik tepi = ubah jam.
+ * Timeline 00:00–24:00 (Desktop.dc.html Kalender pekan/hari & "Jadwal hari ini"): tekan atau
+ * seret slot 15 menit = jadwal baru, klik item = edit, centang, tarik tepi = ubah jam.
  */
 const {
   days,
@@ -15,6 +20,7 @@ const {
   now,
   canFocus = false,
   isBare = false,
+  scrollToNow = false,
 } = defineProps<{
   days: readonly string[]
   selected: string
@@ -24,10 +30,12 @@ const {
   canFocus?: boolean
   /** Tanpa kepala tanggal & baris "Sehari" (Daily Routine). */
   isBare?: boolean
+  /** Gulirkan grid ke penanda "sekarang" sekali saat dipasang (design `dlScroll`). */
+  scrollToNow?: boolean
 }>()
 const emit = defineEmits<{
   select: [day: string]
-  create: [day: string, time: string]
+  create: [day: string, time: string, dur: number]
   open: [occurrence: Occurrence]
   focus: [title: string]
 }>()
@@ -35,10 +43,16 @@ const emit = defineEmits<{
 /** Penanda all-day memakai pink lembut, sama seperti design. */
 const MARKER_BG = '#fce0f2'
 
+const { t } = useI18n()
 const { occurrencesByDay, markersOn, toggleAttendance, toggleTask } = useCalendarData()
 const { weekdayShort, longDate } = useDateFormat()
 const isCompact = computed(() => days.length > 1)
-const grid = useTimeGrid({ days: () => days, isCompact: () => isCompact.value, now: () => now })
+const grid = useTimeGrid({
+  days: () => days,
+  isCompact: () => isCompact.value,
+  now: () => now,
+  onCreate: (day, time, dur) => emit('create', day, time, dur),
+})
 /** Satu ekspansi untuk seluruh kolom yang tampil, dipakai juga oleh timeline di bawah. */
 const byDay = computed(() => occurrencesByDay(days))
 
@@ -68,8 +82,38 @@ const heads = computed(() =>
   }),
 )
 
+/**
+ * Label tombol slot (aria + tooltip) per hari. Dihitung sekali per hari, bukan per slot: 7 kolom
+ * x 96 slot = 672 `Intl.DateTimeFormat` baru tiap render kalau `longDate` dipanggil di template.
+ */
+const slotLabels = computed(() => {
+  const labels = new Map<string, string[]>()
+  for (const day of days) {
+    const date = longDate(fromIsoDate(day).getTime())
+    labels.set(
+      day,
+      Array.from({ length: SLOT_COUNT }, (_, index) =>
+        t('calendar.createAt', {
+          time: formatMinutes(GRID_START_HOUR * 60 + index * SLOT_MINUTES),
+          date,
+        }),
+      ),
+    )
+  }
+  return labels
+})
+
+const body = ref<HTMLElement | null>(null)
+
+onMounted(async () => {
+  if (!scrollToNow) return
+  // Sesudah render pertama: tinggi grid berasal dari gaya inline, posisi scroll bisa langsung diisi.
+  await nextTick()
+  if (body.value) body.value.scrollTop = grid.scrollTop.value
+})
+
 function create(day: string, time: string): void {
-  if (!grid.isJustDragged()) emit('create', day, time)
+  if (!grid.isJustDragged()) emit('create', day, time, DEFAULT_SCHEDULE_MINUTES)
 }
 
 function open(item: GridEvent): void {
@@ -118,7 +162,7 @@ function resize(item: GridEvent, edge: ResizeEdge, event: PointerEvent): void {
       </div>
     </template>
 
-    <div class="body" :style="{ '--grid-h': `${grid.layout.value.height}px` }">
+    <div ref="body" class="body" :style="{ '--grid-h': `${grid.layout.value.height}px` }">
       <div class="hours" aria-hidden="true">
         <span
           v-for="hour in grid.layout.value.hours"
@@ -142,13 +186,11 @@ function resize(item: GridEvent, edge: ResizeEdge, event: PointerEvent): void {
           class="slot"
           :class="`line-${slot.line}`"
           :style="{ top: `${slot.top}px`, height: `${slot.height}px` }"
-          :aria-label="
-            $t('calendar.createAt', {
-              time: slot.time,
-              date: longDate(fromIsoDate(column.day).getTime()),
-            })
-          "
+          :aria-label="slotLabels.get(column.day)?.[slot.index]"
+          :title="slotLabels.get(column.day)?.[slot.index]"
           tabindex="-1"
+          @pointerdown="grid.startCreate(column.day, slot.minute, $event)"
+          @pointerenter="grid.extendCreate(column.day, slot.minute)"
           @click="create(column.day, slot.time)"
         >
           + {{ slot.time }}
@@ -172,6 +214,14 @@ function resize(item: GridEvent, edge: ResizeEdge, event: PointerEvent): void {
             @toggle="toggleTask(item.task.id)"
           />
         </template>
+        <div
+          v-if="column.create"
+          class="draft"
+          :style="{ top: `${column.create.top}px`, height: `${column.create.height}px` }"
+          aria-hidden="true"
+        >
+          {{ column.create.label }}
+        </div>
         <span
           v-if="column.nowTop !== null"
           class="now"
@@ -296,10 +346,19 @@ function resize(item: GridEvent, edge: ResizeEdge, event: PointerEvent): void {
   text-overflow: ellipsis;
 }
 
+/*
+ * Grid 00:00–24:00 lebih tinggi dari layar, jadi area ini yang menggulir sendiri
+ * (design `data-cal-sched`: `max-height: calc(100vh - 300px)`, Daily `- 230px` lewat
+ * `--grid-max-h`). `overscroll-behavior` menahan gulir halaman saat grid mentok.
+ */
 .body {
   position: relative;
   margin-top: 10px;
   padding-top: 6px;
+  max-height: var(--grid-max-h, max(320px, calc(100vh - 300px)));
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .bare .body {
@@ -352,6 +411,9 @@ function resize(item: GridEvent, edge: ResizeEdge, event: PointerEvent): void {
   font-weight: var(--fw-strong);
   font-size: 10.5px;
   cursor: copy;
+  /* Seret slot = bikin jadwal; tanpa ini browser menyerobot gestur untuk scroll. */
+  touch-action: none;
+  user-select: none;
 }
 
 .slot.line-hour {
@@ -366,6 +428,24 @@ function resize(item: GridEvent, edge: ResizeEdge, event: PointerEvent): void {
   background: var(--hover);
   /* `--mute` di atas `--hover` dulu gagal 4/21 (terendah 4,29:1); `--mute-2` terendah 5,73:1. */
   color: var(--mute-2);
+}
+
+/* Pratinjau jadwal yang sedang diseret (design `newBox`): putus-putus aksen di atas slot. */
+.draft {
+  position: absolute;
+  right: 2px;
+  left: 2px;
+  z-index: 5;
+  box-sizing: border-box;
+  padding: 3px 8px;
+  border: 2px dashed var(--accent);
+  border-radius: calc(10px * var(--rk));
+  background: var(--chip);
+  color: var(--deep);
+  font-weight: var(--fw-strong);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
 }
 
 .now {

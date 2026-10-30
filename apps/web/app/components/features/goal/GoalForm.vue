@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import {
-  GOAL_CATEGORIES,
   GOAL_STATUSES,
   GOAL_TITLE_MAX,
   GOAL_WHY_MAX,
@@ -18,6 +17,7 @@ const { t } = useI18n()
 const statusOptions = computed(() =>
   GOAL_STATUSES.map((value) => ({ value, label: t(`goals.status.${value}`) })),
 )
+const { categories } = useGoalCategories()
 
 const { findGoal, save, remove, today } = useGoals()
 const existing = findGoal(goalId)
@@ -76,19 +76,15 @@ function onDelete(): void {
       <Field :label="$t('goals.form.category')" is-group>
         <div class="cats">
           <Chip
-            v-for="category in GOAL_CATEGORIES"
-            :key="category"
+            v-for="option in categories"
+            :key="option.key"
             variant="pick"
-            :active="draft.category === category"
-            :style="{ '--chip-tint': `var(--cat-${category}-tint)` }"
-            @click="draft.category = category"
+            :active="draft.category === option.key"
+            :style="{ '--chip-tint': option.tint }"
+            @click="draft.category = option.key"
           >
-            <span
-              class="dot"
-              :style="{ background: `var(--cat-${category})` }"
-              aria-hidden="true"
-            />
-            {{ $t(`goals.category.${category}`) }}
+            <span class="dot" :style="{ background: option.accent }" aria-hidden="true" />
+            {{ option.label }}
           </Chip>
         </div>
       </Field>

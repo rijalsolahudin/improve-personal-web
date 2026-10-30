@@ -131,7 +131,7 @@ const groups = [
 
 .label {
   font-weight: var(--fw-strong);
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.15;
   text-align: center;
 }

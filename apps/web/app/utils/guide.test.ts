@@ -101,6 +101,17 @@ describe('status & klaim mengikuti kode', () => {
     expect(copy).not.toMatch(/hilang dari daftar setelah reload/i)
   })
 
+  it('Daily menjelaskan panel Prioritas yang memang ada di halaman', () => {
+    const feature = GUIDE_FEATURES.find((item) => item.code === 'F12')
+    const copy = `${feature?.summary} ${feature?.tips.join(' ')}`
+
+    // Panel Prioritas hidup lagi (task #126 dicabut): panduan wajib menyebutnya, bukan menjanjikan
+    // penggabungan ke To-do.
+    expect(copy).toMatch(/prioritas hari ini/i)
+    expect(copy).toMatch(/di Prioritas maupun To-do/i)
+    expect(copy).not.toMatch(/tidak punya panel sendiri lagi/i)
+  })
+
   it('Journal mengajari kedua pemicu mention: @ untuk jadwal dan # untuk goal', () => {
     const feature = GUIDE_FEATURES.find((item) => item.code === 'F8')
     const tips = feature?.tips.join(' ') ?? ''

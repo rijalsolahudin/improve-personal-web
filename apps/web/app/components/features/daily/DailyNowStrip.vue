@@ -18,10 +18,11 @@ const { current, next } = defineProps<{
   }
   next: { title: string; start: number; minutesUntil: number } | null
 }>()
-const emit = defineEmits<{ 'toggle-item': [item: RoutineItem] }>()
+const emit = defineEmits<{ 'toggle-item': [item: RoutineItem]; focus: [title: string] }>()
 
 const { t } = useI18n()
 
+const nowTitle = computed(() => t('daily.now', { block: t(`daily.block.${current.block}`) }))
 const meta = computed(() =>
   t('daily.nowMeta', {
     done: current.done,
@@ -51,21 +52,31 @@ const nextIn = computed(() => {
     <div class="now">
       <AppIcon :icon="current.icon" :color="current.color" :size="50" />
       <div class="now-text">
-        <h2 id="daily-now-title" class="now-title">
-          {{ $t('daily.now', { block: $t(`daily.block.${current.block}`) }) }}
+        <h2 id="daily-now-title" class="now-title" :title="nowTitle">
+          {{ nowTitle }}
         </h2>
         <span class="now-meta">{{ meta }}</span>
-        <button
-          v-if="current.nextItem"
-          type="button"
-          class="step"
-          :title="$t('daily.markDone')"
-          @click="current.nextItem && emit('toggle-item', current.nextItem)"
-        >
-          <span class="step-box" aria-hidden="true" />
-          <span class="step-title">{{ current.nextItem.title }}</span>
-          <span class="visually-hidden">· {{ $t('daily.markDone') }}</span>
-        </button>
+        <div v-if="current.nextItem" class="step-row">
+          <button
+            type="button"
+            class="step"
+            :title="$t('daily.markDone')"
+            @click="current.nextItem && emit('toggle-item', current.nextItem)"
+          >
+            <span class="step-box" aria-hidden="true" />
+            <span class="step-title">{{ current.nextItem.title }}</span>
+            <span class="visually-hidden">· {{ $t('daily.markDone') }}</span>
+          </button>
+          <Button
+            variant="ink"
+            size="sm"
+            class="focus-start"
+            :aria-label="$t('daily.startFocusLabel', { title: current.nextItem.title })"
+            @click="current.nextItem && emit('focus', current.nextItem.title)"
+          >
+            {{ $t('daily.startFocus') }}
+          </Button>
+        </div>
         <span v-else-if="isBlockEmpty" class="hand">{{ $t('daily.noItems') }}</span>
         <span v-else class="hand">{{ $t('daily.allDone') }}</span>
       </div>
@@ -127,6 +138,10 @@ const nextIn = computed(() => {
   font-weight: var(--fw-display);
   font-size: 22px;
   line-height: 1.1;
+  /* Design: "Sekarang: …" satu baris; judul blok tidak boleh membungkus. */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .now-meta {
@@ -134,15 +149,24 @@ const nextIn = computed(() => {
   font-size: 12.5px;
   color: var(--deeper);
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.step-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 2px;
 }
 
 .step {
-  align-self: flex-start;
+  flex: 0 1 auto;
+  min-width: 0;
   max-width: 100%;
   display: flex;
   align-items: center;
   gap: 7px;
-  margin-top: 2px;
   padding: 3px 11px 3px 6px;
   border: calc(1.5px * var(--bk)) solid var(--outline);
   border-radius: var(--radius-pill);
@@ -152,6 +176,10 @@ const nextIn = computed(() => {
 
 .step:hover {
   background: var(--paper);
+}
+
+.focus-start {
+  flex-shrink: 0;
 }
 
 .step-box {

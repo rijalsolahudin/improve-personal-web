@@ -8,11 +8,14 @@ import {
   SLOT_COUNT,
   SLOT_MINUTES,
   SLOTS_PER_HOUR,
+  createRange,
   entryNeed,
   gridScale,
   isVisible,
+  minuteClock,
   placeColumns,
   resizeEntry,
+  scrollTopForNow,
   slotHeights,
   type ResizeEdge,
 } from '~/utils/calendarGrid'
@@ -69,23 +72,48 @@ interface DragState {
   dur: number
 }
 
+/** Kotak putus-putus pratinjau jadwal baru (design `newBox`). */
+interface CreateBox {
+  top: number
+  height: number
+  /** "HH:MM–HH:MM". */
+  label: string
+}
+
+/** Jadwal baru yang sedang ditentukan dengan menekan/menyeret slot (design `dnew`). */
+interface CreateState {
+  day: string
+  /** Slot yang ditekan. */
+  a: number
+  /** Slot terakhir yang dilewati pointer. */
+  b: number
+}
+
 /**
  * Timeline Kalender (pekan/hari) & "Jadwal hari ini": posisi item, slot 15 menit, garis
- * sekarang, dan tarik tepi jadwal untuk ubah jam (Desktop.dc.html `buildGrid`).
+ * sekarang, tarik tepi jadwal untuk ubah jam, dan seret slot untuk bikin jadwal baru
+ * (Desktop.dc.html `buildGrid`).
  */
 export function useTimeGrid(options: {
   days: () => readonly string[]
   isCompact: () => boolean
   now: () => number
+  /** Jadwal baru selesai ditentukan: `time` = jam mulai `HH:MM`, `dur` = menit. */
+  onCreate?: (day: string, time: string, dur: number) => void
 }) {
   const { occurrencesByDay } = useCalendarData()
   const { tasks } = useTasks()
   const { attendance, retime } = useSchedules()
 
   const drag = ref<DragState | null>(null)
+  const createDraft = ref<CreateState | null>(null)
   let draggedAt = 0
   let stopDrag: (() => void) | null = null
-  onBeforeUnmount(() => stopDrag?.())
+  let stopCreate: (() => void) | null = null
+  onBeforeUnmount(() => {
+    stopDrag?.()
+    stopCreate?.()
+  })
 
   function linkedTasks(scheduleId: string): Task[] {
     return tasks.value.filter((task) => task.scheduleId === scheduleId)
@@ -205,9 +233,12 @@ export function useTimeGrid(options: {
       }),
       columns: perDay.map(({ day, entries }) => ({
         day,
-        nowTop: day === today && now.getHours() >= GRID_START_HOUR ? scale.yAt(nowMinutes) : null,
+        // Grid kini menutup 00:00–24:00, jadi penanda "sekarang" selalu punya posisi.
+        nowTop: day === today ? scale.yAt(nowMinutes) : null,
+        create: createBox(day, scale),
         slots: Array.from({ length: SLOT_COUNT }, (_, index) => ({
           index,
+          minute: GRID_START_HOUR * 60 + index * SLOT_MINUTES,
           ...scale.slot(index),
           time: formatMinutes(GRID_START_HOUR * 60 + index * SLOT_MINUTES),
           line:
@@ -217,6 +248,27 @@ export function useTimeGrid(options: {
       })),
       scale,
     }
+  })
+
+  /** Kotak putus-putus jadwal baru untuk kolom `day` (design `newBox`). */
+  function createBox(day: string, scale: ReturnType<typeof gridScale>): CreateBox | null {
+    const draft = createDraft.value
+    if (!draft || draft.day !== day) return null
+    const { start, dur } = createRange(draft.a, draft.b)
+    const top = scale.yAt(start)
+    return {
+      top,
+      height: Math.max(scale.yAt(start + dur) - top, 12),
+      label: `${minuteClock(start)}–${minuteClock(start + dur)}`,
+    }
+  }
+
+  /** `scrollTop` awal grid: penanda "sekarang" kolom hari ini, atau jam sekarang kalau hari ini tidak tampil. */
+  const scrollTop = computed(() => {
+    const now = new Date(options.now())
+    const nowMinutes = now.getHours() * 60 + now.getMinutes()
+    const column = layout.value.columns.find((item) => item.nowTop !== null)
+    return scrollTopForNow(column?.nowTop ?? null, nowMinutes, layout.value.scale.yAt)
   })
 
   /** Mulai tarik tepi `edge` jadwal; tiap langkah = tinggi slot di tepi itu. */
@@ -252,9 +304,53 @@ export function useTimeGrid(options: {
     window.addEventListener('pointerup', onUp)
   }
 
+  /**
+   * Mulai jadwal baru dari slot yang ditekan (design `slotDown`). Slot lain yang dilewati
+   * pointer memperpanjang rentang lewat `extendCreate`; pointerup menyerahkannya ke `onCreate`.
+   */
+  function startCreate(day: string, minute: number, event: PointerEvent): void {
+    if (event.button !== 0 || drag.value) return
+    event.preventDefault()
+    createDraft.value = { day, a: minute, b: minute }
+
+    const detach = (): void => {
+      window.removeEventListener('pointerup', onUp)
+      window.removeEventListener('pointercancel', onCancel)
+      stopCreate = null
+    }
+    const onUp = (): void => {
+      detach()
+      const final = createDraft.value
+      createDraft.value = null
+      if (!final) return
+      const { start, dur } = createRange(final.a, final.b)
+      // `click` slot menyusul pointerup; anggap baru saja "digeser" supaya tidak bikin jadwal kedua.
+      draggedAt = Date.now()
+      options.onCreate?.(final.day, formatMinutes(start), dur)
+    }
+    const onCancel = (): void => {
+      detach()
+      createDraft.value = null
+    }
+    stopCreate?.()
+    stopCreate = detach
+    window.addEventListener('pointerup', onUp)
+    window.addEventListener('pointercancel', onCancel)
+  }
+
+  /** Pointer masuk ke slot lain selama menekan (design `slotEnter`). */
+  function extendCreate(day: string, minute: number): void {
+    const draft = createDraft.value
+    if (!draft || draft.day !== day || draft.b === minute) return
+    createDraft.value = { ...draft, b: minute }
+  }
+
   return {
     layout,
+    scrollTop,
     startResize,
+    startCreate,
+    extendCreate,
     isJustDragged: (): boolean => Date.now() - draggedAt < DRAG_CLICK_GUARD_MS,
   }
 }

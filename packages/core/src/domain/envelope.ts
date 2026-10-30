@@ -28,6 +28,7 @@ export const ENTITY_TYPES = [
   'goal',
   'goal_chapter',
   'goal_link',
+  'goal_category',
   'decoration',
   'user_prefs',
   'user_profile',

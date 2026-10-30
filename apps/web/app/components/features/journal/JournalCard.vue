@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /**
- * Kartu kertas halaman Journal (design: kertas tebal + bayangan). Judul opsional dengan titik warna.
+ * Kartu kertas halaman Journal. Judul opsional dengan titik warna.
  * `gap` mengikuti design per kartu (perasaan 12, afirmasi 10, refleksi 6).
  */
 const {
@@ -28,6 +28,11 @@ const {
 </template>
 
 <style scoped>
+/*
+ * Design v2: kartu diam (tidak bisa diklik) memakai garis kertas tipis `--line`, tanpa
+ * bayangan keras - bayangan keras + tinta 3px hanya untuk elemen yang memang "sticker"
+ * dan bisa ditekan. Lihat `Desktop v2.dc.html` blok Journaling (`a44`-`a45`).
+ */
 .card {
   position: relative;
   min-width: 0;
@@ -35,11 +40,9 @@ const {
   flex-direction: column;
   gap: var(--card-gap, 10px);
   padding: 18px 20px 16px;
-  border: var(--border-thick) solid var(--outline);
+  border: var(--border-thin) solid var(--line);
   border-radius: calc(26px * var(--rk));
   background: var(--paper-2);
-  box-shadow: calc(6px * var(--sx)) calc(6px * var(--sy)) calc(6px * var(--sbl))
-    var(--shadow-color, rgb(47 42 36 / 0.12));
 }
 
 .soft {

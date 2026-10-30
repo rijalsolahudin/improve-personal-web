@@ -23,7 +23,6 @@ const summary = computed(() => {
       <p class="summary">{{ summary }}</p>
     </header>
     <div v-if="pomodoro.notice.value" class="notice" role="status">
-      <span class="bell" aria-hidden="true">🔔</span>
       <span class="notice-text">{{ $t(`pomodoro.notice.${pomodoro.notice.value}`) }}</span>
       <Button variant="link" class="dismiss" @click="pomodoro.dismissNotice">
         {{ $t('common.close') }}
@@ -73,10 +72,6 @@ const summary = computed(() => {
   background: var(--ink);
   color: var(--paper);
   font-weight: var(--fw-strong);
-}
-
-.bell {
-  font-size: 20px;
 }
 
 .notice-text {

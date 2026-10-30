@@ -45,3 +45,37 @@ describe('HabitIcon: radius tile mengikuti ukuran', () => {
     expect(style.getPropertyValue('--leaf-radius')).toBe('7px')
   })
 })
+
+/**
+ * Mode `bare` = ikon polos berwarna habit, dipakai baris habit multi di Daily (design v2 2264-2286).
+ * Default TIDAK berubah: grid Habit & arsip tetap memakai tile berbingkai.
+ */
+describe('HabitIcon: mode bare (Daily multi)', () => {
+  it('tidak merender tile/kotak, hanya ikon seukuran yang diminta', async () => {
+    const wrapper = await mountSuspended(HabitIcon, {
+      props: { habit: HABIT, size: 22, bare: true },
+    })
+
+    expect(wrapper.find('.tile').exists()).toBe(false)
+    const bare = wrapper.find('.bare')
+    expect(bare.exists()).toBe(true)
+    expect(bare.attributes('style')).toContain('color: #9B4FC9')
+    expect(wrapper.find('svg').attributes('width')).toBe('22')
+  })
+
+  it('sticker tetap menang atas ikon, sama seperti mode tile', async () => {
+    const wrapper = await mountSuspended(HabitIcon, {
+      props: { habit: { ...HABIT, sticker: 'hewan/kelinci' }, size: 22, bare: true },
+    })
+
+    expect(wrapper.find('.bare').exists()).toBe(false)
+    expect(wrapper.find('.tile').exists()).toBe(false)
+  })
+
+  it('tanpa `bare`, tile berbingkai tetap dirender (default tidak berubah)', async () => {
+    const wrapper = await mountSuspended(HabitIcon, { props: { habit: HABIT, size: 42 } })
+
+    expect(wrapper.find('.bare').exists()).toBe(false)
+    expect(wrapper.find('.tile').exists()).toBe(true)
+  })
+})

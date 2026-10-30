@@ -43,7 +43,7 @@ const emit = defineEmits<{ action: [] }>()
 .eyebrow {
   display: block;
   font-weight: var(--fw-strong);
-  font-size: 11px;
+  font-size: 12px;
   letter-spacing: 0.1em;
   color: var(--deep);
 }

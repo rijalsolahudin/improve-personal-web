@@ -158,6 +158,17 @@ export function nextCount(habit: Habit, count: number): number {
   return count >= habit.target ? 0 : count + 1
 }
 
+/**
+ * Klik pip ke-`n` (Daily, design v2 `hb.pips[...].set`): lompat ke hitungan `n`, karena posisi pip
+ * sudah menyatakan "sudah n kali hari itu".
+ *
+ * Klik pip yang SEDANG menjadi hitungan terakhir menguranginya satu - itu cara user membatalkan
+ * satu langkah tanpa menghitung ulang dari nol.
+ */
+export function pipCount(count: number, n: number): number {
+  return count === n ? n - 1 : n
+}
+
 export function setCount(
   checkIns: CheckIns,
   habitId: string,

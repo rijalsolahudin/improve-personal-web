@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 
 import type { RoutineStep } from '~/utils/dailyRoutine'
 import { parseDailyDays } from '~/utils/dailyRoutine'
-import { toIsoDate } from '~/utils/time'
+import { MS_PER_HOUR, toIsoDate } from '~/utils/time'
 
 import { DAILY_STORAGE_KEY, useDailyRoutine } from './useDailyRoutine'
 import { useTasks } from './useTasks'
@@ -27,6 +27,58 @@ describe('useDailyRoutine', () => {
 
     toggleTask(first.task.id)
     expect(priorities.value.find(({ task }) => task.id === first.task.id)?.task.done).toBe(true)
+  })
+
+  it('task prioritas tanpa deadline hanya tampil di panel Prioritas, tidak dobel di To-do', () => {
+    const { add, setQuadrant } = useTasks()
+    const doId = add('Rapikan meja', 'medium', null)
+    const urgentId = add('Bayar pajak', 'urgent', null)
+    const lateId = add('Kirim laporan', 'medium', Date.now() - MS_PER_HOUR)
+    if (!doId || !urgentId || !lateId) throw new Error('task uji tidak terbentuk')
+    setQuadrant(doId, 'do')
+
+    const { priorities, todayList } = useDailyRoutine()
+
+    expect(priorities.value.map(({ task }) => task.id)).toEqual([doId, urgentId])
+    // Task ber-deadline hari ini tetap di To-do; dua task prioritas di atas tidak muncul lagi.
+    expect(todayList.value.map(({ task }) => task.id)).toEqual([lateId])
+    const overlap = priorities.value.filter(({ task }) =>
+      todayList.value.some(({ task: todo }) => todo.id === task.id),
+    )
+    expect(overlap).toEqual([])
+  })
+
+  it('centang task prioritas dicatat per hari, jadi tidak hilang dari panel setelah diklik', () => {
+    const { add, setQuadrant } = useTasks()
+    const id = add('Rapikan meja', 'medium', null)
+    if (!id) throw new Error('task uji tidak terbentuk')
+    setQuadrant(id, 'do')
+
+    const { priorities, toggleTask, todayList } = useDailyRoutine()
+    toggleTask(id)
+
+    expect(priorities.value.map(({ task }) => task.id)).toEqual([id])
+    expect(priorities.value[0]?.task.done).toBe(true)
+    // Tetap tidak dobel di To-do walau sudah selesai.
+    expect(todayList.value.map(({ task }) => task.id)).not.toContain(id)
+  })
+
+  it('progres hari menghitung task prioritas sekali, bukan dua kali (prioritas + to-do lepas)', () => {
+    const { add } = useTasks()
+    const routine = useDailyRoutine()
+    const before = routine.progress.value
+
+    // Task ber-deadline hari ini juga memenuhi syarat To-do: tanpa `excludeIds` ia akan
+    // terhitung di dua daftar. Progres harus naik satu, bukan dua.
+    const id = add('Kirim laporan', 'urgent', Date.now())
+    if (!id) throw new Error('task uji tidak terbentuk')
+    expect(useDailyRoutine().priorities.value.map(({ task }) => task.id)).toContain(id)
+
+    const after = useDailyRoutine().progress.value
+    expect(after.total).toBe(before.total + 1)
+
+    useDailyRoutine().toggleTask(id)
+    expect(useDailyRoutine().progress.value.done).toBe(before.done + 1)
   })
 
   it('quick add tanpa deadline (PRD F12): tetap muncul di to-do karena id dicatat hari ini', () => {

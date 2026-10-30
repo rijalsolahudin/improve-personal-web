@@ -275,15 +275,17 @@ async function save(): Promise<void> {
 </template>
 
 <style scoped>
+/*
+ * Design v2 (`a45`): kertas tulis adalah kartu diam - garis tipis `--line` tanpa bayangan
+ * keras; bayangan 6px hanya dipakai dropdown saran (`mm.showSuggest`).
+ */
 .sheet {
   position: relative;
   margin-top: 10px;
   padding: 28px 0 18px;
-  border: var(--border-thick) solid var(--outline);
+  border: var(--border-thin) solid var(--line);
   border-radius: calc(28px * var(--rk));
   background: var(--paper-2);
-  box-shadow: calc(8px * var(--sx)) calc(8px * var(--sy)) calc(8px * var(--sbl))
-    var(--shadow-color, rgb(47 42 36 / 0.12));
 }
 
 .pad {

@@ -3,6 +3,7 @@ import type { VueWrapper } from '@vue/test-utils'
 import { afterEach, describe, expect, it } from 'vitest'
 
 import type { Goal } from '~/utils/goals'
+import type { GoalCategoryView } from '~/utils/goals/categories'
 
 import GoalHero from './GoalHero.vue'
 
@@ -27,13 +28,23 @@ const GOAL: Goal = {
 
 const mounted: VueWrapper[] = []
 
+const CATEGORY: GoalCategoryView = {
+  key: 'karier',
+  label: 'Karier',
+  color: 'pink',
+  sortOrder: 1,
+  accent: '#F03FBF',
+  tint: '#F7C6DA',
+  text: '#8E2A5A',
+}
+
 afterEach(() => {
   while (mounted.length) mounted.pop()?.unmount()
 })
 
 async function mountHero() {
   const wrapper = await mountSuspended(GoalHero, {
-    props: { goal: GOAL, today: '2026-10-25' },
+    props: { goal: GOAL, today: '2026-10-25', category: CATEGORY },
   })
   mounted.push(wrapper)
   return wrapper

@@ -288,6 +288,21 @@ describe('form jadwal', () => {
     expect(createSchedule(viaEnd, 'a').dur).toBe(createSchedule(viaDur, 'b').dur)
   })
 
+  it('durasi awal (hasil seret slot) dipakai untuk jam selesai', () => {
+    const draft = newScheduleDraft(MON, '09:00', 45)
+    expect(draft.time).toBe('09:00')
+    expect(draft.end).toBe('09:45')
+    expect(draftDuration(draft)).toBe(45)
+    expect(createSchedule({ ...draft, title: 'Rapat' }, 's1').dur).toBe(45)
+  })
+
+  it('jadwal baru di ujung hari berhenti di 23:59, bukan 24:00', () => {
+    const draft = { ...newScheduleDraft(MON, '23:30', 60), title: 'Malam' }
+    expect(draft.end).toBe('23:59')
+    expect(draftDuration(draft)).toBe(29)
+    expect(validateScheduleDraft(draft)).toBeNull()
+  })
+
   it('draft bulanan & aturan berakhir dipetakan ke model jadwal', () => {
     const draft = {
       ...newScheduleDraft('2026-10-20', '09:00'),

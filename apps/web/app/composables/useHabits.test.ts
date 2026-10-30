@@ -317,6 +317,77 @@ describe('useHabits', () => {
     })
   })
 
+  // Daily (design v2): pip ke-N = "sudah N kali", jadi pip menyetel total ABSOLUT - bukan +1 seperti
+  // `toggleDay`. Guard-nya tetap sama supaya pip tidak membuka jalan menulis hari depan / hari libur.
+  it('setDayCount menyetel total absolut satu hari, bukan menambah satu', async () => {
+    const session = memorySession()
+    const store = useScopedHabits({ session: async () => session })
+    await store.hydrate()
+
+    const created = await store.save({ ...emptyHabitDraft(), name: 'Minum air', target: 5 }, null)
+    if (!created.ok) throw new Error('gagal simpan')
+    const habit = store.findHabit(created.id)
+    if (!habit) throw new Error('habit hilang dari state')
+
+    store.toggleDay(created.id, TODAY)
+    expect(countOn(store.checkIns.value, created.id, TODAY)).toBe(1)
+
+    // Klik pip ke-4 dari hitungan 1: lompat ke 4, bukan 2.
+    store.setDayCount(created.id, TODAY, 4)
+    expect(countOn(store.checkIns.value, created.id, TODAY)).toBe(4)
+    expect(store.isMetToday(habit)).toBe(false)
+
+    await vi.waitFor(async () => {
+      const records = await checkinRepo(session).listAll({ includeDeleted: false })
+      expect(records).toHaveLength(1)
+      expect(records[0]?.data).toMatchObject({ habitId: created.id, localDate: TODAY, amount: 4 })
+    })
+
+    // Mundur satu langkah (pip terakhir yang terisi) tetap satu record, bukan record baru.
+    store.setDayCount(created.id, TODAY, 3)
+    await vi.waitFor(async () => {
+      const records = await checkinRepo(session).listAll({ includeDeleted: false })
+      expect(records).toHaveLength(1)
+      expect(records[0]?.data).toMatchObject({ habitId: created.id, localDate: TODAY, amount: 3 })
+    })
+
+    // 0 = hari itu dibatalkan, record-nya hilang.
+    store.setDayCount(created.id, TODAY, 0)
+    expect(countOn(store.checkIns.value, created.id, TODAY)).toBe(0)
+    await vi.waitFor(async () => {
+      expect(await checkinRepo(session).listAll({ includeDeleted: false })).toEqual([])
+    })
+  })
+
+  it('setDayCount: dijepit ke target, hari depan / hari bukan jadwal / habit arsip diabaikan', async () => {
+    const session = memorySession()
+    const store = useScopedHabits({ session: async () => session })
+    await store.hydrate()
+
+    const created = await store.save({ ...emptyHabitDraft(), name: 'Minum air', target: 3 }, null)
+    if (!created.ok) throw new Error('gagal simpan')
+
+    // Hari depan: pip tidak boleh menulis tanggal yang belum tiba.
+    store.setDayCount(created.id, addDays(TODAY, 1), 2)
+    expect(store.checkIns.value[created.id]).toBeUndefined()
+
+    // Hari bukan jadwal: habit "Senin saja" tidak bisa diisi pada Selasa 13 Okt.
+    const monday = await store.save({ ...emptyHabitDraft(), name: 'Senin saja', days: [1] }, null)
+    if (!monday.ok) throw new Error('gagal simpan')
+    store.setDayCount(monday.id, '2026-10-13', 1)
+    expect(store.checkIns.value[monday.id]).toBeUndefined()
+
+    // Angka di luar jangkauan tidak disimpan apa adanya: maksimal = target, minimal 0.
+    store.setDayCount(created.id, TODAY, 9)
+    expect(countOn(store.checkIns.value, created.id, TODAY)).toBe(3)
+    store.setDayCount(created.id, TODAY, -2)
+    expect(countOn(store.checkIns.value, created.id, TODAY)).toBe(0)
+
+    expect(await store.setArchived(created.id, true)).toEqual({ ok: true })
+    store.setDayCount(created.id, TODAY, 2)
+    expect(countOn(store.checkIns.value, created.id, TODAY)).toBe(0)
+  })
+
   it('streak habit Senin–Jumat tidak putus oleh akhir pekan', async () => {
     // Habit dibuat dua pekan lalu; jam lalu dimajukan ke "sekarang" sebelum check-in ditulis.
     const session = memorySession(NOW_MS - 14 * MS_PER_DAY)

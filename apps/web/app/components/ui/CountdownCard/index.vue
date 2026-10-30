@@ -102,7 +102,7 @@ const style = computed(() => ({ '--cd-tint': bg, '--cd-ink': fg }))
 
 .wide .date {
   font-weight: var(--fw-strong);
-  font-size: 11px;
+  font-size: 12px;
   letter-spacing: 0.1em;
   color: var(--cd-ink);
   text-transform: uppercase;
@@ -155,7 +155,7 @@ const style = computed(() => ({ '--cd-tint': bg, '--cd-ink': fg }))
 
 .badge-l {
   font-weight: var(--fw-strong);
-  font-size: 11px;
+  font-size: 12px;
   color: var(--mute);
 }
 </style>

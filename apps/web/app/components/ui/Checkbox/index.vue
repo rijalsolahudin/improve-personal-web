@@ -23,7 +23,7 @@ const emit = defineEmits<{ toggle: [] }>()
     :aria-label="label"
     @click.stop="emit('toggle')"
   >
-    <span v-if="checked" aria-hidden="true">✓</span>
+    <span v-if="checked" class="mark" aria-hidden="true">✓</span>
   </button>
 </template>
 
@@ -58,10 +58,35 @@ const emit = defineEmits<{ toggle: [] }>()
   border-width: var(--border-thin);
   border-radius: calc(5px * var(--rk)) calc(5px * var(--rk)) calc(5px * var(--rk))
     calc(2px * var(--rk));
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .checkbox[aria-checked='true'] {
   background: var(--success);
+}
+
+/*
+ * Design: tanda centang "dicap" - muncul kecil & miring, sedikit melewati ukuran asli,
+ * lalu diam. Hanya visual; tidak mengubah `aria-checked` atau tinggi kotak.
+ */
+.mark {
+  display: inline-block;
+  animation: check-stamp 0.28s cubic-bezier(0.3, 1.3, 0.5, 1) both;
+}
+
+@keyframes check-stamp {
+  from {
+    opacity: 0;
+    transform: scale(0.55) rotate(-10deg);
+  }
+
+  60% {
+    opacity: 1;
+    transform: scale(1.12) rotate(3deg);
+  }
+
+  to {
+    transform: none;
+  }
 }
 </style>

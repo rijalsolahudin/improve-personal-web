@@ -65,6 +65,17 @@ describe('EisenhowerQuadrant - kepala & isi', () => {
     expect(wrapper.get('section').attributes('data-drop-zone')).toBe('delegate')
   })
 
+  it('penanda kuadran berupa titik warna dekoratif; nama kuadran tetap dari judul h2', async () => {
+    const wrapper = await mountQuadrant('do')
+
+    const dot = wrapper.get('.quad-dot')
+    expect(dot.attributes('aria-hidden')).toBe('true')
+    expect(dot.text()).toBe('')
+    expect(wrapper.get('section').attributes('aria-labelledby')).toBe(
+      wrapper.get('h2').attributes('id'),
+    )
+  })
+
   it('border putus-putus aktif saat task diseret di atas kuadran', async () => {
     const wrapper = await mountQuadrant('do', [], [], true)
 

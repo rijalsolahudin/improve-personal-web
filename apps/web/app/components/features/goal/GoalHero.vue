@@ -1,8 +1,14 @@
 <script setup lang="ts">
 import { goalProgress, type Goal } from '~/utils/goals'
+import type { GoalCategoryView } from '~/utils/goals/categories'
 import { daysBetween, fromIsoDate } from '~/utils/time'
 
-const { goal, today } = defineProps<{ goal: Goal; today: string }>()
+const { goal, today, category } = defineProps<{
+  goal: Goal
+  today: string
+  /** Kategori hasil resolve; label & warna chip mengikuti katalog tersimpan. */
+  category: GoalCategoryView
+}>()
 defineEmits<{ edit: []; 'pick-cover': [] }>()
 
 const { t } = useI18n()
@@ -22,7 +28,7 @@ const daysLeftLabel = computed(() => {
 <template>
   <section class="hero dot-grid" aria-labelledby="goal-hero-title">
     <div class="chips">
-      <span class="chip">{{ $t(`goals.category.${goal.category}`) }}</span>
+      <span class="chip">{{ category.label }}</span>
       <span class="chip solid">{{ daysLeftLabel }}</span>
       <span class="range">{{ range }}</span>
     </div>

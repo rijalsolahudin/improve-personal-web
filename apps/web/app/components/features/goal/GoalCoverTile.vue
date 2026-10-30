@@ -1,41 +1,20 @@
 <script setup lang="ts">
-import { GOAL_CATEGORY_GLYPH, type GoalCategory } from '~/utils/goals'
+import type { GoalCategoryView } from '~/utils/goals/categories'
 
-// Sampul kecil goal: sticker kalau ada, kalau tidak tile kategori + glyph (design).
-const { cover, category } = defineProps<{ cover: string | null; category: GoalCategory }>()
+// Sampul kecil goal: sticker kalau ada, kalau tidak titik warna kategori (design v2).
+const { cover, category } = defineProps<{ cover: string | null; category: GoalCategoryView }>()
 </script>
 
 <template>
   <LazyDecoStickerArt v-if="cover" :sid="cover" :size="44" />
-  <span v-else class="tile" :style="{ background: `var(--cat-${category})` }" aria-hidden="true">
-    <span class="glyph">{{ GOAL_CATEGORY_GLYPH[category] }}</span>
-  </span>
+  <span v-else class="dot" :style="{ background: category.accent }" aria-hidden="true" />
 </template>
 
 <style scoped>
-.tile {
-  width: 40px;
-  height: 40px;
+.dot {
+  width: 12px;
+  height: 12px;
   flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: var(--radius-leaf);
-  box-shadow: inset 0 calc(-3px * var(--bev)) 0 rgb(0 0 0 / 0.14);
-}
-
-.glyph {
-  width: 22px;
-  height: 22px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: var(--border-thin) solid var(--outline);
-  border-radius: calc(7px * var(--rk));
-  background: var(--paper);
-  font-family: var(--font-display);
-  font-weight: var(--fw-display);
-  font-size: 12px;
-  transform: rotate(calc(-6deg * var(--bev)));
+  border-radius: 4px 4px 4px 2px;
 }
 </style>

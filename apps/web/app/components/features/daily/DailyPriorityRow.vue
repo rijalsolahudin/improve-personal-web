@@ -81,7 +81,7 @@ const timeLeft = computed(() =>
   text-align: center;
   font-family: var(--font-display);
   font-weight: var(--fw-display);
-  font-size: 30px;
+  font-size: var(--fs-h1);
   line-height: 1;
   color: var(--accent);
 }
@@ -97,7 +97,7 @@ const timeLeft = computed(() =>
 
 .task-title {
   font-weight: var(--fw-strong);
-  font-size: 15.5px;
+  font-size: var(--fs-body);
   line-height: 1.25;
 }
 
@@ -112,13 +112,13 @@ const timeLeft = computed(() =>
   padding: 1px 8px;
   border-radius: var(--radius-pill);
   font-weight: var(--fw-strong);
-  font-size: 10.5px;
+  font-size: var(--fs-eyebrow);
   white-space: nowrap;
 }
 
 .left {
   font-weight: var(--fw-strong);
-  font-size: 11.5px;
+  font-size: var(--fs-meta);
   color: var(--mute-3);
   font-variant-numeric: tabular-nums;
 }
@@ -143,6 +143,6 @@ const timeLeft = computed(() =>
 .row .focus {
   min-height: 32px;
   padding: 0 12px;
-  font-size: 12.5px;
+  font-size: var(--fs-caption);
 }
 </style>

@@ -50,7 +50,6 @@ const classes = computed(() =>
   background: var(--paper);
   color: var(--ink);
   font-weight: var(--fw-body);
-  outline: none;
 }
 
 .input:disabled {

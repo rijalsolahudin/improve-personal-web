@@ -99,8 +99,9 @@ function editTask(taskId: string): void {
           :today="today"
           :now="now"
           :can-focus="view === 'hari'"
+          scroll-to-now
           @select="(day) => (selected = day)"
-          @create="(day, time) => (form = { mode: 'new', date: day, time })"
+          @create="(day, time, dur) => (form = { mode: 'new', date: day, time, dur })"
           @open="openOccurrence"
           @focus="focusOn"
         />
@@ -153,6 +154,8 @@ function editTask(taskId: string): void {
   border: var(--border-thin) solid var(--line);
   border-radius: calc(28px * var(--rk));
   background: var(--paper);
+  /* Design `data-cal-sched`: timeline menggulir sendiri di dalam papan, kepala hari tetap di atas. */
+  --grid-max-h: max(320px, calc(100vh - 300px));
 }
 
 /* Ukuran kolom panel hari (dulu di .panel, kini rail yang jadi item flex). */

@@ -131,11 +131,78 @@ export type ReflectionKind = (typeof REFLECTION_KINDS)[number]
 
 export const reflectionKindSchema = z.enum(REFLECTION_KINDS)
 
-export const GOAL_CATEGORIES = ['karier', 'kesehatan', 'keuangan', 'diri', 'relasi'] as const
+/**
+ * Kunci kategori goal BAWAAN yang berasal dari enum lama `goal_category` (DBML).
+ *
+ * Sejak kategori bisa diubah user (tambah/ganti nama/warna/hapus), `goal.category` TIDAK lagi enum:
+ * nilainya `goal_category.key` (string). Lima nilai di sini tetap SAH dan tetap dipakai apa adanya,
+ * karena dua alasan:
+ * - goal lama (dan record yang belum pernah disentuh) menyimpan nilai ini - tidak perlu migrasi tulis;
+ * - klien versi lama hanya mengenal lima nilai ini, jadi goal yang tetap di kategori bawaan masih
+ *   terbaca di sana. Hanya goal yang dipindah ke kategori buatan user yang tidak dikenali klien lama.
+ *
+ * Nilai ini tidak pernah dipakai sebagai label UI: label & warna hidup di record `goal_category`
+ * (`DEFAULT_GOAL_CATEGORIES` di `entities/goal-category.ts`).
+ */
+export const LEGACY_GOAL_CATEGORY_KEYS = [
+  'karier',
+  'kesehatan',
+  'keuangan',
+  'diri',
+  'relasi',
+] as const
 
-export type GoalCategory = (typeof GOAL_CATEGORIES)[number]
+export type LegacyGoalCategory = (typeof LEGACY_GOAL_CATEGORY_KEYS)[number]
 
-export const goalCategorySchema = z.enum(GOAL_CATEGORIES)
+/** Kategori bawaan yang tidak bisa dihapus (fallback untuk kategori tak dikenal). */
+export const GENERAL_GOAL_CATEGORY_KEY = 'general'
+
+/**
+ * Palet warna kategori (mockup Goals: `CPAL`).
+ *
+ * Nama, bukan hex: nilai ini disimpan di record (stabil antar versi app), sedangkan hex-nya ada di
+ * `GOAL_CATEGORY_PALETTE`. Sembilan warna, sama dengan palet di desain.
+ */
+export const GOAL_CATEGORY_COLORS = [
+  'pink',
+  'orange',
+  'green',
+  'purple',
+  'blue',
+  'yellow',
+  'red',
+  'navy',
+  'gray',
+] as const
+
+export type GoalCategoryColor = (typeof GOAL_CATEGORY_COLORS)[number]
+
+export const goalCategoryColorSchema = z.enum(GOAL_CATEGORY_COLORS)
+
+/** Panjang maksimum kunci kategori - pagar panjang string dari input user tak langsung (sync). */
+export const GOAL_CATEGORY_KEY_MAX = 64
+
+/** Kunci dibatasi huruf kecil/angka/tanda hubung supaya aman dipakai sebagai nilai & selector UI. */
+export const GOAL_CATEGORY_KEY_PATTERN = /^[a-z0-9][a-z0-9-]*$/
+
+/**
+ * Kunci kategori yang dirujuk `goal.category`.
+ *
+ * Bukan UUID wajib: kategori bawaan memakai slug (`karier`, `general`), kategori buatan user memakai
+ * UUIDv7 yang dibuat di perangkat. Keduanya harus muat di pola yang sama.
+ */
+export const goalCategoryKeySchema = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .min(1)
+  .max(GOAL_CATEGORY_KEY_MAX)
+  .regex(
+    GOAL_CATEGORY_KEY_PATTERN,
+    'kunci kategori hanya boleh huruf kecil, angka, dan tanda hubung',
+  )
+
+export type GoalCategoryKey = z.infer<typeof goalCategoryKeySchema>
 
 export const GOAL_STATUSES = ['aktif', 'selesai', 'ditunda', 'dibatalkan'] as const
 

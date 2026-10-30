@@ -41,12 +41,11 @@ const {
   nextCountdowns,
 } = useOverview()
 
-const GOAL_COLORS: Record<GoalCategory, string> = {
-  karier: '#F03FBF',
-  kesehatan: '#FF6A13',
-  keuangan: '#1DA20F',
-  diri: '#9B4FC9',
-  relasi: '#10A8D8',
+const { resolve: resolveCategory } = useGoalCategories()
+
+/** Warna batang goal = warna kategori tersimpan (fallback `general` lewat `resolve`). */
+function goalColor(key: GoalCategory): string {
+  return resolveCategory(key).accent
 }
 
 const rangeOptions = computed(() =>
@@ -270,7 +269,7 @@ const rangeOptions = computed(() =>
             <ProgressBar
               class="track"
               :pct="goal.pct"
-              :color="GOAL_COLORS[goal.category]"
+              :color="goalColor(goal.category)"
               track="var(--chip)"
               :height="10"
             />
@@ -502,7 +501,7 @@ const rangeOptions = computed(() =>
   min-width: 0;
   text-align: center;
   font-weight: var(--fw-strong);
-  font-size: 11px;
+  font-size: 12px;
   color: var(--mute-3);
   white-space: nowrap;
 }
@@ -668,7 +667,7 @@ const rangeOptions = computed(() =>
   justify-content: space-between;
   margin-top: 4px;
   font-weight: var(--fw-strong);
-  font-size: 11px;
+  font-size: 12px;
   color: #3f7590;
 }
 

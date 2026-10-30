@@ -13,12 +13,20 @@ const route = useRoute()
 const router = useRouter()
 const { goals, today, setCover } = useGoals()
 const { rememberSticker } = useDeco()
+const { categories, resolve } = useGoalCategories()
 
 const status = ref<GoalStatusFilter>('aktif')
 const category = ref<GoalCategoryFilter>('semua')
 /** `null` = form tertutup; `{ id: null }` = goal baru. */
 const form = ref<{ id: string | null } | null>(null)
 const isPickingCover = ref(false)
+const isManagingCategories = ref(false)
+
+// Kategori bisa dihapus dari modal: filter yang menunjuk kategori hilang tidak boleh mengunci daftar.
+watch(categories, (list) => {
+  if (category.value === 'semua') return
+  if (!list.some((entry) => entry.key === category.value)) category.value = 'semua'
+})
 
 const filtered = computed(() =>
   goals.value.filter(
@@ -84,7 +92,11 @@ function onCoverCleared(): void {
       </Button>
     </header>
 
-    <GoalFilters v-model:status="status" v-model:category="category" />
+    <GoalFilters
+      v-model:status="status"
+      v-model:category="category"
+      @manage="isManagingCategories = true"
+    />
 
     <div class="layout">
       <!-- Rail sticky terpisah dari daftar yang di-scroll: sticker di atasnya tidak terpotong. -->
@@ -96,6 +108,7 @@ function onCoverCleared(): void {
             :goal="goal"
             :today="today"
             :is-selected="goal.id === selected?.id"
+            :category="resolve(goal.category)"
             @select="select(goal.id)"
           />
           <p v-if="!filtered.length" class="empty">{{ $t('goals.empty') }}</p>
@@ -107,6 +120,7 @@ function onCoverCleared(): void {
         :key="selected.id"
         :goal="selected"
         :today="today"
+        :category="resolve(selected.category)"
         data-anchor="goal-detail"
         data-anchor-kind="content"
         @edit="form = { id: selected.id }"
@@ -120,6 +134,11 @@ function onCoverCleared(): void {
       @close="form = null"
       @saved="onSaved"
       @deleted="form = null"
+    />
+    <GoalCategoryManager
+      v-if="isManagingCategories"
+      :goals="goals"
+      @close="isManagingCategories = false"
     />
     <LazyDecoPicker
       v-if="isPickingCover && selected"

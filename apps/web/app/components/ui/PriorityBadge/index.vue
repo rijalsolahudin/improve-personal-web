@@ -43,7 +43,7 @@ const { level, size = 'md' } = defineProps<{ level: Priority; size?: 'md' | 'sm'
 @media (max-width: 599px) {
   .badge {
     padding: 1px 8px;
-    font-size: 11px;
+    font-size: 12px;
   }
 }
 </style>

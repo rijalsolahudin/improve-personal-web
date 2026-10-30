@@ -77,3 +77,36 @@ describe('DailyNowStrip - keadaan blok (Ergonio #89)', () => {
     expect(wrapper.emitted('toggle-item')?.[0]).toEqual([step('jalan', false)])
   })
 })
+
+describe('DailyNowStrip - hero satu baris (design v2)', () => {
+  it('judul "Sekarang: …" memakai satu baris + title attr untuk teks yang terpotong', async () => {
+    const wrapper = await mountStrip([step('jalan', false)])
+
+    const title = wrapper.get('.now-title')
+    expect(title.text()).toBe('Sekarang: Pagi')
+    expect(title.attributes('title')).toBe('Sekarang: Pagi')
+  })
+
+  it('tombol "▶ Mulai fokus" mengirim judul langkah lewat emit focus', async () => {
+    const wrapper = await mountStrip([step('sarapan', true), step('jalan', false)])
+
+    const start = wrapper.findAll('button').find((button) => button.text().includes('Mulai fokus'))
+    expect(start).toBeDefined()
+    // Label aksesibel memuat teks yang terlihat (WCAG 2.5.3) + judul langkahnya.
+    expect(start?.attributes('aria-label')).toContain('Mulai fokus')
+    expect(start?.attributes('aria-label')).toContain('jalan')
+
+    await start?.trigger('click')
+
+    expect(wrapper.emitted('focus')).toEqual([['jalan']])
+  })
+
+  it('tombol fokus tidak tampil saat blok kosong atau semua item selesai', async () => {
+    const empty = await mountStrip([])
+    const done = await mountStrip([step('sarapan', true)])
+
+    for (const wrapper of [empty, done]) {
+      expect(wrapper.text()).not.toContain('Mulai fokus')
+    }
+  })
+})
