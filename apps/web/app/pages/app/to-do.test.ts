@@ -163,6 +163,27 @@ describe('halaman To-do - daftar', () => {
   })
 })
 
+describe('halaman To-do - daftar panjang', () => {
+  it('merender 100 baris pertama, sisanya lewat "Lihat N lagi"', async () => {
+    const many: Task[] = Array.from({ length: 150 }, (_, index) =>
+      task({ id: `task-${index}`, deadline: NOW + index * 60_000 }),
+    )
+    seed(many)
+
+    const page = await mountPage()
+
+    expect(page.findAll('.row')).toHaveLength(100)
+    expect(page.findAll('.row .title')[0]?.text()).toBe('task-0')
+
+    const more = page.findAll('button').find((button) => button.text().includes('Lihat 50 lagi'))
+    expect(more).toBeDefined()
+    await more?.trigger('click')
+    await flushPromises()
+
+    expect(page.findAll('.row')).toHaveLength(150)
+  })
+})
+
 describe('halaman To-do - filter & empty state', () => {
   it('filter "Terlambat" kosong menampilkan empty state, bukan baris kosong', async () => {
     seed([SOON])

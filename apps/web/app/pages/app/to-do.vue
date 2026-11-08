@@ -17,11 +17,19 @@ const now = useNow()
 const { tasks, toggle } = useTasks()
 const { focusOn } = useFocusTarget()
 
-// Filter & urutan bertahan selama sesi (pindah halaman), bukan disimpan permanen.
+/**
+ * Daftar dirender bertahap: DOM tidak boleh tumbuh sebanyak isi database.
+ * Perpindahan filter/urutan mengembalikan lipatan ke awal supaya hasil baru tidak "melenyapkan"
+ * baris yang sudah dimuat sebelumnya.
+ */
+const PAGE_SIZE = 100
+
+/** Filter & urutan bertahan selama sesi (pindah halaman), bukan disimpan permanen. */
 const filter = useState<TaskFilter>('todo-filter', () => 'semua')
 const sort = useState<TaskSort>('todo-sort', () => 'deadline')
 /** `undefined` = form tertutup; `null` = task baru. */
 const editing = ref<string | null | undefined>(undefined)
+const shownCount = ref(PAGE_SIZE)
 
 const counts = computed(() => countByFilter(tasks.value, now.value))
 const visible = computed(() =>
@@ -30,6 +38,13 @@ const visible = computed(() =>
     sort.value,
   ),
 )
+const shown = computed(() => visible.value.slice(0, shownCount.value))
+const hiddenCount = computed(() => Math.max(0, visible.value.length - shown.value.length))
+
+watch([filter, sort], () => {
+  shownCount.value = PAGE_SIZE
+})
+
 const summary = computed(() =>
   t('todo.summary', {
     active: counts.value.semua,
@@ -57,9 +72,9 @@ const summary = computed(() =>
       data-anchor-kind="content"
       :aria-label="$t('todo.listLabel')"
     >
-      <ul v-if="visible.length" class="rows">
+      <ul v-if="shown.length" id="todo-rows" class="rows">
         <TodoRow
-          v-for="task in visible"
+          v-for="task in shown"
           :key="task.id"
           :task="task"
           :now="now"
@@ -69,6 +84,16 @@ const summary = computed(() =>
         />
       </ul>
       <p v-else class="empty">{{ $t('todo.empty') }}</p>
+      <Button
+        v-if="hiddenCount"
+        variant="dashed"
+        size="xs"
+        class="more"
+        aria-controls="todo-rows"
+        @click="shownCount += PAGE_SIZE"
+      >
+        {{ $t('todo.more', { n: hiddenCount }) }}
+      </Button>
     </section>
 
     <TodoForm v-if="editing !== undefined" :task-id="editing" @close="editing = undefined" />
@@ -116,6 +141,10 @@ const summary = computed(() =>
   margin: 0;
   padding: 0;
   list-style: none;
+}
+
+.more {
+  margin: 10px 0;
 }
 
 .empty {

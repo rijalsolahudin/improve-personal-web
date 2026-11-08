@@ -119,6 +119,17 @@ export type RecordIndexEntry = {
   /** Untuk entitas berdurasi; `null` kalau titik waktu tunggal. */
   readonly rangeEndMs: number | null
   readonly updatedAtMs: number
+  /**
+   * Flag turunan khusus `todo` (lokal, boleh dibangun ulang dari record).
+   *
+   * Tanpa flag ini, filter "semua"/"selesai" dan urutan prioritas hanya bisa dijawab dengan
+   * mendekripsi SELURUH record task - biaya yang tumbuh linear terhadap isi database. Nilainya
+   * `undefined` untuk baris lama yang belum di-backfill; pembaca wajib mengisi ulang baris itu
+   * sebelum memakainya (`utils/tasks/page.ts`).
+   */
+  readonly doneRank?: 0 | 1
+  /** 0 = urgent, 1 = medium, 2 = low (urutan tampil, bukan urutan enum). */
+  readonly priorityRank?: 0 | 1 | 2
 }
 
 /**

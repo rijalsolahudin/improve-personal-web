@@ -231,6 +231,7 @@
     },
     "listLabel": "Daftar task",
     "empty": "Nggak ada task di filter ini.",
+    "more": "Lihat {n} lagi",
     "editHint": "Klik untuk edit",
     "form": {
       "newTitle": "Task baru",

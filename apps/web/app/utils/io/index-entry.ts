@@ -1,5 +1,6 @@
 import type { EntityType, RecordIndexEntry } from '@improve-personal/core'
 
+import { todoFlagsOf } from '../tasks/flags'
 import { fromIsoDate } from '../time'
 
 /**
@@ -33,6 +34,7 @@ export function indexEntryForRecord(
     rangeStartMs: range.startMs,
     rangeEndMs: range.endMs,
     updatedAtMs: nowMs,
+    ...todoFlagsOf(record.type, record.data),
   }
 }
 

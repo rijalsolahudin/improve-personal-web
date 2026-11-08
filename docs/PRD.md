@@ -116,6 +116,7 @@ Satu timer global (bukan interval per item) untuk efisiensi.
 
 ### UI
 - List view: tampil judul, deadline, prioritas, sisa waktu
+- Daftar panjang dirender bertahap: 100 baris pertama, sisanya lewat "Lihat N lagi" (DOM tidak tumbuh sebanyak isi database)
 - Checkbox buat tandai selesai
 - Sort/filter dropdown atau tab
 - Input teks di-escape (no HTML injection)

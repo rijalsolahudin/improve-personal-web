@@ -80,7 +80,8 @@ export function matchesFilter(task: Task, filter: TaskFilter, now: number): bool
   }
 }
 
-const PRIORITY_RANK: Record<Priority, number> = { urgent: 0, medium: 1, low: 2 }
+/** Urutan tampil prioritas (0 = paling atas). Dipakai sort UI dan flag index `target_rank`. */
+export const PRIORITY_RANK: Record<Priority, number> = { urgent: 0, medium: 1, low: 2 }
 const NO_DEADLINE = Number.POSITIVE_INFINITY
 const byDeadline = (a: Task, b: Task): number =>
   (a.deadline ?? NO_DEADLINE) - (b.deadline ?? NO_DEADLINE) || 0

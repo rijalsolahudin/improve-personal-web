@@ -14,6 +14,7 @@ import {
 } from '@improve-personal/core'
 
 import { notifyLocalWrite } from '../sync/events'
+import { todoFlagsOf } from '../tasks/flags'
 import { guardStorageWrite } from './quota-guard'
 import { decodeRecord, encodeRecord } from './record-codec'
 import { createOutboxId, createUuidV7Generator } from './uuid'
@@ -131,6 +132,8 @@ export async function writeRecord(
     rangeStartMs: input.index?.rangeStartMs ?? null,
     rangeEndMs: input.index?.rangeEndMs ?? null,
     updatedAtMs: nowMs,
+    // Flag turunan supaya filter/urut To-do tidak perlu mendekripsi semua record (#139/#138).
+    ...todoFlagsOf(input.type, record.data),
   }
 
   await guardStorageWrite(

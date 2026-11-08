@@ -481,14 +481,14 @@ export function createIndexedDbStorage(options: IndexedDbStorageOptions): Indexe
       const db = await database()
       const tx = db.transaction(STORAGE_TABLES.record, 'readonly')
       const store = tx.objectStore(STORAGE_TABLES.record)
-      const result: StoredRecord[] = []
+      const unique = [...new Set(ids)]
 
-      for (const id of new Set(ids)) {
-        const row = await store.get(id)
-        if (row !== undefined) result.push(row)
-      }
+      // Permintaan paralel dalam SATU transaksi, bukan `await` berurutan per id: hydrate `listAll`
+      // memanggil ini dengan ribuan id, dan tiap `await` menambah satu putaran event loop
+      // (bench #137: ±24 µs/record hanya untuk antrean baca).
+      const rows = await Promise.all(unique.map((id) => store.get(id)))
 
-      return result
+      return rows.filter((row): row is StoredRecord => row !== undefined)
     },
 
     async queryByRange(query: RangeQuery): Promise<readonly StoredRecord[]> {
@@ -512,6 +512,18 @@ export function createIndexedDbStorage(options: IndexedDbStorageOptions): Indexe
       const records = db
         .transaction(STORAGE_TABLES.record, 'readonly')
         .objectStore(STORAGE_TABLES.record)
+
+      // Tanpa `limit` (hydrate) semua baris diambil sekaligus dalam satu transaksi. Dengan `limit`
+      // tetap berurutan supaya berhenti tepat setelah cukup - membaca seluruh rentang hanya untuk
+      // mengambil 50 baris pertama justru memperburuk jalur halaman berjendela.
+      if (query.limit === undefined) {
+        const rows = await Promise.all(matches.map((entry) => records.get(entry.recordId)))
+        return rows.filter(
+          (row): row is StoredRecord =>
+            row !== undefined && !(row.deleted && query.includeDeleted !== true),
+        )
+      }
+
       const result: StoredRecord[] = []
 
       for (const entry of matches) {
@@ -519,7 +531,7 @@ export function createIndexedDbStorage(options: IndexedDbStorageOptions): Indexe
         if (row === undefined) continue
         if (row.deleted && query.includeDeleted !== true) continue
         result.push(row)
-        if (query.limit !== undefined && result.length >= query.limit) break
+        if (result.length >= query.limit) break
       }
 
       return result
