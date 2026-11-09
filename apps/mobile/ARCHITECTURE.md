@@ -1,5 +1,11 @@
 # Architecture — apps/mobile (Expo / React Native)
 
+> **Superseded sebagian oleh ADR 14 (root `ARCHITECTURE.md`).** Tidak ada lagi kunci user: passkey,
+> recovery 24 kata, QR transfer, KID, dan envelope kunci dihapus. Enkripsi at-rest ada di server
+> (AES-256-GCM, keyring env); mobile hanya menyimpan salinan lokal berkunci perangkat (Keychain/
+> Keystore + SQLCipher). Bagian passkey/pairing/recovery di bawah adalah riwayat keputusan, bukan
+> rencana implementasi.
+
 Android (APK) + iOS. Dokumen ini **cuma** soal `apps/mobile`.
 
 | Rujukan | Di mana |

@@ -4,8 +4,8 @@ import { z } from 'zod'
  * Envelope record (ARCHITECTURE.md §6) + `entity_type` + `sync_op` + `sync_status`.
  *
  * Bentuk ini SAMA untuk semua entitas - tidak ada tabel per entitas di disk (`database.dbml`
- * Bagian A). `type` dan `schemaVersion` ikut dienkripsi ke dalam blob (ADR 4), jadi server tidak tahu
- * record ini memo atau todo.
+ * Bagian A). `type` dan `schemaVersion` ikut di dalam blob lokal (dienkripsi kunci perangkat) dan di
+ * dalam payload yang disegel server.
  */
 
 /** `entity_type` - nilai persis dari `database.dbml` Bagian A. */
@@ -68,7 +68,7 @@ export type Record<T> = {
   readonly data: T
 }
 
-/** Bentuk envelope saat sudah dienkripsi - inilah yang ditulis ke disk dan dikirim ke server. */
+/** Bentuk envelope saat sudah dienkripsi - inilah yang ditulis ke disk lokal. */
 export type SealedRecord = {
   readonly id: string
   readonly hlc: string

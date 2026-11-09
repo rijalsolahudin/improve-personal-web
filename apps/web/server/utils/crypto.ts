@@ -4,8 +4,9 @@ import { createHash, createHmac, randomBytes, randomInt, timingSafeEqual } from 
  * Primitif kripto server - sengaja tipis dan tanpa "algoritma sendiri".
  *
  * Yang dipakai cuma dari `node:crypto`: HMAC-SHA256 untuk hash OTP/email/IP, SHA-256 untuk hash token
- * sesi, `randomBytes`/`randomInt` untuk nilai acak. Isi data user TIDAK pernah lewat sini - enkripsi
- * record hidup di client (`packages/crypto`), server cuma menyimpan ciphertext (ARCHITECTURE.md §7).
+ * sesi, `randomBytes`/`randomInt` untuk nilai acak. Enkripsi isi record punya modulnya sendiri
+ * (`server/utils/record-crypto.ts`) dan sengaja TIDAK tinggal di sini: berkas ini cuma identitas,
+ * token, dan hash metadata.
  *
  * Dua aturan yang dipegang di seluruh berkas ini:
  * - Tidak ada nilai rahasia yang pernah dikembalikan dalam bentuk yang bisa di-log: fungsi hash
@@ -28,9 +29,6 @@ const SESSION_TOKEN_BYTES = 32
 
 /** Panjang `state` OAuth dan `nonce` OIDC. 32 byte acak dari CSPRNG. */
 const OAUTH_RANDOM_BYTES = 32
-
-/** Panjang id transfer kunci: 128 bit (kontrak `KEY_TRANSFER_ID_BYTES`). */
-const KEY_TRANSFER_ID_BYTES = 16
 
 /** Hex dari HMAC-SHA256: selalu 64 karakter. Panjang tetap = aman untuk `timingSafeEqual`. */
 const HMAC_HEX_LENGTH = 64
@@ -66,16 +64,6 @@ export function createCodeVerifier(): string {
 /** PKCE S256: `base64url(sha256(verifier))`. */
 export function codeChallengeFor(verifier: string): string {
   return createHash('sha256').update(verifier, 'ascii').digest('base64url')
-}
-
-/**
- * Id transfer kunci: 128-bit acak, base64url tanpa padding (22 karakter).
- *
- * Sengaja BUKAN UUID: id yang berurut bisa dienumerasi, dan pemegang id bisa mengklaim envelope
- * kunci utama perangkat baru (`server.dbml` `key_transfers.id`).
- */
-export function createKeyTransferId(): string {
-  return randomBytes(KEY_TRANSFER_ID_BYTES).toString('base64url')
 }
 
 /**

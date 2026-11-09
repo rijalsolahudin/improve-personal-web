@@ -181,8 +181,26 @@ function isDueToday(task: Task, start: number, end: number): boolean {
 }
 
 /**
- * To-do hari ini (PRD F12): deadline hari ini + terlambat yang belum selesai, plus task yang
- * ditambah dari Daily Routine hari ini (`addedIds`, boleh tanpa deadline - design `addedOn`).
+ * "Quick add hari ini": task tanpa deadline yang dibuat hari ini.
+ *
+ * `addedIds` hanya hidup di localStorage perangkat, jadi task yang ditambahkan di perangkat A tidak
+ * pernah terlihat di B. `createdAt` ikut tersinkron di payload `todo`, jadi memakainya membuat aturan
+ * yang sama berlaku di semua perangkat. Task tanpa deadline yang dibuat kemarin sengaja TIDAK ikut -
+ * hanya To-do yang menampilkannya.
+ */
+function isCreatedToday(task: Task, start: number, end: number): boolean {
+  return (
+    task.deadline === null &&
+    task.createdAt !== undefined &&
+    task.createdAt >= start &&
+    task.createdAt < end
+  )
+}
+
+/**
+ * To-do hari ini (PRD F12): deadline hari ini + terlambat yang belum selesai, task yang dibuat hari
+ * ini tanpa deadline (quick add lintas perangkat), plus task yang ditambah dari Daily Routine di
+ * perangkat ini (`addedIds`, design `addedOn`).
  * Task yang sudah tampil di Prioritas tidak diulang; yang selesai hari ini tetap tampil dicoret.
  * Hasilnya daftar datar dengan urutan tetap (tidak dikelompokkan di sini). Pengelompokan visual
  * (Terlambat / Hari ini / Selesai) hanya di `DailyTodoCard`, jadi baris yang baru dicentang memang
@@ -201,7 +219,9 @@ export function todayTasks(
   const added = new Set(addedIds)
   return tasks
     .filter(
-      (task) => !excluded.has(task.id) && (added.has(task.id) || isDueToday(task, start, end)),
+      (task) =>
+        !excluded.has(task.id) &&
+        (added.has(task.id) || isDueToday(task, start, end) || isCreatedToday(task, start, end)),
     )
     .map((task) => ({
       task,

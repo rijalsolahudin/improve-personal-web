@@ -370,16 +370,3 @@ export function encodeRecordAadV2(input: RecordAadV2Input): Uint8Array {
 // -----------------------------------------------------------------------------
 // Cutoff v1
 // -----------------------------------------------------------------------------
-
-/**
- * Toleransi jam pada cutoff v1 (7 hari). BUKAN kontrol keamanan: HLC v1 tidak terautentikasi, jadi
- * grace hanya meredam selisih jam perangkat (spec §0 Q5, §5.1).
- */
-export const V1_CUTOFF_GRACE_MS = 7 * 24 * 60 * 60 * 1000
-
-/**
- * Cutoff v1 yang di-hardcode di build client (epoch ms). `null` sampai rilis R2 (sesudah fase F3):
- * nilai konstanta build MENANG atas nilai dari server, termasuk saat server menjawab `null` (spec
- * §5.2), jadi server tidak bisa menahan cutoff. Mengisinya adalah perubahan rilis, bukan konfigurasi.
- */
-export const V1_CUTOFF_MS: number | null = null

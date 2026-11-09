@@ -87,9 +87,7 @@
       "error": "Gagal sinkron"
     },
     "lastSync": "terakhir {time}",
-    "retry": "Coba lagi",
-    "blocked": "{n} data tidak bisa dibuka dan tidak ditampilkan, tetapi tetap tersimpan di perangkat ini.",
-    "blockedRetry": "Coba buka ulang"
+    "retry": "Coba lagi"
   },
   "placeholder": {
     "note": "Halaman ini belum didesain · {code}",
@@ -1130,16 +1128,6 @@
       "resend": "Kirim ulang",
       "resendIn": "Kirim ulang dalam {time}"
     },
-    "recovery": {
-      "link": "Tidak bisa menerima kode? Pakai passkey atau kode pemulihan",
-      "eyebrow": "LUPA OTP",
-      "title": "Pakai passkey atau kode pemulihan?",
-      "sub": "Kalau emailmu tidak bisa dibuka, pembuka kunci di perangkat ini masih bisa dipakai.",
-      "checking": "Memeriksa sesi perangkat…",
-      "noSession": "Perangkat ini belum punya sesi aktif. Passkey dan kode pemulihan membuka DATA di perangkat ini, bukan sesi login - jadi masuk dulu dengan OTP, atau buka dari perangkat yang masih login lalu tambahkan perangkat ini lewat QR.",
-      "back": "Kembali ke email",
-      "recovered": "Kunci terbuka. Membuka aplikasi…"
-    },
     "error": {
       "emailEmpty": "Isi email dulu ya.",
       "emailInvalid": "Format email belum benar.",
@@ -1216,33 +1204,23 @@
   "account": {
     "title": "Keamanan & perangkat",
     "errorPrefix": "Gagal:",
-    "keyStatus": {
-      "set": "aktif",
-      "unset": "belum aktif"
-    },
     "storage": {
       "title": "Penyimpanan",
       "usageValue": "{used} dari {total} ({pct}%)",
       "usageUnknown": "Browser tidak memberi angka pemakaian.",
-      "protectionLabel": "Perlindungan",
+      "protectionLabel": "Penyimpanan permanen",
       "protectionOn": "aktif",
       "protectionOff": "belum aktif",
       "protectionUnknown": "tidak diketahui",
-      "unprotectedHint": "Browser bisa menghapus data lokal saat ruang perangkat menipis.",
-      "nearFull": "Penyimpanan hampir penuh. Unduh backup dulu, lalu bersihkan data lama.",
-      "protect": "Minta perlindungan",
+      "unprotectedHint": "Browser bisa menghapus salinan lokal saat ruang perangkat menipis. Data tetap aman di server dan akan diunduh ulang saat dibutuhkan.",
+      "nearFull": "Penyimpanan lokal hampir penuh. Data tetap aman di server; bersihkan riwayat atau export kalau perlu salinan.",
+      "protect": "Jadikan permanen",
       "backup": "Unduh backup",
       "compact": "Bersihkan riwayat terhapus",
-      "compactHint": "Hapus riwayat data terhapus yang berumur lebih dari 90 hari dan sudah tersinkron.",
+      "compactHint": "Hapus riwayat data terhapus yang berumur lebih dari 90 hari.",
       "compactDone": "{n} record dibersihkan.",
       "compactNone": "Tidak ada riwayat yang perlu dibersihkan.",
       "unsupported": "Browser ini tidak menyediakan informasi penyimpanan lokal."
-    },
-    "passkey": {
-      "title": "Passkey",
-      "intro": "Masuk dan buka datamu pakai sidik jari atau Face ID, tanpa OTP.",
-      "activate": "Aktifkan passkey",
-      "replace": "Ganti passkey"
     },
     "devices": {
       "title": "Perangkat",
@@ -1251,54 +1229,6 @@
       "lastSeen": "aktif",
       "revoked": "sudah dicabut",
       "revoke": "Cabut akses"
-    },
-    "pairing": {
-      "title": "Tambah perangkat",
-      "open": "Tambah perangkat",
-      "cardHint": "Pindai QR untuk membuka datamu di perangkat lain.",
-      "intro": "Pilih peran perangkat ini. Arah QR-nya berlawanan, jadi kami tidak menebaknya.",
-      "roles": {
-        "new": "Perangkat ini yang baru (butuh kunci)",
-        "existing": "Perangkat ini sudah punya kunci"
-      },
-      "back": "Ganti peran",
-      "expired": "QR sudah kedaluwarsa. Buat QR baru untuk melanjutkan.",
-      "expiresIn": "Berlaku {time}",
-      "regenerate": "Buat QR baru",
-      "scanHint": "Arahkan kamera ke QR di perangkat lain, atau tempel isi QR di bawah.",
-      "scanStart": "Nyalakan kamera",
-      "scanStop": "Matikan kamera",
-      "scanErrors": {
-        "unsupported": "Browser ini belum bisa memindai QR. Tempel isi QR secara manual di bawah.",
-        "camera": "Kamera tidak bisa dibuka (izin ditolak atau bukan koneksi aman). Tempel isi QR secara manual.",
-        "decode": "Isi QR masih kosong."
-      },
-      "manualLabel": "Isi QR",
-      "manualPlaceholder": "Tempel teks QR di sini",
-      "manualSubmit": "Pakai isi ini",
-      "errors": {
-        "qr": "QR tidak dikenali. Pastikan yang dipindai adalah QR dari halaman Tambah perangkat.",
-        "expired": "QR sudah kedaluwarsa atau sudah dipakai. Buat QR baru.",
-        "noSession": "Sesi perangkat ini belum aktif. Masuk dulu, lalu coba lagi.",
-        "locked": "Buka dulu datamu di perangkat ini (passkey atau kode pemulihan), lalu coba lagi.",
-        "alreadyPaired": "Perangkat ini sudah punya kunci. Tidak perlu menambah perangkat.",
-        "server": "Server tidak bisa dihubungi. Periksa koneksi, lalu coba lagi."
-      },
-      "newDevice": {
-        "title": "Tampilkan QR ini di perangkat lama",
-        "hint": "Di perangkat yang sudah punya datamu, pilih Tambah perangkat lalu pindai QR ini. Setelah itu pindai QR balasan di sini.",
-        "qrLabel": "QR permintaan perangkat baru",
-        "scanResponse": "Sudah dipindai perangkat lama? Pindai QR balasannya di sini.",
-        "done": "Perangkat ini sudah punya kunci. Buka aplikasi seperti biasa."
-      },
-      "existingDevice": {
-        "title": "Pindai QR dari perangkat baru",
-        "hint": "Buka halaman Tambah perangkat di perangkat baru, lalu pindai QR yang tampil di sana.",
-        "doneTitle": "Tunjukkan QR ini ke perangkat baru",
-        "doneHint": "Kunci utama dikirim terenkripsi dan hanya bisa dibuka perangkat baru itu. QR ini berlaku sampai waktu habis dan hanya bisa dipakai sekali.",
-        "qrLabel": "QR jawaban untuk perangkat baru",
-        "restart": "Mulai lagi"
-      }
     },
     "delete": {
       "cardTitle": "Hapus akun",
@@ -1324,99 +1254,6 @@
         "rateLimited": "Kebanyakan percobaan. Tunggu sebentar, lalu coba lagi.",
         "unavailable": "Server tidak bisa dihubungi. Periksa koneksi, lalu coba lagi.",
         "generic": "Ada yang salah. Coba lagi sebentar lagi."
-      }
-    },
-    "backup": {
-      "title": "Backup kode pemulihan",
-      "intro": "Cadangan kalau passkey hilang. Simpan di password manager.",
-      "statusLabel": "Kode pemulihan",
-      "status": {
-        "set": "sudah disimpan",
-        "unset": "belum disimpan"
-      },
-      "create": "Buat kode pemulihan",
-      "recreate": "Buat kode baru",
-      "copy": "Salin",
-      "download": "Unduh .txt",
-      "copied": "Tersalin ✓",
-      "warning": "Siapa pun yang memegang kode ini bisa membuka datamu. Jangan kirim ke chat atau orang lain.",
-      "stepSave": "Simpan kode ini",
-      "stepConfirm": "Pastikan sudah tersimpan",
-      "share": "Bagikan",
-      "confirmLabel": "Saya sudah menyimpan kode ini di tempat yang aman",
-      "finish": "Selesai",
-      "preparing": "Menyiapkan kode pemulihan…",
-      "encrypted": {
-        "toggle": "Atau unduh sebagai berkas terenkripsi kata sandi",
-        "intro": "Berkas ini aman ditaruh di flashdisk atau email, karena isinya tidak terbaca tanpa kata sandimu.",
-        "label": "Kata sandi berkas",
-        "rule": "Minimal {min} karakter. Huruf besar/kecil dihitung.",
-        "confirmLabel": "Ulangi kata sandi",
-        "tooShort": "Kata sandinya masih kurang panjang.",
-        "mismatch": "Kata sandinya belum sama.",
-        "warning": "Kata sandi ini tidak bisa dipulihkan. Lupa kata sandi = berkasnya tidak bisa dibuka.",
-        "download": "Unduh berkas terenkripsi",
-        "downloaded": "Terunduh ✓ (unduh lagi)",
-        "busy": "Mengenkripsi…",
-        "failed": "Berkas gagal dibuat. Coba lagi."
-      }
-    },
-    "passkeyOnboarding": {
-      "title": "Privasimu Sepenuhnya Dijaga",
-      "why": "Kami berkomitmen menghormati privasimu. Semua datamu dikunci secara otomatis sehingga hanya kamu yang bisa mengakses dan membacanya, bahkan tim kami sendiri tidak bisa.",
-      "cannotSkip": "Langkah singkat ini memastikan datamu selalu aman dan dapat dipulihkan kapan saja.",
-      "activate": "Aktifkan Passkey / Biometrik",
-      "activating": "Menunggu konfirmasi perangkat…",
-      "continueWithout": "Lanjut tanpa passkey",
-      "backupHint": "Cadangan kalau passkey hilang. Simpan kodenya, lalu konfirmasi.",
-      "backupFirst": "Simpan Kode Pemulihan Cadangan",
-      "backupTitle": "Simpan kode pemulihan",
-      "e2ee": {
-        "encrypted": {
-          "title": "Enkripsi End-to-End",
-          "body": "Datamu diacak langsung di perangkatmu sebelum disimpan, menjamin privasi tetap aman dan privat."
-        },
-        "ownKey": {
-          "title": "Akses Eksklusif Milikmu",
-          "body": "Kunci enkripsi tersimpan aman di perangkatmu, memastikan hanya kamu pemilik tunggal akses datamu."
-        },
-        "passkey": {
-          "title": "Pemulihan Mudah dengan Passkey",
-          "body": "Ganti HP atau perangkat hilang? Cukup gunakan Face ID / sidik jari untuk memulihkan seluruh datamu dengan aman dan instan."
-        }
-      },
-      "logout": "Keluar dari akun",
-      "skip": "Lewati dulu",
-      "back": "Kembali"
-    },
-    "unlock": {
-      "title": "Buka datamu di perangkat ini",
-      "lead": "Akunmu sudah punya kunci enkripsi di perangkat lain, dan perangkat ini belum punya pembukanya. Pilih salah satu cara di bawah.",
-      "addDevice": "Tambah perangkat lewat QR",
-      "addDeviceLead": "Punya perangkat lain yang sudah bisa membuka datamu? Tampilkan QR di bawah ini, lalu pindai dengan perangkat itu. Kunci utama terkirim terenkripsi dan hanya bisa dibuka perangkat ini.",
-      "backToUnlock": "Kembali ke pembukaan kunci",
-      "passkey": "Buka dengan Face ID/passkey",
-      "passkeyBusy": "Menunggu konfirmasi perangkat…",
-      "or": "atau pakai kode pemulihan",
-      "codeLabel": "Kode pemulihan",
-      "codePlaceholder": "Tempel kode pemulihanmu di sini",
-      "pickFile": "Pilih berkas kode (.txt) atau berkas terenkripsi (.json)",
-      "passphraseLabel": "Kata sandi berkas",
-      "passphraseHint": "Kata sandi yang kamu pilih saat mengunduh berkas ini. Huruf besar/kecil dihitung.",
-      "useCode": "Pakai kode pemulihan saja",
-      "submit": "Buka dengan kode pemulihan",
-      "submitFile": "Buka berkas terenkripsi",
-      "busy": "Membuka kunci…",
-      "logout": "Keluar dari akun",
-      "errors": {
-        "badFormat": "Kode tidak dikenali. Tempel seluruh kodenya, dari awal sampai akhir.",
-        "wrongPassphrase": "Kata sandi salah, atau berkasnya sudah berubah. Periksa huruf besar/kecilnya, lalu coba lagi.",
-        "rejected": "Kode tidak cocok dengan akun ini. Sisa percobaan: {remaining}.",
-        "locked": "Terlalu banyak percobaan. Coba lagi sekitar {minutes} menit lagi.",
-        "noPasskey": "Akun ini belum punya passkey yang tersimpan. Pakai kode pemulihan.",
-        "passkeyFailed": "Passkey tidak bisa dipakai: dibatalkan, atau bukan passkey untuk akun ini. Coba lagi, atau pakai kode pemulihan.",
-        "network": "Server tidak terjangkau. Periksa koneksi, lalu coba lagi.",
-        "fileTooLarge": "Berkas terlalu besar untuk berisi kode pemulihan."
       }
     }
   },

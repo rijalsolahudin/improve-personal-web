@@ -1,5 +1,7 @@
 import { z } from 'zod'
 
+import { RECORD_KEY_VERSION_MAX, parseRecordEncryptionKeyring } from './record-crypto'
+
 /**
  * Validasi env server - fail-closed.
  *
@@ -158,6 +160,37 @@ const serverEnvSchema = z
         'NUXT_SMTP_URL harus URL `smtp://` atau `smtps://`',
       )
       .transform((value) => value.trim()),
+    /**
+     * Keyring enkripsi at-rest untuk isi record: `1:<base64 32 byte>[,2:<base64 32 byte>]`.
+     *
+     * WAJIB di semua environment, termasuk development dan test: tanpa kunci ini server tidak punya
+     * cara menyimpan atau membaca record. Sengaja fail-closed - nilai default akan membuat satu
+     * deployment memakai kunci yang sama dengan repo, dan itu sama dengan tidak terenkripsi.
+     */
+    recordEncryptionKeys: z
+      .string({ error: 'NUXT_RECORD_ENCRYPTION_KEYS wajib diisi' })
+      .superRefine((value, ctx) => {
+        try {
+          parseRecordEncryptionKeyring(value)
+        } catch {
+          // Pesan hanya menyebut bentuk yang benar - tidak pernah nilai kuncinya.
+          ctx.addIssue({
+            code: 'custom',
+            message:
+              'NUXT_RECORD_ENCRYPTION_KEYS harus `versi:base64-32-byte` dipisah koma, mis. `1:...`',
+          })
+        }
+      })
+      .transform((value) => parseRecordEncryptionKeyring(value)),
+    /** Versi kunci yang dipakai untuk penulisan BARU. Versi lama tetap dibaca dari keyring. */
+    recordEncryptionActiveVersion: z
+      .union([z.number(), z.string()])
+      .default(1)
+      .transform((value) => (typeof value === 'number' ? value : Number(value.trim())))
+      .refine(
+        (value) => Number.isInteger(value) && value >= 1 && value <= RECORD_KEY_VERSION_MAX,
+        `NUXT_RECORD_ENCRYPTION_ACTIVE_VERSION harus integer 1..${RECORD_KEY_VERSION_MAX}`,
+      ),
   })
   .transform((value) => ({
     ...value,
@@ -236,6 +269,15 @@ export function resolveServerEnv(config: Record<string, unknown>): ServerEnv {
   }
 
   const env = parsed.data
+
+  // Versi aktif yang tidak ada di keyring = server bisa menulis tapi tidak pernah bisa membaca
+  // hasilnya. Ditolak di sini (bukan lewat refine zod) supaya tidak bergantung pada urutan transform
+  // field di zod: pada objek, `superRefine` menerima nilai mentah sebelum transform diterapkan.
+  if (!env.recordEncryptionKeys.has(env.recordEncryptionActiveVersion)) {
+    throw new ServerEnvError([
+      'NUXT_RECORD_ENCRYPTION_ACTIVE_VERSION (tidak ada di NUXT_RECORD_ENCRYPTION_KEYS)',
+    ])
+  }
 
   // Wajib hanya di production: di sana email benar-benar dikirim, dan production tanpa kredensial
   // email berarti user tidak bisa login sama sekali. Lebih baik gagal start daripada jalan setengah.

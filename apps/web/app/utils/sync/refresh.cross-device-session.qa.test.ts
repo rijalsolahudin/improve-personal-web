@@ -26,11 +26,10 @@ import { persistTask, removeTask } from '~/utils/tasks/persistence'
 import type { Task } from '~/utils/tasks'
 
 import { TEST_USER_A, signIn } from '../../../tests/nuxt/local-session'
-import { TEST_KID_WIRE, fakeV2Open, fakeV2Seal } from '../../../tests/nuxt/record-key'
+import { fakeV2Open, fakeV2Seal } from '../../../tests/nuxt/record-key'
 // Klaim identitas kunci (`PUT /v1/keys/identity`) berjalan sebelum `ready`; jaringan dimock di batas.
 mockNuxtImport('$fetch', () => async () => ({
   data: {
-    kid: 'LBaTVGaXKfW710NOCIXptA',
     claimedAt: '2026-10-27T00:00:00.000Z',
     claimedByDeviceLabel: null,
   },
@@ -62,7 +61,6 @@ vi.mock('~/utils/storage/session', () => ({
 
 const IDLE_STATE: LocalDataState = {
   status: 'idle',
-  isFreshKey: false,
   deviceId: null,
   userId: null,
   error: null,
@@ -84,19 +82,10 @@ function device(deviceId: string, startMs: number): LocalDataSession {
     provider: fakeProvider,
     clock,
     dataKey: DATA_KEY,
-    kid: TEST_KID_WIRE,
     hlc,
     deviceId,
     userId: TEST_USER_A,
-    isFreshKey: true,
-    keyStore: {
-      has: async () => false,
-      put: async () => undefined,
-      get: async () => null,
-      remove: async () => undefined,
-    },
     newId: createUuidV7Generator({ clock }),
-    withMasterKey: async (work) => work(new Uint8Array(32)),
     repos: createRepositorySet({ storage, provider: fakeProvider, dataKey: DATA_KEY }),
     writer: createRecordWriter({ storage, provider: fakeProvider, dataKey: DATA_KEY, hlc, clock }),
   }
@@ -106,7 +95,7 @@ type ServerRow = {
   readonly id: string
   readonly hlc: string
   readonly deleted: boolean
-  readonly blob: string
+  readonly payload: unknown
   readonly serverSeq: number
 }
 

@@ -15,7 +15,6 @@ import StorageCard from './StorageCard.vue'
  */
 const IDLE_STATE: LocalDataState = {
   status: 'idle',
-  isFreshKey: false,
   deviceId: null,
   userId: null,
   error: null,
@@ -23,7 +22,6 @@ const IDLE_STATE: LocalDataState = {
 
 const READY_STATE: LocalDataState = {
   status: 'ready',
-  isFreshKey: false,
   deviceId: 'device-a',
   userId: 'user-a',
   error: null,

@@ -19,21 +19,21 @@ import type {
 import { loadSodium, type SodiumModule } from './sodium'
 
 /**
- * `CryptoProvider` web: XChaCha20-Poly1305 lewat libsodium (ARCHITECTURE §5 & §6, ADR 4).
+ * `CryptoProvider` web: XChaCha20-Poly1305 lewat libsodium - untuk penyimpanan LOKAL saja.
  *
- * Catatan tempat: §5 menaruh implementasi ini di `packages/crypto`. Untuk sekarang ia hidup di
- * `apps/web` (keputusan sadar: lebih cepat kelihatan hasilnya), dengan konsekuensi yang harus dibayar
- * saat mobile (T23) mulai: logika kunci ini harus dipindah ke paket bersama, JANGAN disalin.
- * Yang tidak boleh dikompromikan adalah perilakunya - karena itu kontraknya tetap `CryptoProvider`
- * dari core, bukan interface buatan sendiri.
+ * Server tidak memakai provider ini: `payload` polos disegel server dengan AES-256-GCM dan kunci dari
+ * env (`server/utils/record-crypto.ts`). Provider ini menjaga salinan IndexedDB perangkat.
  *
- * Provider ini hanya MEMPRODUKSI dan MEMBUKA blob v2 (spec #120 §2.1, §4.1-4.2). Layout, AAD, dan
- * konstanta berasal dari `@improve-personal/contracts` (dikunci vektor emas), bukan ditulis ulang:
+ * Catatan tempat: logika kunci masih hidup di `apps/web`; saat mobile mulai, pindahkan ke paket
+ * bersama - JANGAN disalin. Kontraknya tetap `CryptoProvider` dari core.
+ *
+ * Provider ini hanya MEMPRODUKSI dan MEMBUKA blob v2 lokal. Layout, AAD, dan konstanta berasal dari
+ * `@improve-personal/contracts` (dikunci vektor emas), bukan ditulis ulang:
  *
  *   "ipr" || 0x02 || KID[16] || nonce[24] || AEAD(pad(plaintext, 256))   -> base64 standar
  *
- * - AAD mengikat KID, akun, record, HLC, dan `deleted`: blob tidak bisa dipindah ke record/akun lain
- *   dan metadata sync tidak bisa diubah server tanpa membuat blob gagal dibuka.
+ * - AAD mengikat KID lokal, akun, record, HLC, dan `deleted`: blob lokal tidak bisa dipindah ke
+ *   record/akun lain.
  * - Padding 256 byte: panjang plaintext hanya bocor per bucket.
  * - DILARANG ada kunci, nonce, atau plaintext di log. Fungsi ini tidak mencatat apa pun.
  */

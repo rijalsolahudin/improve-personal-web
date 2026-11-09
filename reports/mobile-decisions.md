@@ -1,5 +1,10 @@
 # Keputusan Arsitektur Mobile — state, navigasi, struktur fitur
 
+> **Bagian kripto/passkey/recovery/QR di dokumen ini SUDAH DIGANTIKAN ADR 14** (root
+> `ARCHITECTURE.md`): tidak ada kunci user, tidak ada passkey/recovery/transfer kunci. Enkripsi
+> at-rest dipegang server (keyring env); mobile hanya butuh kunci perangkat untuk salinan lokal.
+> Sisanya (state, navigasi, struktur fitur) tetap berlaku.
+
 Tanggal: 26 Oktober 2026 · Penulis: Yoga (System Analyst) · Task Ergonio #59
 Status: **final, docs-only**. Tidak ada kode produk yang diubah. Keputusan berlaku untuk `apps/mobile` dan mengikat task fondasi berikutnya.
 

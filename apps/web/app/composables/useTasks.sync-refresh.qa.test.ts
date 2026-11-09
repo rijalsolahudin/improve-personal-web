@@ -16,7 +16,6 @@ import type { Task } from '~/utils/tasks'
 import { createUuidV7Generator } from '~/utils/storage/uuid'
 
 import { resetTasksHydrationForTest, useTasks } from './useTasks'
-import { TEST_KID_WIRE } from '../../tests/nuxt/record-key'
 
 /**
  * Tulisan lokal yang mendarat SAAT reload membaca (AC T77).
@@ -46,19 +45,10 @@ function memorySession(): LocalDataSession {
     provider: fakeProvider,
     clock,
     dataKey: DATA_KEY,
-    kid: TEST_KID_WIRE,
     hlc,
     deviceId: DEVICE_ID,
     userId: '018f2c4e-0000-7000-8000-00000000000a',
-    isFreshKey: true,
-    keyStore: {
-      has: async () => false,
-      put: async () => undefined,
-      get: async () => null,
-      remove: async () => undefined,
-    },
     newId: createUuidV7Generator({ clock }),
-    withMasterKey: async (work) => work(new Uint8Array(32)),
     repos: createRepositorySet({ storage, provider: fakeProvider, dataKey: DATA_KEY }),
     writer: createRecordWriter({ storage, provider: fakeProvider, dataKey: DATA_KEY, hlc, clock }),
   }

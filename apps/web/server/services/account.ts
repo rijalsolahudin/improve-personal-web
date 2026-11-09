@@ -1,15 +1,6 @@
 import { eq } from 'drizzle-orm'
 
-import {
-  devices,
-  keyEnvelopes,
-  keyTransfers,
-  otpChallenges,
-  records,
-  sessions,
-  syncWatermarks,
-  users,
-} from '../db/schema'
+import { devices, otpChallenges, records, sessions, syncWatermarks, users } from '../db/schema'
 import { apiProblem } from '../utils/api-error'
 import { hmacSha256 } from '../utils/crypto'
 import type { ServiceContext } from './context'
@@ -94,8 +85,6 @@ export async function deleteAccount(
     // Urutan mengikuti arah foreign key (anak dulu, `users` terakhir). Cascade di skema adalah jaring
     // pengaman, bukan alasan melewatkan langkah ini: kalau ada tabel yang lupa punya FK, cascade tidak
     // menolong dan barisnya jadi yatim.
-    await tx.delete(keyTransfers).where(eq(keyTransfers.userId, input.userId))
-    await tx.delete(keyEnvelopes).where(eq(keyEnvelopes.userId, input.userId))
     await tx.delete(records).where(eq(records.userId, input.userId))
     await tx.delete(syncWatermarks).where(eq(syncWatermarks.userId, input.userId))
     await tx.delete(sessions).where(eq(sessions.userId, input.userId))

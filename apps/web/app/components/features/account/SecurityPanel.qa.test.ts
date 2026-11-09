@@ -42,8 +42,6 @@ async function mount(): Promise<VueWrapper> {
 }
 
 async function setAccountState(devices: AccountDevice[]): Promise<void> {
-  useState<'set' | 'unset'>('accountPasskey').value = 'set'
-  useState<'set' | 'unset'>('accountRecovery').value = 'unset'
   useState<'idle' | 'loading' | 'ready' | 'error'>('accountStatus').value = 'ready'
   useState<string | null>('accountError').value = null
   useState<AccountDevice[]>('accountDevices').value = devices
@@ -58,8 +56,6 @@ beforeEach(() => {
     'auth-session-pending',
     'auth-session-error',
     'localData',
-    'accountPasskey',
-    'accountRecovery',
     'accountStatus',
     'accountError',
     'accountBusy',
@@ -122,14 +118,6 @@ describe('halaman Akun & perangkat', () => {
 })
 
 describe('acceptance criteria T22 yang belum terlihat di UI', () => {
-  it('halaman Akun menyediakan "Tambah perangkat" lewat QR (kedaluwarsa ≤ 2 menit, sekali pakai)', async () => {
-    const wrapper = await mount()
-    await setAccountState([])
-
-    expect(wrapper.text()).toMatch(/tambah perangkat/i)
-    expect(wrapper.text()).toMatch(/pindai|scan|qr/i)
-  })
-
   it('halaman Akun menyediakan hapus akun dengan konfirmasi email + OTP ulang', async () => {
     const wrapper = await mount()
     await setAccountState([])

@@ -5,8 +5,8 @@ import {
   check,
   index,
   integer,
-  jsonb,
   pgEnum,
+  smallint,
   pgSequence,
   pgTable,
   primaryKey,
@@ -25,11 +25,12 @@ import {
  * satunya berubah, yang lain ikut di PR yang sama.
  *
  * Yang SENGAJA tidak ada di sini (dan tidak boleh ditambahkan):
- * - Tabel isi data user (`todo`, `schedule`, `habit`, `memo`, ...). Server tidak boleh tahu tipe
- *   record: `type` ikut dienkripsi di dalam `records.blob` (ADR 4).
+ * - Tabel isi data user (`todo`, `schedule`, `habit`, `memo`, ...). `type`/`schemaVersion`/`data`
+ *   seluruhnya ada di dalam `records.blob`, yang disegel server dengan AES-256-GCM
+ *   (`server/utils/record-crypto.ts`) memakai kunci dari env.
  * - Kolom plaintext apa pun di `records` (tidak ada `type`/`title`/`content`).
- * - Slot envelope `otp` / `recovery`: keduanya keputusan yang sudah diambil (ADR 10 & 11), bukan
- *   pilihan yang tertunda. Yang tersisa hanya `passkey`.
+ * - Tabel envelope/transfer kunci dan registry KID: tidak ada lagi kunci per akun yang perlu
+ *   direlay atau dipulihkan. Kunci at-rest milik server, bukan user.
  *
  * Catatan teknis yang memengaruhi bentuk skema:
  * - `bytea` tidak punya tipe bawaan di drizzle, jadi dibuat lewat `customType` di bawah. Nilainya
@@ -61,15 +62,6 @@ export const clientKindEnum = pgEnum('client_kind', ['web', 'mobile'])
 
 /** `otp_purpose` (dbml `otp_challenges.purpose`). */
 export const otpPurposeEnum = pgEnum('otp_purpose', ['login', 'delete_account'])
-
-/**
- * `key_slot` (dbml enum `key_slot`).
- *
- * Hanya `passkey`. Slot `otp` dan `recovery` sudah dihapus lewat ADR 10 & 11 - jangan ditambahkan
- * kembali "sebagai cadangan": server tahu pembuka OTP (dibuat server, ruang 10^6) dan kunci
- * terpisah recovery juga dipegang server, jadi keduanya menurunkan keamanan ke titik terlemah.
- */
-export const keySlotEnum = pgEnum('key_slot', ['passkey'])
 
 /** `records_seq` - sumber `records.server_seq`, yaitu cursor pull. */
 export const recordsSeq = pgSequence('records_seq', { startWith: 1, increment: 1 })
@@ -251,75 +243,12 @@ export const rateLimits = pgTable(
   ],
 )
 
-/** Tabel `key_envelopes` - HANYA slot `passkey`; server tidak pernah mendekripsi isinya. */
-export const keyEnvelopes = pgTable(
-  'key_envelopes',
-  {
-    id: uuid('id').primaryKey(),
-    userId: uuid('user_id')
-      .notNull()
-      .references(() => users.id, { onDelete: 'cascade' }),
-    slot: keySlotEnum('slot').notNull(),
-    /** Blob opak; server tidak punya jalur kode untuk membukanya. Batas ~4 KB di kontrak. */
-    wrappedKey: bytea('wrapped_key').notNull(),
-    /** Parameter KDF milik client; server tidak menafsirkannya. Batas ~1 KB di kontrak. */
-    kdfParams: jsonb('kdf_params').notNull(),
-    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
-  },
-  (table) => [uniqueIndex('uq_key_envelopes_user_slot').on(table.userId, table.slot)],
-)
-
 /**
- * Tabel `account_keys` - registry identitas kunci (KID): SATU baris per akun, selamanya.
+ * Tabel `records` - satu-satunya tabel isi data user, dan isinya selalu ciphertext milik SERVER.
  *
- * Unique `user_id` itulah compare-and-set klaim: `INSERT ... ON CONFLICT DO NOTHING` atomik di Postgres,
- * jadi dua perangkat yang mengklaim bersamaan tidak mungkin sama-sama menang (split-brain master key).
- * KID adalah pengenal pseudonim, bukan kunci: DILARANG di-log.
+ * Format ciphertext: `ips1 | key_version(u16) | iv(12) | tag(16) | ciphertext` (AES-256-GCM). AAD
+ * mengikat `user_id`, `id`, `hlc`, `deleted`, dan `key_version` - lihat `server/utils/record-crypto.ts`.
  */
-export const accountKeys = pgTable(
-  'account_keys',
-  {
-    id: uuid('id').primaryKey(),
-    userId: uuid('user_id')
-      .notNull()
-      .references(() => users.id, { onDelete: 'cascade' }),
-    /** 16 byte (`ck_account_keys_kid_len`): Postgres tidak punya `bytea(16)`. */
-    kid: bytea('kid').notNull(),
-    claimedAt: timestamp('claimed_at', { withTimezone: true }).notNull().defaultNow(),
-    /** Nama perangkat pengklaim saat itu (snapshot, bukan FK) - untuk layar split-brain. */
-    claimedByDeviceLabel: text('claimed_by_device_label'),
-  },
-  (table) => [
-    uniqueIndex('uq_account_keys_user').on(table.userId),
-    check('ck_account_keys_kid_len', sql`octet_length(${table.kid}) = 16`),
-  ],
-)
-
-/** Tabel `key_transfers` - relay tambah perangkat (TTL <= 2 menit, sekali pakai). */
-export const keyTransfers = pgTable(
-  'key_transfers',
-  {
-    /** Random 128-bit base64url, non-enumerable - bukan UUID berurut. */
-    id: text('id').primaryKey(),
-    userId: uuid('user_id')
-      .notNull()
-      .references(() => users.id, { onDelete: 'cascade' }),
-    /** Hanya perangkat target yang sudah login boleh claim. */
-    deviceId: uuid('device_id')
-      .notNull()
-      .references(() => devices.id, { onDelete: 'cascade' }),
-    /** MK terenkripsi ke public key ephemeral perangkat baru. */
-    blob: bytea('blob').notNull(),
-    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
-    /** Sekali pakai: `UPDATE ... WHERE claimed_at IS NULL RETURNING blob`. */
-    claimedAt: timestamp('claimed_at', { withTimezone: true }),
-  },
-  (table) => [index('idx_key_transfers_expires').on(table.expiresAt)],
-)
-
-/** Tabel `records` - satu-satunya tabel isi data user, dan isinya selalu ciphertext. */
 export const records = pgTable(
   'records',
   {
@@ -337,10 +266,10 @@ export const records = pgTable(
     hlcDevice: text('hlc_device').notNull(),
     /** Tombstone. */
     deleted: boolean('deleted').notNull().default(false),
-    /** XChaCha20-Poly1305(type + schemaVersion + data), AAD = id. `type` ikut terenkripsi (ADR 4). */
+    /** AES-256-GCM(`type` + `schemaVersion` + `data`) - kunci dari env, bukan dari client. */
     blob: bytea('blob').notNull(),
-    /** KID dari header blob (selalu ada: push tanpa KID aktif yang cocok ditolak sebelum insert). */
-    kid: bytea('kid'),
+    /** Versi kunci yang dipakai header ciphertext. Dipakai untuk audit & rotasi. */
+    keyVersion: smallint('key_version').notNull().default(1),
     /** `nextval('records_seq')` - cursor pull. */
     serverSeq: bigint('server_seq', { mode: 'number' })
       .notNull()
@@ -355,7 +284,7 @@ export const records = pgTable(
     // server_seq` ter-scope user_id, jadi tidak perlu index tambahan.
     uniqueIndex('uq_records_user_server_seq').on(table.userId, table.serverSeq),
     index('idx_records_hlc').on(table.hlcWallMs, table.hlcCounter, table.hlcDevice, table.userId),
-    check('ck_records_kid_len', sql`${table.kid} is null or octet_length(${table.kid}) = 16`),
+    check('ck_records_key_version_positive', sql`${table.keyVersion} > 0`),
     // `idx_records_purge` = PARTIAL (WHERE deleted) -> migrasi SQL tangan.
   ],
 )
@@ -381,8 +310,5 @@ export type UserRow = typeof users.$inferSelect
 export type DeviceRow = typeof devices.$inferSelect
 export type SessionRow = typeof sessions.$inferSelect
 export type OtpChallengeRow = typeof otpChallenges.$inferSelect
-export type AccountKeyRow = typeof accountKeys.$inferSelect
-export type KeyEnvelopeRow = typeof keyEnvelopes.$inferSelect
-export type KeyTransferRow = typeof keyTransfers.$inferSelect
 export type RecordRow = typeof records.$inferSelect
 export type SyncWatermarkRow = typeof syncWatermarks.$inferSelect

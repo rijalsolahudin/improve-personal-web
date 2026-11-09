@@ -41,7 +41,7 @@ export function notifySyncState(): void {
  *
  * Arti event ini adalah **"data lokal berubah, muat ulang"**, bukan hanya "pull menerapkan sesuatu":
  * jalur lain yang mengubah isi penyimpanan tanpa lewat pull juga memakainya - mis. record yang pulih
- * setelah `reindexQuarantined()` membangun ulang `record_index` dari blob lokal. Store yang sudah
+ * setelah index lokal dibangun ulang. Store yang sudah
  * ter-hydrate tidak akan melihat data itu sampai ia membaca ulang.
  *
  * Penanda `markTrustedSyncReload()` hanya hidup selama dispatch: listener dipanggil sinkron, dan

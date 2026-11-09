@@ -14,7 +14,6 @@ import type {
   SyncStatePatch,
   TransactionContext,
 } from '../ports.ts'
-import { RECORD_INDEX_KEEP } from '../ports.ts'
 import {
   compareIndexEntries,
   indexOverlapsRange,
@@ -105,22 +104,17 @@ function applyPutRecord(tables: MemoryTables, write: RecordWrite, clock: Clock):
     hlc: write.sealed.hlc,
     deleted: write.sealed.deleted,
     blob: write.sealed.blob,
-    // Hanya ditulis kalau `true`: record biasa tidak boleh membawa kunci `opaque` sama sekali.
-    ...(write.opaque === true ? { opaque: true } : {}),
     createdAtMs: previous?.createdAtMs ?? nowMs,
-    // Index yang ditulis bersama record membawa `updatedAtMs` versi data; record tanpa index (dan
-    // record `'keep'`, yang index-nya tidak kita sentuh) memakai jam adapter. Keduanya "pembukuan
-    // lokal" yang tidak ikut sync (`ports.ts`).
-    updatedAtMs: index === null || index === RECORD_INDEX_KEEP ? nowMs : index.updatedAtMs,
+    // Index yang ditulis bersama record membawa `updatedAtMs` versi data; record tanpa index memakai
+    // jam adapter. Keduanya "pembukuan lokal" yang tidak ikut sync (`ports.ts`).
+    updatedAtMs: index === null ? nowMs : index.updatedAtMs,
   })
 
-  // Index dan record harus selalu sinkron: entitas tanpa dimensi waktu tidak boleh meninggalkan
-  // baris index lama yang masih menunjuk ke record-nya. `'keep'` satu-satunya pengecualian: baris
-  // index lama DIBIARKAN apa adanya (lihat `ports.ts`), dan kalau belum ada baris index tidak ada
-  // yang dibuat - adapter tidak boleh mengarang index.
+  // Index dan record harus selalu sinkron: entitas tanpa dimensi waktu tidak boleh meninggalkan baris
+  // index lama yang masih menunjuk ke record-nya.
   if (index === null) {
     tables.indexes.delete(write.sealed.id)
-  } else if (index !== RECORD_INDEX_KEEP) {
+  } else {
     tables.indexes.set(write.sealed.id, { ...index, recordId: write.sealed.id })
   }
 

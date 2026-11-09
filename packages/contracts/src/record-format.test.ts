@@ -17,8 +17,6 @@ import {
   RECORD_V2_NONCE_OFFSET,
   SEALED_RECORD_V2_MAX_PLAINTEXT_BYTES,
   SEALED_RECORD_V2_OVERHEAD_BYTES,
-  V1_CUTOFF_GRACE_MS,
-  V1_CUTOFF_MS,
   decodeKid,
   encodeKid,
   encodeRecordAadV2,
@@ -124,8 +122,6 @@ describe('konstanta layout v2', () => {
 
   it('label AAD dan masa transisi v1: cutoff null sampai R2, grace 7 hari', () => {
     expect(RECORD_AAD_V2_LABEL).toBe('ip-record')
-    expect(V1_CUTOFF_MS).toBeNull()
-    expect(V1_CUTOFF_GRACE_MS).toBe(604_800_000)
   })
 })
 

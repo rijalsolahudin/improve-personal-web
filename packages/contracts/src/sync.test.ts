@@ -1,19 +1,18 @@
 import { describe, expect, it } from 'vitest'
 
 import {
-  SEALED_RECORD_MAX_BLOB_BASE64_LENGTH,
-  SEALED_RECORD_MAX_BLOB_BYTES,
+  RECORD_PAYLOAD_MAX_BYTES,
   SYNC_MAX_BATCH,
   SYNC_MAX_PULL_BYTES,
   SYNC_MAX_PULL_LIMIT,
   SYNC_RECORD_STATUSES,
-  sealedRecordDtoSchema,
   serverRecordSchema,
   serverSeqSchema,
   syncPullQuerySchema,
   syncPullResultSchema,
   syncPushInputSchema,
   syncPushResultSchema,
+  syncRecordDtoSchema,
   syncRecordResultSchema,
 } from './sync.ts'
 
@@ -22,41 +21,47 @@ function record(hlc: string, overrides: Record<string, unknown> = {}) {
     id: '018fabc1-def2-7abc-8def-0123456789ab',
     hlc,
     deleted: false,
-    blob: 'AAAA',
+    payload: { type: 'todo', schemaVersion: 1, data: { title: 'Belanja' } },
     ...overrides,
   }
 }
 
-describe('sealedRecordDtoSchema', () => {
-  it('menerima record ter-seal dan memaknai tombstone', () => {
-    expect(sealedRecordDtoSchema.parse(record('1000-0-a')).deleted).toBe(false)
-    expect(sealedRecordDtoSchema.parse(record('1000-0-a', { deleted: true })).deleted).toBe(true)
+describe('syncRecordDtoSchema', () => {
+  it('menerima payload JSON dan memaknai tombstone', () => {
+    expect(syncRecordDtoSchema.parse(record('1000-0-a')).deleted).toBe(false)
+    expect(syncRecordDtoSchema.parse(record('1000-0-a', { deleted: true })).deleted).toBe(true)
   })
 
-  it('menolak id non-uuid, hlc tak terbaca, dan blob yang bukan base64', () => {
-    expect(sealedRecordDtoSchema.safeParse(record('1000-0-a', { id: 'record-1' })).success).toBe(
+  it('menolak id non-uuid, hlc tak terbaca, dan payload yang hilang', () => {
+    expect(syncRecordDtoSchema.safeParse(record('1000-0-a', { id: 'record-1' })).success).toBe(
       false,
     )
-    expect(sealedRecordDtoSchema.safeParse(record('999-0-a b')).success).toBe(false)
-    expect(sealedRecordDtoSchema.safeParse(record('1000-0-a', { blob: 'AAA' })).success).toBe(false)
-  })
-
-  it('menolak blob di atas batas ukuran (server menolak sebelum decode)', () => {
-    const kebesaran = 'A'.repeat(SEALED_RECORD_MAX_BLOB_BASE64_LENGTH + 4)
-
-    expect(sealedRecordDtoSchema.safeParse(record('1000-0-a', { blob: kebesaran })).success).toBe(
+    expect(syncRecordDtoSchema.safeParse(record('999-0-a b')).success).toBe(false)
+    expect(syncRecordDtoSchema.safeParse(record('1000-0-a', { payload: undefined })).success).toBe(
       false,
     )
-    expect(SEALED_RECORD_MAX_BLOB_BYTES).toBe(1_048_576)
   })
 
-  it('menolak field asing dan field teks polos yang bisa bocor ke server', () => {
+  it('menolak payload di atas batas ukuran (server menolak sebelum menyegel)', () => {
+    const kebesaran = 'A'.repeat(RECORD_PAYLOAD_MAX_BYTES)
+
+    expect(syncRecordDtoSchema.safeParse(record('1000-0-a', { payload: kebesaran })).success).toBe(
+      false,
+    )
+    expect(RECORD_PAYLOAD_MAX_BYTES).toBe(1_048_576)
     expect(
-      sealedRecordDtoSchema.safeParse(record('1000-0-a', { type: 'todo', title: 'Belanja' }))
-        .success,
+      syncRecordDtoSchema.safeParse(
+        record('1000-0-a', { payload: 'A'.repeat(RECORD_PAYLOAD_MAX_BYTES - 2) }),
+      ).success,
+    ).toBe(true)
+  })
+
+  it('menolak field asing di luar payload', () => {
+    expect(
+      syncRecordDtoSchema.safeParse(record('1000-0-a', { type: 'todo', title: 'Belanja' })).success,
     ).toBe(false)
     expect(
-      sealedRecordDtoSchema.safeParse(record('1000-0-a', { userId: '018fabc1-def2-7abc-8def-012' }))
+      syncRecordDtoSchema.safeParse(record('1000-0-a', { userId: '018fabc1-def2-7abc-8def-012' }))
         .success,
     ).toBe(false)
   })
@@ -192,14 +197,14 @@ describe('batas tarik (SYNC_MAX_PULL_BYTES vs SYNC_MAX_PULL_LIMIT)', () => {
   it('plafon byte benar-benar mengikat: lebih kecil dari halaman record penuh', () => {
     // Kalau plafon byte lebih longgar dari `SYNC_MAX_PULL_LIMIT` x blob maksimum, ia tidak menahan
     // apa pun dan lubang H2 (satu respons ratusan MB) tetap terbuka.
-    expect(SYNC_MAX_PULL_BYTES).toBeLessThan(SYNC_MAX_PULL_LIMIT * SEALED_RECORD_MAX_BLOB_BYTES)
+    expect(SYNC_MAX_PULL_BYTES).toBeLessThan(SYNC_MAX_PULL_LIMIT * RECORD_PAYLOAD_MAX_BYTES)
   })
 
   it('plafon byte tidak lebih kecil dari satu blob maksimum (halaman tidak bisa kosong)', () => {
     // Server selalu menyertakan MINIMAL satu record, jadi kalau plafonnya di bawah satu record
     // terbesar, halaman dengan satu record besar pun tidak bisa dikirim - klien akan macet di cursor
     // yang sama selamanya.
-    expect(SYNC_MAX_PULL_BYTES).toBeGreaterThanOrEqual(SEALED_RECORD_MAX_BLOB_BYTES)
+    expect(SYNC_MAX_PULL_BYTES).toBeGreaterThanOrEqual(RECORD_PAYLOAD_MAX_BYTES)
   })
 
   it('halaman yang dipotong plafon byte tetap sah menurut kontrak', () => {

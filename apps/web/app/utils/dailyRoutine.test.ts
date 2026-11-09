@@ -107,6 +107,22 @@ describe('todayTasks', () => {
     })
   })
 
+  it('task tanpa deadline yang DIBUAT hari ini ikut, walau tidak ada di addedIds (lintas perangkat)', () => {
+    const list = todayTasks(
+      [
+        task('baru', { createdAt: at(16, 9) }),
+        task('kemarin', { createdAt: at(15, 9) }),
+        task('besok', { createdAt: at(16, 9), deadline: at(17, 9) }),
+      ],
+      [],
+      [],
+      TODAY,
+      NOW,
+    )
+
+    expect(list.map(({ task: item }) => item.id)).toEqual(['baru'])
+  })
+
   it('tidak memotong daftar: 12 task hari ini semuanya kembali (B2)', () => {
     const banyak = Array.from({ length: 12 }, (_, index) =>
       task(`due-${index}`, { deadline: at(16, index + 8) }),

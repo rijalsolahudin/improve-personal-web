@@ -16,7 +16,6 @@
  *   protocol.ts -> devices.ts -> auth.ts -> account.ts
  *   protocol.ts -> sync.ts (juga memakai hlc.ts)
  *   hlc.ts + protocol.ts + sync.ts -> record-format.ts
- *   protocol.ts + devices.ts + auth.ts + record-format.ts -> keys.ts
  *   hlc.ts      -> mandiri, tidak mengimpor modul lain di paket ini
  *
  * Aturan yang berlaku untuk semua schema request: `.strict()` (field asing ditolak) dan TIDAK ADA
@@ -154,7 +153,7 @@ export {
 // -----------------------------------------------------------------------------
 
 export {
-  SEALED_RECORD_MAX_BLOB_BASE64_LENGTH,
+  RECORD_PAYLOAD_MAX_BYTES,
   SEALED_RECORD_MAX_BLOB_BYTES,
   SYNC_DEFAULT_PULL_LIMIT,
   SYNC_MAX_BATCH,
@@ -163,17 +162,18 @@ export {
   SYNC_MIN_PULL_LIMIT,
   SYNC_RECORD_STATUSES,
   SYNC_TOMBSTONE_RETENTION_DAYS,
-  sealedRecordDtoSchema,
   serverRecordSchema,
   serverSeqSchema,
   syncPullQuerySchema,
   syncPullResultSchema,
   syncPushInputSchema,
   syncPushResultSchema,
+  syncRecordDtoSchema,
   syncRecordResultSchema,
   syncRecordStatusSchema,
-  type SealedRecordDto,
+  type RecordPayload,
   type ServerRecord,
+  type SyncRecordDto,
   type SyncPullQuery,
   type SyncPullResult,
   type SyncPushInput,
@@ -183,51 +183,7 @@ export {
 } from './sync.ts'
 
 // -----------------------------------------------------------------------------
-// Envelope kunci + transfer kunci (hanya slot `passkey`, ADR 10-12)
-// -----------------------------------------------------------------------------
-
-export {
-  KDF_PARAM_KEY_MAX_LENGTH,
-  KDF_PARAM_MAX_KEYS,
-  KDF_PARAM_STRING_VALUE_MAX_LENGTH,
-  KEY_ENVELOPE_MAX_KDF_PARAMS_BYTES,
-  KEY_ENVELOPE_MAX_WRAPPED_KEY_BASE64_LENGTH,
-  KEY_ENVELOPE_MAX_WRAPPED_KEY_BYTES,
-  KEY_SLOTS,
-  KEY_TRANSFER_ID_BYTES,
-  KEY_TRANSFER_ID_LENGTH,
-  KEY_TRANSFER_ID_PATTERN,
-  KEY_TRANSFER_MAX_BLOB_BYTES,
-  KEY_TRANSFER_TTL_SECONDS,
-  kdfParamsSchema,
-  keyEnvelopeDtoSchema,
-  keyEnvelopeListResultSchema,
-  keyEnvelopePutInputSchema,
-  keyIdentityClaimInputSchema,
-  keyIdentityConflictDetailsSchema,
-  keyIdentityDtoSchema,
-  keySlotSchema,
-  keyTransferClaimParamsSchema,
-  keyTransferClaimResultSchema,
-  keyTransferCreateInputSchema,
-  keyTransferCreateResultSchema,
-  keyTransferIdSchema,
-  type KdfParams,
-  type KeyEnvelopeDto,
-  type KeyEnvelopeListResult,
-  type KeyEnvelopePutInput,
-  type KeyIdentityClaimInput,
-  type KeyIdentityConflictDetails,
-  type KeyIdentityDto,
-  type KeySlot,
-  type KeyTransferClaimParams,
-  type KeyTransferClaimResult,
-  type KeyTransferCreateInput,
-  type KeyTransferCreateResult,
-} from './keys.ts'
-
-// -----------------------------------------------------------------------------
-// Format blob record v2 + KID (spec #120): layout, AAD biner kanonik, padding, batas plaintext
+// Format blob record v2 (penyimpanan LOKAL): layout, AAD biner kanonik, padding, batas plaintext
 // -----------------------------------------------------------------------------
 
 export {
@@ -249,8 +205,6 @@ export {
   RECORD_V2_VERSION_OFFSET,
   SEALED_RECORD_V2_MAX_PLAINTEXT_BYTES,
   SEALED_RECORD_V2_OVERHEAD_BYTES,
-  V1_CUTOFF_GRACE_MS,
-  V1_CUTOFF_MS,
   decodeKid,
   encodeKid,
   encodeRecordAadV2,

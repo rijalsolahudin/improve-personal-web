@@ -1,32 +1,24 @@
-import {
-  KID_BYTES,
-  KID_KDF_CONTEXT,
-  KID_KDF_SUBKEY_ID,
-  encodeKid,
-} from '@improve-personal/contracts'
+import { KID_BYTES, KID_KDF_CONTEXT, KID_KDF_SUBKEY_ID } from '@improve-personal/contracts'
 
 import { loadSodium, type SodiumModule } from './sodium'
 import { rawDataKeyMaterial, type RawDataKeyMaterial } from './provider'
 
 /**
- * Kunci utama & turunannya (ARCHITECTURE §7, ADR 10-12).
+ * Kunci PERANGKAT & turunannya - hanya untuk menyegel salinan lokal.
  *
- * Hierarki yang dipakai:
+ *   MK (32 byte acak, dibuat per perangkat)
+ *    └─ KDF subkey 'data'  ->  Data Key  ->  enkripsi `record` di IndexedDB/SQLite
  *
- *   MK (32 byte acak, dibuat di perangkat pertama)
- *    └─ KDF subkey 'data'  ->  Data Key  ->  enkripsi semua record
- *
- * Kunci utama dibuat ACAK, bukan diturunkan dari kata sandi/recovery key. Itu keputusan yang sudah
- * diambil (ADR 11) dan konsekuensinya harus jujur: 24 kata saja tidak cukup untuk memulihkan data -
- * yang memulihkan adalah `envelope` kunci utama yang ikut berkas backup user. Karena itu raw
- * envelope-nya tidak pernah dikirim ke server.
+ * Data yang dikirim ke server TIDAK memakai kunci ini: server menyegel `payload` dengan kuncinya
+ * sendiri dari env (`server/utils/record-crypto.ts`). Konsekuensi yang disengaja: MK hilang = salinan
+ * lokal tidak terbaca, tapi data tetap bisa dipulihkan dengan pull ulang dari server. Tidak ada
+ * passkey/recovery key yang perlu dipulihkan.
  *
  * Aturan yang dipegang di modul ini:
  * - Kunci utama TIDAK PERNAH ditulis ke disk dalam bentuk polos, tidak pernah di-log, dan tidak pernah
- *   dikirim ke mana pun. Yang boleh ada di disk hanya envelope (hasil bungkus oleh salah satu pembuka).
+ *   dikirim ke mana pun. Yang ada di disk hanya bungkusnya (WebCrypto non-extractable).
  * - Turunan memakai KDF libsodium (`crypto_kdf_derive_from_key`, BLAKE2b ber-konteks), bukan hash
- *   biasa: konteks 8 karakter + `subkey_id` memisahkan pemakaian, sehingga kunci untuk data tidak bisa
- *   dipakai untuk hal lain walau sumbernya sama.
+ *   biasa: konteks 8 karakter + `subkey_id` memisahkan pemakaian.
  */
 
 /** Panjang kunci utama (byte). */
@@ -75,20 +67,15 @@ export function deriveDataKey(
 }
 
 /**
- * KID (identitas kunci) akun: fingerprint 16 byte turunan kunci utama (spec #120 §2.1).
+ * KID lokal: fingerprint 16 byte turunan kunci perangkat.
  *
- * Deterministik untuk kunci utama yang sama, jadi semua perangkat satu akun menghitung KID yang
- * sama. Non-rahasia (tidak bisa dibalik ke kunci utama), tetapi pseudonim: jangan di-log.
+ * Hanya dipakai sebagai bagian AAD blob LOKAL - tidak pernah dikirim ke server dan tidak lagi menjadi
+ * identitas akun. Deterministik untuk kunci yang sama, jadi blob lama tetap bisa dibuka setelah reload.
  */
 export function deriveKid(sodium: SodiumModule, masterKey: Uint8Array): Uint8Array {
   assertMasterKey(masterKey)
 
   return sodium.crypto_kdf_derive_from_key(KID_BYTES, KID_KDF_SUBKEY_ID, KID_KDF_CONTEXT, masterKey)
-}
-
-/** KID dalam bentuk wire (base64url 22 karakter) untuk dikirim ke server. */
-export function deriveKidWire(sodium: SodiumModule, masterKey: Uint8Array): string {
-  return encodeKid(deriveKid(sodium, masterKey))
 }
 
 /**

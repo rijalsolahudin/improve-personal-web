@@ -3,7 +3,6 @@ import { and, isNotNull, lt, sql } from 'drizzle-orm'
 import { oauthStates } from '../db/schema'
 import type { ServiceContext } from './context'
 import { deleteExpiredOauthStates } from './google'
-import { deleteExpiredKeyTransfers } from './keys'
 import { deleteExpiredOtpChallenges } from './otp'
 import { deleteOldRateLimits } from './rate-limit'
 
@@ -45,7 +44,6 @@ export type PurgeTombstonesSummary = {
 export type CleanupEphemeralSummary = {
   readonly otpChallenges: number
   readonly oauthStates: number
-  readonly keyTransfers: number
   readonly rateLimits: number
 }
 
@@ -151,13 +149,12 @@ async function deleteRetiredOauthStates(ctx: ServiceContext): Promise<number> {
  * |---|---|---|
  * | `otp_challenges` | 24 jam | `expires_at < now - 24 jam` |
  * | `oauth_states` | 1 jam | `expires_at < now` (belum dikonsumsi) + `expires_at < now - 1 jam` (sudah) |
- * | `key_transfers` | TTL-nya sendiri | `expires_at < now` |
  * | `rate_limits` | 24 jam | `window_start < now - 24 jam` |
  *
  * Semua tabel di atas isinya metadata operasional, bukan data user - tapi tetap ada alasannya cepat
- * dibuang: `otp_challenges`/`oauth_states` menyimpan hash kode dan verifier PKCE, `key_transfers`
- * menyimpan MK terenkripsi (TTL-nya cuma 2 menit!), dan `rate_limits` menyimpan hash email/IP yang
- * selalu bertambah karena bucket baru muncul terus. Tanpa job ini keempatnya tumbuh selamanya.
+ * dibuang: `otp_challenges`/`oauth_states` menyimpan hash kode dan verifier PKCE, dan `rate_limits`
+ * menyimpan hash email/IP yang selalu bertambah karena bucket baru muncul terus. Tanpa job ini
+ * ketiganya tumbuh selamanya.
  *
  * Predikatnya TIDAK ditulis ulang di sini: yang dipakai adalah fungsi service yang sudah ada
  * (`deleteExpiredOtpChallenges` dan kawan-kawan) supaya definisi "kedaluwarsa" cuma ada satu tempat
@@ -170,13 +167,11 @@ export async function cleanupEphemeral(ctx: ServiceContext): Promise<CleanupEphe
   const otpChallenges = await deleteExpiredOtpChallenges(ctx)
   const openOauthStates = await deleteExpiredOauthStates(ctx)
   const retiredOauthStates = await deleteRetiredOauthStates(ctx)
-  const keyTransfers = await deleteExpiredKeyTransfers(ctx)
   const rateLimits = await deleteOldRateLimits(ctx)
 
   return {
     otpChallenges,
     oauthStates: openOauthStates + retiredOauthStates,
-    keyTransfers,
     rateLimits,
   }
 }

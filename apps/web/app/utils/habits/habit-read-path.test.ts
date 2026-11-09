@@ -23,7 +23,6 @@ import type { LocalDataSession } from '../storage/session'
 import { createUuidV7Generator } from '../storage/uuid'
 import { MS_PER_HOUR, addDays, fromIsoDate } from '../time'
 import { loadHabits, persistHabit } from './persistence'
-import { TEST_KID_WIRE } from '../../../tests/nuxt/record-key'
 
 const TODAY = '2026-10-19'
 const NOW_MS = fromIsoDate(TODAY).getTime() + 9 * MS_PER_HOUR
@@ -115,19 +114,10 @@ function memorySession(): InstrumentedSession {
     provider,
     clock,
     dataKey: DATA_KEY,
-    kid: TEST_KID_WIRE,
     hlc,
     deviceId: USER_ID,
     userId: USER_ID,
-    isFreshKey: true,
-    keyStore: {
-      has: async () => false,
-      put: async () => undefined,
-      get: async () => null,
-      remove: async () => undefined,
-    },
     newId: createUuidV7Generator({ clock }),
-    withMasterKey: async (work) => work(new Uint8Array(32)),
     repos: createRepositorySet({ storage, provider, dataKey: DATA_KEY }),
     writer: createRecordWriter({ storage, provider, dataKey: DATA_KEY, hlc, clock }),
   }

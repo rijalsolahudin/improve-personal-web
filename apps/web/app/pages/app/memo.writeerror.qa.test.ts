@@ -33,7 +33,6 @@ vi.mock('~/composables/useLocalData', () => ({
     state: {
       value: {
         status: 'ready',
-        isFreshKey: false,
         deviceId: 'memo-writeerror-qa',
         userId: '018f2c4e-0000-7000-8000-00000000000a',
         error: null,

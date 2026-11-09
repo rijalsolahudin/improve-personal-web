@@ -1,11 +1,11 @@
 // @vitest-environment node
 //
-// PemISAHAN penyimpanan antar AKUN (bukan antar perangkat).
+// Pemisahan penyimpanan antar AKUN (bukan antar perangkat).
 //
 // Bug yang dijaga di sini nyata dan pernah hidup: adaptor record & penyimpanan kunci diikat ke
-// PERANGKAT, tanpa dimensi akun. Akibatnya logout → login akun lain di browser yang sama menampilkan
+// PERANGKAT, tanpa dimensi akun. Akibatnya logout -> login akun lain di browser yang sama menampilkan
 // data akun pertama (terdekripsi, di UI). Test ini mengunci sifat yang benar: tiap akun punya bak
-// datanya sendiri, pembuka kuncinya sendiri, dan akun lain tidak bisa melihat apa pun.
+// datanya sendiri dan kunci perangkatnya sendiri.
 import 'fake-indexeddb/auto'
 
 import { IDBFactory } from 'fake-indexeddb'
@@ -15,7 +15,7 @@ import { createManualClock } from '@improve-personal/core'
 
 import { createWebKeyStore } from '../crypto/key-store'
 import { saveDeviceUnlock } from '../crypto/device-slot'
-import { createMasterKey } from '../crypto/master-key'
+import { createMasterKey, deriveDataKey } from '../crypto/master-key'
 import { loadSodium } from '../crypto/sodium'
 import { assertUserId, keyDatabaseName, localDatabaseName } from './database-names'
 import { openLocalDataSession, type OpenSessionOptions } from './session'
@@ -80,40 +80,25 @@ describe('pemisahan penyimpanan per akun', () => {
     expect(await b.repos.todo.listAll()).toEqual([])
   })
 
-  it('akun B punya pembuka kunci SENDIRI (bukan warisan akun A)', async () => {
-    const sodium = await loadSodium()
+  it('tiap akun punya kunci PERANGKAT sendiri (bukan warisan akun lain)', async () => {
     const a = await open(USER_A)
 
-    // Akun A mengaktifkan passkey: petunjuk kredensialnya tersimpan di slot perangkat AKUN A.
-    await createWebKeyStore({ databaseName: keyDatabaseName(USER_A) }).put('passkey', {
-      kind: 'passkey-webauthn',
-      handle: { credentialId: 'cred-a', salt: 'salt-a' },
-    })
-    expect(a.userId).toBe(USER_A)
-
-    // Akun B: slot passkey-nya kosong, jadi onboarding passkey akan muncul untuk dia.
+    // Kunci akun B dibuat saat sesinya dibuka - di database kunci milik B.
     const keyStoreB = createWebKeyStore({ databaseName: keyDatabaseName(USER_B) })
-    expect(await keyStoreB.has('passkey')).toBe(false)
+    expect(await keyStoreB.has('device')).toBe(false)
 
-    // Dan kunci perangkat akun B juga terpisah: ia dibuat saat sesinya dibuka.
     const b = await open(USER_B)
-    expect(b.isFreshKey).toBe(true)
     expect(await keyStoreB.has('device')).toBe(true)
 
-    // Sesi mengekspos penyimpanan kunci MILIK AKUN-nya. Ini yang membuat `useAccount` tidak lagi
-    // membaca passkey akun lain (bug: popup onboarding tidak muncul untuk akun B).
-    await a.keyStore.put('passkey', { kind: 'passkey-webauthn', handle: { credentialId: 'a' } })
-    expect(await a.keyStore.has('passkey')).toBe(true)
-    expect(await b.keyStore.has('passkey')).toBe(false)
+    // Kunci data kedua akun berbeda, jadi blob A tidak bisa dibuka dengan sesi B.
+    expect(Buffer.from(a.dataKey.handle as Uint8Array)).not.toEqual(
+      Buffer.from(b.dataKey.handle as Uint8Array),
+    )
 
-    // Pembuka perangkat akun A juga bukan milik B: meng-copy bahan kunci A ke B tidak dilakukan.
-    expect(await keyStoreB.has('recovery')).toBe(false)
-
-    // Akun A tetap memegang datanya sendiri.
-    expect(await createWebKeyStore({ databaseName: keyDatabaseName(USER_A) }).has('passkey')).toBe(
+    // Akun A tetap memegang kuncinya sendiri.
+    expect(await createWebKeyStore({ databaseName: keyDatabaseName(USER_A) }).has('device')).toBe(
       true,
     )
-    void sodium
   })
 
   it('akun A kembali: datanya masih ada, tanpa perlu dibuat ulang', async () => {
@@ -137,9 +122,10 @@ describe('pemisahan penyimpanan per akun', () => {
 
     // Sesi A harus membuka kunci MILIK A, bukan yang terakhir ditulis.
     const a = await open(USER_A)
-    const fromDeviceA = await a.withMasterKey(async (mk) => Buffer.from(mk).toString('hex'))
+    const expectedA = deriveDataKey(sodium, masterKeyA, USER_A)
 
-    expect(fromDeviceA).toBe(Buffer.from(masterKeyA).toString('hex'))
-    expect(fromDeviceA).not.toBe(Buffer.from(masterKeyB).toString('hex'))
+    expect(Buffer.from(a.dataKey.handle as Uint8Array)).toEqual(
+      Buffer.from(expectedA.handle as Uint8Array),
+    )
   })
 })

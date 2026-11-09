@@ -5,7 +5,6 @@ import * as authModule from './auth.ts'
 import * as devicesModule from './devices.ts'
 import * as hlcModule from './hlc.ts'
 import * as contracts from './index.ts'
-import * as keysModule from './keys.ts'
 import * as protocolModule from './protocol.ts'
 import * as recordFormatModule from './record-format.ts'
 import * as syncModule from './sync.ts'
@@ -44,25 +43,18 @@ const NAMA_WAJIB = [
   'sessionDtoSchema',
   'currentSessionResultSchema',
   'deviceDtoSchema',
-  'sealedRecordDtoSchema',
+  'syncRecordDtoSchema',
   'syncPushInputSchema',
   'syncPushResultSchema',
   'syncPullQuerySchema',
   'syncPullResultSchema',
   'SYNC_MAX_BATCH',
-  'KEY_SLOTS',
-  'keySlotSchema',
-  'keyEnvelopePutInputSchema',
-  'keyTransferCreateResultSchema',
-  'KEY_TRANSFER_TTL_SECONDS',
+  'RECORD_PAYLOAD_MAX_BYTES',
   'otpPurposeSchema',
   'deleteAccountInputSchema',
   'kidSchema',
   'encodeRecordAadV2',
   'parseSealedBlobHeader',
-  'keyIdentityClaimInputSchema',
-  'keyIdentityDtoSchema',
-  'keyIdentityConflictDetailsSchema',
 ] as const
 
 /**
@@ -78,7 +70,6 @@ const MODULES = {
   'auth.ts': authModule,
   'devices.ts': devicesModule,
   'hlc.ts': hlcModule,
-  'keys.ts': keysModule,
   'protocol.ts': protocolModule,
   'record-format.ts': recordFormatModule,
   'sync.ts': syncModule,
@@ -94,10 +85,9 @@ describe('permukaan publik index.ts', () => {
   it('nilai runtime yang jadi patokan lintas paket', () => {
     expect(contracts.API_VERSION).toBe('v1')
     expect(contracts.API_PREFIX).toBe('/v1')
-    expect(contracts.ERROR_CODES).toHaveLength(14)
-    expect(contracts.KEY_SLOTS).toEqual(['passkey'])
+    expect(contracts.ERROR_CODES).toHaveLength(13)
     expect(contracts.SYNC_MAX_BATCH).toBe(500)
-    expect(contracts.KEY_TRANSFER_TTL_SECONDS).toBe(120)
+    expect(contracts.RECORD_PAYLOAD_MAX_BYTES).toBe(1_048_576)
     expect(contracts.compareHlc('999-0-a', '1000-0-b')).toBe(-1)
   })
 

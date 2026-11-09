@@ -47,6 +47,8 @@ function runtimeConfigFromProcessEnv(): Record<string, unknown> {
     trustedProxyHops: process.env.NUXT_TRUSTED_PROXY_HOPS,
     resendApiKey: process.env.NUXT_RESEND_API_KEY,
     mailFrom: process.env.NUXT_MAIL_FROM,
+    recordEncryptionKeys: process.env.NUXT_RECORD_ENCRYPTION_KEYS,
+    recordEncryptionActiveVersion: process.env.NUXT_RECORD_ENCRYPTION_ACTIVE_VERSION,
   }
 }
 

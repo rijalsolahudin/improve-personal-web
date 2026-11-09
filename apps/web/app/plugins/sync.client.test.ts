@@ -16,7 +16,6 @@ import { mockNuxtImport } from '@nuxt/test-utils/runtime'
 // Klaim identitas kunci (`PUT /v1/keys/identity`) berjalan sebelum `ready`; jaringan dimock di batas.
 mockNuxtImport('$fetch', () => async () => ({
   data: {
-    kid: 'LBaTVGaXKfW710NOCIXptA',
     claimedAt: '2026-10-27T00:00:00.000Z',
     claimedByDeviceLabel: null,
   },
@@ -149,7 +148,6 @@ afterEach(async () => {
   // state data lokal yang tidak siap adalah salah satu kondisi stop yang diuji.
   useState('localData').value = {
     status: 'idle',
-    isFreshKey: false,
     deviceId: null,
     userId: null,
     error: null,
@@ -205,7 +203,6 @@ describe('plugin sync.client: penghentian controller', () => {
 
     useState('localData').value = {
       status: 'locked',
-      isFreshKey: false,
       deviceId: null,
       userId: TEST_USER_A,
       error: null,
@@ -254,7 +251,6 @@ describe('plugin sync.client: penghentian controller', () => {
     resetLocalDataSessionForTest()
     useState('localData').value = {
       status: 'ready',
-      isFreshKey: false,
       deviceId: null,
       userId: TEST_USER_A,
       error: null,

@@ -508,7 +508,7 @@ export function useHabits(options: UseHabitsOptions = {}) {
    * Muat ulang begitu sesi data lokal siap.
    *
    * Skenario yang ditutup: perangkat baru/terkunci membuka halaman dengan sesi `null` (daftar kosong),
-   * lalu kuncinya dibuka lewat passkey/kode pemulihan - `useKeyRecovery` hanya membuka sesi, tidak
+   * lalu sesi data lokal dibuka otomatis - tidak ada layar pemulihan kunci, hanya sesi, tidak
    * memuat ulang halaman. Tanpa watch ini daftar tetap kosong sampai user reload manual.
    *
    * Tidak ada loop: sumbernya status sesi data lokal (bukan status habit), dan `hydrate()` mengabaikan

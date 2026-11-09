@@ -1,18 +1,15 @@
 import { z } from 'zod'
 
 import { compareHlc, hlcSchema } from './hlc.ts'
-import {
-  base64MaxLengthForBytes,
-  base64WithinBytesSchema,
-  optionalIntegerQuerySchema,
-  uuidSchema,
-} from './protocol.ts'
+import { optionalIntegerQuerySchema, utf8ByteLength, uuidSchema } from './protocol.ts'
 
 /**
  * Kontrak sinkronisasi (ARCHITECTURE.md §9, PRD F15 "Sync", task T21).
  *
  * Client menulis ke DB lokal dulu (record + outbox dalam SATU transaksi), lalu push batch ke server.
- * Server cuma relay: menyimpan ciphertext + metadata (id, hlc, tombstone, server_seq).
+ * Server menyimpan ciphertext miliknya sendiri (AES-256-GCM, kunci di env) + metadata plaintext
+ * (id, hlc, tombstone, server_seq). Wire TIDAK membawa ciphertext: `payload` adalah JSON polos yang
+ * disegel server sebelum masuk database dan dibuka lagi saat pull.
  *
  * Batas & aturan yang dipegang server:
  * - Satu batch push maksimum `SYNC_MAX_BATCH` (500) record - ARCHITECTURE.md §9.
@@ -54,32 +51,37 @@ export const SYNC_DEFAULT_PULL_LIMIT = 200
 export const SYNC_TOMBSTONE_RETENTION_DAYS = 90
 
 /**
- * Ukuran maksimum ciphertext satu record (1 MB hasil decode).
+ * Ukuran maksimum `payload` satu record di wire: 1 MB, dihitung dari `JSON.stringify(payload)` dalam
+ * byte UTF-8 (bukan `string.length`).
  *
  * Batas kontrak, jadi harus selaras dengan request size limiter server. Tanpa batas ini, satu client
  * bisa mengirim batch 500 x payload raksasa dan menghabiskan memori server sebelum validasi lain jalan.
+ * Server menegakkannya SEBELUM menyegel, jadi ukuran ciphertext selalu `payload + 34 byte`.
+ */
+export const RECORD_PAYLOAD_MAX_BYTES = 1_048_576
+
+/**
+ * Ukuran maksimum blob tersegel di penyimpanan LOKAL (IndexedDB/SQLite) - format v2, lihat
+ * `record-format.ts`. Bukan batas wire: yang dikirim ke server adalah `payload` polos
+ * (`RECORD_PAYLOAD_MAX_BYTES`), dan yang disimpan server adalah ciphertext milik server sendiri.
  */
 export const SEALED_RECORD_MAX_BLOB_BYTES = 1_048_576
 
-export const SEALED_RECORD_MAX_BLOB_BASE64_LENGTH = base64MaxLengthForBytes(
-  SEALED_RECORD_MAX_BLOB_BYTES,
-)
-
 /**
- * Plafon BYTE satu halaman pull (temuan H2 audit keamanan) - jumlah byte ciphertext yang boleh
+ * Plafon BYTE satu halaman pull (temuan H2 audit keamanan) - jumlah byte `payload` yang boleh
  * dikirim server dalam SATU respons.
  *
- * Kenapa perlu, padahal sudah ada `SYNC_MAX_PULL_LIMIT`: 500 record x 1 MB (`SEALED_RECORD_MAX_BLOB_BYTES`)
- * = ~500 MB ciphertext, dan ~670 MB string setelah di-base64 + JSON. Semua itu dipegang DI DALAM
- * memori proses Node (yang juga melayani UI) sebelum dikirim, dan bisa diulang kapan saja oleh akun
- * mana pun (registrasi gratis). Batas jumlah record saja tidak menutup itu.
+ * Kenapa perlu, padahal sudah ada `SYNC_MAX_PULL_LIMIT`: 500 record x 1 MB (`RECORD_PAYLOAD_MAX_BYTES`)
+ * = ~500 MB payload, dan JSON-nya dibangun seluruhnya DI DALAM memori proses Node (yang juga melayani
+ * UI) sebelum dikirim, dan bisa diulang kapan saja oleh akun mana pun (registrasi gratis). Batas
+ * jumlah record saja tidak menutup itu.
  *
  * Angka 4 MiB dipilih sadar:
  * - Cukup besar untuk perangkat yang baru bangun dari offline: ratusan record kecil tetap muat dalam
  *   satu halaman (yang menentukan biaya sync sehari-hari adalah jumlah record, bukan byte).
  * - Cukup kecil sehingga satu request tidak bisa mengunci ratusan MB memori; empat record 1 MB penuh
  *   adalah halaman terbesar yang mungkin.
- * - `>= SEALED_RECORD_MAX_BLOB_BYTES`, jadi halaman tidak pernah kosong selama masih ada record yang
+ * - `>= RECORD_PAYLOAD_MAX_BYTES`, jadi halaman tidak pernah kosong selama masih ada record yang
  *   cocok: server selalu menyertakan MINIMAL satu record, sehingga klien tidak bisa terjebak meminta
  *   halaman yang sama tanpa kemajuan. Dijaga test kontrak.
  *
@@ -96,35 +98,50 @@ export const SYNC_MAX_PULL_BYTES = 4_194_304
 export const serverSeqSchema = z.number().int().min(0).max(Number.MAX_SAFE_INTEGER)
 
 /**
- * Field envelope record ter-seal, ditulis SEKALI dan dipakai dua schema di bawah.
+ * Field record di wire, ditulis SEKALI dan dipakai dua schema di bawah.
  *
- * Dipisah supaya `sealedRecordDtoSchema` (yang dikirim client) dan `serverRecordSchema` (yang dikirim
+ * Dipisah supaya `syncRecordDtoSchema` (yang dikirim client) dan `serverRecordSchema` (yang dikirim
  * server saat pull) tidak bisa divergen: keduanya WAJIB memakai bentuk record yang sama, kalau tidak
  * record yang sudah diterima server bisa ditolak validasi saat ditarik perangkat lain.
  */
-const SEALED_RECORD_FIELDS = {
+const SYNC_RECORD_FIELDS = {
   /** UUIDv7, dibuat client (ARCHITECTURE.md §6). */
   id: uuidSchema,
   hlc: hlcSchema,
   /** Tombstone: hapus ikut tersinkron, bukan hilang diam-diam. */
   deleted: z.boolean(),
-  blob: base64WithinBytesSchema(SEALED_RECORD_MAX_BLOB_BYTES, 'blob'),
+  /**
+   * JSON polos `{ type, schemaVersion, data }`.
+   *
+   * Server TIDAK menafsirkan isinya: ia hanya mengukur ukuran hasil `JSON.stringify` lalu
+   * menyegelnya dengan kunci milik server. `undefined` ditolak karena tidak punya representasi JSON -
+   * mengirimnya berarti record tanpa isi, dan itu bug client, bukan data.
+   */
+  payload: z
+    .json()
+    .refine(
+      (value) => utf8ByteLength(JSON.stringify(value)) <= RECORD_PAYLOAD_MAX_BYTES,
+      `payload maksimum ${RECORD_PAYLOAD_MAX_BYTES} byte`,
+    ),
 } as const
 
 /**
  * Bentuk record yang dikirim client ke server (ARCHITECTURE.md §6).
  *
- * `type` + `schemaVersion` + `data` semuanya ada DI DALAM `blob` (ADR 4), jadi server tidak tahu
- * record ini memo atau todo. AAD = `id`, jadi blob tidak bisa dipindah ke record lain. `blob` =
- * base64 di transport JSON, `bytea` di Postgres.
+ * `type`/`schemaVersion`/`data` ada di dalam `payload`; server menyegelnya utuh. Metadata di luar
+ * payload (`id`, `hlc`, `deleted`) ikut masuk AAD ciphertext server, jadi baris tidak bisa dipindah
+ * ke record/akun lain atau diubah `hlc`-nya tanpa membuat dekripsi gagal.
  */
-export const sealedRecordDtoSchema = z.object({ ...SEALED_RECORD_FIELDS }).strict()
+export const syncRecordDtoSchema = z.object({ ...SYNC_RECORD_FIELDS }).strict()
 
-export type SealedRecordDto = z.infer<typeof sealedRecordDtoSchema>
+export type SyncRecordDto = z.infer<typeof syncRecordDtoSchema>
+
+/** Nilai JSON yang sah sebagai `payload` (hasil `z.json()`), dipakai hook push di core. */
+export type RecordPayload = SyncRecordDto['payload']
 
 /** Record hasil pull: bentuk yang sama + posisinya di server. */
 export const serverRecordSchema = z
-  .object({ ...SEALED_RECORD_FIELDS, serverSeq: serverSeqSchema })
+  .object({ ...SYNC_RECORD_FIELDS, serverSeq: serverSeqSchema })
   .strict()
 
 export type ServerRecord = z.infer<typeof serverRecordSchema>
@@ -158,7 +175,7 @@ function isAscendingHlc(records: readonly { readonly hlc: string }[]): boolean {
 export const syncPushInputSchema = z
   .object({
     records: z
-      .array(sealedRecordDtoSchema)
+      .array(syncRecordDtoSchema)
       .min(1, 'Batch push tidak boleh kosong')
       .max(SYNC_MAX_BATCH, `Batch push maksimum ${SYNC_MAX_BATCH} record`)
       .refine(isAscendingHlc, 'Record harus terurut naik berdasarkan hlc'),

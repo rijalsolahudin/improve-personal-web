@@ -1,17 +1,14 @@
 import {
   compareHlc,
-  encodeKid,
   normalizeDeviceId,
   parseHlc,
-  parseSealedBlobHeader,
-  SEALED_RECORD_MAX_BLOB_BYTES,
   SYNC_MAX_PULL_BYTES,
   type HlcTuple,
-  type SealedRecordDto,
   type ServerRecord,
   type SyncPullQuery,
   type SyncPullResult,
   type SyncPushResult,
+  type SyncRecordDto,
   type SyncRecordResult,
 } from '@improve-personal/contracts'
 import type { ExtractTablesWithRelations } from 'drizzle-orm'
@@ -19,16 +16,18 @@ import { and, asc, eq, gt, sql } from 'drizzle-orm'
 import type { PostgresJsTransaction } from 'drizzle-orm/postgres-js'
 
 import type * as dbSchema from '../db/schema'
-import { accountKeys, records, syncWatermarks, type RecordRow } from '../db/schema'
+import { records, syncWatermarks, type RecordRow } from '../db/schema'
 import { apiProblem } from '../utils/api-error'
-import { base64ToBytes, bytesToBase64, toBytes } from '../utils/crypto'
+import { createRecordCipher, type RecordCipher } from '../utils/record-crypto'
+import { toBytes } from '../utils/crypto'
 import type { ServiceContext } from './context'
 
 /**
  * Sync relay (ARCHITECTURE.md §9, T21 sisi server).
  *
- * Server cuma menyimpan ciphertext + metadata. Yang harus benar di sini cuma dua hal: LWW yang
- * konsisten, dan cursor yang tidak melompati record yang sudah committed.
+ * Wire membawa `payload` polos; server yang menyegelnya (AES-256-GCM, kunci env) sebelum menyimpan,
+ * dan membukanya lagi saat pull. Kuncinya tidak pernah menyentuh client. Yang harus benar di sini cuma
+ * dua hal: LWW yang konsisten, dan cursor yang tidak melompati record yang sudah committed.
  *
  * Syarat "cursor tidak melompati record" adalah: untuk satu user, urutan `server_seq` == urutan
  * COMMIT. `nextval` dialokasikan di tengah transaksi dan sequence Postgres tidak transaksional, jadi
@@ -92,45 +91,38 @@ const MAX_UPSERT_ATTEMPTS = 2
 export async function pushRecords(
   ctx: ServiceContext,
   userId: string,
-  incoming: readonly SealedRecordDto[],
+  incoming: readonly SyncRecordDto[],
 ): Promise<SyncPushResult> {
   const results: SyncRecordResult[] = []
+  const cipher = recordCipherFor(ctx)
 
   await ctx.db.transaction(async (tx) => {
     await tx.execute(
       sql`select pg_advisory_xact_lock(hashtext(${`${PUSH_LOCK_NAMESPACE}:${userId}`}))`,
     )
 
-    // Dibaca SEKALI per batch, setelah lock: klaim identity tidak berubah selama transaksi ini.
-    const activeKid = await readActiveKid(tx, userId)
-
     for (const record of incoming) {
-      results.push(await upsertRecord(tx, ctx, userId, record, activeKid))
+      results.push(await upsertRecord(tx, ctx, cipher, userId, record))
     }
   })
 
   return { results }
 }
 
-/** KID aktif akun dalam bentuk wire, atau `null` kalau belum pernah diklaim. */
-async function readActiveKid(tx: SyncTransaction, userId: string): Promise<string | null> {
-  const rows = await tx
-    .select({ kid: accountKeys.kid })
-    .from(accountKeys)
-    .where(eq(accountKeys.userId, userId))
-    .limit(1)
-
-  const row = rows[0]
-
-  return row ? encodeKid(toBytes(row.kid)) : null
+/** Cipher at-rest milik request ini. Keyring datang dari env yang sudah divalidasi saat startup. */
+function recordCipherFor(ctx: ServiceContext): RecordCipher {
+  return createRecordCipher({
+    keys: ctx.env.recordEncryptionKeys,
+    activeVersion: ctx.env.recordEncryptionActiveVersion,
+  })
 }
 
 async function upsertRecord(
   tx: SyncTransaction,
   ctx: ServiceContext,
+  cipher: RecordCipher,
   userId: string,
-  record: SealedRecordDto,
-  activeKid: string | null,
+  record: SyncRecordDto,
 ): Promise<SyncRecordResult> {
   // `hlc` sudah divalidasi `hlcSchema` di kontrak. `parseHlc` tetap dipanggil supaya kalau kontrak
   // dan server tidak sinkron, record itu ditolak SATU-SATU (`rejected`) - bukan menggagalkan seluruh
@@ -142,17 +134,20 @@ async function upsertRecord(
     return { id: record.id, status: 'rejected' }
   }
 
-  const bytes = base64ToBytes(record.blob)
-  if (bytes.byteLength > SEALED_RECORD_MAX_BLOB_BYTES) return { id: record.id, status: 'rejected' }
-
-  // Blob harus berformat v2 dan dikunci dengan KID aktif akun. Akun tanpa KID juga menolak semua:
-  // klien wajib mengklaim identity dulu. Ini pertahanan server; kunci sungguhan hanya dibuktikan AEAD
-  // di client (KID di header bukan bukti memegang kunci).
-  const header = parseSealedBlobHeader(bytes)
-  if (!header || activeKid === null || encodeKid(header.kid) !== activeKid) {
+  // Penyegelan terjadi SEBELUM menyentuh baris: payload kebesaran atau tidak bisa diserialisasi
+  // ditolak satu record, bukan menggagalkan seluruh batch.
+  let sealed: ReturnType<RecordCipher['seal']>
+  try {
+    sealed = cipher.seal({
+      userId,
+      recordId: record.id,
+      hlc: record.hlc,
+      deleted: record.deleted,
+      payload: record.payload,
+    })
+  } catch {
     return { id: record.id, status: 'rejected' }
   }
-  const kid = new Uint8Array(header.kid)
 
   for (let attempt = 0; attempt < MAX_UPSERT_ATTEMPTS; attempt += 1) {
     const existing = await tx
@@ -173,7 +168,7 @@ async function upsertRecord(
         return { id: record.id, status: 'stale', serverHlc: stored.hlc }
       }
 
-      const updated = await updateRecord(tx, ctx, userId, record, tuple, bytes, kid)
+      const updated = await updateRecord(tx, ctx, userId, record, tuple, sealed)
       return { id: record.id, status: 'applied', serverSeq: updated }
     }
 
@@ -187,8 +182,8 @@ async function upsertRecord(
         hlcCounter: tuple.counter,
         hlcDevice: normalizeDeviceId(tuple.deviceId),
         deleted: record.deleted,
-        blob: bytes,
-        kid,
+        blob: sealed.blob,
+        keyVersion: sealed.keyVersion,
         createdAt: ctx.now,
         updatedAt: ctx.now,
       })
@@ -214,10 +209,9 @@ async function updateRecord(
   tx: SyncTransaction,
   ctx: ServiceContext,
   userId: string,
-  record: SealedRecordDto,
+  record: SyncRecordDto,
   tuple: HlcTuple,
-  bytes: Uint8Array,
-  kid: Uint8Array,
+  sealed: ReturnType<RecordCipher['seal']>,
 ): Promise<number> {
   const updated = await tx
     .update(records)
@@ -227,8 +221,8 @@ async function updateRecord(
       hlcCounter: tuple.counter,
       hlcDevice: normalizeDeviceId(tuple.deviceId),
       deleted: record.deleted,
-      blob: bytes,
-      kid,
+      blob: sealed.blob,
+      keyVersion: sealed.keyVersion,
       updatedAt: ctx.now,
       serverSeq: sql`nextval('records_seq')`,
     })
@@ -241,13 +235,26 @@ async function updateRecord(
   return row.serverSeq
 }
 
-/** Bentuk record saat pull - sama dengan yang dikirim klien, ditambah posisinya di server. */
-function toServerRecord(row: RecordRow): ServerRecord {
+/**
+ * Bentuk record saat pull - payload dibuka dari ciphertext server, ditambah posisinya di server.
+ *
+ * Dekripsi dilakukan HANYA untuk baris yang sudah lolos anggaran byte (lihat `pullRecords`), jadi
+ * halaman besar tidak pernah mendekripsi ratusan record yang akhirnya tidak dikirim.
+ */
+function toServerRecord(cipher: RecordCipher, row: RecordRow): ServerRecord {
   return {
     id: row.id,
     hlc: row.hlc,
     deleted: row.deleted,
-    blob: bytesToBase64(row.blob),
+    // `open` mengembalikan JSON hasil parse ciphertext yang sudah diautentikasi AAD; tipe
+    // `ServerRecord['payload']` adalah bentuk wire yang sama (`z.json()`).
+    payload: cipher.open({
+      userId: row.userId,
+      recordId: row.id,
+      hlc: row.hlc,
+      deleted: row.deleted,
+      blob: row.blob,
+    }) as ServerRecord['payload'],
     serverSeq: row.serverSeq,
   }
 }
@@ -290,8 +297,18 @@ export async function pullRecords(
   const page = takeWithinByteBudget(rows)
   const last = page.at(-1)
 
+  const cipher = recordCipherFor(ctx)
+  let recordsOut: ServerRecord[]
+  try {
+    recordsOut = page.map((row) => toServerRecord(cipher, row))
+  } catch {
+    // Jangan pernah mengirim halaman setengah jadi: kegagalan dekripsi berarti konfigurasi kunci
+    // bermasalah atau data rusak, dan client tidak boleh memajukan cursor di atasnya.
+    throw apiProblem('INTERNAL')
+  }
+
   return {
-    records: page.map(toServerRecord),
+    records: recordsOut,
     nextCursor: last ? last.serverSeq : query.cursor,
   }
 }
@@ -307,10 +324,10 @@ export async function pullRecords(
  *   ikut disertakan tetap tersedia di halaman berikutnya, karena `nextCursor` = `serverSeq` baris
  *   terakhir yang BENAR-BENAR dikirim.
  *
- * Byte yang dihitung adalah ukuran ciphertext setelah decode (satuan yang sama dengan
- * `SEALED_RECORD_MAX_BLOB_BYTES`), bukan panjang base64-nya. Base64 memang ~33% lebih besar di wire,
- * tapi yang menentukan memori server adalah blob yang dibaca dari DB lalu diserialisasi - dan angka
- * kontrak ini yang paling mudah dipahami klien.
+ * Byte yang dihitung adalah ukuran CIPHERTEXT di DB (`≈ payload + 34 byte`), bukan ukuran JSON hasil
+ * dekripsi. Ini sengaja: anggaran harus bisa dihitung TANPA mendekripsi seluruh halaman, dan
+ * ciphertext selalu sedikit lebih besar dari payload - jadi halaman yang lolos anggaran tidak mungkin
+ * melewati `SYNC_MAX_PULL_BYTES` setelah dibuka.
  */
 function takeWithinByteBudget(rows: readonly RecordRow[]): RecordRow[] {
   const page: RecordRow[] = []

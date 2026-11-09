@@ -21,7 +21,6 @@ import {
   resetPomodoroHistoryForTest,
   usePomodoro,
 } from './usePomodoro'
-import { TEST_KID_WIRE } from '../../tests/nuxt/record-key'
 
 const START_MS = 1_700_000_000_000
 const USER_ID = '018f2c4e-0000-7000-8000-00000000000a'
@@ -42,19 +41,10 @@ function memorySession(): LocalDataSession {
     provider: fakeProvider,
     clock,
     dataKey: DATA_KEY,
-    kid: TEST_KID_WIRE,
     hlc,
     deviceId: USER_ID,
     userId: USER_ID,
-    isFreshKey: true,
-    keyStore: {
-      has: async () => false,
-      put: async () => undefined,
-      get: async () => null,
-      remove: async () => undefined,
-    },
     newId: createUuidV7Generator({ clock }),
-    withMasterKey: async (work) => work(new Uint8Array(32)),
     repos: createRepositorySet({ storage, provider: fakeProvider, dataKey: DATA_KEY }),
     writer: createRecordWriter({ storage, provider: fakeProvider, dataKey: DATA_KEY, hlc, clock }),
   }

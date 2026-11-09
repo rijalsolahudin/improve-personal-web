@@ -47,6 +47,11 @@ export interface Task {
   goalId?: string | null
   /** Chapter tujuan; `null` = Sepanjang goal. */
   goalChapterId?: string | null
+  /**
+   * Epoch ms saat task dibuat (dari `todo.createdAt`). Dipakai Daily: task tanpa deadline yang dibuat
+   * hari ini ikut tampil di "Todo hari ini" di semua perangkat - bukan hanya perangkat yang menambah.
+   */
+  createdAt?: number
 }
 
 // ---- Filter & urutan -----------------------------------------------------------------

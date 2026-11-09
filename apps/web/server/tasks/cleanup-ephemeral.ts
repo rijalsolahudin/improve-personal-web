@@ -21,7 +21,7 @@ import { serverEnv } from '../utils/env'
 export default defineTask({
   meta: {
     name: 'cleanup-ephemeral',
-    description: 'Buang OTP, oauth_states, key_transfers, dan rate_limits yang sudah kedaluwarsa',
+    description: 'Buang OTP, oauth_states, dan rate_limits yang sudah kedaluwarsa',
   },
   async run(): Promise<{ result: CleanupEphemeralSummary }> {
     const ctx = { db: useDatabase(), env: serverEnv(), now: new Date(), clientIp: null }

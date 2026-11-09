@@ -234,7 +234,7 @@ describe('slot device', () => {
   it('Salinan 1 (gembok OTP) benar-benar dihapus: tidak ada slot OTP di perangkat', () => {
     // AC T20 + ADR 10: OTP cuma untuk sesi API. Daftar slot lokal tidak punya (dan tidak boleh
     // mendapat) slot `otp`, jadi tidak ada jalur yang menyimpan/membuka kunci dengan OTP.
-    expect([...KEY_SLOTS_LOCAL]).toEqual(['device', 'passkey', 'recovery'])
+    expect([...KEY_SLOTS_LOCAL]).toEqual(['device'])
     expect(KEY_SLOTS_LOCAL).not.toContain('otp')
   })
 })

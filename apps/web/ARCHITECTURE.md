@@ -27,8 +27,8 @@ app/
 i18n/               # locale (default id)
 public/             # manifest PWA, icon
 docs/               # symlink ke docs/ root
-server/             # API v1 (auth + relay ciphertext) - Nitro/H3 di app yang sama
-├── routes/api/     # endpoint /v1/** (auth, devices, keys, sync, account)
+server/             # API v1 (auth + sync + enkripsi at-rest) - Nitro/H3 di app yang sama
+├── routes/api/     # endpoint /v1/** (auth, devices, sync, account)
 ├── services/       # logika (OTP, sesi, sync upsert)
 ├── db/             # drizzle schema + migrasi
 ├── middleware/     # auth, rate limit, request id, error handler
@@ -37,12 +37,12 @@ server/             # API v1 (auth + relay ciphertext) - Nitro/H3 di app yang sa
 ```
 
 - Nggak ada app server terpisah (ADR 7 direvisi): API tinggal di `server/**` app ini dan dilayani Nitro bersama UI-nya.
-- Web **tetap dilarang** punya kemampuan dekripsi dan tetap nggak boleh pegang plaintext data user - server cuma simpan ciphertext + metadata minimal (arsitektur root §6, §8, §9).
+- Server menyegel `payload` sebelum menyimpan dan membukanya saat pull (`server/utils/record-crypto.ts`, AES-256-GCM, keyring env). Client tetap tidak memegang kunci server; plaintext hanya hidup di memori proses/permintaan.
 - Konvensi penamaan & batas ukuran file: [`.claude/rules/code-quality.md`](.claude/rules/code-quality.md).
 
 ## 2. Mode render & output build
 
-- Data user cuma ada di perangkat, jadi halaman app dirender di client (`ssr: false`) dan hanya landing publik yang di-prerender (ADR 6).
+- Data user tidak perlu dirender server (butuh sesi + lokal-first), jadi halaman app tetap `ssr: false` dan hanya landing publik yang di-prerender (ADR 6).
 - Ditetapkan per route di `routeRules` (`nuxt.config.ts`), bukan global: `/` prerender, `/login` SSR, `/app/**` `ssr: false`.
   - `/login` SSR sejak T66: teks form ada di HTML pertama (LCP tidak lagi menunggu bundel SPA + `_i18n/**/messages.json`). Halaman ini tidak memuat data akun - hanya form + hasil guard sesi (`useRequestFetch` meneruskan cookie request); HTML-nya tetap **tidak** di-cache service worker.
 - Output: `nitro.preset` **bukan** `static` lagi - ada server route API di app ini, jadi build-nya preset server (Node). Konsekuensi deploy: butuh host Node, `apps/web` nggak bisa lagi disajikan murni sebagai situs statis dari CDN.
@@ -55,14 +55,14 @@ server/             # API v1 (auth + relay ciphertext) - Nitro/H3 di app yang sa
 
 ## 4. State (Pinia) — ADR 9
 
-Pemilik data tetap `packages/core`, bukan store. Store cuma **cermin reaktif** plaintext di memori setelah unlock.
+Pemilik data tetap `packages/core`, bukan store. Store cuma **cermin reaktif** plaintext di memori setelah sesi data lokal siap.
 
 - Alur baca: composable panggil repository `core` → hasil masuk store → komponen baca store. Nggak ada komponen yang query repo langsung.
 - Alur tulis: komponen → use case `core` (validasi + tulis DB + outbox dalam satu transaksi) → core kabari store → store update. Store **dilarang** jadi jalur tulis langsung ke adapter IndexedDB; mutasi lewat store bikin outbox & tombstone (T21) nggak konsisten.
 - Store per domain core: `useTodoStore`, `useScheduleStore`, `useHabitStore`, `useMemoStore`, `useGoalStore`, `useCountdownStore`, `useDecoStore`; plus lintas fitur: `useSyncStore`, `useAppearanceStore`, `useUiStore`.
 - Derived state jadi `getter` (progress goal F13, agregasi Overview F11, streak F7, sisa waktu F2) - dihitung sekali per perubahan sumber, bukan di-scan ulang tiap komponen (AC T5, T13).
 - Perubahan lintas tab: core kirim event via `BroadcastChannel`, store yang subscribe lalu patch dirinya (AC F12).
-- Unlock & kunci: store dikosongkan saat app terkunci/logout. Kunci utama nggak pernah masuk store.
+- Sesi & kunci: store dikosongkan saat logout/ganti akun. Bahan kunci perangkat nggak pernah masuk store.
 
 ## 5. Plugin runtime
 

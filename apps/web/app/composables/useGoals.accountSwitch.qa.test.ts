@@ -16,7 +16,6 @@ import { persistGoal } from '~/utils/goals/persistence'
 
 import { useGoals } from './useGoals'
 import type { LocalDataState } from './useLocalData'
-import { TEST_KID_WIRE } from '../../tests/nuxt/record-key'
 
 /**
  * Ganti akun tanpa reload halaman (T18): goal akun sebelumnya tidak boleh terlihat di akun baru.
@@ -43,19 +42,10 @@ function memorySession(userId: string): LocalDataSession {
     provider: fakeProvider,
     clock,
     dataKey: DATA_KEY,
-    kid: TEST_KID_WIRE,
     hlc,
     deviceId: '018f2c4e-0000-7000-8000-0000000000d1',
     userId,
-    isFreshKey: true,
-    keyStore: {
-      has: async () => false,
-      put: async () => undefined,
-      get: async () => null,
-      remove: async () => undefined,
-    },
     newId: createUuidV7Generator({ clock }),
-    withMasterKey: async (work) => work(new Uint8Array(32)),
     repos: createRepositorySet({ storage, provider: fakeProvider, dataKey: DATA_KEY }),
     writer: createRecordWriter({ storage, provider: fakeProvider, dataKey: DATA_KEY, hlc, clock }),
   }
@@ -67,7 +57,7 @@ const GOAL_A = '0192f0a0-0000-7000-8000-000000000001'
 const GOAL_B = '0192f0a0-0000-7000-8000-000000000002'
 
 function readyState(userId: string): LocalDataState {
-  return { status: 'ready', isFreshKey: false, deviceId: null, userId, error: null }
+  return { status: 'ready', deviceId: null, userId, error: null }
 }
 
 function goalOf(id: string, title: string): Goal {

@@ -16,7 +16,6 @@ import { TEST_USER_A, createMemoryLocalSession, signIn } from '../../../tests/nu
 // Klaim identitas kunci (`PUT /v1/keys/identity`) berjalan sebelum `ready`; jaringan dimock di batas.
 mockNuxtImport('$fetch', () => async () => ({
   data: {
-    kid: 'LBaTVGaXKfW710NOCIXptA',
     claimedAt: '2026-10-27T00:00:00.000Z',
     claimedByDeviceLabel: null,
   },
@@ -45,7 +44,6 @@ vi.mock('~/utils/storage/session', () => ({
 const BASE_URL = 'https://app.test'
 const IDLE_STATE: LocalDataState = {
   status: 'idle',
-  isFreshKey: false,
   deviceId: null,
   userId: null,
   error: null,

@@ -111,6 +111,7 @@ export function toTask(
     // belum pernah selesai tetap sama bentuknya seperti sebelumnya.
     ...(todo.completedAt === null ? {} : { completedAt: todo.completedAt }),
     scheduleId: todo.scheduleId,
+    createdAt: todo.createdAt,
     quadrant: placement === null ? null : QUADRANT_FROM_CORE[placement.quadrant],
     position: placement?.position ?? 0,
     ...(place.goalId === null ? {} : { goalId: place.goalId }),

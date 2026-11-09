@@ -16,7 +16,6 @@ import { goalProgress } from '~/utils/goals'
 import { addDays } from '~/utils/time'
 import { persistGoal, recordsToPresentations, loadGoalRecords } from './persistence'
 import { loadGoalLinks, syncItemGoalLink } from './links'
-import { TEST_KID_WIRE } from '../../../tests/nuxt/record-key'
 
 const NOW_MS = 1_700_000_000_000
 const DATA_KEY: SecureKeyMaterial = { kind: 'raw-32', handle: new Uint8Array(32) }
@@ -36,19 +35,10 @@ function memorySession(): LocalDataSession {
     provider: fakeProvider,
     clock,
     dataKey: DATA_KEY,
-    kid: TEST_KID_WIRE,
     hlc,
     deviceId: '018f2c4e-0000-7000-8000-0000000000d1',
     userId: '018f2c4e-0000-7000-8000-00000000000a',
-    isFreshKey: true,
-    keyStore: {
-      has: async () => false,
-      put: async () => undefined,
-      get: async () => null,
-      remove: async () => undefined,
-    },
     newId: createUuidV7Generator({ clock }),
-    withMasterKey: async (work) => work(new Uint8Array(32)),
     repos: createRepositorySet({ storage, provider: fakeProvider, dataKey: DATA_KEY }),
     writer: createRecordWriter({ storage, provider: fakeProvider, dataKey: DATA_KEY, hlc, clock }),
   }

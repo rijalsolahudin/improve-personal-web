@@ -40,9 +40,10 @@ export type {
   SecureKeyMaterial,
   SecureKeyStore,
   StorageAdapter,
+  StoredRecord,
 } from './ports.ts'
 
-export { HttpError, RECORD_INDEX_KEEP, RECORD_PULL_FOREIGN, RECORD_PULL_REJECT } from './ports.ts'
+export { HttpError } from './ports.ts'
 
 // -----------------------------------------------------------------------------
 // Domain, recurrence, calc, repository, io, sync, adapters

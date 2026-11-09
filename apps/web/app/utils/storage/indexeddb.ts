@@ -27,8 +27,6 @@ import {
   type TransactionContext,
 } from '@improve-personal/core'
 
-import { RECORD_INDEX_KEEP } from './index-decision'
-
 /**
  * `StorageAdapter` web: IndexedDB (ARCHITECTURE §5, AC T2 & T23).
  *
@@ -290,7 +288,6 @@ async function putRecordRow(tx: WriteTx, write: RecordWrite, clock: Clock): Prom
   const records = tx.objectStore(STORAGE_TABLES.record)
   const previous = await records.get(write.sealed.id)
   const nowMs = clock.nowMs()
-  // `'keep'` = jangan sentuh `record_index` sama sekali (lihat `storage/index-decision.ts`).
   const index = write.index
 
   await records.put({
@@ -301,15 +298,11 @@ async function putRecordRow(tx: WriteTx, write: RecordWrite, clock: Clock): Prom
     // `createdAtMs` dipertahankan dari tulisan pertama: itu pembukuan lokal kapan record masuk,
     // bukan kapan terakhir diubah.
     createdAtMs: previous?.createdAtMs ?? nowMs,
-    updatedAtMs: index === null || index === RECORD_INDEX_KEEP ? nowMs : index.updatedAtMs,
+    updatedAtMs: index === null ? nowMs : index.updatedAtMs,
   })
 
   const indexes = tx.objectStore(STORAGE_TABLES.recordIndex)
-  if (index === RECORD_INDEX_KEEP) {
-    // Index tidak bisa dibangun, tetapi record-nya tetap masuk. Baris index lama DIBIARKAN: menghapus
-    // index karena decrypt gagal membuat record hilang dari query/export selamanya (QA T76 B2),
-    // sedangkan index basi paling buruk hanya salah menempatkan record di rentang waktu.
-  } else if (index === null) {
+  if (index === null) {
     // Entitas tanpa dimensi waktu tidak boleh meninggalkan baris index lama yang menunjuk ke record-nya.
     await indexes.delete(write.sealed.id)
   } else {

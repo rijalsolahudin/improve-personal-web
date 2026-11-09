@@ -1,7 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import type { SecureKeyStore } from '@improve-personal/core'
-
 import type { JsonFetch } from '~/utils/http/json-fetch'
 
 import { AUTH_SESSION_STATE_KEYS } from './useAuthSession'
@@ -18,17 +16,6 @@ import { useAccount } from './useAccount'
 const USER_ID = '018f2c4e-0000-7000-8000-00000000000a'
 const SERVER_DEVICE_ID = '018f2c4e-0000-7000-8000-0000000000d1'
 const OTHER_DEVICE_ID = '018f2c4e-0000-7000-8000-0000000000d2'
-const LOCAL_HLC_DEVICE_ID = '018f2c4e-0000-7000-8000-0000000000aa'
-
-const ensure = vi.hoisted(() => vi.fn())
-vi.mock('~/composables/useLocalData', () => ({ useLocalData: () => ({ ensure }) }))
-
-const emptyKeyStore: SecureKeyStore = {
-  has: async () => false,
-  put: async () => undefined,
-  get: async () => null,
-  remove: async () => undefined,
-}
 
 function device(id: string) {
   return {
@@ -50,7 +37,6 @@ const request = vi.fn<JsonFetch>(async (path) => {
 })
 
 beforeEach(() => {
-  ensure.mockResolvedValue({ deviceId: LOCAL_HLC_DEVICE_ID, keyStore: emptyKeyStore })
   useState(AUTH_SESSION_STATE_KEYS.session).value = {
     user: { id: USER_ID, email: 'a@contoh.id' },
     device: { id: SERVER_DEVICE_ID, name: 'Chrome di Linux' },
@@ -66,7 +52,7 @@ afterEach(() => {
 
 describe('useAccount: penanda perangkat ini', () => {
   it('menandai perangkat yang id-nya sama dengan perangkat di sesi auth', async () => {
-    const account = useAccount({ request, keyStore: emptyKeyStore })
+    const account = useAccount({ request })
 
     await account.load()
 
@@ -76,7 +62,7 @@ describe('useAccount: penanda perangkat ini', () => {
 
   it('tanpa sesi auth, tidak ada perangkat yang ditandai', async () => {
     useState(AUTH_SESSION_STATE_KEYS.session).value = null
-    const account = useAccount({ request, keyStore: emptyKeyStore })
+    const account = useAccount({ request })
 
     await account.load()
 

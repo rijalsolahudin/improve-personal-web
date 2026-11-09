@@ -7,7 +7,6 @@ import {
   type RecordIndexEntry,
 } from '../domain/envelope.ts'
 import type { RecordWrite, StorageAdapter, StoredSyncState } from '../ports.ts'
-import { RECORD_INDEX_KEEP } from '../ports.ts'
 import { createManualClock, type ManualClock } from './clock.ts'
 
 /**
@@ -234,40 +233,6 @@ export function runStorageAdapterContractTests(
           await tx.putRecord(write({ id: id(10), hlc: hlcOf(11), index: null }))
         })
         expect(await storage.listIndexByType('todo')).toHaveLength(0)
-      })
-
-      it("putRecord dengan index 'keep' mempertahankan baris index lama", async () => {
-        await storage.runTransaction('contract.write', async (tx) => {
-          await tx.putRecord(
-            write({
-              id: id(24),
-              hlc: hlcOf(24),
-              index: rangeIndex(id(24), 'todo', START_MS + 7_000, null),
-            }),
-          )
-        })
-        const before = await storage.listIndexByType('todo')
-        expect(before).toHaveLength(1)
-
-        await storage.runTransaction('contract.write', async (tx) => {
-          await tx.putRecord(
-            write({ id: id(24), hlc: hlcOf(25), blob: 'blob-baru', index: RECORD_INDEX_KEEP }),
-          )
-        })
-
-        // Record-nya diperbarui, index-nya tidak disentuh sama sekali.
-        expect((await storage.getRecord(id(24)))?.blob).toBe('blob-baru')
-        expect(await storage.listIndexByType('todo')).toEqual(before)
-      })
-
-      it("putRecord dengan index 'keep' tidak mengarang index saat belum ada", async () => {
-        await storage.runTransaction('contract.write', async (tx) => {
-          await tx.putRecord(write({ id: id(25), hlc: hlcOf(25), index: RECORD_INDEX_KEEP }))
-        })
-
-        expect((await storage.getRecord(id(25)))?.blob).toBe(`blob-${id(25)}`)
-        expect(await storage.listIndexByType('todo')).toEqual([])
-        expect(await storage.listIndexByType('schedule')).toEqual([])
       })
     })
 
@@ -651,20 +616,11 @@ export function runStorageAdapterContractTests(
           createdAtMs: START_MS + 1,
           lastUsedAtMs: START_MS + 1,
         })
-        await storage.putKeyMeta({
-          id: id(32),
-          slot: 'recovery',
-          kdfHint: 'argon2id',
-          createdAtMs: START_MS,
-          lastUsedAtMs: null,
-        })
 
         expect((await storage.getKeyMeta('device'))?.kdfHint).toBe('webauthn')
-        expect((await storage.getKeyMeta('recovery'))?.id).toBe(id(32))
 
         await storage.deleteKeyMeta('device')
         expect(await storage.getKeyMeta('device')).toBeNull()
-        expect((await storage.getKeyMeta('recovery'))?.id).toBe(id(32))
       })
 
       it('sticker_recent: terbaru dulu, limit dihormati', async () => {

@@ -1,0 +1,2 @@
+ALTER TABLE "records" ADD COLUMN "key_version" smallint DEFAULT 1 NOT NULL;--> statement-breakpoint
+ALTER TABLE "records" ADD CONSTRAINT "ck_records_key_version_positive" CHECK ("records"."key_version" > 0);

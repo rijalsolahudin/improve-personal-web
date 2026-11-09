@@ -1,4 +1,5 @@
 import {
+  ENTITY_TYPES,
   createHlcGenerator,
   createSystemClock,
   type Clock,
@@ -7,6 +8,7 @@ import {
   type RepositorySet,
   type SecureKeyMaterial,
   type SecureKeyStore,
+  type StoredRecord,
   type StorageAdapter,
 } from '@improve-personal/core'
 
@@ -16,7 +18,7 @@ import {
   unlockMasterKeyWithDevice,
 } from '../crypto/device-slot'
 import { createWebKeyStore } from '../crypto/key-store'
-import { createMasterKey, deriveDataKey, deriveKidWire, zeroKey } from '../crypto/master-key'
+import { createMasterKey, deriveDataKey, zeroKey } from '../crypto/master-key'
 import { createSodiumCryptoProvider } from '../crypto/provider'
 import { loadSodium, type SodiumModule } from '../crypto/sodium'
 
@@ -39,39 +41,19 @@ import { createUuidV7Generator } from './uuid'
 import { createRecordWriter, type RecordWriter } from './record-writer'
 
 /**
- * Sesi data lokal: buka kunci perangkat → kunci data → repository siap dipakai (ARCHITECTURE §5 & §7).
+ * Sesi data lokal: buka kunci PERANGKAT → kunci data → repository siap dipakai.
  *
- * Modul ini sengaja dimuat lewat `import()` dari `useLocalData` (bukan impor statis): isinya adaptor
- * IndexedDB + kripto + repository, dan rute yang tidak pernah menyentuh data lokal (landing, `/login`)
- * tidak perlu membayarnya. Karena itu helper murni (`assertUserId`, nama database, `hasStoredRecords`)
- * tinggal di `./database-names` - kalau di sini, impor statis dari komposabel lain akan menyeret
- * seluruh modul ini kembali ke bundel awal.
+ * Kunci di sini hanya melindungi salinan lokal (IndexedDB). Data yang disinkronkan disegel server
+ * dengan kunci milik server dari env, jadi:
  *
- * Ini "shell" yang menyatukan potongan-potongan yang sudah diuji sendiri-sendiri (adaptor, kripto,
- * repository) supaya UI tidak perlu tahu urutannya.
+ * - Tidak ada passkey/recovery/QR: login = akses data. Perangkat baru cukup pull.
+ * - Kunci perangkat hilang (data situs dihapus) BUKAN kehilangan data: salinan lokal yang tidak bisa
+ *   dibuka dibuang, kunci baru dibuat, lalu sync menarik ulang semuanya dari server.
+ * - Penyimpanan tetap dipisah PER AKUN (`userId` di nama database). Tanpa itu, satu browser = satu bak
+ *   data untuk semua akun.
  *
- * Tiga hal yang diputuskan di sini dan perlu diketahui pembaca:
- *
- * 0. **Penyimpanan dipisah PER AKUN, bukan per perangkat.** Nama database memuat `userId`, dan begitu
- *    juga penyimpanan kunci. Sebelum ini, satu browser = satu bak data untuk SEMUA akun: logout lalu
- *    login akun lain akan menampilkan data akun pertama (terdekripsi, di UI), karena adaptor dan pembuka
- *    kuncinya cuma diikat ke perangkat. Itu bug kerahasiaan yang nyata, dan `userId` di sini yang
- *    menutupnya - bukan sesuatu yang boleh dianggap opsional.
- * 1. **Kunci baru dibuat otomatis kalau perangkat belum punya pembuka.** Itu jalan sementara sampai
- *    onboarding T22 ada: kunci utama dibuat, dibungkus kunci perangkat, dan `isFreshKey` = true supaya
- *    UI bisa memperingatkan bahwa recovery key BELUM diatur. Selama peringatan itu ada, jangan pakai
- *    untuk data sungguhan: kalau perangkat ini hilang sebelum envelope recovery dibuat, datanya hilang
- *    - dan itu memang konsekuensi jujur dari E2EE, bukan bug.
- *    Dua tab yang membuka sesi bersamaan di perangkat kosong sama-sama membuat kandidat kunci, tapi
- *    hanya SATU yang tersimpan (`saveDeviceUnlock` = sisip-jika-kosong di bawah Web Lock). Tab yang
- *    kalah membuang kandidatnya dan membuka kunci milik pemenang, jadi kedua tab menyegel record
- *    dengan kunci yang sama - lihat `createOrAdoptMasterKey`.
- * 2. **`deviceId` disiapkan di `sync_state`** (dibuat sekali, lalu dipakai terus). HLC butuh id
- *    perangkat sebagai tie-break; kalau id berubah tiap sesi, urutan tulisan jadi tidak stabil antar
- *    perangkat.
- *
- * Kunci utama yang sudah diturunkan jadi kunci data langsung dikosongkan dari memori (`zeroKey`) -
- * yang hidup terus hanya kunci data, dan itu pun hanya di memori.
+ * Modul ini dimuat lewat `import()` dari `useLocalData`: isinya adaptor IndexedDB + kripto +
+ * repository, dan rute yang tidak menyentuh data lokal tidak perlu membayarnya.
  */
 
 export type LocalDataSession = {
@@ -79,85 +61,32 @@ export type LocalDataSession = {
   readonly userId: string
   readonly repos: RepositorySet
   readonly writer: RecordWriter
-  /** True = kunci utama baru dibuat di sesi ini (recovery key belum diatur). */
-  readonly isFreshKey: boolean
   /** Id perangkat yang dipakai HLC & sync. */
   readonly deviceId: string
   readonly dataKey: SecureKeyMaterial
-  /**
-   * KID akun ini dalam bentuk wire (base64url 22 karakter), turunan kunci utama. Non-rahasia; dipakai
-   * untuk mengklaim identitas kunci di server sebelum sync. Pseudonim: jangan di-log.
-   */
-  readonly kid: string
-  /**
-   * Penyimpanan kunci MILIK AKUN ini (nama database memuat `userId`).
-   *
-   * Diberikan lewat sesi supaya tidak ada pemanggil yang membuat penyimpanan kunci sendiri dengan nama
-   * default - itulah yang bikin akun B melihat passkey milik akun A.
-   */
-  readonly keyStore: SecureKeyStore
   readonly hlc: HlcGenerator
   readonly storage: StorageAdapter
-  /** Operasi kripto (seal/open) - dipakai fitur yang butuh repository tipe tambahan. */
+  /** Operasi kripto lokal (seal/open blob di IndexedDB). */
   readonly provider: CryptoProvider
   readonly clock: Clock
   /** Id record baru (UUIDv7). Fitur memakainya supaya id payload = id record, selalu. */
   readonly newId: () => string
-  /**
-   * Jalankan operasi yang MEMBUTUHKAN kunci utama (mis. membuat envelope recovery/passkey baru).
-   *
-   * Kunci utama sengaja tidak disimpan di sesi: yang hidup selama sesi hanya kunci data. Kunci utama
-   * dibuka dari pembuka perangkat saat benar-benar dipakai, lalu langsung dikosongkan (`zeroKey`) -
-   * jadi jendela waktu kunci polos ada di memori sekecil mungkin.
-   */
-  readonly withMasterKey: <T>(work: (masterKey: Uint8Array) => Promise<T>) => Promise<T>
-}
-
-/**
- * Slot pembuka perangkat kosong, tapi penyimpanan sudah berisi data.
- *
- * Ini kondisi yang HARUS berhenti di sini: membuat kunci utama baru berarti kunci data baru, dan data
- * lama (yang terenkripsi kunci lama) tidak akan pernah bisa dibuka lagi - user melihat aplikasi kosong
- * dan kehilangan datanya tanpa satu error pun. Pemulihannya harus lewat passkey, recovery key, atau QR
- * dari perangkat lain.
- */
-export class LocalKeyMissingError extends Error {
-  constructor() {
-    super(
-      'pembuka perangkat tidak ada sementara data sudah tersimpan: pulihkan lewat passkey, recovery key, atau QR dari perangkat lain',
-    )
-    this.name = 'LocalKeyMissingError'
-  }
 }
 
 export type OpenSessionOptions = {
-  /** Pemilik data lokal ini (`user.id` dari sesi server). Wajib - lihat catatan 0 di atas. */
+  /** Pemilik data lokal ini (`user.id` dari sesi server). Wajib. */
   readonly userId: string
   readonly clock?: Clock
   /** Nama database record & nama database kunci; dipisah supaya test bisa mengisolasinya. */
   readonly databaseName?: string
   readonly keysDatabaseName?: string
-  /**
-   * Syarat lingkungan. Default: dibaca dari global.
-   *
-   * Disuntik di test karena runtime test (node) memang tidak punya `isSecureContext`/`navigator.locks` -
-   * dan yang diuji di sana adalah perilaku penyimpanan, bukan kelengkapan browser.
-   */
+  /** Syarat lingkungan. Disuntik di test karena runtime test tidak punya `isSecureContext`. */
   readonly environment?: LocalEnvironmentProbe
-  /**
-   * Boleh membuat kunci utama BARU saat perangkat belum punya pembuka? Default: ya.
-   *
-   * Dijawab "tidak" oleh pemanggil yang tahu akunnya sudah punya kunci di tempat lain (mis. envelope
-   * passkey di server). Kunci baru di perangkat kedua terlihat tidak berbahaya, tapi begitu user
-   * mengaktifkan passkey, envelope di server tertimpa dan kunci lama kehilangan pembukanya. Hanya
-   * dipanggil kalau perangkat memang belum punya pembuka.
-   */
-  readonly canCreateKey?: () => Promise<boolean>
 }
 
 export async function openLocalDataSession(options: OpenSessionOptions): Promise<LocalDataSession> {
   // Diperiksa LEBIH DULU: kalau syaratnya kurang, kegagalannya nanti muncul sebagai error acak di
-  // tengah pembuatan kunci - dan user hanya melihat aplikasi kosong tanpa sebab.
+  // tengah pembuatan kunci.
   const environment = checkLocalDataEnvironment(options.environment ?? readLocalEnvironment())
   if (!environment.ok) throw localEnvironmentError(environment.problems)
 
@@ -166,7 +95,7 @@ export async function openLocalDataSession(options: OpenSessionOptions): Promise
   const userId = assertUserId(options.userId)
 
   // Migrasi nama lama HANYA di jalur nyata: kalau nama database di-override (test/tool), pemanggilnya
-  // sengaja ingin menyentuh nama tertentu - termasuk saat mensimulasikan data versi lama.
+  // sengaja ingin menyentuh nama tertentu.
   if (options.databaseName === undefined && options.keysDatabaseName === undefined) {
     await migrateLegacyLocalDatabases(userId)
   }
@@ -182,76 +111,114 @@ export async function openLocalDataSession(options: OpenSessionOptions): Promise
 
   const hasDeviceKey = await keyStore.has('device')
 
-  if (!hasDeviceKey && (await hasStoredRecords(storage))) throw new LocalKeyMissingError()
-  if (!hasDeviceKey && options.canCreateKey !== undefined && !(await options.canCreateKey())) {
-    throw new LocalKeyMissingError()
+  if (!hasDeviceKey) {
+    // Salinan lokal tanpa kunci pembukanya tidak akan pernah bisa dibaca. Server adalah sumber
+    // kebenaran, jadi dibuang lalu dibuat kunci baru - jauh lebih baik daripada menampilkan layar
+    // "terkunci" yang tidak punya jalan keluar.
+    if (await hasStoredRecords(storage)) await storage.wipe()
   }
 
-  const { masterKey, isFreshKey } = hasDeviceKey
-    ? { masterKey: await unlockMasterKeyWithDevice(keyStore), isFreshKey: false }
+  const masterKey = hasDeviceKey
+    ? await unlockMasterKeyWithDevice(keyStore)
     : await createOrAdoptMasterKey(sodium, keyStore)
 
   const dataKey = deriveDataKey(sodium, masterKey, userId)
-  const kid = deriveKidWire(sodium, masterKey)
   // Kunci utama tidak dibutuhkan lagi setelah kunci data diturunkan: yang disimpan di perangkat adalah
   // bungkusnya, dan kunci polos tidak perlu hidup lebih lama dari yang perlu.
   zeroKey(masterKey)
+
+  // Salinan lokal bisa dibuat kunci/format lama (mis. setelah upgrade). Kalau satu record saja tidak
+  // bisa dibuka, seluruh salinan lokal tidak bisa dipercaya: server sumber kebenaran, jadi dibuang
+  // lalu full pull. Tanpa ini repository melempar `RecordKeyError` dan halaman tampak kosong.
+  await discardUnreadableLocalCopy({ storage, provider, dataKey })
 
   const deviceId = await ensureDeviceId(storage, clock)
   const hlc = createHlcGenerator({ deviceId, clock })
 
   return {
     userId,
-    keyStore,
     storage,
     provider,
     clock,
     dataKey,
-    kid,
     hlc,
     deviceId,
-    isFreshKey,
     newId: createUuidV7Generator({ clock }),
-    withMasterKey: async <T>(work: (masterKey: Uint8Array) => Promise<T>): Promise<T> => {
-      const masterKey = await unlockMasterKeyWithDevice(keyStore)
-
-      try {
-        return await work(masterKey)
-      } finally {
-        zeroKey(masterKey)
-      }
-    },
     repos: createRepositorySet({ storage, provider, dataKey }),
     writer: createRecordWriter({ storage, provider, dataKey, hlc, clock }),
   }
 }
 
 /**
- * Buat kunci utama pertama perangkat ini - atau pakai kunci yang baru saja disimpan tab lain.
+ * Buat kunci perangkat baru - atau pakai kunci yang baru saja disimpan tab lain.
  *
- * Pemeriksaan slot di `openLocalDataSession` hanya petunjuk: di antara pemeriksaan itu dan penyimpanan,
- * tab lain bisa lebih dulu menyimpan kuncinya. Yang menentukan adalah `saveDeviceUnlock`, yang memeriksa
- * ulang di bawah lock. Kalau kalah, kandidat kita belum pernah dipakai menyegel apa pun (sesi belum
- * dikembalikan), jadi aman dibuang; `isFreshKey` ikut false karena kunci ini bukan dibuat sesi ini.
- *
- * Lock sengaja tidak dipegang selama `canCreateKey`/pemeriksaan record di atas: `canCreateKey` bisa
- * berupa panggilan jaringan, dan menahan lock selama itu membuat tab lain ikut menunggu jaringan.
+ * Pemeriksaan slot di atas hanya petunjuk: di antara pemeriksaan itu dan penyimpanan, tab lain bisa
+ * lebih dulu menyimpan kuncinya. Yang menentukan adalah `saveDeviceUnlock`, yang memeriksa ulang di
+ * bawah lock. Kandidat yang kalah belum pernah dipakai menyegel apa pun (sesi belum dikembalikan),
+ * jadi aman dibuang.
  */
 async function createOrAdoptMasterKey(
   sodium: SodiumModule,
   keyStore: SecureKeyStore,
-): Promise<{ readonly masterKey: Uint8Array; readonly isFreshKey: boolean }> {
+): Promise<Uint8Array> {
   const candidate = createMasterKey(sodium)
 
   try {
     await saveDeviceUnlock(keyStore, candidate)
-    return { masterKey: candidate, isFreshKey: true }
+    return candidate
   } catch (error) {
     zeroKey(candidate)
     if (!(error instanceof DeviceSlotOccupiedError)) throw error
 
-    return { masterKey: await unlockMasterKeyWithDevice(keyStore), isFreshKey: false }
+    return unlockMasterKeyWithDevice(keyStore)
   }
+}
+
+/**
+ * Buang salinan lokal kalau ada satu record yang tidak bisa dibuka dengan kunci sesi ini.
+ *
+ * Kenapa di sini, bukan di setiap repository: satu blob yang tidak terbaca membuat `listAll` melempar,
+ * dan halaman yang memuatnya tampak kosong/rusak - padahal data di server utuh. Server adalah sumber
+ * kebenaran, jadi salinan lokal yang tidak konsisten dengan kuncinya dibuang, cursor kembali 0, lalu
+ * pull mengisi ulang.
+ *
+ * Sampel diambil dari `record_index` per tipe entitas: semua tulisan lewat `RecordWriter` selalu
+ * menulis baris index, jadi satu record yang ada pasti bisa ditemukan tanpa memindai seluruh tabel.
+ * Hanya `openRecord` yang dibungkus `try`: ia murni kripto, jadi kegagalannya berarti blob/kunci tidak
+ * cocok. Kegagalan storage (membaca index/record) dibiarkan melempar - bukan alasan menghapus data.
+ */
+async function discardUnreadableLocalCopy(deps: {
+  readonly storage: StorageAdapter
+  readonly provider: CryptoProvider
+  readonly dataKey: SecureKeyMaterial
+}): Promise<void> {
+  const sample = await findSampleRecord(deps.storage)
+  if (sample === null) return
+
+  try {
+    await deps.provider.openRecord({
+      recordId: sample.id,
+      hlc: sample.hlc,
+      deleted: sample.deleted,
+      dataKey: deps.dataKey,
+      blob: sample.blob,
+    })
+  } catch {
+    await deps.storage.wipe()
+  }
+}
+
+async function findSampleRecord(storage: StorageAdapter): Promise<StoredRecord | null> {
+  for (const type of ENTITY_TYPES) {
+    const entries = await storage.listIndexByType(type)
+    const recordId = entries[0]?.recordId
+    if (recordId === undefined) continue
+
+    const rows = await storage.getRecords([recordId])
+    if (rows[0] !== undefined) return rows[0]
+  }
+
+  return null
 }
 
 /**

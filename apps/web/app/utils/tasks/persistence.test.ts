@@ -68,6 +68,7 @@ function task(session: LocalDataSession, overrides: Partial<Task> = {}): Task {
     scheduleId: null,
     quadrant: null,
     position: 0,
+    createdAt: START_MS,
     ...overrides,
   }
 }

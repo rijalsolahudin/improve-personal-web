@@ -50,6 +50,20 @@
       "when": 1793069314985,
       "tag": "0006_account_keys",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1794173255205,
+      "tag": "0007_drop_key_relay",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1794173259769,
+      "tag": "0008_records_key_version",
+      "breakpoints": true
     }
   ]
 }

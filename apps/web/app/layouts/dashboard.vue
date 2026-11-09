@@ -55,18 +55,9 @@ onMounted(() => {
   <div class="shell paper-grid">
     <ShellSidebar class="desktop-only" />
     <main class="main" data-anchor="page" data-anchor-kind="page">
-      <AccountKeyStatusNotice />
-      <StorageQuotaBanner />
+      <ShellStorageQuotaBanner />
       <slot />
     </main>
-    <!-- Onboarding pembuka kunci: satu tap Face ID/passkey, tidak bisa ditutup sampai selesai.
-         Lazy: dialog ini cuma terbuka untuk akun yang belum punya passkey, sedangkan bobot kodenya
-         (alur aktivasi + kartu backup + penjelasan E2EE) ikut ter-`modulepreload` di setiap kunjungan
-         `/app` kalau diimpor statis. Hidrasi shell tidak perlu menunggunya. -->
-    <LazyAccountPasskeyOnboarding />
-    <!-- Perangkat tanpa pembuka kunci (perangkat baru / data situs terhapus): buka lewat passkey atau kode.
-         Lazy dengan alasan yang sama: jalur pemulihan (BIP39 + envelope) hanya dibutuhkan perangkat baru. -->
-    <LazyAccountKeyRecoveryGate />
     <!-- Modal akun dari menu sidebar / menu HP. Lazy + v-if: kodenya baru dimuat saat dibuka. -->
     <LazyAccountProfileDialog
       v-if="accountDialogs.current.value === 'profile'"

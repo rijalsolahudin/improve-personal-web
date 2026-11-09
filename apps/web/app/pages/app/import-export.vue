@@ -27,9 +27,6 @@ onMounted(() => {
 const localStatus = computed(() => localData.state.value.status)
 
 const unavailableMessage = computed(() => {
-  if (localStatus.value === 'locked') {
-    return 'Kunci perangkat ini belum terbuka, jadi data belum bisa dibaca atau ditulis. Pulihkan dulu lewat halaman Akun, lalu kembali ke sini.'
-  }
   if (localStatus.value === 'error') {
     return `Data lokal tidak bisa dibuka: ${localData.state.value.error ?? 'sebab tidak diketahui'}.`
   }

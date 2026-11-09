@@ -1,9 +1,9 @@
 // @vitest-environment node
 //
-// Sesi data lokal: rangkaian "buka kunci perangkat -> kunci data -> repository" (ARCHITECTURE §5 & §7).
+// Sesi data lokal: buka kunci PERANGKAT -> kunci data -> repository (kunci hanya untuk salinan lokal).
 //
-// Ini juga yang membuktikan tujuan awalnya: data yang ditulis di satu sesi tetap ada di sesi
-// berikutnya, tanpa kunci utama disimpan di mana pun.
+// Data yang dikirim ke server disegel server; karena itu sesi tidak punya tahap unlock dan kunci
+// perangkat yang hilang TIDAK berarti data hilang - salinan lokal dibuang lalu di-pull ulang.
 import 'fake-indexeddb/auto'
 
 import { IDBFactory } from 'fake-indexeddb'
@@ -12,21 +12,17 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { createManualClock, type Todo } from '@improve-personal/core'
 
 import { createWebKeyStore } from '../crypto/key-store'
-import { deriveDataKey } from '../crypto/master-key'
-import { loadSodium } from '../crypto/sodium'
-import { LocalKeyMissingError, openLocalDataSession } from './session'
-import { TEST_USER_ID } from '../../../tests/nuxt/record-key'
+import { openLocalDataSession } from './session'
 
 const START_MS = 1_700_000_000_000
-/** Akun uji: penyimpanan lokal sekarang dipisah per akun (lihat `account-scope.test.ts`). */
+/** Akun uji: penyimpanan lokal dipisah per akun (lihat `account-scope.test.ts`). */
 const USER_ID = '018f2c4e-0000-7000-8000-00000000000a'
 const DATABASE_PREFIX = 'ip-session-test'
 
 /**
  * Runtime test (node) tidak punya syarat browser yang diperiksa `openLocalDataSession`
  * (`isSecureContext`, `navigator.locks`). Dinyatakan di sini supaya yang diuji adalah perilaku
- * penyimpanan - bukan kelengkapan browser. Pemeriksaan syaratnya sendiri diuji di
- * `environment.test.ts`.
+ * penyimpanan - bukan kelengkapan browser.
  */
 Object.defineProperty(globalThis, 'isSecureContext', { value: true, configurable: true })
 
@@ -82,8 +78,6 @@ describe('sesi data lokal', () => {
       ...names(),
     })
 
-    // Penanda untuk UI: recovery key BELUM diatur - ini yang harus memunculkan peringatan.
-    expect(session.isFreshKey).toBe(true)
     expect(session.deviceId).toMatch(/^[0-9a-f-]{36}$/)
 
     const { id } = await session.writer.write({
@@ -101,7 +95,7 @@ describe('sesi data lokal', () => {
     expect(state?.status).toBe('offline')
   })
 
-  it('sesi berikutnya: kunci dibuka ulang dari perangkat, deviceId sama, data lama terbaca', async () => {
+  it('sesi berikutnya: kunci perangkat dipakai lagi, deviceId sama, data lama terbaca', async () => {
     const dbNames = names()
 
     const first = await openLocalDataSession({
@@ -114,14 +108,12 @@ describe('sesi data lokal', () => {
       data: (recordId) => todoPayload(recordId, 'Tetap ada setelah reload'),
     })
 
-    // Sesi baru: tidak ada satu pun objek dari sesi pertama yang dipakai ulang.
     const second = await openLocalDataSession({
       userId: USER_ID,
       clock: createManualClock(START_MS),
       ...dbNames,
     })
 
-    expect(second.isFreshKey).toBe(false)
     expect(second.deviceId).toBe(first.deviceId)
 
     const record = await second.repos.todo.getById(id)
@@ -129,11 +121,10 @@ describe('sesi data lokal', () => {
   })
 
   it('database terpisah tidak saling melihat data (bukti isolasi penyimpanan)', async () => {
-    const firstNames = names()
     const first = await openLocalDataSession({
       userId: USER_ID,
       clock: createManualClock(START_MS),
-      ...firstNames,
+      ...names(),
     })
 
     await first.writer.write({
@@ -150,7 +141,7 @@ describe('sesi data lokal', () => {
     expect(await second.repos.todo.listAll()).toEqual([])
   })
 
-  it('MENOLAK membuat kunci baru kalau data sudah ada tapi pembuka perangkat hilang', async () => {
+  it('pembuka perangkat hilang: salinan lokal dibuang dan kunci baru dibuat (data tetap di server)', async () => {
     const dbNames = names()
     const first = await openLocalDataSession({
       userId: USER_ID,
@@ -159,55 +150,61 @@ describe('sesi data lokal', () => {
     })
     await first.writer.write({
       type: 'todo',
-      data: (recordId) => todoPayload(recordId, 'Data yang tidak boleh terlantar'),
+      data: (recordId) => todoPayload(recordId, 'Salinan lokal saja'),
     })
 
     // Pembuka perangkat hilang (mis. storage kunci terhapus), sementara record-nya masih ada.
     await createWebKeyStore({ databaseName: dbNames.keysDatabaseName }).remove('device')
 
-    // Membuat kunci baru di sini akan menghasilkan kunci data baru: semua record lama jadi tidak bisa
-    // dibuka, dan user hanya melihat aplikasi kosong tanpa error. Jadi harus gagal, dengan jalan keluar.
-    await expect(
-      openLocalDataSession({ userId: USER_ID, clock: createManualClock(START_MS), ...dbNames }),
-    ).rejects.toBeInstanceOf(LocalKeyMissingError)
-  })
-
-  it('TIDAK membuat kunci baru kalau akunnya sudah punya kunci di tempat lain (canCreateKey = false)', async () => {
-    const dbNames = names()
-
-    await expect(
-      openLocalDataSession({
-        userId: USER_ID,
-        clock: createManualClock(START_MS),
-        canCreateKey: async () => false,
-        ...dbNames,
-      }),
-    ).rejects.toBeInstanceOf(LocalKeyMissingError)
-
-    // Tidak ada pembuka yang tertulis: perangkat tetap "belum punya kunci", bukan setengah jadi.
-    expect(await createWebKeyStore({ databaseName: dbNames.keysDatabaseName }).has('device')).toBe(
-      false,
-    )
-  })
-
-  it('canCreateKey tidak ditanya kalau perangkat sudah punya pembuka', async () => {
-    const dbNames = names()
-    const clock = createManualClock(START_MS)
-    await openLocalDataSession({ userId: USER_ID, clock, ...dbNames })
-
-    let asked = false
-    const second = await openLocalDataSession({
+    // Salinan lokal yang tidak bisa dibuka TIDAK boleh membuat aplikasi kosong tanpa error. Dibuang,
+    // kunci baru dibuat, lalu full pull akan mengisi ulang dari server.
+    const reopened = await openLocalDataSession({
       userId: USER_ID,
-      clock,
-      canCreateKey: async () => {
-        asked = true
-        return false
-      },
+      clock: createManualClock(START_MS),
       ...dbNames,
     })
 
-    expect(asked).toBe(false)
-    expect(second.isFreshKey).toBe(false)
+    expect(await reopened.repos.todo.listAll()).toEqual([])
+    expect((await reopened.storage.getSyncState())?.cursor).toBe(0)
+    expect(await createWebKeyStore({ databaseName: dbNames.keysDatabaseName }).has('device')).toBe(
+      true,
+    )
+  })
+
+  it('salinan lokal yang blob-nya tidak terbaca dibuang, cursor kembali 0 (pull ulang dari server)', async () => {
+    const dbNames = names()
+    const first = await openLocalDataSession({
+      userId: USER_ID,
+      clock: createManualClock(START_MS),
+      ...dbNames,
+    })
+    const { id } = await first.writer.write({
+      type: 'todo',
+      data: (recordId) => todoPayload(recordId, 'Salinan rusak'),
+    })
+
+    const stored = await first.storage.getRecord(id)
+    const entry = (await first.storage.listIndexByType('todo'))[0]
+    if (stored === null || entry === undefined) throw new Error('fixture tidak lengkap')
+
+    // Blob dibuat tidak bisa dibuka kunci sesi (mis. sisa format/kunci lama setelah upgrade).
+    await first.storage.runTransaction('corrupt', async (tx) => {
+      await tx.putRecord({
+        sealed: { id, hlc: stored.hlc, deleted: stored.deleted, blob: 'AAAA' },
+        index: entry,
+        op: 'put',
+        outbox: { id: 'outbox-corrupt', queuedAtMs: START_MS },
+      })
+    })
+
+    const reopened = await openLocalDataSession({
+      userId: USER_ID,
+      clock: createManualClock(START_MS),
+      ...dbNames,
+    })
+
+    expect(await reopened.repos.todo.listAll()).toEqual([])
+    expect((await reopened.storage.getSyncState())?.cursor).toBe(0)
   })
 
   it('dua tab membuka sesi pertama bersamaan: satu kunci akhir, keduanya membaca data yang sama', async () => {
@@ -221,8 +218,6 @@ describe('sesi data lokal', () => {
       openLocalDataSession({ userId: USER_ID, clock, ...dbNames }),
     ])
 
-    // Hanya pemenang yang boleh bilang "kunci baru": peringatan recovery key milik satu sesi saja.
-    expect([first.isFreshKey, second.isFreshKey].filter(Boolean)).toHaveLength(1)
     expect(Buffer.from(second.dataKey.handle as Uint8Array)).toEqual(
       Buffer.from(first.dataKey.handle as Uint8Array),
     )
@@ -238,32 +233,11 @@ describe('sesi data lokal', () => {
 
     // Sesi ketiga (reload) memakai kunci yang tersimpan: kedua record harus tetap terbuka.
     const reopened = await openLocalDataSession({ userId: USER_ID, clock, ...dbNames })
-    expect(reopened.isFreshKey).toBe(false)
     expect(((await reopened.repos.todo.getById(fromFirst.id))?.data as Todo).title).toBe(
       'Ditulis tab pertama',
     )
     expect(((await reopened.repos.todo.getById(fromSecond.id))?.data as Todo).title).toBe(
       'Ditulis tab kedua',
     )
-  })
-
-  it('withMasterKey membuka kunci utama dari perangkat dan mengosongkannya lagi', async () => {
-    const session = await openLocalDataSession({
-      userId: USER_ID,
-      clock: createManualClock(START_MS),
-      ...names(),
-    })
-
-    const fromDevice = await session.withMasterKey(async (masterKey) => {
-      // Kunci yang dibuka harus kunci yang sama dengan yang dipakai sesi ini: kunci data turunannya
-      // harus identik, kalau tidak, seluruh data akan tampak rusak.
-      const sodium = await loadSodium()
-      const dataKey = deriveDataKey(sodium, masterKey, TEST_USER_ID)
-
-      return Buffer.from(dataKey.handle as Uint8Array)
-    })
-
-    const sessionDataKey = Buffer.from(session.dataKey.handle as Uint8Array)
-    expect(fromDevice).toEqual(sessionDataKey)
   })
 })

@@ -8,14 +8,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { createSodiumCryptoProvider } from './provider'
-import {
-  assertMasterKey,
-  createMasterKey,
-  deriveDataKey,
-  deriveKid,
-  deriveKidWire,
-  zeroKey,
-} from './master-key'
+import { assertMasterKey, createMasterKey, deriveDataKey, deriveKid, zeroKey } from './master-key'
 import { loadSodium } from './sodium'
 import { TEST_HLC, TEST_USER_ID } from '../../../tests/nuxt/record-key'
 
@@ -121,13 +114,11 @@ describe('KID (identitas kunci)', () => {
   // Vektor emas dari contracts (`record-format.test.ts`): MK = byte 0..31 -> KID ini, di web DAN mobile.
   const GOLDEN_MASTER_KEY = Uint8Array.from({ length: 32 }, (_, index) => index)
   const GOLDEN_KID_HEX = '2c169354669729f5bbd7434e0885e9b4'
-  const GOLDEN_KID_WIRE = 'LBaTVGaXKfW710NOCIXptA'
 
   it('cocok dengan vektor emas contracts', async () => {
     const sodium = await loadSodium()
 
     expect(sodium.to_hex(deriveKid(sodium, GOLDEN_MASTER_KEY))).toBe(GOLDEN_KID_HEX)
-    expect(deriveKidWire(sodium, GOLDEN_MASTER_KEY)).toBe(GOLDEN_KID_WIRE)
   })
 
   it('deterministik per kunci utama, beda antar kunci, dan tidak sama dengan kunci data', async () => {

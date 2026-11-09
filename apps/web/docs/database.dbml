@@ -84,15 +84,13 @@ Enum sync_status {
 
 Enum key_slot_lokal {
   device
-  passkey
-  recovery
 }
 
 Table record {
   id         uuid        [pk, note: 'UUID v7 — urut waktu, dibuat di client']
   hlc        text        [not null, note: 'metadata plaintext: ${wallMs}-${counter}-${deviceId}']
   deleted    bool        [not null, default: false, note: 'tombstone, ikut tersinkron']
-  blob       text        [not null, note: 'XChaCha20-Poly1305(type + schemaVersion + data), AAD = id. Di web disimpan base64']
+  blob       text        [not null, note: 'XChaCha20-Poly1305 lokal (type + schemaVersion + data), AAD mengikat KID lokal + userId + record + hlc + deleted. Di web disimpan base64']
   created_at timestamptz [not null, default: `now()`, note: 'pembukuan lokal, tidak disync']
   updated_at timestamptz [not null, default: `now()`]
 
@@ -102,8 +100,9 @@ Table record {
   }
 
   Note: '''
-  Satu-satunya tempat isi data user disimpan. Isinya SELALU ciphertext.
-  `type` dan `schemaVersion` ada di dalam blob, bukan kolom, supaya server
+  Satu-satunya tempat isi data user disimpan di perangkat. Isinya SELALU ciphertext
+  kunci perangkat; payload yang dikirim ke server adalah salinan polos yang disegel
+  server. `type` dan `schemaVersion` ada di dalam blob, bukan kolom, supaya server
   tidak tahu record ini memo atau todo (ADR 4).
   Didekripsi hanya saat unlock; plaintext cuma hidup di memori.
   '''
@@ -179,17 +178,10 @@ Table local_key_meta {
   Note: '''
   CUMA metadata. Bahan kunci ada di Keychain (iOS) / Keystore (Android) /
   WebCrypto non-extractable (web) — tidak pernah masuk tabel ini.
-  Kunci utama dan OTP dilarang di-log, di-export, atau dikirim polos.
 
-  Slot yang sah di perangkat:
-   - device   : kunci perangkat, jalur biometrik sehari-hari. Lokal saja, tidak
-                pernah dikirim ke server.
-   - passkey  : passkey bisa dipakai di perangkat ini. Envelope-nya dititip di
-                server (key_envelopes), tapi isinya cuma bisa dibuka di sini.
-   - recovery : envelope yang diimpor user dari berkas backup miliknya sendiri.
-
-  TIDAK ADA slot OTP dan tidak akan pernah ada: Salinan 1 "digembok OTP" sudah
-  dihapus (keputusan D1) karena server yang membuat OTP, jadi server tahu pembukanya.
+  Slot yang sah: HANYA `device`, yaitu kunci yang mengenkripsi salinan lokal.
+  Tidak ada passkey/recovery/OTP: tidak ada kunci user yang perlu dipulihkan.
+  Kalau kunci perangkat hilang, salinan lokal dibuang dan data di-pull ulang.
   '''
 }
 
@@ -607,8 +599,9 @@ Table journal_entry {
   }
 
   Note: '''
-  PRD F8 (ARCHITECTURE §6 menyebutnya `Memo`). Isi jurnal SELALU terenkripsi;
-  server tidak pernah melihat plaintext. Pencarian teks murni lokal.
+  PRD F8 (ARCHITECTURE §6 menyebutnya `Memo`). Isi jurnal SELALU ciphertext di
+  server (disegel server) dan di perangkat (kunci perangkat); tidak ada kolom
+  plaintext. Pencarian teks murni lokal.
   Markdown disanitasi saat render (web: DOMPurify; RN: renderer tanpa HTML).
   Review berkala Goals disimpan di sini sebagai bagian Tentang Hari Ini,
   dengan auto-mention goal.
@@ -844,8 +837,9 @@ Table user_profile {
   updated_at    bigint  [not null]
 
   Note: '''
-  Nama tampilan & foto profil. Record terenkripsi yang ikut sync, BUKAN kolom server:
-  server tidak bisa membaca PII ini (minimisasi data, UU PDP). Dipisah dari user_prefs
+  Nama tampilan & foto profil. Record yang ikut sync, bukan kolom server. Server
+  memegang kunci at-rest, jadi PII tetap diperlakukan sensitif: tidak di-log dan
+  tidak di-cache. Dipisah dari user_prefs
   supaya foto tidak ditulis ulang setiap kali tema diganti.
   '''
 }

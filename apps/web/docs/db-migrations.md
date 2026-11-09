@@ -21,7 +21,24 @@ kosong - perintah di bawah akan menolak koneksi):
 export DATABASE_URL="${DATABASE_URL:-$NUXT_DATABASE_URL}"
 ```
 
-## Urutan deploy yang mengikat
+## Migrasi 0007/0008 - enkripsi at-rest server (ADR 14)
+
+**0007 melakukan reset satu arah: `DELETE FROM records`.** Blob lama disegel kunci per akun di client,
+jadi server tidak bisa membukanya dengan kunci at-rest yang baru. Migrasi lalu menghapus tabel relay
+kunci (`key_envelopes`, `key_transfers`, `account_keys`), kolom `records.kid`, dan enum `key_slot`.
+**0008** menambahkan `records.key_version`.
+
+Urutan deploy yang mengikat untuk perubahan ini:
+
+1. **Backup database** (wajib; 0007 menghapus seluruh `records`).
+2. Siapkan `NUXT_RECORD_ENCRYPTION_KEYS` + `NUXT_RECORD_ENCRYPTION_ACTIVE_VERSION` di secret manager
+   **sebelum** langkah berikutnya. Tanpa nilai valid, app baru menolak start.
+3. `db:migrate` - schema baru harus jalan lebih dulu.
+4. Rilis app versi baru.
+5. Simpan salinan kunci env di tempat terpisah dari database. Kehilangan kunci = isi database tidak
+   bisa dibuka siapa pun.
+
+## Urutan deploy yang mengikat (umum)
 
 1. **Pre-check** migrasi 0004 (bagian di bawah). Wajib, read-only.
 2. **Remediasi** kalau pre-check menemukan baris kembar.

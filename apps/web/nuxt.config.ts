@@ -11,7 +11,7 @@ import { EARLY_APPEARANCE_SCRIPT } from './shared/appearance'
 // ARCHITECTURE.md §2).
 //
 // Batas ukuran request. Ketegangannya nyata: `SYNC_MAX_BATCH` (500 record) x
-// `SEALED_RECORD_MAX_BLOB_BYTES` (1 MB) = sampai 500 MB untuk satu batch yang SAH menurut kontrak.
+// `RECORD_PAYLOAD_MAX_BYTES` (1 MB) = sampai 500 MB untuk satu batch yang SAH menurut kontrak.
 // Plafon 8 MB dipilih supaya satu request tidak bisa menghabiskan memori server sebelum validasi
 // lain jalan - konsekuensinya KLIEN WAJIB membatasi batch per BYTE, bukan hanya jumlah record
 // (500 record hanya aman kalau total blob-nya di bawah ~8 MB).
@@ -155,6 +155,12 @@ export default defineNuxtConfig({
     // (`server/utils/env.ts`). Production tidak memakainya (jalurnya Resend) dan menolak start kalau
     // key ini terisi - supaya berkas env non-production yang ikut ter-deploy ketahuan saat startup.
     smtpUrl: '',
+    // Enkripsi at-rest isi record: `1:<base64 32 byte>[,2:<...>]` + versi yang dipakai untuk tulisan
+    // baru. Kunci ini TIDAK PERNAH ke client; server menyegel/membuka `records.blob` dengan AES-256-GCM
+    // (`server/utils/record-crypto.ts`). Keyring (bukan satu kunci) supaya rotasi tidak mengunci data
+    // lama. Default kosong = server menolak start (fail-closed).
+    recordEncryptionKeys: '',
+    recordEncryptionActiveVersion: 1,
     // `public.appEnv` cuma untuk UI (mis. login demo). Kosong = production.
     public: { appEnv: 'production' },
   },

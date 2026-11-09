@@ -57,7 +57,7 @@ describe('isi panduan', () => {
   })
 
   it('bagian keamanan dan backup tidak kosong', () => {
-    expect(GUIDE_SECURITY.layers).toHaveLength(4)
+    expect(GUIDE_SECURITY.layers).toHaveLength(3)
     expect(GUIDE_SECURITY.knows.length).toBeGreaterThan(0)
     expect(GUIDE_SECURITY.notKnows.length).toBeGreaterThan(0)
     expect(GUIDE_SECURITY.recoverySteps.length).toBeGreaterThan(1)
@@ -165,16 +165,13 @@ describe('status & klaim mengikuti kode', () => {
     expect(copy).not.toMatch(/tiga lapis/i)
   })
 
-  it('Akun menyebut QR, hapus akun, dan indikator sync tanpa mengklaim sync otomatis', () => {
+  it('Akun menyebut hapus akun dan indikator sync, dan sync antar perangkat memang berjalan', () => {
     const feature = GUIDE_FEATURES.find((item) => item.code === 'F15')
     const copy = `${feature?.summary} ${feature?.tips.join(' ')}`
-    expect(feature?.status).toBe('partial')
-    expect(copy).toMatch(/QR/)
+    expect(feature?.status).toBe('ready')
     expect(copy).toMatch(/hapus akun/i)
     expect(copy).toMatch(/indikator/i)
-    // Engine push/pull belum ada: jangan mengklaim data sudah berpindah sendiri.
-    expect(copy).not.toMatch(/sudah tersinkron otomatis/i)
-    expect(copy).not.toMatch(/sync otomatis sudah/i)
+    expect(copy).toMatch(/tersinkron antar perangkat/i)
   })
 
   it('badge "partial" memakai label yang dibaca user', () => {

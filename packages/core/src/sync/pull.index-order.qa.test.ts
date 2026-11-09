@@ -30,8 +30,8 @@ function remoteRecord(input: {
     id: input.id,
     hlc: input.hlc,
     deleted: false,
-    // Blob palsu yang tetap sah sebagai base64; isi tidak dibuka oleh core.
-    blob: 'AAAAAAAA',
+    // Isi tidak dibuka oleh core; shell yang menafsirkannya.
+    payload: { blob: 'AAAAAAAA' },
     serverSeq: input.serverSeq,
   }
 }
@@ -90,6 +90,7 @@ describe('pullDelta: indexFor asinkron di luar transaksi', () => {
       url: '/v1/sync/pull',
       nowMs: START_MS,
       hlc,
+      sealForStorage: async () => 'AAAAAAAA',
       indexFor: async () => {
         // Satu tick microtask: cukup untuk membuktikan nilainya benar-benar ditunggu.
         await Promise.resolve()
@@ -134,6 +135,7 @@ describe('pullDelta: indexFor asinkron di luar transaksi', () => {
       url: '/v1/sync/pull',
       nowMs: START_MS,
       hlc,
+      sealForStorage: async () => 'AAAAAAAA',
       indexFor: () => {
         indexCalls += 1
         return INDEX

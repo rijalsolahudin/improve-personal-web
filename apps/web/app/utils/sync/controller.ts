@@ -1,79 +1,43 @@
-import { V1_CUTOFF_MS, decodeKid } from '@improve-personal/contracts'
+import type { RecordPayload } from '@improve-personal/contracts'
 import {
-  RECORD_PULL_FOREIGN,
-  RECORD_PULL_REJECT,
   SYNC_DEBOUNCE_MS,
   pullDelta,
   pushOutbox,
   readSyncStatus,
-  resolveBlobVerdict,
   type HttpClient,
   type StorageAdapter,
   type SyncStatus,
 } from '@improve-personal/core'
 
 import type { LocalDataSession } from '../storage/session'
-import { RecordKeyError, decodeRecord } from '../storage/record-codec'
-import { RECORD_INDEX_KEEP, type RecordIndexDecision } from '../storage/index-decision'
+import { decodeRecord } from '../storage/record-codec'
 import { guardStorageWrite } from '../storage/quota-guard'
 import { indexEntryForRecord } from '../io/index-entry'
 import { markSyncRunEnd, markSyncRunStart } from './activity'
 import { createSyncHttpClient } from './client'
 import { LOCAL_WRITE_EVENT, notifyRemoteApplied, notifySyncState } from './events'
-import { noteRejectedBlob, type RejectedBlobReason } from './rejected-blobs'
-import {
-  QUARANTINE_MAX_RECORDS,
-  isQuarantined,
-  quarantineRecord,
-  quarantinedCount,
-} from './quarantine'
 
 /**
  * Pengendali sync di sisi web: kapan push/pull dijalankan, dan bagaimana kegagalannya terlihat.
  *
  * Pembagian tugasnya sengaja:
  * - `packages/core/src/sync` memutuskan APA yang dikirim/diterapkan (LWW, cursor, tombstone).
- * - Berkas ini hanya memasang pemicu platform: app_open, reconnect, resume, interval 5 menit, dan
- *   debounce setelah tulis lokal. Tidak ada logika merge di sini.
+ * - Berkas ini memasang pemicu platform (app_open, reconnect, resume, interval, debounce) dan
+ *   menerjemahkan record lokal ↔ payload wire: blob lokal dibuka kunci perangkat sebelum push, dan
+ *   payload hasil pull disegel lagi dengan kunci perangkat sebelum disimpan.
  *
- * Dua invarian yang menjaga akun tidak tercampur (QA T76 B1):
- * 1. **Satu siklus per satu generasi.** Tiap `startSync` menaikkan `generation` dan pemilik satu
- *    `AbortController`. `stopSync` membatalkan request yang sedang jalan; siklus generasi lama tidak
- *    pernah menyentuh state generasi baru (cek `active.generation === myGen && active.session.userId`).
- * 2. **Tidak ada request tanpa identitas.** Client bawaan mengirim `x-expected-user-id`; server
- *    menolak request yang cookie-nya sudah berganti akun (mis. login akun lain di tab sebelah).
+ * Dua invarian yang menjaga akun tidak tercampur:
+ * 1. **Satu siklus per satu generasi.** Tiap `startSync` menaikkan `generation` dan memegang satu
+ *    `AbortController`. Siklus generasi lama tidak pernah menyentuh state generasi baru.
+ * 2. **Tidak ada request tanpa identitas.** Client bawaan mengirim `x-expected-user-id`.
  *
  * Satu proses sync pada satu waktu. Pemicu yang datang saat proses berjalan tidak memulai proses
- * kedua; mereka menandai `pendingRun` supaya siklus berikutnya menyusul. Tanpa itu, dua push
- * bersamaan bisa mengirim batch yang sama dan dua pull bisa saling menimpa cursor.
- *
- * Record hasil pull yang gagal didekripsi TIDAK pernah dilewati diam-diam: pull berhenti sebelum
- * cursor maju. Satu-satunya pengecualian adalah record yang sudah terbukti rusak - tiga siklus gagal
- * berturut-turut SETELAH kunci sesi terbukti (`PullKeyFailures.keyProven`). Record itu dikarantina
- * (`./quarantine.ts`), lalu siklus berikutnya memakai index `RECORD_INDEX_KEEP` sehingga pull bisa
- * maju tanpa menghapus index lama dan tanpa kehilangan blob. Selama bukti kunci belum ada, SEMUA
- * kegagalan dibaca sebagai masalah kunci/sesi dan tidak ada record yang disimpulkan rusak.
+ * kedua; mereka menandai `pendingRun` supaya siklus berikutnya menyusul.
  */
 
 const FOREGROUND_INTERVAL_MS = 5 * 60 * 1_000
 /** Pagar anti-loop kalau outbox terus bertambah saat sync berjalan. */
 const MAX_PUSH_BATCHES = 100
-
-/**
- * Berapa siklus pull BERTURUT-TURUT satu record boleh gagal dibuka sebelum dinyatakan rusak.
- *
- * Tiga cukup untuk membedakannya dari kegagalan sesaat (kunci baru dipulihkan di tengah, storage
- * sedang sibuk) tanpa membuat user menunggu 5 menit x 3 sebelum datanya bisa masuk.
- */
-const QUARANTINE_AFTER_KEY_FAILURES = 3
-
-/**
- * Pra-launch tidak ada blob v1 sama sekali dan provider hanya memahami v2, jadi `v1Closed` selalu true:
- * blob tanpa prefix v2 ditolak (`v1_closed`), bukan dibiarkan `'keep'` sebagai blob "mungkin v1".
- * Pembuka v1 sungguhan sengaja tidak ada (`openV1` selalu gagal, dan tidak pernah dipanggil selama
- * `v1Closed`).
- */
-const V1_CLOSED = true
 
 export type SyncOutcome = {
   readonly pushed: number
@@ -82,18 +46,10 @@ export type SyncOutcome = {
 }
 
 type ActiveSync = {
-  /**
-   * Nomor urut controller. Naik setiap `startSync`; dipakai siklus yang sedang berjalan untuk tahu
-   * apakah ia masih pemilik `active` atau sudah basi.
-   */
   readonly generation: number
   readonly session: LocalDataSession
   readonly baseUrl: string
   readonly http: HttpClient
-  /**
-   * Dibatalkan `stopSync()`. Request yang sedang menunggu jaringan ikut batal - bukan dibiarkan
-   * selesai membawa data sesi lama ke server yang cookie-nya sudah akun lain.
-   */
   readonly abort: AbortController
   readonly debounceTimer: { current: ReturnType<typeof setTimeout> | null }
   readonly intervalTimer: ReturnType<typeof setInterval>
@@ -113,103 +69,6 @@ let inFlight: InFlight | null = null
 let pendingPull = false
 let pendingRun = false
 
-/**
- * Kegagalan kunci BERTURUT-TURUT per id record, lintas siklus pull.
- *
- * Module-level (bukan per `execute`) karena bukti "record ini rusak" butuh tiga siklus. Direset saat
- * sesi baru dipasang (`startSync`) dan saat record yang sama berhasil dibuka lagi - kalau tidak,
- * kegagalan lama akan ikut menghukum pemulihan kunci yang berhasil.
- */
-const consecutiveKeyFailures = new Map<string, number>()
-
-/**
- * Apakah kunci data sesi ini benar-benar kunci AKUN ini - dibuktikan oleh sesinya, bukan oleh record
- * hasil pull.
- *
- * Kenapa `isFreshKey === false` adalah bukti yang sah: `openLocalDataSession` hanya berhasil kalau
- * perangkat punya slot `device` LALU `unwrapMasterKeyWithDevice` membuka bungkus kunci utama. Itu
- * AES-KW: unwrap-nya terautentikasi (kunci pembuka yang salah atau envelope yang diubah = exception,
- * bukan byte sampah), dan `openLocalDataSession` melempar sebelum controller dipasang
- * (`crypto/device-slot.ts`, `storage/session.ts`). Jadi `isFreshKey === false` berarti kunci data
- * berasal dari envelope akun yang SUDAH ADA di perangkat ini, bukan kunci baru yang dibuat sesi ini.
- *
- * Kenapa bukti ini penting ada di level sesi: kalau bukti hanya berasal dari record yang berhasil
- * dibuka di proses berjalan, ia hilang setiap reload/keluar-masuk `/app` (QA T78 B3) dan tidak pernah
- * didapat kalau halaman pertama seluruhnya rusak (QA T78 B4) - dua bentuk yang membuat pull macet
- * permanen. Bukti ini statis per sesi, jadi tahan reload dan berlaku sejak halaman pertama.
- *
- * `isFreshKey === true` (perangkat pertama akun yang baru membuat kunci di sini) sengaja TIDAK
- * dihitung: di keadaan itu tidak ada envelope akun yang memverifikasi apa pun, sehingga record remote
- * yang tidak bisa dibuka memang layak dicurigai sebagai masalah kunci - kita tetap fail-closed.
- */
-function isSessionKeyProven(session: LocalDataSession): boolean {
-  return session.isFreshKey === false
-}
-
-/** Apa yang diketahui satu siklus pull tentang record yang gagal dibuka. */
-type PullKeyFailures = {
-  /** Pemilik data (akun) yang sedang sync; daftar karantina disimpan per pemilik. */
-  readonly ownerId: string
-  /** Record yang gagal dibuka, beserta error aslinya (id = kunci peta). */
-  readonly failures: Map<string, RecordKeyError>
-  /** Keputusan sudah diambil; mencegah penghitung naik dua kali kalau transaksi diulang adapter. */
-  abortedWith: RecordKeyError | null
-  /** Karantina baru terjadi di siklus ini, jadi status `error` tidak boleh ditinggalkan. */
-  quarantined: boolean
-  /**
-   * Karantina baru terjadi saat daftar pemilik SUDAH penuh (`QUARANTINE_MAX_RECORDS`), jadi record
-   * yang dibuang untuk memberi tempat akan gagal lagi di siklus berikutnya.
-   */
-  quarantineFull: boolean
-  /**
-   * Apakah kunci sesi ini terbukti bisa membuka record akun ini.
-   *
-   * Milik SATU SIKLUS (objek ini dibuat per `execute`), bukan flag modul: siklus basi yang selesai
-   * setelah sesi/akun berganti tidak bisa mewariskan bukti ke generasi berikutnya (A1 review
-   * keamanan). Nilai awalnya dari sesi (`isSessionKeyProven`), lalu dinaikkan oleh dekripsi remote
-   * yang berhasil DI GENERASI INI (`buildIndex`).
-   */
-  keyProven: boolean
-}
-
-/**
- * Konteks blob satu siklus pull: KID akun ini dan alasan penolakan per id record.
- *
- * `onReject` di core hanya menerima record mentah (tanpa alasan), sedangkan alasannya baru diketahui di
- * `buildIndex`. Peta ini menjembatani keduanya; milik satu siklus, jadi tidak bocor antar generasi.
- */
-type PullBlobContext = {
-  readonly ownKid: Uint8Array
-  readonly rejections: Map<string, RejectedBlobReason>
-}
-
-function newPullBlobContext(session: LocalDataSession): PullBlobContext {
-  const ownKid = decodeKid(session.kid)
-  // KID sesi diturunkan dari kunci utama, jadi bentuk yang tidak kanonik berarti bug, bukan input.
-  if (ownKid === null) throw new Error('KID sesi tidak valid')
-
-  return { ownKid, rejections: new Map() }
-}
-
-function newPullKeyFailures(ownerId: string, keyProven: boolean): PullKeyFailures {
-  return {
-    ownerId,
-    failures: new Map(),
-    abortedWith: null,
-    quarantined: false,
-    quarantineFull: false,
-    keyProven,
-  }
-}
-
-/**
- * Apakah siklus `current` sudah bukan milik pengendali aktif? Terjadi saat `stopSync` (logout, pindah
- * rute, reload), ganti sesi/akun, atau generasi yang lebih baru dipasang.
- *
- * Dipakai `execute` sebagai pagar di setiap `await`, dan dipakai `buildIndex` karena `indexFor`
- * dipanggil core DI LUAR transaksi: hasil dekripsi bisa mendarat setelah sesi berganti, dan hasil itu
- * tidak boleh menambah bukti (atau apa pun) untuk generasi berikutnya.
- */
 function isGenerationStale(current: ActiveSync): boolean {
   return (
     active === null ||
@@ -230,18 +89,6 @@ export function startSync(
   const generation = generationCounter
   const abort = new AbortController()
 
-  // Bukti "record rusak" terikat ke AKUN yang membuka data: akun berikutnya tidak boleh mewarisi
-  // penghitung (bisa langsung mengarantina record pertamanya). Daftar karantina sendiri disimpan per
-  // pemilik (`./quarantine.ts`), jadi akun lain tidak menghapus milik akun ini.
-  //
-  // Bukti kunci tidak direset di sini karena ia bukan state modul: tiap siklus memulainya dari
-  // `isSessionKeyProven(session)` + dekripsi sukses di generasi itu sendiri (`execute`). Tidak ada
-  // yang bisa diwariskan siklus basi ke generasi baru (A1), dan `stopSync` tidak perlu menyapu apa pun.
-  consecutiveKeyFailures.clear()
-
-  // Client bawaan selalu membawa identitas pemilik sesi. `http` yang disuntik (test/tool) memikul
-  // tanggung jawab yang sama, tetapi tidak dipaksa di sini supaya controller tetap bisa diuji tanpa
-  // jaringan.
   const http = options.http ?? createSyncHttpClient({ baseUrl, expectedUserId: session.userId })
   const debounceTimer: { current: ReturnType<typeof setTimeout> | null } = { current: null }
 
@@ -288,12 +135,7 @@ export function startSync(
   return stopSync
 }
 
-/**
- * Hentikan pengendali aktif. Idempoten: memanggilnya dua kali (atau saat belum pernah start) aman.
- *
- * Request yang sedang jalan DIBATALKAN, dan `inFlight` dilepas: siklus akun berikutnya tidak boleh
- * menunggu - atau mewarisi hasil - promise milik akun sebelumnya.
- */
+/** Hentikan pengendali aktif. Idempoten. */
 export function stopSync(): void {
   const current = active
   if (current === null) return
@@ -317,10 +159,6 @@ export function requestSyncNow(): void {
   void runSync({ pull: true })
 }
 
-/**
- * Satu siklus sync. `pull` hanya diminta untuk app_open/reconnect/resume/interval; setelah tulis
- * lokal cukup push, karena cursor tidak berubah dan pull tambahan hanya membakar kuota.
- */
 export function runSync(options: { readonly pull: boolean }): Promise<SyncOutcome | null> {
   const current = active
   if (current === null) return Promise.resolve(null)
@@ -336,22 +174,16 @@ export function runSync(options: { readonly pull: boolean }): Promise<SyncOutcom
 
   const generation = current.generation
 
-  // Indikator "sedang sync" di shell: satu hitungan per siklus, ditutup di `finally` supaya siklus
-  // yang gagal/batal pun tidak meninggalkan spinner berputar selamanya.
   markSyncRunStart()
 
   const promise = execute(current).finally(() => {
     markSyncRunEnd()
 
-    // Generasi lain sudah mengambil alih (`stopSync` melepas `inFlight`): akhir siklus akun lama
-    // tidak boleh menutup siklus akun baru, apalagi menjadwalkan siklus untuknya.
     if (inFlight?.promise !== promise) return
 
     inFlight = null
 
-    // Pemicu yang datang saat siklus ini berjalan tidak boleh hilang (mis. user menulis lagi saat
-    // push sedang mengirim). Jalankan satu siklus susulan; `pendingPull` menentukan perlu pull atau
-    // cukup push.
+    // Pemicu yang datang saat siklus ini berjalan tidak boleh hilang.
     if (pendingRun && active?.generation === generation) {
       pendingRun = false
       void runSync({ pull: pendingPull })
@@ -365,16 +197,10 @@ export function runSync(options: { readonly pull: boolean }): Promise<SyncOutcom
 async function execute(current: ActiveSync): Promise<SyncOutcome | null> {
   const mySession = current.session
 
-  /**
-   * Siklus ini masih milik sesi yang aktif? Diperiksa SEBELUM dan SESUDAH tiap await besar: `stopSync`
-   * (logout, ganti akun, pindah rute) bisa terjadi kapan saja saat request menunggu jaringan.
-   */
   const isStale = (): boolean => isGenerationStale(current)
 
   if (isStale()) return null
 
-  // Permintaan yang sudah memicu siklus ini dianggap tertangani; permintaan BARU selama menunggu
-  // jaringan akan menyalakan `pendingRun` lagi lewat `runSync`.
   pendingRun = false
 
   const { baseUrl, http, abort } = current
@@ -382,13 +208,9 @@ async function execute(current: ActiveSync): Promise<SyncOutcome | null> {
 
   let pushed = 0
   let pulled = 0
-  /** Diisi selama pull; dipakai `catch` untuk tahu apakah karantina baru saja terjadi. */
-  const keyFailures = newPullKeyFailures(mySession.userId, isSessionKeyProven(mySession))
-  const blobs = newPullBlobContext(mySession)
 
   try {
-    // Push berulang: satu panggilan hanya mengirim maksimal satu batch. Import besar bisa
-    // meninggalkan ribuan baris, dan timer tidak boleh menunggu 5 menit untuk batch berikutnya.
+    // Push berulang: satu panggilan hanya mengirim maksimal satu batch.
     for (let batch = 0; batch < MAX_PUSH_BATCHES; batch += 1) {
       if (isStale() || !navigator.onLine) break
 
@@ -399,6 +221,18 @@ async function execute(current: ActiveSync): Promise<SyncOutcome | null> {
         nowMs: nowMs(),
         hlc: mySession.hlc,
         signal: abort.signal,
+        payloadFor: async (record) => {
+          // Blob lokal dibuka dengan kunci perangkat lalu dikirim sebagai payload polos; server yang
+          // menyegelnya lagi dengan kunci milik server.
+          const decoded = await decodeRecord(mySession.provider, mySession.dataKey, record)
+
+          return {
+            type: decoded.type,
+            schemaVersion: decoded.schemaVersion,
+            // `decodeRecord` sudah memvalidasi payload lewat schema entitasnya; bentuknya JSON.
+            data: decoded.data as RecordPayload,
+          }
+        },
       })
 
       if (isStale()) return null
@@ -408,8 +242,6 @@ async function execute(current: ActiveSync): Promise<SyncOutcome | null> {
       if ((await mySession.storage.countOutbox()) === 0) break
     }
 
-    // Hanya generasi pemilik yang boleh mengonsumsi permintaan pull - kalau tidak, permintaan milik
-    // akun baru ikut terpakai oleh siklus akun lama.
     if (isStale()) return null
 
     const shouldPull = pendingPull
@@ -417,31 +249,41 @@ async function execute(current: ActiveSync): Promise<SyncOutcome | null> {
 
     if (shouldPull && navigator.onLine) {
       const summary = await pullDelta({
-        storage: guardPullMerge(mySession.storage, keyFailures, nowMs()),
+        storage: guardPullWrites(mySession.storage, nowMs()),
         http,
         url: `${baseUrl}/v1/sync/pull`,
         nowMs: nowMs(),
         hlc: mySession.hlc,
         signal: abort.signal,
-        indexFor: (remote) => buildIndex(current, remote, keyFailures, blobs),
-        keyIdentity: { ownKid: blobs.ownKid },
-        onReject: (remote) => {
-          if (isStale()) return
-          noteRejectedBlob(
-            mySession.userId,
-            remote.id,
-            blobs.rejections.get(remote.id) ?? 'v1_downgrade',
+        indexFor: (remote) => {
+          // Payload dari server sudah plaintext: index bisa dibangun tanpa dekripsi apa pun.
+          const payload = remote.payload as { readonly type?: unknown; readonly data?: unknown }
+          if (typeof payload?.type !== 'string') return null
+
+          return indexEntryForRecord(
+            {
+              id: remote.id,
+              type: payload.type as Parameters<typeof indexEntryForRecord>[0]['type'],
+              data: payload.data,
+            },
             nowMs(),
           )
         },
+        sealForStorage: async (remote) =>
+          mySession.provider.sealRecord({
+            recordId: remote.id,
+            hlc: remote.hlc,
+            deleted: remote.deleted,
+            dataKey: mySession.dataKey,
+            plaintext: JSON.stringify(remote.payload),
+          }),
       })
 
       if (isStale()) return null
 
       pulled += summary.applied
 
-      // Hanya pull yang BENAR-BENAR menerapkan sesuatu yang memicu muat ulang store: pull kosong
-      // terjadi tiap 5 menit dan tidak boleh membuat halaman membaca ulang penyimpanan.
+      // Hanya pull yang BENAR-BENAR menerapkan sesuatu yang memicu muat ulang store.
       if (summary.applied > 0) notifyRemoteApplied()
     }
 
@@ -454,39 +296,8 @@ async function execute(current: ActiveSync): Promise<SyncOutcome | null> {
   } catch {
     if (isStale()) return null
 
-    // Karantina baru = siklus ini "gagal" hanya karena record yang sudah dinyatakan rusak belum
-    // dilewati. Jangan tinggalkan status `error` (user tidak punya aksi yang bisa memperbaikinya) dan
-    // jadwalkan SATU siklus susulan lewat mekanisme `pendingRun` yang sudah ada: siklus itu memakai
-    // `RECORD_INDEX_KEEP` untuk record karantina, jadi pull bisa maju sekarang - bukan 5 menit lagi.
-    //
-    // Pengecualian L2: kalau daftar karantina pemilik ini SUDAH penuh sebelum record baru ditambahkan,
-    // id tertua terbuang dan akan gagal lagi di siklus susulan. Menjadwalkan siklus itu hanya membuat
-    // putaran tanpa jeda yang saling mengejar. Biarkan siklus normal (interval/reconnect) yang
-    // menanganinya, dan tetap tandai `error` supaya user melihat ada yang butuh perhatian.
-    if (keyFailures.quarantined) {
-      if (!keyFailures.quarantineFull) {
-        pendingRun = true
-        pendingPull = true
-      }
-
-      const status = keyFailures.quarantineFull
-        ? await markError(mySession.storage).catch(() =>
-            readSyncStatus({ storage: mySession.storage, online: navigator.onLine }).catch(
-              () => 'error' as const,
-            ),
-          )
-        : await readSyncStatus({
-            storage: mySession.storage,
-            online: navigator.onLine,
-          }).catch(() => 'error' as const)
-
-      return { pushed, pulled, status }
-    }
-
-    // Kegagalan yang tidak ditangani core (mis. `RecordKeyError`: kunci tidak bisa membuka record,
-    // atau adapter storage gagal) berarti siklus berhenti di TENGAH. Statusnya ditandai `error`
-    // supaya indikator tidak menampilkan "menunggu/tersinkron" padahal ada yang gagal dan supaya user
-    // mendapat tombol coba lagi. Kalau penandaan itu pun gagal, status dibaca apa adanya dari storage.
+    // Siklus berhenti di tengah: tandai `error` supaya indikator tidak menampilkan "tersinkron"
+    // padahal ada yang gagal, dan user mendapat tombol coba lagi.
     const status = await markError(mySession.storage).catch(() =>
       readSyncStatus({ storage: mySession.storage, online: navigator.onLine }).catch(
         () => 'error' as const,
@@ -509,220 +320,15 @@ async function markError(storage: StorageAdapter): Promise<SyncStatus> {
 }
 
 /**
- * `record_index` untuk record hasil pull.
- *
- * Tipe dan rentang ada DI DALAM blob, jadi harus didekripsi dulu. Dua kelas kegagalan diperlakukan
- * berbeda - dan bedanya menjaga data:
- *
- * - **Kunci/kripto gagal (`RecordKeyError`)**: dicatat di `keyFailures` lalu `'keep'` dikembalikan
- *   BUKAN dilempar. Core perlu terus mendekripsi record lain supaya kita bisa membedakan "kunci salah"
- *   (semua gagal) dari "satu record rusak" (kunci sudah terbukti bisa membuka record lain di sesi ini).
- *   Keputusan dan penghentian pull terjadi sebelum halaman ditulis - lihat `decidePullKeyFailures`.
- *   Kalau `'keep'` dibiarkan lolos sampai transaksi, cursor akan maju di atas record yang belum tentu
- *   terbaca; itu yang dilarang.
- * - **Payload/skema tidak dikenal**: hanya index record itu yang tidak bisa dibangun. Record tetap
- *   disimpan dan baris index lama DIBIARKAN (`'keep'`) - `null` akan MENGHAPUS-nya dan membuat record
- *   hilang dari UI/export selamanya.
- *
- * Record yang masih terkarantina tidak dicoba dibuka lagi pada siklus itu: kegagalannya deterministik
- * dan mencoba ulang tiap siklus berarti pull berhenti selamanya. Karantina punya kedaluwarsa
- * (`QUARANTINE_TTL_MS`) dan bisa dibersihkan setelah pemulihan kunci, jadi record yang dulu gagal
- * karena kunci salah tetap punya jalan untuk dicoba lagi.
+ * Bungkus storage untuk pull: merge menarik menulis langsung lewat adapter, jadi kuota penuh di sini
+ * juga harus memunculkan banner - bukan berhenti sebagai kegagalan siklus yang tidak dijelaskan.
  */
-async function buildIndex(
-  current: ActiveSync,
-  remote: {
-    readonly id: string
-    readonly hlc: string
-    readonly deleted: boolean
-    readonly blob: string
-  },
-  keyFailures: PullKeyFailures,
-  blobs: PullBlobContext,
-): Promise<RecordIndexDecision | typeof RECORD_PULL_REJECT | typeof RECORD_PULL_FOREIGN> {
-  const session = current.session
-
-  // Hanya record HIDUP: tombstone harus selalu lewat `resolveBlobVerdict` penuh. Tombstone `'keep'`
-  // diterapkan core lewat LWW tanpa dekripsi, jadi id yang kebetulan sudah terkarantina tidak boleh
-  // jadi jalan pintas untuk menghapus record sah dengan blob yang tidak pernah lolos autentikasi.
-  if (!remote.deleted && isQuarantined(session.userId, remote.id)) return RECORD_INDEX_KEEP
-
-  const now = session.clock.nowMs()
-
-  // Urutan percobaan dan arti kegagalannya diputuskan core (`resolveBlobVerdict`, tabel M1), bukan
-  // di sini - supaya web dan mobile tidak bisa berbeda.
-  const outcome = await resolveBlobVerdict<Awaited<ReturnType<typeof decodeRecord>>>({
-    blob: decodeBlobBytes(remote.blob),
-    hlc: remote.hlc,
-    ownKid: blobs.ownKid,
-    v1Closed: V1_CLOSED,
-    v1CutoffMs: V1_CUTOFF_MS,
-    openV1: async () => ({ kind: 'failed' }),
-    openV2: async () => {
-      try {
-        return {
-          kind: 'opened',
-          value: await decodeRecord(session.provider, session.dataKey, {
-            ...remote,
-            createdAtMs: now,
-            updatedAtMs: now,
-          }),
-        }
-      } catch (error) {
-        if (error instanceof RecordKeyError) {
-          // Tombstone yang gagal autentikasi TIDAK boleh jadi `'keep'`: core menerapkan tombstone `'keep'`
-          // lewat LWW tanpa dekripsi, jadi blob sampah ber-KID kita dengan `deleted = true` bisa
-          // menghapus data (H1 spec #120). Ditolak (`reject`, dikarantina) - bukan dilewati diam-diam.
-          if (remote.deleted) return { kind: 'failed' }
-
-          // Record hidup: tetap jalur fail-closed T78 (dicatat, pull berhenti, dikarantina setelah tiga
-          // siklus berturut-turut dengan kunci terbukti). Menolaknya langsung akan memajukan cursor di
-          // atas record yang mungkin hanya gagal karena kunci sesi belum benar.
-          keyFailures.failures.set(error.recordId, error)
-          return { kind: 'unsupported' }
-        }
-
-        // Payload/skema tidak dikenal: AEAD lolos, hanya index yang tidak bisa dibangun.
-        return { kind: 'unsupported' }
-      }
-    },
-  })
-
-  if (outcome.verdict === RECORD_PULL_REJECT) {
-    blobs.rejections.set(remote.id, outcome.reason)
-    return RECORD_PULL_REJECT
-  }
-
-  if (outcome.verdict === RECORD_PULL_FOREIGN) {
-    // Dicatat di sini (bukan di `onReject`): core tidak memanggil `onReject` untuk `'foreign'`.
-    if (!isGenerationStale(current)) {
-      noteRejectedBlob(session.userId, remote.id, 'foreign', now)
-    }
-    return RECORD_PULL_FOREIGN
-  }
-
-  if (outcome.verdict !== 'accept') return RECORD_INDEX_KEEP
-
-  // Kunci generasi ini terbukti bisa membuka record: mulai sekarang kegagalan record LAIN boleh
-  // dinilai sebagai "record itu rusak", bukan "kunci salah" (lihat `decidePullKeyFailures`).
-  //
-  // Bukti ditulis ke objek SIKLUS INI (bukan flag modul) dan hanya kalau generasinya masih aktif:
-  // dekripsi ini terjadi di luar transaksi, jadi bisa mendarat setelah sesi/akun berganti. Siklus basi
-  // tidak boleh "meminjamkan" bukti kunci ke generasi berikutnya (A1 review keamanan).
-  if (!isGenerationStale(current)) keyFailures.keyProven = true
-  // Record yang sama berhasil dibuka = rangkaian kegagalannya putus. Tanpa ini, "3 kali gagal" berarti
-  // "3 kali seumur hidup", bukan berturut-turut.
-  consecutiveKeyFailures.delete(remote.id)
-
-  return indexEntryForRecord(outcome.value, now)
-}
-
-/**
- * Bytes mentah dari `blob` base64 standar. Masukan yang bukan base64 sah menjadi byte kosong, yang
- * `resolveBlobVerdict` baca sebagai blob tanpa prefix v2 (ditolak) - bukan exception yang
- * menghentikan seluruh halaman pull.
- */
-function decodeBlobBytes(blobBase64: string): Uint8Array {
-  try {
-    return Uint8Array.from(atob(blobBase64), (char) => char.charCodeAt(0))
-  } catch {
-    return new Uint8Array(0)
-  }
-}
-
-/**
- * Bungkus storage untuk satu siklus pull: tolak transaksi merge kalau masih ada record yang gagal
- * dibuka dan belum dinyatakan rusak.
- *
- * Kenapa di transaksi, bukan langsung di `indexFor`: keputusan "kunci salah vs satu record rusak"
- * butuh hasil dekripsi SELURUH halaman. Melempar di record pertama membuat record lain tidak pernah
- * dicoba, sehingga kunci yang salah dan record rusak terlihat sama. Merge adalah titik terakhir sebelum
- * record ditulis dan cursor maju - di situlah penolakan harus terjadi.
- */
-function guardPullMerge(
-  storage: StorageAdapter,
-  keyFailures: PullKeyFailures,
-  atMs: number,
-): StorageAdapter {
-  const guarded: StorageAdapter = {
+function guardPullWrites(storage: StorageAdapter, atMs: number): StorageAdapter {
+  return {
     ...storage,
     runTransaction: (label, fn) => {
-      const abort = label === 'sync.pull.merge' ? decidePullKeyFailures(keyFailures) : null
-      if (abort !== null) return Promise.reject(abort)
-
-      // Merge menarik menulis lewat adapter langsung (bukan `RecordWriter`), jadi kuota penuh di
-      // sini juga harus memunculkan banner - bukan berhenti sebagai kegagalan siklus yang tidak
-      // dijelaskan (temuan F1 QA #108).
+      if (label !== 'sync.pull.merge') return storage.runTransaction(label, fn)
       return guardStorageWrite(() => storage.runTransaction(label, fn), atMs)
     },
   }
-
-  return guarded
-}
-
-/**
- * Putuskan apa arti kegagalan kunci di satu siklus pull, lalu kembalikan error untuk membatalkan merge.
- *
- * Aturannya:
- * - **Kunci belum terbukti** (`keyFailures.keyProven === false`) = masalah kunci/sesi, bukan record
- *   rusak. Pull berhenti, `status = 'error'`, tidak ada karantina. Mengarantina di sini akan
- *   menyembunyikan kunci yang salah sebagai "data rusak" dan membiarkan pull melewati SEMUA data yang
- *   tak terbaca.
- *
- *   Bukti yang dipakai adalah bukti LEVEL SESI, bukan "ada record lain yang berhasil di halaman/siklus
- *   ini". Penghitung per halaman selalu 0 begitu cursor parkir di halaman yang hanya berisi record
- *   rusak, sehingga kasus paling penting (record rusak = record terbaru di halaman terakhir) tidak
- *   pernah pulih (QA T78 B1). Dua sumber bukti, keduanya tidak bergantung pada halaman yang sedang
- *   diproses:
- *   1. sesi dibuka dengan kunci yang sudah ada (`isFreshKey === false`) - lihat
- *      `isSessionKeyProven`; statis per sesi sehingga tahan reload (B3) dan berlaku di halaman
- *      pertama (B4);
- *   2. ada record remote yang berhasil didekripsi di GENERASI ini (`buildIndex`) - bukti tambahan
- *      untuk sesi dengan kunci baru; disimpan per siklus supaya siklus basi tidak bisa mewariskannya
- *      (A1).
- *
- *   Kunci salah tetap tertangkap karena ia membuat record PERTAMA di sesi pun gagal, dan perangkat
- *   dengan kunci baru tetap fail-closed sampai ia benar-benar membuka satu record.
- * - **Kunci sudah terbukti** = record yang gagal memang rusak. Penghitungnya naik; setelah
- *   `QUARANTINE_AFTER_KEY_FAILURES` siklus berturut-turut record itu dikarantina supaya siklus
- *   berikutnya bisa maju dengan index `'keep'`.
- */
-function decidePullKeyFailures(keyFailures: PullKeyFailures): RecordKeyError | null {
-  if (keyFailures.failures.size === 0) return null
-  if (keyFailures.abortedWith !== null) return keyFailures.abortedWith
-
-  const firstFailure = keyFailures.failures.values().next().value
-  if (firstFailure === undefined) return null
-
-  if (!keyFailures.keyProven) {
-    keyFailures.abortedWith = firstFailure
-    return firstFailure
-  }
-
-  for (const recordId of keyFailures.failures.keys()) {
-    const failures = (consecutiveKeyFailures.get(recordId) ?? 0) + 1
-
-    if (failures < QUARANTINE_AFTER_KEY_FAILURES) {
-      consecutiveKeyFailures.set(recordId, failures)
-      continue
-    }
-
-    // Dibaca SEBELUM menulis: `quarantineRecord` membuang id tertua saat penuh, jadi jumlah sesudah
-    // menulis selalu <= batas dan tidak bisa dipakai membedakan "pas penuh" dari "baru penuh".
-    const wasFull = quarantinedCount(keyFailures.ownerId) >= QUARANTINE_MAX_RECORDS
-
-    quarantineRecord(keyFailures.ownerId, recordId)
-    consecutiveKeyFailures.delete(recordId)
-
-    // Storage bisa menolak tulisan (mode privat/penuh). Jangan menjanjikan pemulihan yang tidak
-    // terjadi: kalau karantina tidak benar-benar berlaku, siklus berikutnya tetap akan gagal dan
-    // status `error` memang jawaban yang jujur.
-    if (isQuarantined(keyFailures.ownerId, recordId)) {
-      keyFailures.quarantined = true
-      if (wasFull) keyFailures.quarantineFull = true
-    }
-  }
-
-  keyFailures.abortedWith = firstFailure
-  return firstFailure
 }

@@ -44,10 +44,20 @@ const PULL_URL = '/v1/sync/pull'
 
 const BASE64_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
 
-/** Blob palsu yang tetap sah sebagai base64 (kontrak `sealedRecordDtoSchema`). */
+/** Isi blob lokal palsu - dibawa apa adanya sebagai payload saat sync. */
 function blobFor(seed: number): string {
   const index = Math.abs(seed) % BASE64_ALPHABET.length
   return BASE64_ALPHABET.slice(index, index + 1).repeat(8)
+}
+
+function payloadOf(record: { readonly blob: string }): { readonly blob: string } {
+  return { blob: record.blob }
+}
+
+function payloadBlob(payload: unknown): string {
+  const value = (payload as { blob?: unknown }).blob
+  if (typeof value !== 'string') throw new Error('payload uji tidak membawa blob')
+  return value
 }
 
 function recordIdFor(n: number): string {
@@ -75,12 +85,12 @@ type FakeServer = {
  * `limit` yang diminta klien walau masih ada record setelahnya.
  */
 function createFakeServer(options?: {
-  readonly rejectBlobs?: readonly string[]
+  readonly rejectPayloads?: readonly string[]
   readonly pageCap?: number
 }): FakeServer {
   const rows = new Map<string, ServerRow>()
   const pullCalls: { cursor: number; limit: number }[] = []
-  const rejectBlobs = new Set(options?.rejectBlobs ?? [])
+  const rejectPayloads = new Set(options?.rejectPayloads ?? [])
   const pageCap = options?.pageCap ?? Number.POSITIVE_INFINITY
 
   let seq = 0
@@ -95,7 +105,9 @@ function createFakeServer(options?: {
         throw new HttpError(400, 'VALIDATION_FAILED', 'push tidak sesuai kontrak')
 
       const results: SyncPushResult['results'] = parsed.data.records.map((record) => {
-        if (rejectBlobs.has(record.blob)) return { id: record.id, status: 'rejected' }
+        if (rejectPayloads.has(payloadBlob(record.payload))) {
+          return { id: record.id, status: 'rejected' }
+        }
 
         const existing = rows.get(record.id)
         if (existing === undefined || compareHlc(record.hlc, existing.hlc) > 0) {
@@ -186,6 +198,7 @@ async function push(device: Device, server: FakeServer, maxBatch?: number): Prom
     url: PUSH_URL,
     nowMs: device.clock.nowMs(),
     hlc: device.hlc,
+    payloadFor: async (record) => payloadOf(record),
     ...(maxBatch === undefined ? {} : { maxBatch }),
   })
 }
@@ -201,6 +214,7 @@ async function pull(
     url: PULL_URL,
     nowMs: device.clock.nowMs(),
     hlc: device.hlc,
+    sealForStorage: async (remote) => payloadBlob(remote.payload),
     ...(options?.pageLimit === undefined ? {} : { pageLimit: options.pageLimit }),
   })
 }
@@ -294,7 +308,7 @@ describe('QA T21 - konvergensi dua perangkat', () => {
       id: recordIdFor(40),
       hlc: '1700000000000-0-devicez',
       deleted: false,
-      blob: blobFor(1),
+      payload: payloadOf({ blob: blobFor(1) }),
       serverSeq: 1,
     }
     let calls = 0
@@ -313,6 +327,7 @@ describe('QA T21 - konvergensi dua perangkat', () => {
       url: PULL_URL,
       nowMs: clock.nowMs(),
       hlc: device.hlc,
+      sealForStorage: async (remote) => payloadBlob(remote.payload),
     })
 
     expect(calls).toBe(1)
@@ -322,7 +337,7 @@ describe('QA T21 - konvergensi dua perangkat', () => {
 
   it('BUG-3: status error karena baris rejected tidak diturunkan jadi pending oleh pull', async () => {
     const rejectedBlob = blobFor(1)
-    const server = createFakeServer({ rejectBlobs: [rejectedBlob] })
+    const server = createFakeServer({ rejectPayloads: [rejectedBlob] })
     const a = createDevice({ deviceId: 'devicea', clock: createManualClock(START_MS) })
 
     await a.write(recordIdFor(20), 1)

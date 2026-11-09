@@ -36,8 +36,8 @@ describe('kartu Penyimpanan di halaman Akun (task #107)', () => {
     const text = wrapper.text()
     expect(text).toContain('2 MB dari 4 MB (50%)')
     expect(text).toContain('belum aktif')
-    expect(text).toContain('Minta perlindungan')
-    expect(text).not.toContain('Penyimpanan hampir penuh')
+    expect(text).toContain('Jadikan permanen')
+    expect(text).not.toContain('Penyimpanan lokal hampir penuh')
   })
 
   it('menampilkan status aktif tanpa tombol permintaan ulang', async () => {
@@ -48,7 +48,7 @@ describe('kartu Penyimpanan di halaman Akun (task #107)', () => {
 
     const text = wrapper.text()
     expect(text).toContain('aktif')
-    expect(text).not.toContain('Minta perlindungan')
+    expect(text).not.toContain('Jadikan permanen')
   })
 
   it('memperingatkan saat pemakaian >= 75% dan menyediakan jalan keluar ke backup', async () => {
@@ -58,7 +58,7 @@ describe('kartu Penyimpanan di halaman Akun (task #107)', () => {
     })
 
     expect(wrapper.text()).toContain('75%')
-    expect(wrapper.text()).toContain('Penyimpanan hampir penuh')
+    expect(wrapper.text()).toContain('Penyimpanan lokal hampir penuh')
     expect(wrapper.find('a[href="/app/import-export"]').exists()).toBe(true)
   })
 

@@ -10,15 +10,11 @@ import { buildRecordWrite, commitLocalWrite, syncOpFor } from './outbox.ts'
 import { pullDelta } from './pull.ts'
 
 /**
- * Regresi temuan security review M2 + M3 pada `pull.ts`.
+ * Regresi temuan security review M2 pada `pull.ts`.
  *
- * M2: versi lokal dibaca sebelum `indexFor` (kripto) dan sesudahnya. Tanpa baca ulang, edit lokal
- * ber-HLC lebih tinggi yang mendarat selama blob halaman didekripsi ditimpa versi server yang lebih
- * tua - data user kembali ke isi lama tanpa error.
- *
- * M3: `indexFor` boleh menjawab `'keep'`. Dipakai shell saat blob gagal didekripsi: record tetap
- * diterapkan, tapi baris `record_index` lama tidak boleh dihapus (kalau dihapus, record hilang dari
- * kalender/overview/export padahal datanya ada).
+ * M2: versi lokal dibaca sebelum `indexFor` dan sesudahnya. Tanpa baca ulang, edit lokal ber-HLC
+ * lebih tinggi yang mendarat selama `indexFor` berjalan ditimpa versi server yang lebih tua - data
+ * user kembali ke isi lama tanpa error.
  */
 
 const START_MS = 1_700_000_000_000
@@ -30,8 +26,8 @@ function remoteRecord(input: { readonly hlc: string }): ServerRecord {
     id: RECORD_ID,
     hlc: input.hlc,
     deleted: false,
-    // Base64 sah; core tidak pernah membuka isinya.
-    blob: 'AAAAAAAA',
+    // Core tidak pernah menafsirkan isi payload; shell yang menyegelnya untuk penyimpanan lokal.
+    payload: { blob: 'AAAAAAAA' },
     serverSeq: 1,
   }
 }
@@ -75,8 +71,9 @@ describe('pullDelta: tulisan lokal yang mendarat selama indexFor (M2)', () => {
       url: '/v1/sync/pull',
       nowMs: START_MS,
       hlc,
+      sealForStorage: async () => 'AAAAAAAA',
       indexFor: async () => {
-        // Persis jendela balapan yang dilaporkan: shell mendekripsi blob (await), dan SELAMA itu
+        // Persis jendela balapan yang dilaporkan: shell membangun index (await), dan SELAMA itu
         // user menyimpan edit. HLC perangkat ini sudah melewati HLC server (di-`observe` pull).
         await Promise.resolve()
         localHlc = hlc.tick()
@@ -106,59 +103,8 @@ describe('pullDelta: tulisan lokal yang mendarat selama indexFor (M2)', () => {
   })
 })
 
-describe("pullDelta: indexFor 'keep' (M3)", () => {
-  it('tidak menimpa record lokal dan index lamanya saat blob remote tidak bisa didekripsi', async () => {
-    const clock = createManualClock(START_MS)
-    const storage = createMemoryStorage({ clock })
-    const hlc = createHlcGenerator({ deviceId: 'device-a', clock })
-
-    await commitLocalWrite({
-      storage,
-      write: buildRecordWrite({
-        sealed: { id: RECORD_ID, hlc: OLDER_HLC, deleted: false, blob: 'LAMA' },
-        index: INDEX,
-        op: 'put',
-        outbox: { id: 'outbox-lama', queuedAtMs: START_MS },
-      }),
-    })
-
-    const summary = await pullDelta({
-      storage,
-      http: httpWithOnePage(remoteRecord({ hlc: '1700000005000-0-deviceb' })),
-      url: '/v1/sync/pull',
-      nowMs: START_MS,
-      hlc,
-      // Shell mengembalikan 'keep' kalau dekripsi blob gagal (mis. skema lebih baru).
-      indexFor: () => 'keep',
-    })
-
-    // Blob remote tidak terbaca: versi lokal yang masih terbaca tidak boleh diganti olehnya.
-    expect(summary.applied).toBe(0)
-    expect(summary.skipped).toBe(1)
-    expect((await storage.getRecord(RECORD_ID))?.blob).toBe('LAMA')
-    // Inti M3: record tetap bisa ditemukan lewat index lamanya.
-    await expect(storage.listIndexByType('todo')).resolves.toEqual([INDEX])
-  })
-
-  it('tidak mengarang baris index saat belum ada yang bisa dipertahankan', async () => {
-    const clock = createManualClock(START_MS)
-    const storage = createMemoryStorage({ clock })
-    const hlc = createHlcGenerator({ deviceId: 'device-a', clock })
-
-    const summary = await pullDelta({
-      storage,
-      http: httpWithOnePage(remoteRecord({ hlc: '1700000005000-0-deviceb' })),
-      url: '/v1/sync/pull',
-      nowMs: START_MS,
-      hlc,
-      indexFor: (): 'keep' => 'keep',
-    })
-
-    expect(summary.applied).toBe(1)
-    await expect(storage.listIndexByType('todo')).resolves.toEqual([])
-  })
-
-  it('indexFor null TETAP menghapus baris index lama', async () => {
+describe('pullDelta: indexFor null', () => {
+  it('indexFor null menghapus baris index lama', async () => {
     const clock = createManualClock(START_MS)
     const storage = createMemoryStorage({ clock })
     const hlc = createHlcGenerator({ deviceId: 'device-a', clock })
@@ -179,6 +125,7 @@ describe("pullDelta: indexFor 'keep' (M3)", () => {
       url: '/v1/sync/pull',
       nowMs: START_MS,
       hlc,
+      sealForStorage: async () => 'SEGAR',
       indexFor: () => null,
     })
 

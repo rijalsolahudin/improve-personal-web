@@ -17,9 +17,6 @@ import {
   currentSessionResultSchema,
   deviceListResultSchema,
   GENERIC_ERROR_MESSAGES,
-  keyEnvelopeListResultSchema,
-  keyIdentityConflictDetailsSchema,
-  keyIdentityDtoSchema,
   sessionDtoSchema,
   SYNC_MAX_BATCH,
   syncPullResultSchema,
@@ -35,18 +32,7 @@ import { FIXED_OTP_CODE } from '../services/otp'
 import { findSessionByToken } from '../services/session'
 import { hmacSha256, sha256Hex } from '../utils/crypto'
 import { rateLimits, sessions as sessionsTable, syncWatermarks } from '../db/schema'
-import type { ServiceContext } from '../services/context'
-import { claimKeyIdentity } from '../services/keys'
-import {
-  closeTestDb,
-  OTHER_TEST_KID,
-  rateLimitCount,
-  sealedBlobBase64,
-  seedSession,
-  TEST_KID,
-  testDb,
-  type Fixture,
-} from './helpers/harness'
+import { closeTestDb, rateLimitCount, seedSession, testDb, type Fixture } from './helpers/harness'
 import { testScope } from './helpers/scope'
 
 await setup({ server: true })
@@ -58,9 +44,9 @@ function serverOrigin(): string {
   return new URL(url('/')).origin
 }
 
-/** Blob base64 "ciphertext" yang dipakai test sync. */
-function blobOf(text: string): string {
-  return sealedBlobBase64(text)
+/** Payload JSON yang dikirim test sync; server yang menyegelnya. */
+function payloadOf(text: string): { readonly text: string } {
+  return { text }
 }
 
 type ApiRequest = {
@@ -277,17 +263,6 @@ function liveCtx(fixture: Fixture) {
   return fixture.ctx({ now: new Date() })
 }
 
-/** Sesi seed yang akunnya SUDAH mengklaim `TEST_KID` - syarat server menerima push. */
-async function seedClaimedSession(
-  ctx: ServiceContext,
-  options: Parameters<typeof seedSession>[1],
-): ReturnType<typeof seedSession> {
-  const session = await seedSession(ctx, options)
-  await claimKeyIdentity(ctx, session.userId, { kid: TEST_KID }, 'Perangkat uji')
-
-  return session
-}
-
 /** Login lewat jalur produksi (OTP) dan kembalikan token mentah + cookie-nya. */
 async function loginOverHttp(
   fixture: Fixture,
@@ -343,12 +318,6 @@ describe('authz: tanpa sesi => 401 untuk semua endpoint non-publik', () => {
     ['GET', '/v1/auth/session'],
     ['GET', '/v1/devices'],
     ['DELETE', `/v1/devices/${randomUUID()}`],
-    ['GET', '/v1/keys/envelopes'],
-    ['GET', '/v1/keys/identity'],
-    ['PUT', '/v1/keys/identity', { kid: TEST_KID }],
-    ['PUT', '/v1/keys/envelopes', { slot: 'passkey', wrappedKey: 'AAAA', kdfParams: {} }],
-    ['POST', '/v1/keys/transfer', { targetDeviceId: randomUUID(), blob: 'AAAA' }],
-    ['POST', `/v1/keys/transfer/${'a'.repeat(22)}`],
     ['GET', '/v1/sync/pull?cursor=0&limit=10'],
     ['POST', '/v1/sync/push', { records: [] }],
     ['DELETE', '/v1/account', { email: 'qa@qa.test', code: FIXED_OTP_CODE }],
@@ -681,31 +650,6 @@ describe('authz per-resource (IDOR) lewat HTTP', () => {
     ).data
     expect(spoofedQuery.devices.map((device) => device.id)).not.toContain(bobSession.deviceId)
 
-    // `user_id` di body tidak diteruskan (cegah mass assignment): request ditolak dan `bob` tidak
-    // menerima envelope apa pun. Status/kode pastinya diperiksa test khusus validasi di bawah - request
-    // INI sendiri sudah ditolak, bukan diteruskan.
-    const spoofedPut = await api('/v1/keys/envelopes', {
-      method: 'PUT',
-      cookie: aliceCookie,
-      body: {
-        slot: 'passkey',
-        wrappedKey: blobOf('envelope-alice'),
-        kdfParams: { algorithm: 'argon2id' },
-        userId: bobSession.userId,
-      },
-    })
-    expect(spoofedPut.status).not.toBe(200)
-
-    const bobEnvelopes = apiDataEnvelopeSchema(keyEnvelopeListResultSchema).parse(
-      (await api('/v1/keys/envelopes', { cookie: bobCookie })).body,
-    ).data
-    expect(bobEnvelopes.envelopes).toEqual([])
-
-    const aliceEnvelopes = apiDataEnvelopeSchema(keyEnvelopeListResultSchema).parse(
-      (await api(`/v1/keys/envelopes?userId=${bobSession.userId}`, { cookie: aliceCookie })).body,
-    ).data
-    expect(aliceEnvelopes.envelopes).toEqual([])
-
     // Cabut perangkat milik user lain: 404 (bukan 403) dan data user itu tidak berubah.
     const revoke = await api(`/v1/devices/${bobSession.deviceId}`, {
       method: 'DELETE',
@@ -725,14 +669,15 @@ describe('authz per-resource (IDOR) lewat HTTP', () => {
     })
 
     // Pull user A tidak memuat record user B.
-    await claimKeyIdentity(liveCtx(bob), bobSession.userId, { kid: TEST_KID }, 'Bob Laptop')
     const bobRecordId = randomUUID()
     const bobPush = await api('/v1/sync/push', {
       method: 'POST',
       cookie: bobCookie,
       expectedUserId: bobSession.userId,
       body: {
-        records: [{ id: bobRecordId, hlc: '1000-0-b', deleted: false, blob: blobOf('milik-bob') }],
+        records: [
+          { id: bobRecordId, hlc: '1000-0-b', deleted: false, payload: payloadOf('milik-bob') },
+        ],
       },
     })
     expect(bobPush.status).toBe(200)
@@ -750,92 +695,15 @@ describe('authz per-resource (IDOR) lewat HTTP', () => {
   })
 })
 
-describe('identitas kunci lewat HTTP', () => {
-  it('GET kosong -> PUT baru 201 -> PUT ulang 200 -> PUT KID lain 409 dengan details tanpa KID', async () => {
-    const fixture = scope.fixture({ prefix: 'http-identity' })
-    const session = await seedSession(liveCtx(fixture), {
-      email: fixture.email,
-      deviceName: 'Laptop uji',
-    })
-    const cookie = cookieFor(session.token)
-    const put = (kid: string) => api('/v1/keys/identity', { method: 'PUT', cookie, body: { kid } })
-
-    const empty = await api('/v1/keys/identity', { cookie })
-    expect(empty.status).toBe(200)
-    expect(apiDataEnvelopeSchema(keyIdentityDtoSchema).parse(empty.body).data).toEqual({
-      kid: null,
-      claimedAt: null,
-      claimedByDeviceLabel: null,
-    })
-
-    const first = await put(TEST_KID)
-    expect(first.status).toBe(201)
-    expect(apiDataEnvelopeSchema(keyIdentityDtoSchema).parse(first.body).data).toMatchObject({
-      kid: TEST_KID,
-      claimedByDeviceLabel: 'Laptop uji',
-    })
-
-    expect((await put(TEST_KID)).status).toBe(200)
-
-    const conflict = await put(OTHER_TEST_KID)
-    expect(conflict.status).toBe(409)
-    const problem = problemOf(conflict).error
-    expect(problem.code).toBe('KEY_IDENTITY_CONFLICT')
-    expect(keyIdentityConflictDetailsSchema.parse(problem.details)).toMatchObject({
-      claimedByDeviceLabel: 'Laptop uji',
-    })
-    expect(JSON.stringify(conflict.body)).not.toContain(TEST_KID)
-
-    const read = await api('/v1/keys/identity', { cookie })
-    expect(apiDataEnvelopeSchema(keyIdentityDtoSchema).parse(read.body).data.kid).toBe(TEST_KID)
-  })
-
-  it('KID tak kanonik dan field asing ditolak 400', async () => {
-    const fixture = scope.fixture({ prefix: 'http-identity-invalid' })
-    const session = await seedSession(liveCtx(fixture), { email: fixture.email })
-    const cookie = cookieFor(session.token)
-
-    for (const body of [{ kid: 'pendek' }, { kid: TEST_KID, userId: randomUUID() }, {}]) {
-      const response = await api('/v1/keys/identity', { method: 'PUT', cookie, body })
-
-      expect(response.status, JSON.stringify(body)).toBe(400)
-    }
-  })
-
-  it('identitas satu akun tidak terlihat dan tidak menghalangi akun lain', async () => {
-    const alice = scope.fixture({ prefix: 'http-identity-alice' })
-    const bob = scope.fixture({ prefix: 'http-identity-bob' })
-    const aliceSession = await seedSession(liveCtx(alice), { email: alice.email })
-    const bobSession = await seedSession(liveCtx(bob), { email: bob.email })
-
-    await api('/v1/keys/identity', {
-      method: 'PUT',
-      cookie: cookieFor(aliceSession.token),
-      body: { kid: TEST_KID },
-    })
-
-    const bobRead = await api('/v1/keys/identity', { cookie: cookieFor(bobSession.token) })
-    expect(apiDataEnvelopeSchema(keyIdentityDtoSchema).parse(bobRead.body).data.kid).toBeNull()
-
-    const bobClaim = await api('/v1/keys/identity', {
-      method: 'PUT',
-      cookie: cookieFor(bobSession.token),
-      body: { kid: OTHER_TEST_KID },
-    })
-    expect(bobClaim.status).toBe(201)
-  })
-})
-
 describe('sync lewat HTTP (T21)', () => {
   it('push -> pull: ciphertext & tombstone kembali apa adanya, nextCursor benar', async () => {
     const fixture = scope.fixture({ prefix: 'http-sync' })
     const session = await seedSession(liveCtx(fixture), { email: fixture.email })
-    await claimKeyIdentity(liveCtx(fixture), session.userId, { kid: TEST_KID }, 'Laptop uji')
     const cookie = cookieFor(session.token)
     const liveId = randomUUID()
     const deletedId = randomUUID()
-    const liveBlob = blobOf('ciphertext-memo')
-    const deletedBlob = blobOf('ciphertext-tombstone')
+    const livePayload = payloadOf('isi-memo')
+    const deletedPayload = payloadOf('isi-tombstone')
 
     const pushed = await api('/v1/sync/push', {
       method: 'POST',
@@ -843,8 +711,8 @@ describe('sync lewat HTTP (T21)', () => {
       expectedUserId: session.userId,
       body: {
         records: [
-          { id: liveId, hlc: '1000-0-a', deleted: false, blob: liveBlob },
-          { id: deletedId, hlc: '1001-0-a', deleted: true, blob: deletedBlob },
+          { id: liveId, hlc: '1000-0-a', deleted: false, payload: livePayload },
+          { id: deletedId, hlc: '1001-0-a', deleted: true, payload: deletedPayload },
         ],
       },
     })
@@ -861,7 +729,7 @@ describe('sync lewat HTTP (T21)', () => {
     const page = apiDataEnvelopeSchema(syncPullResultSchema).parse(pulled.body).data
 
     expect(page.records.map((record) => record.id)).toEqual([liveId, deletedId])
-    expect(page.records.map((record) => record.blob)).toEqual([liveBlob, deletedBlob])
+    expect(page.records.map((record) => record.payload)).toEqual([livePayload, deletedPayload])
     expect(page.records.find((record) => record.id === deletedId)?.deleted).toBe(true)
     expect(page.nextCursor).toBe(page.records.at(-1)?.serverSeq)
 
@@ -886,7 +754,7 @@ describe('sync lewat HTTP (T21)', () => {
       id: randomUUID(),
       hlc: `1000-${index}-a`,
       deleted: false,
-      blob: blobOf('x'),
+      payload: payloadOf('x'),
     }))
 
     const response = await api('/v1/sync/push', {
@@ -911,7 +779,7 @@ describe('sync lewat HTTP (T21)', () => {
       id: randomUUID(),
       hlc: `1000-${index}-a`,
       deleted: false,
-      blob: blobOf('x'),
+      payload: payloadOf('x'),
     }))
 
     const response = await api('/v1/sync/push', {
@@ -938,7 +806,7 @@ describe('sync lewat HTTP (T21)', () => {
       expectedUserId: session.userId,
       body: {
         userId: randomUUID(),
-        records: [{ id: recordId, hlc: '1000-0-a', deleted: false, blob: blobOf('x') }],
+        records: [{ id: recordId, hlc: '1000-0-a', deleted: false, payload: payloadOf('x') }],
       },
     })
 
@@ -960,7 +828,7 @@ describe('sync lewat HTTP (T21)', () => {
       expectedUserId: session.userId,
       body: {
         userId: session.userId,
-        records: [{ id: randomUUID(), hlc: '1000-0-a', deleted: false, blob: blobOf('x') }],
+        records: [{ id: randomUUID(), hlc: '1000-0-a', deleted: false, payload: payloadOf('x') }],
       },
     })
 
@@ -1034,7 +902,7 @@ describe('sync: penanda pemilik request `x-expected-user-id` (H1 + L1)', () => {
 
   /** Sesi milik user fixture ini, siap dipakai lewat cookie (HTTP nyata). */
   async function sessionOf(fixture: Fixture) {
-    return await seedClaimedSession(liveCtx(fixture), { email: fixture.email })
+    return await seedSession(liveCtx(fixture), { email: fixture.email })
   }
 
   it('cookie sesi + header cocok -> push & pull diproses seperti biasa', async () => {
@@ -1047,7 +915,9 @@ describe('sync: penanda pemilik request `x-expected-user-id` (H1 + L1)', () => {
       method: 'POST',
       cookie,
       expectedUserId: session.userId,
-      body: { records: [{ id, hlc: '1000-0-a', deleted: false, blob: blobOf('milik-sendiri') }] },
+      body: {
+        records: [{ id, hlc: '1000-0-a', deleted: false, payload: payloadOf('milik-sendiri') }],
+      },
     })
     expect(pushed.status).toBe(200)
 
@@ -1075,7 +945,7 @@ describe('sync: penanda pemilik request `x-expected-user-id` (H1 + L1)', () => {
     const push = await api('/v1/sync/push', {
       method: 'POST',
       cookie,
-      body: { records: [{ id, hlc: '1000-0-a', deleted: false, blob: blobOf('tab-basi') }] },
+      body: { records: [{ id, hlc: '1000-0-a', deleted: false, payload: payloadOf('tab-basi') }] },
     })
     expect(push.status).toBe(403)
     expect(problemOf(push).error.code).toBe('FORBIDDEN')
@@ -1108,7 +978,7 @@ describe('sync: penanda pemilik request `x-expected-user-id` (H1 + L1)', () => {
     // Klien bearer tidak punya cookie jar: tidak ada kredensial ambient yang bisa dipinjam tab lain,
     // jadi header ini memang tidak diwajibkan untuknya. `transport: 'node'` mengirim request tanpa
     // Fetch Metadata sama sekali - membuktikan penentunya cookie, bukan penanda browser.
-    const session = await seedClaimedSession(liveCtx(fixture), {
+    const session = await seedSession(liveCtx(fixture), {
       email: fixture.email,
       client: 'mobile',
     })
@@ -1118,7 +988,7 @@ describe('sync: penanda pemilik request `x-expected-user-id` (H1 + L1)', () => {
       method: 'POST',
       token: session.token,
       transport: 'node',
-      body: { records: [{ id, hlc: '1000-0-a', deleted: false, blob: blobOf('x') }] },
+      body: { records: [{ id, hlc: '1000-0-a', deleted: false, payload: payloadOf('x') }] },
     })
     expect(pushed.status).toBe(200)
 
@@ -1138,7 +1008,7 @@ describe('sync: penanda pemilik request `x-expected-user-id` (H1 + L1)', () => {
     const fixture = scope.fixture({ prefix: 'http-sync-bearer-web' })
     // `sessions.client` mencatat kanal LOGIN, sedangkan yang berbahaya adalah kanal TRANSPORT request
     // ini: selama tidak ada cookie yang ikut terkirim, tidak ada sesi tab-shared untuk dilindungi.
-    const session = await seedClaimedSession(liveCtx(fixture), {
+    const session = await seedSession(liveCtx(fixture), {
       email: fixture.email,
       client: 'web',
     })
@@ -1148,7 +1018,7 @@ describe('sync: penanda pemilik request `x-expected-user-id` (H1 + L1)', () => {
       method: 'POST',
       token: session.token,
       transport: 'node',
-      body: { records: [{ id, hlc: '1000-0-a', deleted: false, blob: blobOf('x') }] },
+      body: { records: [{ id, hlc: '1000-0-a', deleted: false, payload: payloadOf('x') }] },
     })
     expect(pushed.status).toBe(200)
 
@@ -1166,7 +1036,7 @@ describe('sync: penanda pemilik request `x-expected-user-id` (H1 + L1)', () => {
 
   it('bearer sah + cookie `ip_session` pendek/asing -> tetap dilayani tanpa header (A2)', async () => {
     const fixture = scope.fixture({ prefix: 'http-sync-bearer-stray-cookie' })
-    const session = await seedClaimedSession(liveCtx(fixture), {
+    const session = await seedSession(liveCtx(fixture), {
       email: fixture.email,
       client: 'mobile',
     })
@@ -1181,7 +1051,7 @@ describe('sync: penanda pemilik request `x-expected-user-id` (H1 + L1)', () => {
       method: 'POST',
       cookie: strayCookie,
       token: session.token,
-      body: { records: [{ id, hlc: '1000-0-a', deleted: false, blob: blobOf('x') }] },
+      body: { records: [{ id, hlc: '1000-0-a', deleted: false, payload: payloadOf('x') }] },
     })
     expect(pushed.status, JSON.stringify(pushed.body)).toBe(200)
 
@@ -1200,11 +1070,11 @@ describe('sync: penanda pemilik request `x-expected-user-id` (H1 + L1)', () => {
   it('bearer sah + cookie VALID milik user lain -> cookie menang, tanpa header 403 (A2)', async () => {
     const alice = scope.fixture({ prefix: 'http-sync-cookie-wins-alice' })
     const bob = scope.fixture({ prefix: 'http-sync-cookie-wins-bob' })
-    const aliceSession = await seedClaimedSession(liveCtx(alice), {
+    const aliceSession = await seedSession(liveCtx(alice), {
       email: alice.email,
       client: 'web',
     })
-    const bobSession = await seedClaimedSession(liveCtx(bob), {
+    const bobSession = await seedSession(liveCtx(bob), {
       email: bob.email,
       client: 'mobile',
     })
@@ -1218,7 +1088,9 @@ describe('sync: penanda pemilik request `x-expected-user-id` (H1 + L1)', () => {
       method: 'POST',
       cookie,
       token: bobSession.token,
-      body: { records: [{ id, hlc: '1000-0-a', deleted: false, blob: blobOf('bukan-miliknya') }] },
+      body: {
+        records: [{ id, hlc: '1000-0-a', deleted: false, payload: payloadOf('bukan-miliknya') }],
+      },
     })
     expect(withoutHeader.status).toBe(403)
     expect(problemOf(withoutHeader).error.code).toBe('FORBIDDEN')
@@ -1244,7 +1116,9 @@ describe('sync: penanda pemilik request `x-expected-user-id` (H1 + L1)', () => {
       cookie,
       token: bobSession.token,
       expectedUserId: aliceSession.userId,
-      body: { records: [{ id, hlc: '1000-0-a', deleted: false, blob: blobOf('milik-alice') }] },
+      body: {
+        records: [{ id, hlc: '1000-0-a', deleted: false, payload: payloadOf('milik-alice') }],
+      },
     })
     expect(asAlice.status, JSON.stringify(asAlice.body)).toBe(200)
 
@@ -1272,7 +1146,9 @@ describe('sync: penanda pemilik request `x-expected-user-id` (H1 + L1)', () => {
       method: 'POST',
       cookie,
       headers: { [HEADER]: bobUserId },
-      body: { records: [{ id, hlc: '1000-0-a', deleted: false, blob: blobOf('bukan-miliknya') }] },
+      body: {
+        records: [{ id, hlc: '1000-0-a', deleted: false, payload: payloadOf('bukan-miliknya') }],
+      },
     })
     expect(push.status).toBe(403)
     expect(problemOf(push).error.code).toBe('FORBIDDEN')
@@ -1561,7 +1437,9 @@ describe('regresi BUG-1: kegagalan validasi input seragam 400 VALIDATION_FAILED'
             expectedUserId: session.userId,
             body: {
               userId: session.userId,
-              records: [{ id: randomUUID(), hlc: '1000-0-a', deleted: false, blob: blobOf('x') }],
+              records: [
+                { id: randomUUID(), hlc: '1000-0-a', deleted: false, payload: payloadOf('x') },
+              ],
             },
           }),
         forbidden: [session.userId],
@@ -1578,7 +1456,7 @@ describe('regresi BUG-1: kegagalan validasi input seragam 400 VALIDATION_FAILED'
                 id: randomUUID(),
                 hlc: `1000-${index}-a`,
                 deleted: false,
-                blob: blobOf('x'),
+                payload: payloadOf('x'),
               })),
             },
           }),

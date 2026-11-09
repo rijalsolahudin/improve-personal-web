@@ -12,17 +12,12 @@ const flow = useLoginFlow()
 definePageMeta({ layout: false })
 
 /**
- * Langkah OTP & pemulihan hanya muncul dari interaksi user, jadi chunk-nya tidak perlu ikut render
- * awal. Langkah pemulihan menarik form kunci (PasswordInput -> ikon, crypto) yang berat; memisahkannya
- * menjaga JS initial `/login` di bawah budget 170 KB (`app/utils/bundle-budget.test.ts`).
+ * Langkah OTP hanya muncul dari interaksi user, jadi chunk-nya tidak perlu ikut render awal.
  *
  * `defineAsyncComponent` eksplisit, bukan prefix `Lazy`: loader-nya bisa diuji (import dinamis yang
  * sama dipakai test komponen) dan tetap satu chunk terpisah hasil code-splitting Vite.
  */
 const AuthOtpStep = defineAsyncComponent(() => import('~/components/features/auth/AuthOtpStep.vue'))
-const AuthRecoveryStep = defineAsyncComponent(
-  () => import('~/components/features/auth/AuthRecoveryStep.vue'),
-)
 </script>
 
 <template>
@@ -34,8 +29,7 @@ const AuthRecoveryStep = defineAsyncComponent(
       <LazyAuthBrandPanel hydrate-never />
       <div class="form-side">
         <AuthEmailStep v-if="flow.step.value === 'choose'" :flow="flow" />
-        <AuthOtpStep v-else-if="flow.step.value === 'otp'" :flow="flow" />
-        <AuthRecoveryStep v-else @back="flow.backToEmail" />
+        <AuthOtpStep v-else :flow="flow" />
         <p class="terms">{{ $t('login.terms') }}</p>
       </div>
     </div>

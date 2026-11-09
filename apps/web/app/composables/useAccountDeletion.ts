@@ -3,7 +3,6 @@ import {
   type DeleteAccountInput,
   type ErrorCode,
 } from '@improve-personal/contracts'
-import { KEY_SLOTS_LOCAL } from '@improve-personal/core'
 
 import { MS_PER_SECOND } from '~/utils/time'
 import { isValidEmail } from '~/utils/validation'
@@ -145,14 +144,6 @@ export function useAccountDeletion(options: UseAccountDeletionOptions = {}) {
         await session.storage.wipe()
       } catch {
         // Sisa record terenkripsi tanpa akun tidak bisa dipakai siapa pun; navigasi tetap dilanjutkan.
-      }
-
-      for (const slot of KEY_SLOTS_LOCAL) {
-        try {
-          await session.keyStore.remove(slot)
-        } catch {
-          // idem: bahan kunci tanpa record bukan data yang bisa dibaca.
-        }
       }
     }
 

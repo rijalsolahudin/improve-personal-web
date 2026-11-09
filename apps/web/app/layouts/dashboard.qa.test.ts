@@ -11,7 +11,6 @@ import DashboardLayout from './dashboard.vue'
 
 const READY_STATE: LocalDataState = {
   status: 'ready',
-  isFreshKey: false,
   deviceId: '018f2c4e-0000-7000-8000-0000000000d1',
   userId: '018f2c4e-0000-7000-8000-00000000000a',
   error: null,
@@ -25,14 +24,7 @@ async function mount(): Promise<VueWrapper> {
 }
 
 beforeEach(() => {
-  clearNuxtState([
-    'localData',
-    'accountPasskey',
-    'accountStatus',
-    'accountError',
-    'accountDevices',
-    'now',
-  ])
+  clearNuxtState(['localData', 'accountStatus', 'accountError', 'accountDevices', 'now'])
   resetSyncActivityForTest()
 })
 
@@ -47,9 +39,7 @@ describe('indikator status sync (T22, T105, T106)', () => {
   it('layout dashboard menaruh indikator sync di dock kanan bawah, bukan di atas halaman', async () => {
     const wrapper = await mount()
 
-    // Tanpa dialog onboarding/recovery: user sudah punya passkey dan data lokal siap.
     useState<LocalDataState>('localData').value = READY_STATE
-    useState<'set' | 'unset'>('accountPasskey').value = 'set'
     await nextTick()
 
     expect(wrapper.find('[role="dialog"]').exists()).toBe(false)

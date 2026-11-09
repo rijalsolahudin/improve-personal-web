@@ -126,16 +126,15 @@ describe('halaman Panduan', () => {
     }
   })
 
-  it('bagian keamanan tampil dengan judul & isi kunci pemulihan', async () => {
+  it('bagian keamanan tampil dengan judul & isi enkripsi at-rest', async () => {
     const wrapper = await mountSuspended(PanduanPage)
     await flushPromises()
 
     const security = wrapper.find(`#${guideAnchor('security')}`)
     expect(security.exists()).toBe(true)
     expect(security.find('h2').text()).toBe('Gimana data lo dijaga')
-    expect(security.text()).toContain('24 kata')
-    expect(security.text()).toContain('iprk1')
-    expect(security.text()).toContain('passkey')
+    expect(security.text()).toContain('AES-256-GCM')
+    expect(security.text()).toContain('kunci perangkat')
 
     const backup = wrapper.find(`#${guideAnchor('backup')}`)
     expect(backup.exists()).toBe(true)

@@ -4,22 +4,22 @@
 // dan tidak bentrok dengan lock `devices:<userId>`. Postgres nyata.
 import { randomUUID } from 'node:crypto'
 
-import type { SealedRecordDto } from '@improve-personal/contracts'
+import type { SyncRecordDto } from '@improve-personal/contracts'
 import { eq, sql } from 'drizzle-orm'
 import { afterAll, afterEach, describe, expect, it } from 'vitest'
 
 import { records } from '../db/schema'
 import { pushRecords } from '../services/sync'
-import { claimedUserId, closeTestDb, sealedBlobBase64, testDb } from './helpers/harness'
+import { closeTestDb, testDb, testPayload } from './helpers/harness'
 import { testScope } from './helpers/scope'
 
 const scope = testScope()
 const POLL_INTERVAL_MS = 20
 const POLL_TIMEOUT_MS = 10_000
-const STILL_BLOCKED_MS = 400
+const STILL_BLOCKED_MS = 2_000
 
-function sealedRecord(id: string, hlc: string): SealedRecordDto {
-  return { id, hlc, deleted: false, blob: sealedBlobBase64(`ciphertext-${id}`) }
+function recordDto(id: string, hlc: string): SyncRecordDto {
+  return { id, hlc, deleted: false, payload: testPayload(`isi-${id}`) }
 }
 
 function delay(ms: number): Promise<void> {
@@ -94,11 +94,11 @@ afterAll(async () => {
 describe('kunci advisory push (#112, QA)', () => {
   it('push menunggu di advisory lock `sync-push:<userId>` sebelum menyentuh baris/seq', async () => {
     const fixture = scope.fixture({ prefix: 'qa112-order' })
-    const userId = await claimedUserId(fixture)
+    const userId = await fixture.userId()
     const id = randomUUID()
     const lock = await holdAdvisoryLock(`sync-push:${userId}`)
 
-    const push = pushRecords(fixture.ctx(), userId, [sealedRecord(id, '1000-0-a')])
+    const push = pushRecords(fixture.ctx(), userId, [recordDto(id, '1000-0-a')])
     await waitUntil(() => waitingForAdvisoryLockBehind(lock.pid))
 
     // Selama menunggu lock: belum ada baris yang dibuat (nextval/insert belum jalan).
@@ -110,10 +110,10 @@ describe('kunci advisory push (#112, QA)', () => {
 
   it('lock `devices:<userId>` tidak memblokir push (nama lock tidak bentrok)', async () => {
     const fixture = scope.fixture({ prefix: 'qa112-devices' })
-    const userId = await claimedUserId(fixture)
+    const userId = await fixture.userId()
     const lock = await holdAdvisoryLock(`devices:${userId}`)
 
-    const outcome = pushRecords(fixture.ctx(), userId, [sealedRecord(randomUUID(), '1000-0-a')])
+    const outcome = pushRecords(fixture.ctx(), userId, [recordDto(randomUUID(), '1000-0-a')])
     const stillPending = await isStillPending(outcome, STILL_BLOCKED_MS)
     await lock.release()
     await outcome
@@ -124,11 +124,11 @@ describe('kunci advisory push (#112, QA)', () => {
   it('lock user lain tidak memblokir push user ini', async () => {
     const alice = scope.fixture({ prefix: 'qa112-iso-a' })
     const bob = scope.fixture({ prefix: 'qa112-iso-b' })
-    const aliceId = await claimedUserId(alice)
-    const bobId = await claimedUserId(bob)
+    const aliceId = await alice.userId()
+    const bobId = await bob.userId()
     const lock = await holdAdvisoryLock(`sync-push:${aliceId}`)
 
-    const outcome = pushRecords(bob.ctx(), bobId, [sealedRecord(randomUUID(), '1000-0-b')])
+    const outcome = pushRecords(bob.ctx(), bobId, [recordDto(randomUUID(), '1000-0-b')])
     const stillPending = await isStillPending(outcome, STILL_BLOCKED_MS)
     await lock.release()
     await outcome
@@ -138,21 +138,21 @@ describe('kunci advisory push (#112, QA)', () => {
 
   it('batch gagal di tengah: rollback total dan lock dilepas (push berikutnya tidak menggantung)', async () => {
     const fixture = scope.fixture({ prefix: 'qa112-rollback' })
-    const userId = await claimedUserId(fixture)
+    const userId = await fixture.userId()
     const goodId = randomUUID()
     const badId = 'bukan-uuid'
 
     // Record pertama valid (sudah dapat seq), record kedua melempar error DB -> transaksi rollback.
     await expect(
       pushRecords(fixture.ctx(), userId, [
-        sealedRecord(goodId, '1000-0-a'),
-        sealedRecord(badId, '1001-0-a'),
+        recordDto(goodId, '1000-0-a'),
+        recordDto(badId, '1001-0-a'),
       ]),
     ).rejects.toThrow()
 
     expect(await testDb().select().from(records).where(eq(records.userId, userId))).toHaveLength(0)
 
-    const next = pushRecords(fixture.ctx(), userId, [sealedRecord(goodId, '1002-0-a')])
+    const next = pushRecords(fixture.ctx(), userId, [recordDto(goodId, '1002-0-a')])
     expect(await isStillPending(next, STILL_BLOCKED_MS)).toBe(false)
     expect((await next).results.map((entry) => entry.status)).toEqual(['applied'])
 

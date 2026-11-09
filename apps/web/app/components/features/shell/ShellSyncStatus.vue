@@ -19,7 +19,7 @@ import { runSyncReloaders } from '~/utils/sync/refresh'
  *   beres" tidak perlu diberitahukan terus-menerus di setiap halaman.
  *
  * Sesi data lokal dibaca lewat `localData.current()`, BUKAN `ensure()`: `ensure()` menulis state
- * bersama (`loading`) dan itu membuat gate onboarding berkedip tertutup di halaman yang sama.
+ * bersama (`loading`) dan itu memicu pekerjaan tambahan di halaman yang sama.
  */
 const SYNC_REFRESH_MS = 60_000
 
@@ -38,13 +38,6 @@ const isOnline = ref(true)
 const sync = useSyncStatus({
   getStorage: () => storage.value,
   isOnline: () => isOnline.value,
-  getOwnerId: () => localData.state.value.userId,
-})
-
-const showIndicator = computed(() => {
-  const status = sync.status.value
-
-  return isSyncing.value || (status !== null && ATTENTION_STATUSES.includes(status))
 })
 
 /**
@@ -55,7 +48,11 @@ const showIndicator = computed(() => {
  * hanya di anak-anaknya. Komponennya sendiri tetap ter-mount (listener sync, interval, dan `watch`
  * sesi data lokal jalan seperti biasa) - yang hilang hanya elemen DOM-nya.
  */
-const hasContent = computed(() => showIndicator.value || sync.blockedCount.value > 0)
+const showIndicator = computed(() => {
+  const status = sync.status.value
+
+  return isSyncing.value || (status !== null && ATTENTION_STATUSES.includes(status))
+})
 
 const label = computed(() => {
   if (isSyncing.value) return t('sync.status.syncing')
@@ -76,48 +73,12 @@ const lastSync = computed(() =>
 )
 
 let timer: ReturnType<typeof setInterval> | null = null
-/** Sekali per mount: `refresh()` dipanggil berkali-kali (event sync, interval, visibility). */
-let autoReindexDone = false
 
 /** Ambil penyimpanan akun yang memang sudah terbuka, lalu baca status dari sana. */
 async function refresh(): Promise<void> {
   isOnline.value = navigator.onLine
   storage.value = localData.current()?.storage ?? null
   await sync.refresh()
-
-  // Dibaca SESUDAH status: gerbangnya `blockedCount`, yang baru terisi oleh `sync.refresh()`.
-  void autoReindexQuarantined()
-}
-
-/**
- * Percobaan ulang OTOMATIS untuk record yang karantinanya sudah kedaluwarsa.
- *
- * Hanya entri "due" (`dueOnly: true`): record yang masih baru sengaja tidak disentuh, karena
- * kegagalannya belum tentu berubah sebab. Sekali per mount - penanda `autoReindexDone` mencegah
- * `refresh()` berikutnya (event sync, interval 60 detik, visibility) mengulang pekerjaan yang sama.
- *
- * Tidak memblokir render: dipanggil sebagai efek samping `refresh()`, hasilnya hanya dipakai untuk
- * menyegarkan angka karantina. `reindexQuarantined()` sendiri tidak memicu event yang memanggil
- * dirinya lagi, jadi tidak ada putaran.
- */
-async function autoReindexQuarantined(): Promise<void> {
-  if (autoReindexDone) return
-  if (sync.blockedCount.value === 0) return
-
-  // Sesi belum terbuka (idle/locked): biarkan `watch` status `ready` yang memicunya nanti.
-  const session = localData.current()
-  if (session === null) return
-
-  autoReindexDone = true
-
-  try {
-    const { reindexQuarantined } = await import('~/utils/sync/reindex')
-    const { recovered } = await reindexQuarantined(session, { dueOnly: true })
-    if (recovered > 0) await refresh()
-  } catch {
-    // Percobaan otomatis yang gagal (mis. cuplikan modul tidak termuat) tidak boleh merusak indikator:
-    // karantina tetap ada, dan jalan manual "Coba buka ulang" masih tersedia.
-  }
 }
 
 async function requestCycle(): Promise<void> {
@@ -128,29 +89,6 @@ async function requestCycle(): Promise<void> {
 }
 
 async function retry(): Promise<void> {
-  await requestCycle()
-}
-
-/**
- * "Coba buka ulang" untuk record terkarantina.
- *
- * Yang dibangun ulang adalah `record_index` dari blob LOKAL (`utils/sync/reindex.ts`), bukan dengan
- * meminta server mengirim ulang: record itu sudah tersimpan di perangkat dengan index `keep`, dan
- * cursor pull sudah melewatinya. Index lama tidak dihapus untuk record yang tetap tidak bisa dibuka.
- *
- * Tidak ada dialog konfirmasi: operasi ini tidak menghapus data apa pun (blob tetap tersimpan). Paling
- * buruk record kembali terkarantina. Siklus sync tetap diminta sesudahnya - record lain mungkin
- * menunggu terkirim/tertarik.
- */
-async function reopenQuarantined(): Promise<void> {
-  const session = localData.current()
-
-  if (session !== null) {
-    const { reindexQuarantined } = await import('~/utils/sync/reindex')
-    await reindexQuarantined(session, { dueOnly: false })
-  }
-
-  await refresh()
   await requestCycle()
 }
 
@@ -210,21 +148,8 @@ watch(
 </script>
 
 <template>
-  <div v-if="hasContent" class="sync-wrap">
-    <!--
-      Keterangan, bukan status baru: record yang tidak bisa dibuka tetap tersimpan di perangkat dan
-      tidak menghalangi sync lagi. Id record sengaja tidak ditampilkan (tidak berguna bagi user).
-
-      Tombol tetap tampil walau status `synced`: karantina tidak mengubah status sync, tetapi user
-      butuh jalan untuk memaksa record dicoba lagi (mis. setelah kunci dipulihkan).
-    -->
-    <p v-if="sync.blockedCount.value > 0" class="blocked">
-      {{ t('sync.blocked', { n: sync.blockedCount.value }) }}
-      <button type="button" class="retry blocked-retry" @click="reopenQuarantined">
-        {{ t('sync.blockedRetry') }}
-      </button>
-    </p>
-    <div v-if="showIndicator" class="sync-row">
+  <div v-if="showIndicator" class="sync-wrap">
+    <div class="sync-row">
       <p
         class="sync"
         :class="`sync--${tone}`"
@@ -331,21 +256,5 @@ watch(
   .spinner {
     animation: none;
   }
-}
-
-.blocked {
-  margin: 0;
-  padding: var(--space-3, 0.375rem) var(--space-6, 0.75rem);
-  border: var(--border-thin, 2px) solid var(--line, #e6ded1);
-  border-radius: var(--radius-btn-sq, 16px);
-  background: var(--surface-card, #fffdf8);
-  color: var(--text-muted, #6b5e4b);
-  font-size: var(--fs-caption, 0.8125rem);
-  line-height: 1.4;
-}
-
-.blocked-retry {
-  margin-inline-start: var(--space-4, 0.5rem);
-  vertical-align: baseline;
 }
 </style>

@@ -46,7 +46,7 @@ export const GUIDE_FEATURES: readonly GuideFeature[] = [
     summary:
       'Halaman utama yang menyatukan prioritas hari ini, to-do hari ini (termasuk yang telat), habit, cuaca, dan kalender hari ini. Widget di sini membaca data yang sama dengan halaman lain, jadi centang di sini ikut mengubah progres di sana.',
     tips: [
-      'Tinggal tulis judulnya di quick add To-do: task dibuat tanpa deadline dan tetap tampil di To-do hari itu. Besok tidak berubah jadi terlambat, dan task tetap ada setelah reload sampai kamu selesaikan.',
+      'Tinggal tulis judulnya di quick add To-do: task dibuat tanpa deadline dan tetap tampil di To-do hari itu, termasuk di perangkat lain yang tersinkron. Besok tidak berubah jadi terlambat, dan task tetap ada setelah reload sampai kamu selesaikan.',
       'Prioritas diambil dari kuadran Penting & Mendesak lebih dulu, lalu task urgent.',
       'Daftar panjang di Prioritas maupun To-do dilipat lewat tombol "Lihat N lagi", bukan dipotong. Progres dihitung dari seluruh item hari ini, bukan cuma yang tampil.',
       'Centang, langkah rutinitas, dan cuaca tersimpan per tanggal di perangkat ini, jadi tidak hilang setelah reload dan kembali bersih saat ganti hari.',
@@ -216,7 +216,7 @@ export const GUIDE_FEATURES: readonly GuideFeature[] = [
       'Halaman yang sedang kamu baca. Isinya penjelasan tiap fitur, cara backup, dan bagian "Gimana data lo dijaga".',
     tips: [
       'Daftar isi di samping bisa diklik langsung ke section yang dituju.',
-      'Mulai dari bagian keamanan kalau kamu sedang bingung soal kunci atau pemulihan.',
+      'Mulai dari bagian keamanan kalau kamu ingin tahu di mana datamu disimpan.',
       'FAQ di bawah menjawab pertanyaan yang paling sering muncul.',
     ],
   },
@@ -229,7 +229,7 @@ export const GUIDE_FEATURES: readonly GuideFeature[] = [
     summary:
       'Export membungkus seluruh data lokal ke satu berkas JSON yang bisa dibaca. Import menampilkan pratinjau lebih dulu, lalu menawarkan gabung dengan data sekarang atau ganti semua. Berkas export tidak terenkripsi, jadi simpan di tempat yang aman.',
     tips: [
-      'Export dan import butuh kunci perangkat sudah terbuka. Kalau layar meminta pemulihan, buka dulu lewat halaman Akun.',
+      'Export dan import bekerja di perangkat ini; tidak perlu kunci atau langkah pemulihan apa pun.',
       'Berkas backup maksimal 32 MB. Berkas export berisi data terbaca (bukan terenkripsi), dan import menolak berkas yang lebih besar sebelum dibaca.',
       'Mode ganti semua harus dikonfirmasi dan baru menghapus data lama setelah berkas lolos validasi; berkas bermasalah ditolak lebih dulu.',
     ],
@@ -254,12 +254,12 @@ export const GUIDE_FEATURES: readonly GuideFeature[] = [
     code: 'F15',
     group: 'lainnya',
     title: 'Profil, keamanan & perangkat',
-    status: 'partial',
+    status: 'ready',
     summary:
-      'Dibuka dari menu akun di kaki sidebar (di HP: Menu, grup Akun): Edit profil untuk nama dan foto, Keamanan & perangkat untuk sisanya. Login tanpa password (email OTP atau Google), passkey sebagai pembuka utama, kode pemulihan, dan berkas terenkripsi kata sandi. Ada juga tambah perangkat lewat QR, daftar perangkat dengan logout jarak jauh, hapus akun permanen, dan indikator status sinkronisasi di shell. Yang belum: sinkronisasi otomatis antar perangkat, jadi indikator itu baru menunjukkan antrean perubahan di perangkat ini.',
+      'Dibuka dari menu akun di kaki sidebar (di HP: Menu, grup Akun): Edit profil untuk nama dan foto, Keamanan & perangkat untuk sisanya. Login tanpa password (email OTP atau Google), daftar perangkat dengan logout jarak jauh, hapus akun permanen, dan indikator status sinkronisasi di shell. Tidak ada kunci atau kode pemulihan yang perlu kamu simpan: login yang berhasil langsung membuka datamu, dan data tersinkron antar perangkat saat online.',
     tips: [
-      'Kalau email tidak bisa dibuka, tautan "Tidak bisa menerima kode?" di halaman login menawarkan passkey, kode pemulihan, atau berkas terenkripsi. Di perangkat yang belum punya sesi, masuk dulu atau tambahkan perangkat lewat QR.',
-      'Tambah perangkat: perangkat baru menampilkan QR, perangkat lama memindainya, lalu QR balasan membawa kunci utama terenkripsi. QR berlaku 2 menit dan hanya bisa dipakai sekali.',
+      'Kalau email tidak bisa dibuka sementara, coba lagi setelah jeda kirim ulang. Tidak ada jalur pemulihan kunci karena tidak ada kunci user.',
+      'Perangkat baru cukup login seperti biasa; datanya diambil dari server, tanpa transfer kunci.',
       'Hapus akun butuh konfirmasi email plus kode 6 digit; seluruh data di server dihapus permanen dan tindakan ini tidak bisa dibatalkan.',
       'Perangkat yang hilang bisa dicabut dari daftar perangkat. Indikator sinkronisasi menunjukkan perubahan yang masih menunggu dikirim, bukan data yang sudah sampai di perangkat lain.',
     ],
@@ -322,68 +322,64 @@ export interface GuideLayer {
 export const GUIDE_SECURITY = {
   id: 'security',
   title: 'Gimana data lo dijaga',
-  lead: 'Data disimpan lokal di perangkatmu dan dienkripsi dengan kunci yang cuma kamu pegang. Server tidak pernah menerima kunci utama dalam bentuk polos, jadi isinya tidak bisa dibaca dari sana.',
-  layersTitle: 'Empat lapis pembuka',
+  lead: 'Salinan di perangkatmu dienkripsi dengan kunci perangkat. Salinan di server juga dienkripsi (AES-256-GCM) dengan kunci yang hanya dipegang server, jadi database tidak bisa dibaca sebagai teks biasa.',
+  layersTitle: 'Tiga lapis penyimpanan',
   layers: [
     {
-      title: 'Kunci utama',
-      body: 'Kunci acak 32 byte per akun. Semua data dienkripsi dengan kunci ini, dan kunci ini tidak pernah dikirim ke server dalam bentuk polos.',
+      title: 'Transport (TLS)',
+      body: 'Perubahan dikirim ke server lewat HTTPS. Server membuka payload, menyegelnya lagi, lalu menyimpan ciphertext-nya.',
     },
     {
-      title: 'Passkey (pembuka utama)',
-      body: 'Sidik jari, Face ID, atau kunci keamanan. Envelope kuncinya dititip di server, tetapi PRF dari authenticator tidak pernah keluar dari perangkat.',
+      title: 'At-rest di server',
+      body: 'Isi record disimpan sebagai ciphertext AES-256-GCM. Kuncinya ada di env server (bukan di database), dan setiap baris terikat ke akun + record + versi lewat AAD.',
     },
     {
-      title: 'Kode pemulihan',
-      body: '24 kata plus envelope dalam satu teks yang diawali iprk1. Kamu tidak perlu menghafal apa pun: simpan kodenya di password manager atau cloud pribadi. Server tidak menyimpan kode ini.',
-    },
-    {
-      title: 'Berkas terenkripsi kata sandi',
-      body: 'Kode pemulihan yang dibungkus kata sandi pilihanmu (minimal 12 karakter). Aman ditaruh di flashdisk atau email, tetapi lupa kata sandi berarti berkasnya tidak bisa dibuka.',
+      title: 'Salinan lokal',
+      body: 'IndexedDB menyimpan record dalam bentuk tersegel dengan kunci perangkat. Kunci ini dibuat otomatis dan hanya melindungi salinan lokal.',
     },
   ] satisfies readonly GuideLayer[],
-  knowsTitle: 'Yang server tahu',
+  knowsTitle: 'Yang server bisa lihat',
   knows: [
     'Email dan sesi login.',
     'Nama perangkat, waktu terakhir aktif, dan kota dari IP.',
-    'Envelope passkey; data terenkripsi kalau sinkronisasi sudah aktif.',
+    'Isi record - server memegang kunci at-rest, jadi secara teknis bisa membukanya. Ini trade-off yang dipilih supaya data tidak hilang saat perangkat berganti.',
   ],
-  notKnowsTitle: 'Yang server nggak tahu',
+  notKnowsTitle: 'Yang server TIDAK simpan',
   notKnows: [
-    'Isi jadwal, task, jurnal, habit, goal, dan catatanmu.',
-    'Kunci utama dan kode pemulihanmu.',
-    'Kata sandi berkas cadanganmu.',
+    'Kunci perangkatmu (hanya ada di browser ini).',
+    'Kata sandi apa pun - tidak ada kata sandi akun.',
+    'Riwayat penelusuran atau data di luar aplikasi.',
   ],
-  recoveryTitle: 'Kalau harus buka di perangkat baru',
+  recoveryTitle: 'Kalau ganti perangkat',
   recoverySteps: [
-    'Login dengan OTP atau Google seperti biasa. Login hanya membuka sesi, bukan membuka data.',
-    'Di layar "Buka datamu di perangkat ini", pilih passkey, tempel kode pemulihan, unggah berkas terenkripsi beserta kata sandinya, atau tambah perangkat lewat QR dari perangkat yang masih login.',
-    'Lima kode salah membuat layar terkunci sekitar 5 menit. Setelah terbuka, perangkat ini punya pembuka kuncinya sendiri.',
+    'Login dengan OTP atau Google seperti biasa. Tidak ada layar pembuka kunci.',
+    'Perangkat baru menarik data dari server otomatis; kunci perangkat baru dibuat sendiri.',
+    'Perangkat lama bisa dicabut dari daftar perangkat di halaman Akun.',
   ],
-  lost: 'Kalau passkey, kode pemulihan, dan berkas cadangan semuanya hilang, data tidak bisa dipulihkan. Tidak ada pintu belakang, termasuk dari tim kami.',
-  soon: 'Tambah perangkat lewat QR sudah ada di halaman Akun dan layar pemulihan. Yang belum tersambung: sinkronisasi otomatis antar perangkat - data tetap tersimpan di perangkat masing-masing, dan indikator di shell baru menunjukkan antrean perubahan lokal.',
+  lost: 'Karena kunci at-rest dipegang server, kehilangan perangkat tidak membuat data hilang. Yang harus dijaga justru kunci server itu sendiri - hanya operator yang menyimpannya.',
+  soon: 'Indikator di shell menunjukkan antrean perubahan di perangkat ini. Sinkronisasi antar perangkat berjalan otomatis saat online.',
 } as const
 
 export const GUIDE_BACKUP = {
   id: 'backup',
   title: 'Backup & pindah data',
-  lead: 'Ada dua hal berbeda: backup kunci (supaya data bisa dibuka) dan export data (supaya isinya bisa dibaca atau dipindah).',
+  lead: 'Data tetap ada di server, jadi backup di sini artinya salinan yang bisa kamu baca atau pindahkan sendiri.',
   blocks: [
     {
-      title: '1. Backup kunci — sudah ada',
-      body: 'Buka halaman Akun, lalu kartu Backup kode pemulihan. Salin, unduh, atau bagikan kodenya lewat menu OS. Simpan di password manager. Kode ini membuka semua datamu, jadi jangan dikirim ke chat.',
+      title: '1. Export data — sudah ada',
+      body: 'Buka halaman Import / Export. Export mengunduh satu berkas JSON berisi seluruh data lokal. Simpan di tempat aman karena isinya terbaca, bukan terenkripsi.',
     },
     {
-      title: '2. Berkas terenkripsi kata sandi — sudah ada',
-      body: 'Dari kartu yang sama, unduh berkas .json yang dikunci kata sandi minimal 12 karakter. Berkas ini bisa berdiri sendiri dan dibuka di layar pemulihan.',
+      title: '2. Import data — sudah ada',
+      body: 'Import memvalidasi berkas (maksimal 32 MB), menampilkan pratinjau, lalu menawarkan gabung atau ganti semua. Mode ganti semua harus dikonfirmasi dan baru menghapus data lama setelah berkas lolos validasi.',
     },
     {
-      title: '3. Export & import data — sudah ada',
-      body: 'Buka halaman Import / Export. Export mengunduh satu berkas JSON berisi seluruh data lokal; import memvalidasi berkasnya (maksimal 32 MB), menampilkan pratinjau, lalu menawarkan gabung atau ganti semua. Mode ganti semua harus dikonfirmasi. Keduanya butuh kunci perangkat sudah terbuka, dan berkas export berisi data terbaca, bukan terenkripsi.',
+      title: '3. Kunci server — dipegang operator',
+      body: 'Kunci at-rest hanya ada di env server dan wajib disimpan di secret manager/backup terpisah. Kalau kunci itu hilang, isi database tidak bisa dibuka siapa pun - termasuk tim.',
     },
   ] satisfies readonly GuideLayer[],
   warning:
-    'Berkas export berisi data terbaca, bukan terenkripsi. Bedanya dengan kode pemulihan: kode itu justru alat untuk membuka kunci, sedangkan berkas export memuat isinya.',
+    'Berkas export berisi data terbaca, bukan terenkripsi. Jangan taruh di folder publik atau kirim lewat chat.',
 } as const
 
 export interface GuideFaqItem {
@@ -393,39 +389,44 @@ export interface GuideFaqItem {
 
 export const GUIDE_FAQ: readonly GuideFaqItem[] = [
   {
-    question: 'Apa bedanya OTP dan passkey?',
+    question: 'Data saya masih ada setelah reload?',
     answer:
-      'OTP cuma untuk login dan membuat sesi. Passkey, kode pemulihan, atau berkas cadangan yang membuka kunci data. Jadi kehilangan akses email tidak otomatis berarti kehilangan data, selama salah satu pembuka kunci masih ada.',
+      'Ada. Perubahan disimpan dulu di perangkat, lalu dikirim ke server. Isi jurnal, goal, dan task tersimpan terenkripsi dan muncul lagi setelah reload maupun di perangkat lain.',
+  },
+  {
+    question: 'Apa bedanya OTP dan kunci enkripsi?',
+    answer:
+      'OTP hanya untuk login dan membuat sesi. Kunci enkripsi at-rest dipegang server dan tidak pernah kamu kelola. Jadi tidak ada kunci user yang bisa hilang.',
   },
   {
     question: 'Server bisa baca data saya?',
     answer:
-      'Tidak. Data dienkripsi di perangkat sebelum disimpan, dan server hanya memegang envelope passkey yang tidak bisa dibuka tanpa authenticator kamu. Sinkronisasi data terenkripsi belum tersambung di versi ini.',
+      'Ya, secara teknis bisa: server memegang kunci at-rest. Itu trade-off sadar supaya data tidak hilang saat perangkat berganti atau kunci perangkat hilang. Yang dijaga adalah database tidak bisa dibaca tanpa kunci dari env.',
   },
   {
     question: 'HP saya hilang. Data masih aman?',
     answer:
-      'Selama kamu masih punya passkey yang tersinkron di iCloud Keychain atau Google Password Manager, atau masih menyimpan kode pemulihan, data bisa dibuka di perangkat baru. Cabut juga perangkat lama dari halaman Akun.',
+      'Aman. Data tersimpan di server, dan salinan lokal di HP lama tetap terenkripsi. Login di perangkat baru lalu cabut perangkat lama dari halaman Akun.',
   },
   {
-    question: 'Lupa kode pemulihan, gimana?',
+    question: 'Saya tidak perlu menyimpan kode pemulihan?',
     answer:
-      'Server tidak menyimpan salinannya, jadi tidak ada yang bisa mengirim ulang. Kalau passkey masih ada, pakai passkey. Kalau semua pembuka kunci hilang, data tidak bisa dipulihkan.',
+      'Tidak ada kode pemulihan di versi ini. Login yang berhasil langsung memberi akses ke data.',
   },
   {
-    question: 'Kenapa diminta bikin passkey terus?',
+    question: 'Kenapa diminta backup?',
     answer:
-      'Passkey adalah pembuka utama dan cuma butuh satu tap. Tanpa pembuka kunci, data di perangkat ini tidak punya cadangan. Dialognya boleh dilewati hanya kalau perangkat tidak mendukung WebAuthn.',
+      'Backup berguna untuk membawa data keluar aplikasi atau menyimpan salinan yang bisa kamu baca. Untuk keamanan sehari-hari, data sudah aman di server.',
   },
   {
     question: 'Aplikasinya bisa dipakai offline?',
     answer:
-      'Bisa untuk data yang sudah ada di perangkat ini, karena penyimpanannya lokal dan kerangka aplikasi disimpan service worker. Login pertama dan pemulihan kunci tetap butuh jaringan.',
+      'Bisa untuk data yang sudah ada di perangkat ini, karena penyimpanannya lokal dan kerangka aplikasi disimpan service worker. Login pertama tetap butuh jaringan.',
   },
   {
     question: 'Data antar perangkat sudah tersinkron?',
     answer:
-      'Belum otomatis. Versi ini menyimpan data di perangkat masing-masing; yang sudah ada baru indikator antrean perubahan di shell, belum engine kirim-terima antar perangkat. Untuk pindah perangkat sekarang, tambahkan perangkat lewat QR supaya kuncinya ikut, atau pakai Export di perangkat lama lalu Import di perangkat baru. Berkas export berisi data terbaca, jadi simpan di tempat aman.',
+      'Ya. Perubahan dikirim saat online dan diambil perangkat lain lewat sync delta. Belum ada langkah transfer kunci karena tidak ada kunci user.',
   },
   {
     question: 'Kenapa Jadwal dan Sticker tidak punya halaman sendiri?',
@@ -436,10 +437,5 @@ export const GUIDE_FAQ: readonly GuideFaqItem[] = [
     question: 'Ganti tema memengaruhi data?',
     answer:
       'Tidak. Tema dan gaya cuma mengubah tampilan, bukan isi atau kunci. Pilihannya tersimpan di perangkat ini dan belum ikut akun.',
-  },
-  {
-    question: 'Apakah data tetap ada setelah reload?',
-    answer:
-      'Ya. Task, habit, jadwal, countdown, goal, sesi Pomodoro, dan jurnal (termasuk mood harian) tersimpan terenkripsi di perangkat ini, jadi semuanya tetap ada setelah reload atau aplikasi ditutup. Sync antar perangkat belum tersambung, dan berkas export sengaja tidak terenkripsi.',
   },
 ]

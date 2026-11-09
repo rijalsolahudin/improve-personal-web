@@ -1,20 +1,16 @@
 <script setup lang="ts">
 /**
- * Isi modal "Keamanan & perangkat" (PRD F15, ARCHITECTURE §7). Dulu halaman `/app/akun`; sekarang
- * dibuka dari menu akun lewat `AccountSecurityDialog`, jadi tidak punya judul halaman sendiri.
+ * Isi modal "Keamanan & perangkat" (PRD F15). Dulu halaman `/app/akun`; sekarang dibuka dari menu
+ * akun lewat `AccountSecurityDialog`, jadi tidak punya judul halaman sendiri.
  *
- * Isinya: passkey, kartu backup kode pemulihan, penyimpanan lokal, daftar perangkat + tambah perangkat
- * lewat QR + logout jarak jauh, dan hapus akun.
- *
- * Catatan keputusan: 24 kata recovery tidak ditampilkan sebagai daftar kata; pembuka kuncinya passkey
- * dan kode pemulihan dalam SATU string (`iprk1.*`). Server hanya menyimpan envelope passkey.
+ * Isinya: penyimpanan lokal, daftar perangkat + logout jarak jauh, dan hapus akun. Tidak ada lagi
+ * passkey/kode pemulihan: kunci at-rest milik server, dan kunci perangkat dibuat otomatis tanpa perlu
+ * diatur user.
  */
 import type { DevicePlatform } from '@improve-personal/contracts'
 
-import RecoveryBackupCard from './RecoveryBackupCard.vue'
 import StorageCard from './StorageCard.vue'
 import { formatLastSeen } from '~/utils/account/last-seen'
-import { BRAND } from '#shared/brand'
 
 const PLATFORM_LABEL: Record<DevicePlatform, string> = {
   web: 'Web',
@@ -26,7 +22,6 @@ const { t } = useI18n()
 const { session, ensureLoaded } = useAuthSession()
 const account = useAccount()
 
-const isPairingOpen = ref(false)
 const isDeleteOpen = ref(false)
 
 const email = computed(() => session.value?.user.email ?? '')
@@ -51,13 +46,6 @@ onMounted(async () => {
   await ensureLoaded()
   await account.load()
 })
-
-async function activatePasskey(): Promise<void> {
-  await account.activatePasskey({
-    userName: email.value || BRAND.passkeyName,
-    userDisplayName: email.value || BRAND.passkeyName,
-  })
-}
 </script>
 
 <template>
@@ -69,38 +57,8 @@ async function activatePasskey(): Promise<void> {
     <div class="grid">
       <article class="card">
         <header class="card-head">
-          <h2 class="card-title">{{ t('account.passkey.title') }}</h2>
-          <span :class="['badge', account.passkey.value === 'set' ? 'ok' : 'warn']">
-            {{ t(`account.keyStatus.${account.passkey.value}`) }}
-          </span>
-        </header>
-        <p class="hint">{{ t('account.passkey.intro') }}</p>
-        <div class="actions">
-          <Button
-            variant="outline"
-            size="sm"
-            :disabled="account.busy.value"
-            @click="activatePasskey"
-          >
-            {{
-              account.passkey.value === 'set'
-                ? t('account.passkey.replace')
-                : t('account.passkey.activate')
-            }}
-          </Button>
-        </div>
-      </article>
-
-      <RecoveryBackupCard />
-
-      <article class="card">
-        <header class="card-head">
           <h2 class="card-title">{{ t('account.devices.title') }}</h2>
-          <Button variant="outline" size="sm" @click="isPairingOpen = true">
-            {{ t('account.pairing.open') }}
-          </Button>
         </header>
-        <p class="hint">{{ t('account.pairing.cardHint') }}</p>
 
         <p v-if="devices.length === 0" class="hint">{{ t('account.devices.empty') }}</p>
         <ul v-else class="devices">
@@ -156,7 +114,6 @@ async function activatePasskey(): Promise<void> {
       </article>
     </div>
 
-    <AccountDevicePairingDialog :open="isPairingOpen" @close="isPairingOpen = false" />
     <AccountDeleteAccountDialog
       :open="isDeleteOpen"
       :session-email="email"
@@ -219,12 +176,6 @@ async function activatePasskey(): Promise<void> {
   line-height: var(--lh-body);
 }
 
-.actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-6);
-}
-
 .badge {
   padding: var(--space-1) var(--space-5);
   border-radius: var(--radius-pill);
@@ -235,11 +186,6 @@ async function activatePasskey(): Promise<void> {
 .badge.ok {
   background: var(--success-soft);
   color: var(--success);
-}
-
-.badge.warn {
-  background: var(--prio-medium-bg);
-  color: var(--prio-medium-fg);
 }
 
 .badge.muted {

@@ -20,7 +20,6 @@ import { resetHabitsHydrationForTest } from './useHabits'
 import type { LocalDataState } from './useLocalData'
 import { resetSchedulesHydrationForTest } from './useSchedules'
 import { resetTasksHydrationForTest } from './useTasks'
-import { TEST_KID_WIRE } from '../../tests/nuxt/record-key'
 
 /**
  * Sumber data Goals di atas penyimpanan sungguhan (T18, catatan QA #31 N5/B6).
@@ -51,19 +50,10 @@ function memorySession(userId: string): LocalDataSession {
     provider: fakeProvider,
     clock,
     dataKey: DATA_KEY,
-    kid: TEST_KID_WIRE,
     hlc,
     deviceId: '018f2c4e-0000-7000-8000-0000000000d1',
     userId,
-    isFreshKey: true,
-    keyStore: {
-      has: async () => false,
-      put: async () => undefined,
-      get: async () => null,
-      remove: async () => undefined,
-    },
     newId: createUuidV7Generator({ clock }),
-    withMasterKey: async (work) => work(new Uint8Array(32)),
     repos: createRepositorySet({ storage, provider: fakeProvider, dataKey: DATA_KEY }),
     writer: createRecordWriter({ storage, provider: fakeProvider, dataKey: DATA_KEY, hlc, clock }),
   }
@@ -73,7 +63,7 @@ const USER_A = '018f2c4e-0000-7000-8000-00000000000a'
 const GOAL_A = '0192f0a0-0000-7000-8000-000000000001'
 
 function readyState(userId: string): LocalDataState {
-  return { status: 'ready', isFreshKey: false, deviceId: null, userId, error: null }
+  return { status: 'ready', deviceId: null, userId, error: null }
 }
 
 function goalOf(): Goal {

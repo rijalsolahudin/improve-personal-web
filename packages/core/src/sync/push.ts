@@ -3,9 +3,11 @@ import {
   compareHlc,
   syncPushResultSchema,
   type SyncPushResult,
+  type RecordPayload,
+  type SyncRecordDto,
 } from '@improve-personal/contracts'
 
-import type { SealedRecord, SyncStatus } from '../domain/envelope.ts'
+import type { SyncStatus } from '../domain/envelope.ts'
 import {
   HttpError,
   type HttpClient,
@@ -45,6 +47,8 @@ export const OUTBOX_ERROR_REJECTED = 'REJECTED'
 export const OUTBOX_ERROR_MISSING_RESULT = 'MISSING_RESULT'
 /** Jawaban server tidak cocok dengan `syncPushResultSchema`. */
 export const OUTBOX_ERROR_INVALID_RESPONSE = 'INVALID_RESPONSE'
+/** Record lokal tidak bisa dibuka (kunci perangkat hilang/rusak) - tidak bisa dibuat payload. */
+export const OUTBOX_ERROR_RECORD_UNREADABLE = 'RECORD_UNREADABLE'
 
 export type PushOutboxInput = {
   readonly storage: StorageAdapter
@@ -57,6 +61,14 @@ export type PushOutboxInput = {
    * supaya tulisan lokal berikutnya lebih besar dari versi server yang menang.
    */
   readonly hlc: HlcGenerator
+  /**
+   * Buka blob lokal jadi payload JSON yang dikirim ke server.
+   *
+   * Core tidak bisa melakukannya sendiri: blob dienkripsi kunci perangkat, dan kunci itu milik shell.
+   * Melempar = record lokal tidak terbaca; baris outbox-nya ditandai `RECORD_UNREADABLE` dan record
+   * lain tetap dikirim - satu blob rusak tidak boleh memblokir seluruh antrean.
+   */
+  readonly payloadFor: (record: StoredRecord) => Promise<RecordPayload>
   /** Default `SYNC_MAX_BATCH`; lebih kecil hanya untuk test. */
   readonly maxBatch?: number
   /** `AbortSignal` milik platform. */
@@ -96,16 +108,49 @@ export async function pushOutbox(input: PushOutboxInput): Promise<PushSummary> {
     await input.storage.markOutboxFailure(row.id, { lastError: OUTBOX_ERROR_RECORD_MISSING })
   }
 
+  // Semua baris satu record harus ditandai bersama: satu record unreadable = semua barisnya gagal.
+  const rowsByRecord = new Map<string, OutboxRow[]>()
+  for (const row of usableRows) {
+    const rowsOfRecord = rowsByRecord.get(row.recordId)
+    if (rowsOfRecord === undefined) rowsByRecord.set(row.recordId, [row])
+    else rowsOfRecord.push(row)
+  }
+
   /**
    * Beberapa baris outbox bisa menunjuk record yang sama (user menulis berkali-kali saat offline);
    * yang dikirim cukup satu record, tapi SEMUA barisnya selesai bersama begitu server membalas -
    * server idempoten terhadap `hlc` yang sama, jadi mengirim duplikat hanya memboroskan bandwidth.
+   *
+   * Payload dibuka SATU-SATU: record yang gagal dibuka tidak boleh menggagalkan batch, dan record
+   * lain tetap harus terkirim.
    */
-  const payloads = recordIds
+  const payloads: SyncRecordDto[] = []
+  const unreadableRecordIds = new Set<string>()
+  let unreadableRows = 0
+
+  const orderedIds = recordIds
     .filter((id) => byId.has(id))
     .map((id) => requireRecord(byId, id))
     .sort(byHlcAscending)
-    .map(toSealedDto)
+    .map((record) => record.id)
+
+  for (const id of orderedIds) {
+    let payload: RecordPayload
+
+    try {
+      payload = await input.payloadFor(requireRecord(byId, id))
+    } catch {
+      unreadableRecordIds.add(id)
+      const failedRows = rowsByRecord.get(id) ?? []
+      unreadableRows += failedRows.length
+      await markRowsFailed(input.storage, failedRows, OUTBOX_ERROR_RECORD_UNREADABLE)
+      continue
+    }
+
+    payloads.push(toPayloadDto(requireRecord(byId, id), payload))
+  }
+
+  const pushableRows = usableRows.filter((row) => !unreadableRecordIds.has(row.recordId))
 
   if (payloads.length === 0) {
     const status = await patchStatus(input.storage, 'error')
@@ -114,7 +159,7 @@ export async function pushOutbox(input: PushOutboxInput): Promise<PushSummary> {
       applied: 0,
       stale: 0,
       rejected: 0,
-      failed: missingRows.length,
+      failed: missingRows.length + unreadableRows,
       status,
     }
   }
@@ -127,14 +172,14 @@ export async function pushOutbox(input: PushOutboxInput): Promise<PushSummary> {
     const parsed = syncPushResultSchema.safeParse(raw)
 
     if (!parsed.success) {
-      await markRowsFailed(input.storage, usableRows, OUTBOX_ERROR_INVALID_RESPONSE)
+      await markRowsFailed(input.storage, pushableRows, OUTBOX_ERROR_INVALID_RESPONSE)
       const status = await patchStatus(input.storage, 'error')
       return {
         sent: payloads.length,
         applied: 0,
         stale: 0,
         rejected: 0,
-        failed: missingRows.length + usableRows.length,
+        failed: missingRows.length + unreadableRows + pushableRows.length,
         status,
       }
     }
@@ -151,7 +196,7 @@ export async function pushOutbox(input: PushOutboxInput): Promise<PushSummary> {
       applied: 0,
       stale: 0,
       rejected: 0,
-      failed: missingRows.length + usableRows.length,
+      failed: missingRows.length + unreadableRows + pushableRows.length,
       status,
     }
   }
@@ -172,9 +217,9 @@ export async function pushOutbox(input: PushOutboxInput): Promise<PushSummary> {
   }
 
   const resolvedOutboxIds: string[] = []
-  let failed = missingRows.length
+  let failed = missingRows.length + unreadableRows
 
-  for (const row of usableRows) {
+  for (const row of pushableRows) {
     const rowResult = resultById.get(row.recordId)
 
     if (rowResult === undefined) {
@@ -190,7 +235,7 @@ export async function pushOutbox(input: PushOutboxInput): Promise<PushSummary> {
 
     if (rowResult.status === 'stale' && rowResult.serverHlc !== undefined) {
       // Server menang; versi yang menang itu jadi batas bawah HLC lokal. Record lokalnya sendiri
-      // tidak bisa diperbaiki di sini (jawaban `stale` tidak membawa blob) - pull berikutnya yang
+      // tidak bisa diperbaiki di sini (jawaban `stale` tidak membawa payload) - pull berikutnya yang
       // menarik versi server, dan `serverSeq` versi itu selalu di depan cursor selama HLC lokal
       // belum pernah melewatinya.
       input.hlc.observe(rowResult.serverHlc)
@@ -226,12 +271,12 @@ function byHlcAscending(a: StoredRecord, b: StoredRecord): number {
   return compareHlc(a.hlc, b.hlc)
 }
 
-function toSealedDto(record: StoredRecord): SealedRecord {
+function toPayloadDto(record: StoredRecord, payload: RecordPayload): SyncRecordDto {
   return {
     id: record.id,
     hlc: record.hlc,
     deleted: record.deleted,
-    blob: record.blob,
+    payload,
   }
 }
 

@@ -28,6 +28,9 @@ import {
   TEST_GOOGLE_REDIRECT_URI,
   TEST_OTP_PEPPER,
   TEST_RATE_LIMIT_PEPPER,
+  TEST_RECORD_ENCRYPTION_ACTIVE_VERSION,
+  TEST_RECORD_ENCRYPTION_KEY,
+  TEST_RECORD_ENCRYPTION_KEYS,
 } from './helpers/harness'
 import { captureProblem, testScope } from './helpers/scope'
 
@@ -42,6 +45,8 @@ function baseConfig(overrides: Record<string, unknown> = {}): Record<string, unk
     googleClientSecret: 'qa-google-client-secret',
     googleRedirectUriWeb: TEST_GOOGLE_REDIRECT_URI,
     googleRedirectUriMobile: TEST_GOOGLE_REDIRECT_URI,
+    recordEncryptionKeys: TEST_RECORD_ENCRYPTION_KEYS,
+    recordEncryptionActiveVersion: TEST_RECORD_ENCRYPTION_ACTIVE_VERSION,
     ...overrides,
   }
 }
@@ -496,5 +501,33 @@ describe('assertServerEnvForStartup (validasi yang dijalankan plugin startup)', 
         expect(error.message).not.toContain(TEST_RATE_LIMIT_PEPPER)
       }
     }
+  })
+})
+
+describe('enkripsi record at-rest', () => {
+  const keyV2 = Buffer.alloc(32, 2).toString('base64')
+
+  it('menolak env tanpa NUXT_RECORD_ENCRYPTION_KEYS (fail-closed)', () => {
+    expect(() => resolveServerEnv(baseConfig({ recordEncryptionKeys: '' }))).toThrow(ServerEnvError)
+  })
+
+  it('menolak versi aktif yang tidak ada di keyring', () => {
+    expect(() =>
+      resolveServerEnv(
+        baseConfig({ recordEncryptionKeys: `2:${keyV2}`, recordEncryptionActiveVersion: 1 }),
+      ),
+    ).toThrow(ServerEnvError)
+  })
+
+  it('menerima keyring berversi dan versi aktif yang ada di dalamnya', () => {
+    const env = resolveServerEnv(
+      baseConfig({
+        recordEncryptionKeys: `1:${TEST_RECORD_ENCRYPTION_KEY},2:${keyV2}`,
+        recordEncryptionActiveVersion: 2,
+      }),
+    )
+
+    expect(env.recordEncryptionActiveVersion).toBe(2)
+    expect([...env.recordEncryptionKeys.keys()]).toEqual([1, 2])
   })
 })

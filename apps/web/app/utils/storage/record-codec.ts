@@ -15,11 +15,11 @@ import {
 import { z } from 'zod'
 
 /**
- * Kodek record: payload domain ↔ `blob` tersegel (ARCHITECTURE §6, ADR 4).
+ * Kodek record LOKAL: payload domain ↔ `blob` tersegel (kunci perangkat).
  *
- * Isi blob = JSON dari `{ type, schemaVersion, data }`. `type` ikut di dalam blob supaya server tidak
- * tahu record ini memo atau todo; `id`/`hlc`/`deleted` tetap di luar karena server butuh membandingkan
- * versi (LWW) tanpa bisa membuka isinya.
+ * Isi blob = JSON dari `{ type, schemaVersion, data }`. Saat sync, payload yang sama dikirim polos ke
+ * server (server menyegelnya sendiri); `id`/`hlc`/`deleted` tetap metadata di luar blob karena
+ * dibutuhkan untuk LWW.
  *
  * Jalur baca punya tiga pagar yang sengaja TIDAK dilewati diam-diam:
  * 1. versi lebih BARU dari build ini → DITOLAK (jangan menebak-nebak isi data dari app versi baru),

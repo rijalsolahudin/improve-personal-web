@@ -1,11 +1,5 @@
 import { randomInt, randomUUID } from 'node:crypto'
 
-import {
-  decodeKid,
-  encodeSealedBlobHeaderV2,
-  RECORD_V2_NONCE_BYTES,
-  RECORD_V2_TAG_BYTES,
-} from '@improve-personal/contracts'
 import { eq, inArray } from 'drizzle-orm'
 import postgres from 'postgres'
 
@@ -15,10 +9,14 @@ import type { ServiceContext } from '../../services/context'
 import { resolveDeviceForLogin } from '../../services/device'
 import type { OtpMail, OtpMailer } from '../../services/mailer'
 import type { RateLimitScope } from '../../services/rate-limit'
-import { claimKeyIdentity } from '../../services/keys'
 import { issueSession } from '../../services/session'
 import { findOrCreateUserByEmail } from '../../services/user'
-import { bytesToBase64, hmacSha256 } from '../../utils/crypto'
+import { hmacSha256 } from '../../utils/crypto'
+import {
+  createRecordCipher,
+  parseRecordEncryptionKeyring,
+  type RecordCipher,
+} from '../../utils/record-crypto'
 import { resolveServerEnv, type ServerEnv } from '../../utils/env'
 
 export type { ServerEnv }
@@ -59,6 +57,16 @@ export const TEST_RATE_LIMIT_PEPPER = 'qa-test-rate-limit-pepper-000000000000000
 /** Redirect URI Google khusus test; cukup URL lengkap karena tidak pernah dipanggil ke Google. */
 export const TEST_GOOGLE_REDIRECT_URI = 'https://qa.test/v1/auth/google/callback'
 
+/**
+ * Kunci enkripsi at-rest khusus test: 32 byte bernilai tetap, base64.
+ *
+ * Sengaja konstanta (bukan acak) supaya test bisa membuka ciphertext yang ditulis request lain dalam
+ * proses yang sama. Bukan kunci produksi apa pun.
+ */
+export const TEST_RECORD_ENCRYPTION_KEY = Buffer.alloc(32, 7).toString('base64')
+export const TEST_RECORD_ENCRYPTION_KEYS = `1:${TEST_RECORD_ENCRYPTION_KEY}`
+export const TEST_RECORD_ENCRYPTION_ACTIVE_VERSION = 1
+
 /** Env yang dibaca Nitro lewat key privat `runtimeConfig` (`NUXT_*`). */
 export const TEST_ENV_VARS = {
   NUXT_APP_ENV: 'test',
@@ -70,6 +78,8 @@ export const TEST_ENV_VARS = {
   NUXT_GOOGLE_CLIENT_SECRET: 'qa-google-client-secret',
   NUXT_GOOGLE_REDIRECT_URI_WEB: TEST_GOOGLE_REDIRECT_URI,
   NUXT_GOOGLE_REDIRECT_URI_MOBILE: TEST_GOOGLE_REDIRECT_URI,
+  NUXT_RECORD_ENCRYPTION_KEYS: TEST_RECORD_ENCRYPTION_KEYS,
+  NUXT_RECORD_ENCRYPTION_ACTIVE_VERSION: String(TEST_RECORD_ENCRYPTION_ACTIVE_VERSION),
 } as const
 
 // Diisi saat modul ini di-import - SEBELUM `setup()` membangun instance Nitro pada test HTTP.
@@ -106,6 +116,8 @@ export function makeEnv(overrides: Record<string, unknown> = {}): ServerEnv {
     googleClientSecret: 'qa-google-client-secret',
     googleRedirectUriWeb: TEST_GOOGLE_REDIRECT_URI,
     googleRedirectUriMobile: TEST_GOOGLE_REDIRECT_URI,
+    recordEncryptionKeys: TEST_RECORD_ENCRYPTION_KEYS,
+    recordEncryptionActiveVersion: TEST_RECORD_ENCRYPTION_ACTIVE_VERSION,
     ...overrides,
   })
 }
@@ -224,8 +236,8 @@ export function createFixture(options: { prefix?: string; env?: ServerEnv } = {}
         // supaya run kedua tidak menemukan penghitung dari run pertama (fixed window-nya sama
         // karena `FIXED_NOW` juga sama).
         //
-        // Scope per user (`sync:pull`, `keys:transfer-create`, `keys:transfer-claim`,
-        // `devices:revoke`, `account:delete`) memakai identifier `userId`, jadi semuanya tercakup
+        // Scope per user (`sync:pull`, `devices:revoke`, `account:delete`) memakai identifier
+        // `userId`, jadi semuanya tercakup
         // `owned.map(row => row.id)` di bawah. Identifier konstan `'delete-otp'` yang dulu ada di
         // daftar ini sudah TIDAK dipakai lagi - identifier konstan itu justru temuan M1 (satu bucket
         // untuk seluruh sistem).
@@ -240,8 +252,8 @@ export function createFixture(options: { prefix?: string; env?: ServerEnv } = {}
 
         await db.delete(rateLimits).where(inArray(rateLimits.bucket, buckets))
         await db.delete(otpChallenges).where(eq(otpChallenges.emailHash, emailHash))
-        // Cascade dari FK (`server/db/schema.ts`) membuang devices, sessions, key_envelopes,
-        // key_transfers, records, dan sync_watermarks milik user ini.
+        // Cascade dari FK (`server/db/schema.ts`) membuang devices, sessions, records, dan
+        // sync_watermarks milik user ini.
         await db.delete(users).where(eq(users.email, target))
       }
     },
@@ -342,41 +354,32 @@ export async function informationSchemaColumns(): Promise<
   }
 }
 
-/** KID uji (22 karakter base64url kanonik). Pengenal pseudonim, bukan kunci apa pun. */
-export const TEST_KID = 'LBaTVGaXKfW710NOCIXptA'
-
-/** KID uji kedua, berbeda dari `TEST_KID`. */
-export const OTHER_TEST_KID = 'AAECAwQFBgcICQoLDA0ODw'
-
-/**
- * Blob berformat v2 (`"ipr" || 0x02 || kid || nonce || ciphertext`) yang LOLOS pemeriksaan header
- * server. Isinya bukan ciphertext sungguhan: server hanya membaca header (blob opak baginya), dan
- * AEAD dibuktikan di sisi client.
- */
-export function sealedBlobBytes(text: string, kid: string = TEST_KID): Uint8Array {
-  const kidBytes = decodeKid(kid)
-  if (!kidBytes) throw new Error('KID uji tidak kanonik')
-
-  const header = encodeSealedBlobHeaderV2(kidBytes)
-  const body = new TextEncoder().encode(text)
-  const ciphertext = new Uint8Array(Math.max(body.length, RECORD_V2_TAG_BYTES))
-  ciphertext.set(body)
-
-  const blob = new Uint8Array(header.length + RECORD_V2_NONCE_BYTES + ciphertext.length)
-  blob.set(header, 0)
-  blob.set(ciphertext, header.length + RECORD_V2_NONCE_BYTES)
-
-  return blob
+/** Cipher dengan konfigurasi env test - dipakai untuk memeriksa `records.blob` dari luar service. */
+export function testRecordCipher(): RecordCipher {
+  return createRecordCipher({
+    keys: parseRecordEncryptionKeyring(TEST_RECORD_ENCRYPTION_KEYS),
+    activeVersion: TEST_RECORD_ENCRYPTION_ACTIVE_VERSION,
+  })
 }
 
-export function sealedBlobBase64(text: string, kid: string = TEST_KID): string {
-  return bytesToBase64(sealedBlobBytes(text, kid))
+/** Payload uji: teks penanda, supaya isi record bisa dibandingkan tanpa membaca ciphertext. */
+export function testPayload(text: string): { readonly text: string } {
+  return { text }
 }
 
-/** User fixture yang SUDAH mengklaim `kid` - syarat server menerima push apa pun. */
-export async function claimedUserId(fixture: Fixture, kid: string = TEST_KID): Promise<string> {
-  const userId = await fixture.userId()
-  await claimKeyIdentity(fixture.ctx(), userId, { kid }, 'Perangkat uji')
-
-  return userId
+/** Buka `records.blob` hasil server dengan kunci test. */
+export function openStoredPayload(row: {
+  readonly userId: string
+  readonly id: string
+  readonly hlc: string
+  readonly deleted: boolean
+  readonly blob: Uint8Array
+}): unknown {
+  return testRecordCipher().open({
+    userId: row.userId,
+    recordId: row.id,
+    hlc: row.hlc,
+    deleted: row.deleted,
+    blob: row.blob,
+  })
 }

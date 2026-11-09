@@ -36,7 +36,7 @@ import { setup, url } from '@nuxt/test-utils/e2e'
 import { RATE_LIMIT_RULES, type RateLimitScope } from '../services/rate-limit'
 import { startGoogleLogin } from '../services/google'
 import { OAUTH_STATE_COOKIE_NAME } from '../utils/oauth-state-cookie'
-import { bytesToBase64, hmacSha256, sha256Hex } from '../utils/crypto'
+import { hmacSha256, sha256Hex } from '../utils/crypto'
 import { rateLimits, oauthStates } from '../db/schema'
 import {
   clearRateLimitScope,
@@ -51,7 +51,6 @@ import { testScope } from './helpers/scope'
 await setup({ server: true })
 
 const scope = testScope()
-const encoder = new TextEncoder()
 
 const MUTATING_METHODS = ['POST', 'PUT', 'PATCH', 'DELETE']
 
@@ -138,9 +137,9 @@ function bindingCookieClear(response: ApiResponse): boolean {
   return cleared !== undefined && /Max-Age=0/i.test(cleared)
 }
 
-/** Blob base64 valid untuk body kecil yang sah. */
-function blobOf(text: string): string {
-  return bytesToBase64(encoder.encode(text))
+/** Payload JSON untuk body yang sah. */
+function payloadOf(text: string): { readonly text: string } {
+  return { text }
 }
 
 // ---------------------------------------------------------------------------
@@ -348,12 +347,12 @@ describe('H1: batas ukuran body tidak bisa dilewati lewat chunked', () => {
     const cookie = cookieFor(session.token)
 
     // Batch SAH menurut kontrak (500 x 1 MB) tapi totalnya dibatasi KLIEN per byte: di sini ~6,5 MB
-    // (7 record x 700.000 byte blob -> ~933 kB base64 per record).
+    // (7 record x ~700 kB payload).
     const records = Array.from({ length: 7 }, (_, index) => ({
       id: randomUUID(),
       hlc: `1000-${index}-a`,
       deleted: false,
-      blob: blobOf('x'.repeat(700_000)),
+      payload: payloadOf('x'.repeat(700_000)),
     }))
     const sized = Buffer.byteLength(JSON.stringify({ records }))
     expect(sized).toBeLessThan(8_388_608)
@@ -417,21 +416,6 @@ describe('M4/M1: limiter endpoint mahal & bucket per akun', () => {
       scope: 'sync:pull',
       request: (cookie, _fixture, userId) =>
         api('/v1/sync/pull?cursor=0&limit=1', { cookie, expectedUserId: userId }),
-    },
-    {
-      label: 'POST /v1/keys/transfer',
-      scope: 'keys:transfer-create',
-      request: (cookie) =>
-        api('/v1/keys/transfer', {
-          method: 'POST',
-          cookie,
-          body: { targetDeviceId: randomUUID(), blob: blobOf('mk') },
-        }),
-    },
-    {
-      label: 'POST /v1/keys/transfer/:id',
-      scope: 'keys:transfer-claim',
-      request: (cookie) => api(`/v1/keys/transfer/${'a'.repeat(22)}`, { method: 'POST', cookie }),
     },
     {
       label: 'DELETE /v1/devices/:id',

@@ -43,8 +43,6 @@ let mounted: VueWrapper | null = null
 
 async function open(devices: AccountDevice[]): Promise<VueWrapper> {
   mounted = await mountSuspended(SecurityPanel)
-  useState<'set' | 'unset'>('accountPasskey').value = 'set'
-  useState<'set' | 'unset'>('accountRecovery').value = 'unset'
   useState<'idle' | 'loading' | 'ready' | 'error'>('accountStatus').value = 'ready'
   useState<string | null>('accountError').value = null
   useState<AccountDevice[]>('accountDevices').value = devices
@@ -65,8 +63,6 @@ beforeEach(() => {
     'auth-session-pending',
     'auth-session-error',
     'localData',
-    'accountPasskey',
-    'accountRecovery',
     'accountStatus',
     'accountError',
     'accountBusy',
@@ -86,17 +82,6 @@ afterEach(async () => {
 })
 
 describe('dialog halaman Akun', () => {
-  it('"Tambah perangkat" membuka pilihan peran perangkat', async () => {
-    const wrapper = await open([])
-
-    await button(wrapper, /^tambah perangkat$/i).trigger('click')
-    await nextTick()
-
-    expect(wrapper.find('[role="dialog"]').exists()).toBe(true)
-    expect(wrapper.text()).toMatch(/perangkat ini yang baru/i)
-    expect(wrapper.text()).toMatch(/sudah punya kunci/i)
-  })
-
   it('"Hapus akun" membuka konfirmasi email + kode, dan tombol hapus mati sampai cocok', async () => {
     const wrapper = await open([])
 

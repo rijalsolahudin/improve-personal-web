@@ -1,8 +1,6 @@
 import { readSyncStatus, type StorageAdapter, type SyncStatus } from '@improve-personal/core'
 import type { ComputedRef } from 'vue'
 
-import { listQuarantined } from '~/utils/sync/quarantine'
-
 /**
  * Status sinkronisasi yang ditampilkan shell (PRD F15 "Status Sync Terlihat").
  *
@@ -21,35 +19,16 @@ import { listQuarantined } from '~/utils/sync/quarantine'
  */
 
 export type SyncStatusSource = {
-  /** Penyimpanan lokal akun, atau `null` kalau belum dibuka (SSR, perangkat terkunci). */
+  /** Penyimpanan lokal akun, atau `null` kalau belum dibuka (SSR). */
   readonly getStorage: () => StorageAdapter | null
   /** Keadaan jaringan saat ini. Dibaca ulang setiap `refresh()`, bukan disimpan di sini. */
   readonly isOnline: () => boolean
-  /**
-   * Akun yang sedang aktif, atau `null` kalau belum login. Daftar karantina disimpan per pemilik
-   * (`utils/sync/quarantine.ts`), jadi angka "tidak bisa dibuka" hanya boleh berasal dari akun ini -
-   * bukan dari akun yang barusan logout di tab lain.
-   */
-  readonly getOwnerId: () => string | null
 }
 
 export type UseSyncStatusResult = {
   readonly status: ComputedRef<SyncStatus | null>
   readonly pendingCount: ComputedRef<number>
   readonly lastSyncAtMs: ComputedRef<number | null>
-  /**
-   * Jumlah record yang tidak bisa dibuka (lihat `utils/sync/quarantine.ts`): yang masih terkarantina
-   * DAN yang karantinanya sudah kedaluwarsa dan menunggu index-nya dibangun ulang
-   * (`utils/sync/reindex.ts`).
-   *
-   * Keduanya sama-sama tidak tampil di UI, jadi keduanya dihitung - angka ini yang dipakai tombol
-   * "Coba buka ulang" sebagai gerbang, dan dengan begitu record yang karantinanya sudah lewat 7 hari
-   * tetap punya jalan pulih tanpa user harus menebak.
-   *
-   * Ini BUKAN status sync: data tetap tersimpan di perangkat dan pull berjalan lagi; yang hilang
-   * hanya tampilannya. Karena itu UI menampilkannya sebagai keterangan terpisah.
-   */
-  readonly blockedCount: ComputedRef<number>
   readonly refresh: () => Promise<void>
 }
 
@@ -57,18 +36,8 @@ export function useSyncStatus(source: SyncStatusSource): UseSyncStatusResult {
   const status = ref<SyncStatus | null>(null)
   const pendingCount = ref(0)
   const lastSyncAtMs = ref<number | null>(null)
-  const blockedCount = ref(0)
 
   async function refresh(): Promise<void> {
-    // Dibaca lebih dulu dan tanpa menunggu storage IndexedDB: daftar karantina ada di `localStorage`
-    // perangkat, jadi keterangannya tetap bisa tampil walau penyimpanan akun belum terbuka.
-    //
-    // Termasuk entri yang sudah kedaluwarsa ("due"): record itu juga belum tampil, dan angka inilah
-    // gerbang percobaan ulang otomatis saat halaman dibuka. Membacanya di sini sekaligus membuat
-    // pemindahan entri basi ke antrean "due" terjadi sebelum reindex berjalan.
-    const ownerId = source.getOwnerId()
-    blockedCount.value = ownerId === null ? 0 : listQuarantined(ownerId).length
-
     const storage = source.getStorage()
     if (storage === null) {
       status.value = null
@@ -104,7 +73,6 @@ export function useSyncStatus(source: SyncStatusSource): UseSyncStatusResult {
     status: computed(() => status.value),
     pendingCount: computed(() => pendingCount.value),
     lastSyncAtMs: computed(() => lastSyncAtMs.value),
-    blockedCount: computed(() => blockedCount.value),
     refresh,
   }
 }

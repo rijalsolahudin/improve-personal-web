@@ -41,19 +41,7 @@ export const RATE_LIMIT_RULES = {
    * penyalahgunaan egress/CPU tanpa henti.
    */
   'sync:pull': { limit: 600, windowSeconds: 3600 },
-  'keys:envelope': { limit: 30, windowSeconds: 3600 },
   'account:delete': { limit: 5, windowSeconds: 3600 },
-  /**
-   * Per user: pembuatan baris `key_transfers` tanpa batas = abuse storage + beban job cleanup
-   * (temuan M4). Jatahnya cukup untuk alur nyata (menitipkan kunci ke perangkat baru), tapi tidak
-   * untuk script yang membuat 10 ribu baris.
-   */
-  'keys:transfer-create': { limit: 30, windowSeconds: 3600 },
-  /**
-   * Per user: klaim transfer. Menebak id 128-bit tidak praktis, tapi tanpa limiter endpoint ini
-   * gratis untuk menghantam DB berulang kali.
-   */
-  'keys:transfer-claim': { limit: 60, windowSeconds: 3600 },
   /** Per user: revoke perangkat menulis DB (soft-revoke + tutup sesi dalam satu transaksi). */
   'devices:revoke': { limit: 60, windowSeconds: 3600 },
 } as const
@@ -64,9 +52,6 @@ export type RateLimitScope = keyof typeof RATE_LIMIT_RULES
 const USER_SCOPED: readonly RateLimitScope[] = [
   'sync:push',
   'sync:pull',
-  'keys:envelope',
-  'keys:transfer-create',
-  'keys:transfer-claim',
   'devices:revoke',
   'account:delete',
 ]

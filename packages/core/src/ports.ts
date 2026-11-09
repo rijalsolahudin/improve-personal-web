@@ -43,32 +43,9 @@ import type { RecordIndexEntry, SyncOp, SyncStatus } from './domain/storage.ts'
  * menyelesaikannya secara serial.
  */
 
-/**
- * Nilai `RecordWrite['index']` untuk "jangan sentuh `record_index`".
- *
- * Satu-satunya sumber nilai ini: dipakai union di `ports.ts`, adapter, dan shell web. Shell web
- * me-re-export konstanta ini (`app/utils/storage/index-decision.ts`) - bukan menyalin literalnya -
- * supaya tipe dan nilai tidak bisa berbeda diam-diam saat salah satunya diubah.
- */
-export const RECORD_INDEX_KEEP = 'keep'
-
-/**
- * Keputusan pull untuk blob yang TIDAK boleh dipakai (spec #120 §4.4). Berbeda dari
- * `RECORD_INDEX_KEEP`, dua nilai ini tidak pernah sampai ke `RecordWrite.index`: `pullDelta`
- * memakainya untuk memutuskan apakah record ditulis sama sekali.
- *
- * - `'reject'`  : blob berstatus tidak sah (KID kita tapi AEAD gagal, v1 sesudah `v1Closed`, v1 di
- *   atas cutoff, v1 menimpa v2 lokal). TIDAK ditulis, TIDAK di-`observe`, tapi DIKARANTINA lewat
- *   `onReject` - bukan dibuang.
- * - `'foreign'` : blob v2 milik KID lain. Seperti `'keep'`, tapi tombstone-nya juga tidak boleh
- *   menimpa versi lokal, dan HLC-nya tidak pernah di-`observe`.
- */
-export const RECORD_PULL_REJECT = 'reject'
-export const RECORD_PULL_FOREIGN = 'foreign'
-
 /** Satu baris `record` + `record_index` yang ditulis atomik bersama outbox. */
 export type RecordWrite = {
-  /** Envelope ter-seal (`ARCHITECTURE.md` §6) - ciphertext + metadata plaintext. */
+  /** Envelope ter-seal LOKAL (`ARCHITECTURE.md` §6) - ciphertext + metadata plaintext. */
   readonly sealed: {
     readonly id: string
     readonly hlc: string
@@ -76,26 +53,12 @@ export type RecordWrite = {
     readonly blob: string
   }
   /**
-   * Entri `record_index` untuk record ini. Tiga nilai, tiga arti yang BERBEDA:
+   * Entri `record_index` untuk record ini.
    *
    * - `RecordIndexEntry` - tulis/ganti baris index record ini.
-   * - `null` - HAPUS baris index lama. Benar kalau entitas memang tidak punya dimensi waktu, atau
-   *   saat rentangnya hilang. Salah kalau index-nya cuma gagal dihitung: record jadi tidak bisa
-   *   ditemukan lewat kalender/overview/export padahal datanya ada di `record`.
-   * - `'keep'` (konstanta `RECORD_INDEX_KEEP`) - JANGAN sentuh `record_index` sama sekali: baris
-   *   index lama (kalau ada) dibiarkan apa adanya, dan tidak ada baris baru yang dibuat kalau belum
-   *   ada. Dipakai saat index tidak bisa dihitung ulang (mis. blob hasil pull gagal didekripsi karena
-   *   skema lebih baru) - memperbaiki di masa depan lebih murah daripada menghapus index lalu
-   *   kehilangan record dari UI.
+   * - `null` - HAPUS baris index lama; benar kalau entitas memang tidak punya dimensi waktu.
    */
-  readonly index: RecordIndexEntry | null | typeof RECORD_INDEX_KEEP
-  /**
-   * `true` kalau blob ini disimpan tanpa bisa dibuka (`'keep'`/`'foreign'` dari pull). Adapter
-   * menyimpannya apa adanya dan menghapusnya (tidak ada) saat record ditimpa tulisan biasa. Dipakai
-   * `decideMerge`: remote yang terautentikasi menang atas record `opaque` berapa pun HLC-nya, supaya
-   * HLC tinggi dari blob yang tidak terbukti tidak membayangi versi sah selamanya (spec #120 M3).
-   */
-  readonly opaque?: boolean
+  readonly index: RecordIndexEntry | null
   /** Operasi yang diantre untuk dikirim ke server (`put` = upsert, `delete` = tombstone). */
   readonly op: SyncOp
   /** Baris outbox baru; `id` dan `queuedAt` diisi core supaya adapter tidak perlu jam sendiri. */
@@ -260,14 +223,12 @@ export type RangeQuery = {
   readonly limit?: number
 }
 
-/** Bentuk baris `record` apa adanya dari disk. `blob` masih ciphertext. */
+/** Bentuk baris `record` apa adanya dari disk. `blob` masih ciphertext kunci perangkat. */
 export type StoredRecord = {
   readonly id: string
   readonly hlc: string
   readonly deleted: boolean
   readonly blob: string
-  /** Lihat `RecordWrite.opaque`. Tidak ada = blob ini pernah dibuka perangkat ini. */
-  readonly opaque?: boolean
   /** Pembukuan lokal, tidak disync. */
   readonly createdAtMs: number
   readonly updatedAtMs: number
@@ -305,8 +266,14 @@ export type StoredSyncState = {
 /** Kunci `sync_state.id`; nilai tetap seperti di `database.dbml`. */
 export const CURRENT_STATE_KEY = 'current'
 
-/** Slot kunci lokal (`database.dbml` enum `key_slot_lokal`). TIDAK ADA slot OTP - lihat ADR 10. */
-export const KEY_SLOTS_LOCAL = ['device', 'passkey', 'recovery'] as const
+/**
+ * Slot kunci lokal (`database.dbml` enum `key_slot_lokal`).
+ *
+ * HANYA `device`: kunci ini mengunci SALINAN LOKAL (IndexedDB/SQLite), bukan data yang disinkronkan -
+ * data di server disegel kunci milik server dari env. Tidak ada passkey/recovery/OTP karena tidak ada
+ * lagi kunci user yang perlu dipulihkan.
+ */
+export const KEY_SLOTS_LOCAL = ['device'] as const
 
 export type KeySlotLocal = (typeof KEY_SLOTS_LOCAL)[number]
 
@@ -327,8 +294,8 @@ export type StickerRecentEntry = {
 }
 
 /**
- * Penyimpanan bahan kunci di perangkat (web: WebCrypto non-extractable + WebAuthn; mobile:
- * Keychain/Keystore + biometrik).
+ * Penyimpanan bahan kunci PERANGKAT (web: WebCrypto non-extractable; mobile:
+ * Keychain/Keystore + biometrik). Kunci ini hanya melindungi salinan lokal.
  *
  * Kontrak: bahan kunci (master key, device key) TIDAK PERNAH keluar dalam bentuk plaintext ke core,
  * log, atau jaringan. Implementasi mengembalikan handle/opaque id, bukan byte kunci. Pembuatan dan
@@ -361,11 +328,12 @@ export type SecureKeyMaterial = {
 }
 
 /**
- * Operasi kripto (web: libsodium-wrappers; mobile: react-native-libsodium).
+ * Operasi kripto LOKAL (web: libsodium-wrappers; mobile: react-native-libsodium).
  *
- * Interface-nya saja - implementasi milik `packages/crypto` (di luar scope paket ini). Semua argumen
- * dan hasil berbentuk byte/string, bukan handle backend, supaya adapter di dua platform bisa
- * ditukar. DILARANG mengirim kunci polos ke jaringan (ARCHITECTURE.md §7).
+ * Dipakai untuk menyegel/membuka record di penyimpanan perangkat saja. Data yang dikirim ke server
+ * adalah `payload` polos; server yang menyegelnya dengan kuncinya sendiri (kunci dari env, tidak
+ * pernah sampai ke client). Semua argumen dan hasil berbentuk byte/string, bukan handle backend,
+ * supaya adapter di dua platform bisa ditukar.
  */
 export interface CryptoProvider {
   /**

@@ -29,12 +29,4 @@ describe('halaman login (T22)', () => {
     expect(wrapper.text()).toMatch(/lanjut dengan google/i)
     expect(wrapper.find('#login-email').exists()).toBe(true)
   })
-
-  it('menawarkan alur lupa OTP: "Pakai passkey atau kode pemulihan?"', async () => {
-    const wrapper = await mount()
-
-    // AC T22: user yang tidak bisa menerima OTP harus punya jalan ke passkey / kode pemulihan
-    // SEBELUM terkunci di layar "masukkan kode". Tanpa ini tidak ada jalan masuk sama sekali.
-    expect(wrapper.text()).toMatch(/pakai passkey atau kode pemulihan/i)
-  })
 })

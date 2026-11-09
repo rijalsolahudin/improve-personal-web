@@ -41,10 +41,22 @@ const PULL_URL = '/v1/sync/pull'
 
 const BASE64_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
 
-/** Blob palsu yang tetap sah sebagai base64 (kontrak: `blob` base64, bukan byte). */
+/** Isi blob lokal palsu - dipakai sebagai penanda isi payload saat sync. */
 function blobFor(seed: number): string {
   const index = Math.abs(seed) % BASE64_ALPHABET.length
   return BASE64_ALPHABET.slice(index, index + 1).repeat(8)
+}
+
+/** Payload uji: blob lokal dibawa apa adanya sebagai isi payload. */
+function payloadOf(record: { readonly blob: string }): { readonly blob: string } {
+  return { blob: record.blob }
+}
+
+/** Kebalikannya: shell "menyegel" payload kembali jadi blob lokal. */
+function payloadBlob(payload: unknown): string {
+  const value = (payload as { blob?: unknown }).blob
+  if (typeof value !== 'string') throw new Error('payload uji tidak membawa blob')
+  return value
 }
 
 function recordIdFor(n: number): string {
@@ -73,12 +85,12 @@ type FakeServer = {
   readonly purgeRows: (ids: readonly string[]) => void
 }
 
-function createFakeServer(options?: { readonly rejectBlobs?: readonly string[] }): FakeServer {
+function createFakeServer(options?: { readonly rejectPayloads?: readonly string[] }): FakeServer {
   const rows = new Map<string, ServerRow>()
   const contractViolations: string[] = []
   const pushSizes: number[] = []
   const pullCalls: { cursor: number; limit: number }[] = []
-  const rejectBlobs = new Set(options?.rejectBlobs ?? [])
+  const rejectPayloads = new Set(options?.rejectPayloads ?? [])
 
   let seq = 0
   let purgeWatermarkBreach = false
@@ -101,7 +113,9 @@ function createFakeServer(options?: { readonly rejectBlobs?: readonly string[] }
       pushSizes.push(parsed.data.records.length)
 
       const results: SyncPushResult['results'] = parsed.data.records.map((record) => {
-        if (rejectBlobs.has(record.blob)) return { id: record.id, status: 'rejected' }
+        if (rejectPayloads.has(payloadBlob(record.payload))) {
+          return { id: record.id, status: 'rejected' }
+        }
 
         const existing = rows.get(record.id)
         if (existing === undefined) {
@@ -230,6 +244,7 @@ async function push(device: Device, server: FakeServer, maxBatch?: number): Prom
     url: PUSH_URL,
     nowMs: device.clock.nowMs(),
     hlc: device.hlc,
+    payloadFor: async (record) => payloadOf(record),
     ...(maxBatch === undefined ? {} : { maxBatch }),
   })
 }
@@ -245,6 +260,7 @@ async function pull(
     url: PULL_URL,
     nowMs: device.clock.nowMs(),
     hlc: device.hlc,
+    sealForStorage: async (remote) => payloadBlob(remote.payload),
     ...(options?.pageLimit === undefined ? {} : { pageLimit: options.pageLimit }),
   })
 }
@@ -458,7 +474,7 @@ describe('sync engine - dua perangkat', () => {
     await b.write(r1, 3)
     const secondPush = await push(b, server)
     expect(secondPush.applied).toBe(1)
-    expect(server.rowOf(r1)?.blob).toBe(blobFor(3))
+    expect(server.rowOf(r1)?.payload).toEqual(payloadOf({ blob: blobFor(3) }))
   })
 
   it('jam perangkat ngaco tidak menang melawan HLC', async () => {
@@ -536,7 +552,7 @@ describe('sync engine - dua perangkat', () => {
 describe('sync engine - kegagalan', () => {
   it('status rejected: baris outbox disimpan dengan attempts + pesan generik', async () => {
     const rejectedBlob = blobFor(1)
-    const server = createFakeServer({ rejectBlobs: [rejectedBlob] })
+    const server = createFakeServer({ rejectPayloads: [rejectedBlob] })
     const a = createDevice({ deviceId: 'devicea' })
     const r1 = recordIdFor(80)
 
@@ -607,6 +623,7 @@ describe('sync engine - kegagalan', () => {
       url: PUSH_URL,
       nowMs: clock.nowMs(),
       hlc,
+      payloadFor: async (record) => payloadOf(record),
     })
     expect(pushResult.status).toBe('offline')
     expect(await storage.countOutbox()).toBe(1)
@@ -617,6 +634,7 @@ describe('sync engine - kegagalan', () => {
       url: PULL_URL,
       nowMs: clock.nowMs(),
       hlc,
+      sealForStorage: async (remote) => payloadBlob(remote.payload),
     })
     expect(pullResult.status).toBe('offline')
     expect((await storage.getSyncState())?.status).toBe('offline')

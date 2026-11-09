@@ -9,13 +9,13 @@
 // berhenti di tengah batch SETELAH record pertamanya mendapat seq tapi SEBELUM commit.
 import { randomUUID } from 'node:crypto'
 
-import type { SealedRecordDto } from '@improve-personal/contracts'
+import type { SyncRecordDto } from '@improve-personal/contracts'
 import { and, eq, sql } from 'drizzle-orm'
 import { afterAll, afterEach, describe, expect, it } from 'vitest'
 
 import { records } from '../db/schema'
 import { pullRecords, pushRecords } from '../services/sync'
-import { claimedUserId, closeTestDb, sealedBlobBase64, testDb } from './helpers/harness'
+import { closeTestDb, testDb, testPayload } from './helpers/harness'
 import { testScope } from './helpers/scope'
 
 const scope = testScope()
@@ -23,11 +23,15 @@ const scope = testScope()
 /** Selang polling kondisi DB dan batas tunggunya; cukup longgar untuk CI yang lambat. */
 const POLL_INTERVAL_MS = 20
 const POLL_TIMEOUT_MS = 10_000
-/** Waktu tunggu untuk membuktikan sebuah push TIDAK selesai selama lock dipegang (bukti negatif). */
-const STILL_BLOCKED_MS = 400
+/**
+ * Waktu tunggu untuk membuktikan sebuah push TIDAK selesai selama lock dipegang (bukti negatif).
+ * Dinaikkan ke 2 dtk: di CI yang menjalankan ratusan worker, pool koneksi (max 10) bisa membuat push
+ * yang TIDAK terblokir tetap belum selesai dalam 400 ms - itu false positive, bukan bug lock.
+ */
+const STILL_BLOCKED_MS = 2_000
 
-function sealedRecord(id: string, hlc: string): SealedRecordDto {
-  return { id, hlc, deleted: false, blob: sealedBlobBase64(`ciphertext-${id}`) }
+function recordDto(id: string, hlc: string): SyncRecordDto {
+  return { id, hlc, deleted: false, payload: testPayload(`isi-${id}`) }
 }
 
 function delay(ms: number): Promise<void> {
@@ -115,25 +119,25 @@ afterAll(async () => {
 describe('push paralel user yang sama diserialkan (#112)', () => {
   it('pull di tengah dua push paralel tidak melompati record (seq lebih kecil commit lebih dulu)', async () => {
     const fixture = scope.fixture({ prefix: 'sync-concurrent' })
-    const userId = await claimedUserId(fixture)
+    const userId = await fixture.userId()
     const heldId = randomUUID()
     const slowId = randomUUID()
     const fastId = randomUUID()
 
-    await pushRecords(fixture.ctx(), userId, [sealedRecord(heldId, '1000-0-a')])
+    await pushRecords(fixture.ctx(), userId, [recordDto(heldId, '1000-0-a')])
     const rowLock = await holdRecordRow(userId, heldId)
 
     // P1 (perangkat A): `slowId` baru -> dapat seq, lalu `heldId` menunggu baris yang ditahan.
     // Di titik ini P1 punya seq tapi belum commit.
     const firstPush = pushRecords(fixture.ctx(), userId, [
-      sealedRecord(slowId, '1001-0-a'),
-      sealedRecord(heldId, '2000-0-a'),
+      recordDto(slowId, '1001-0-a'),
+      recordDto(heldId, '2000-0-a'),
     ])
     await waitUntil(() => isSomeoneBlockedBy(rowLock.backendPid))
 
     // P2 (perangkat B) mulai SETELAH P1 memegang seq-nya. Tanpa serialisasi P2 langsung selesai
     // dengan seq yang lebih besar dari P1 - itulah yang melompatkan cursor perangkat C.
-    const secondPush = pushRecords(fixture.ctx(), userId, [sealedRecord(fastId, '1002-0-b')])
+    const secondPush = pushRecords(fixture.ctx(), userId, [recordDto(fastId, '1002-0-b')])
     const secondWaited = await isStillPending(secondPush, STILL_BLOCKED_MS)
 
     // Perangkat C pull di tengah-tengah: hanya yang sudah committed yang terlihat.
@@ -160,20 +164,20 @@ describe('push paralel user yang sama diserialkan (#112)', () => {
   it('serialisasi hanya per user: push user lain tidak menunggu', async () => {
     const alice = scope.fixture({ prefix: 'sync-lock-alice' })
     const bob = scope.fixture({ prefix: 'sync-lock-bob' })
-    const aliceId = await claimedUserId(alice)
-    const bobId = await claimedUserId(bob)
+    const aliceId = await alice.userId()
+    const bobId = await bob.userId()
     const heldId = randomUUID()
 
-    await pushRecords(alice.ctx(), aliceId, [sealedRecord(heldId, '1000-0-a')])
+    await pushRecords(alice.ctx(), aliceId, [recordDto(heldId, '1000-0-a')])
     const rowLock = await holdRecordRow(aliceId, heldId)
 
     const alicePush = pushRecords(alice.ctx(), aliceId, [
-      sealedRecord(randomUUID(), '1001-0-a'),
-      sealedRecord(heldId, '2000-0-a'),
+      recordDto(randomUUID(), '1001-0-a'),
+      recordDto(heldId, '2000-0-a'),
     ])
     await waitUntil(() => isSomeoneBlockedBy(rowLock.backendPid))
 
-    const bobResult = await pushRecords(bob.ctx(), bobId, [sealedRecord(randomUUID(), '1000-0-b')])
+    const bobResult = await pushRecords(bob.ctx(), bobId, [recordDto(randomUUID(), '1000-0-b')])
 
     expect(bobResult.results.map((entry) => entry.status)).toEqual(['applied'])
     expect(await isStillPending(alicePush, STILL_BLOCKED_MS)).toBe(true)
@@ -185,13 +189,13 @@ describe('push paralel user yang sama diserialkan (#112)', () => {
 
   it('LWW dan atomik per batch tetap berlaku: dua push paralel untuk record yang sama, HLC terbesar menang', async () => {
     const fixture = scope.fixture({ prefix: 'sync-concurrent-lww' })
-    const userId = await claimedUserId(fixture)
+    const userId = await fixture.userId()
     const id = randomUUID()
 
     const results = await Promise.all([
-      pushRecords(fixture.ctx(), userId, [sealedRecord(id, '3000-0-a')]),
-      pushRecords(fixture.ctx(), userId, [sealedRecord(id, '2000-0-b')]),
-      pushRecords(fixture.ctx(), userId, [sealedRecord(id, '4000-0-c')]),
+      pushRecords(fixture.ctx(), userId, [recordDto(id, '3000-0-a')]),
+      pushRecords(fixture.ctx(), userId, [recordDto(id, '2000-0-b')]),
+      pushRecords(fixture.ctx(), userId, [recordDto(id, '4000-0-c')]),
     ])
 
     const stored = await testDb()

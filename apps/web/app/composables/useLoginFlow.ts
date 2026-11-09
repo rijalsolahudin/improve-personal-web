@@ -7,7 +7,7 @@ import { AuthRequestError, type AuthGateway } from './auth/gateway'
 import { useAuthGateway } from './auth/http-gateway'
 import { useAuthSession } from './useAuthSession'
 
-export type LoginStep = 'choose' | 'otp' | 'recovery'
+export type LoginStep = 'choose' | 'otp'
 
 /** Kunci pesan di i18n `login.error.*` - semua generik (F15: jangan bocorkan email terdaftar). */
 export const LOGIN_ERROR_KEYS = [
@@ -173,17 +173,6 @@ export function useLoginFlow(gateway: AuthGateway = useAuthGateway()) {
     otpError.value = null
   }
 
-  /**
-   * "Lupa OTP": email tidak bisa diakses, jadi tawarkan passkey / kode pemulihan.
-   *
-   * Langkahnya tidak meminta OTP lebih dulu - permintaan kode yang gagal berulang kali justru masalah
-   * awalnya. Yang membuka kunci tetap `AccountUnlockForm` di langkah itu (passkey, kode, atau berkas).
-   */
-  function openRecovery(): void {
-    step.value = 'recovery'
-    otpError.value = null
-  }
-
   return {
     step: readonly(step),
     email: readonly(email),
@@ -201,6 +190,5 @@ export function useLoginFlow(gateway: AuthGateway = useAuthGateway()) {
     resend,
     loginWithGoogle,
     backToEmail,
-    openRecovery,
   }
 }

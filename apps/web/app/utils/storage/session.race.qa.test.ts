@@ -71,7 +71,7 @@ afterEach(() => {
 })
 
 describe('QA #113: balapan kunci pertama', () => {
-  it('lima tab bersamaan: tepat satu isFreshKey, satu kunci data, semua kandidat dikosongkan', async () => {
+  it('lima tab bersamaan: satu kunci data, semua kandidat dikosongkan', async () => {
     const dbNames = names()
     const clock = createManualClock(START_MS)
     const logSpies = (['log', 'info', 'warn', 'error', 'debug'] as const).map((level) =>
@@ -82,7 +82,6 @@ describe('QA #113: balapan kunci pertama', () => {
       Array.from({ length: 5 }, () => openLocalDataSession({ userId: USER_ID, clock, ...dbNames })),
     )
 
-    expect(sessions.filter((session) => session.isFreshKey)).toHaveLength(1)
     const firstKey = Buffer.from(sessions[0]!.dataKey.handle as Uint8Array)
     for (const session of sessions) {
       expect(Buffer.from(session.dataKey.handle as Uint8Array)).toEqual(firstKey)
@@ -104,58 +103,11 @@ describe('QA #113: balapan kunci pertama', () => {
       ),
     )
     const reopened = await openLocalDataSession({ userId: USER_ID, clock, ...dbNames })
-    expect(reopened.isFreshKey).toBe(false)
     for (const [index, record] of written.entries()) {
       expect(((await reopened.repos.todo.getById(record.id))?.data as Todo).title).toBe(
         `tab-${index}`,
       )
     }
-  })
-
-  it('canCreateKey lolos di dua tab (lock tidak menutupinya): tetap satu pemenang, tab lambat mengadopsi dan membaca record pemenang', async () => {
-    const dbNames = names()
-    const clock = createManualClock(START_MS)
-
-    let releaseSlowTab!: () => void
-    const gate = new Promise<void>((resolve) => {
-      releaseSlowTab = resolve
-    })
-
-    const slowTab = openLocalDataSession({
-      userId: USER_ID,
-      clock,
-      ...dbNames,
-      canCreateKey: async () => {
-        await gate
-        return true
-      },
-    })
-
-    // Tab cepat selesai penuh dan menulis record sebelum tab lambat melanjutkan.
-    const fastTab = await openLocalDataSession({
-      userId: USER_ID,
-      clock,
-      ...dbNames,
-      canCreateKey: async () => true,
-    })
-    expect(fastTab.isFreshKey).toBe(true)
-    const record = await fastTab.writer.write({
-      type: 'todo',
-      data: (recordId) => todoPayload(recordId, 'ditulis pemenang'),
-    })
-
-    releaseSlowTab()
-    const slow = await slowTab
-
-    expect(slow.isFreshKey).toBe(false)
-    expect(Buffer.from(slow.dataKey.handle as Uint8Array)).toEqual(
-      Buffer.from(fastTab.dataKey.handle as Uint8Array),
-    )
-    expect(((await slow.repos.todo.getById(record.id))?.data as Todo).title).toBe(
-      'ditulis pemenang',
-    )
-    // Kandidat tab lambat (yang kalah) sudah dikosongkan.
-    expect(candidates.every(isAllZero)).toBe(true)
   })
 
   it('dua akun berbeda bersamaan (nama lock global): keduanya selesai, kunci terpisah, tanpa deadlock', async () => {
@@ -175,8 +127,6 @@ describe('QA #113: balapan kunci pertama', () => {
       }),
     ])
 
-    expect(a.isFreshKey).toBe(true)
-    expect(b.isFreshKey).toBe(true)
     expect(Buffer.from(a.dataKey.handle as Uint8Array)).not.toEqual(
       Buffer.from(b.dataKey.handle as Uint8Array),
     )

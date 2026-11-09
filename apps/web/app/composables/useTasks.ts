@@ -365,7 +365,7 @@ export function useTasks(options: UseTasksOptions = {}) {
     tasks: computed(() => tasks.value),
     status: computed(() => status.value),
     error: computed(() => error.value),
-    /** Status sesi data lokal (termasuk `isFreshKey` untuk peringatan recovery key). */
+    /** Status sesi data lokal. */
     localData: localData.state,
     hydrate,
     reload,

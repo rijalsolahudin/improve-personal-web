@@ -7,28 +7,21 @@ import { useAuthSession } from './useAuthSession'
  *
  * Tiga hal yang menentukan bentuk modul ini:
  * 1. **Sesi disimpan di variabel modul, bukan `useState`.** `useState` ikut diserialisasi ke
- *    `window.__NUXT__`, dan di dalam sesi ada bahan kunci (`dataKey`) - security.md §2 melarang data
- *    seperti itu masuk state yang ter-hidrasi. Yang masuk `useState` hanya status non-rahasia, supaya
- *    UI tetap reaktif.
- * 2. **Client-only.** Di server tidak ada IndexedDB, dan kunci memang tidak boleh dibuka di sana;
- *    `ensure()` mengembalikan `null` saat SSR sehingga pemanggil memakai daftar kosong, bukan gagal.
+ *    `window.__NUXT__`, dan di dalam sesi ada bahan kunci (`dataKey`). Yang masuk `useState` hanya
+ *    status non-rahasia, supaya UI tetap reaktif.
+ * 2. **Client-only.** Di server tidak ada IndexedDB; `ensure()` mengembalikan `null` saat SSR sehingga
+ *    pemanggil memakai daftar kosong, bukan gagal.
  * 3. **Terikat pada AKUN yang login.** Penyimpanan lokal dibuka dengan `userId` dari sesi server, dan
- *    sesi yang sudah tersimpan di memori DIBUANG begitu `userId`-nya berbeda. Tanpa ini, satu browser =
- *    satu bak data untuk semua akun: logout lalu login akun lain akan menampilkan data akun pertama.
- *    Sesi server juga dibaca lebih dulu - bukan sesudah - supaya tidak ada penyimpanan lokal yang
- *    dibuka tanpa akun yang jelas.
+ *    sesi yang sudah tersimpan di memori DIBUANG begitu `userId`-nya berbeda.
+ *
+ * Tidak ada lagi tahap "unlock": kunci perangkat hanya melindungi salinan lokal, dan data di server
+ * disegel server. Login yang berhasil berarti data bisa diakses.
  */
 
-/**
- * `locked` = akun ini sudah punya kunci (di server atau data lokal), tapi perangkat ini belum punya
- * pembukanya. Bukan error: jalan keluarnya adalah layar pemulihan (passkey / kode pemulihan).
- */
-export type LocalDataStatus = 'idle' | 'loading' | 'ready' | 'locked' | 'error'
+export type LocalDataStatus = 'idle' | 'loading' | 'ready' | 'error'
 
 export type LocalDataState = {
   readonly status: LocalDataStatus
-  /** True = kunci utama baru dibuat di sesi ini, dan pembuka kunci belum diatur. */
-  readonly isFreshKey: boolean
   readonly deviceId: string | null
   /** Akun yang penyimpanan lokalnya sedang dibuka. `null` = belum login / belum dibuka. */
   readonly userId: string | null
@@ -37,19 +30,15 @@ export type LocalDataState = {
 }
 
 function emptyState(status: LocalDataStatus): LocalDataState {
-  return { status, isFreshKey: false, deviceId: null, userId: null, error: null }
+  return { status, deviceId: null, userId: null, error: null }
 }
 
 /** Sesi yang sedang dipegang, beserta pemiliknya - supaya pergantian akun bisa dideteksi. */
 let cached: { readonly userId: string; readonly promise: Promise<LocalDataSession> } | null = null
 
 /**
- * Lapisan data lokal (adaptor IndexedDB + kripto + repository) sengaja dimuat lewat `import()`.
- *
- * Modul itu ~49 KB gzip dan hanya berguna di halaman yang benar-benar membaca data lokal; kalau
- * diimpor statis, ia ikut di `<link rel="modulepreload">` SEMUA rute - termasuk landing dan `/login`
- * yang tidak menyentuh IndexedDB (QA T16 MAYOR-1: JS awal `/` 192 KB, `/login` 170 KB). ESM sudah
- * menyimpan modul yang pernah dimuat, jadi `import()` di sini hanya sekali per sesi browser.
+ * Lapisan data lokal (adaptor IndexedDB + kripto + repository) dimuat lewat `import()`: rute yang
+ * tidak pernah menyentuh data lokal tidak perlu membayarnya.
  */
 let sessionModule: Promise<typeof import('~/utils/storage/session')> | null = null
 
@@ -63,67 +52,9 @@ function loadSessionModule(): Promise<typeof import('~/utils/storage/session')> 
  * Sesi yang sudah benar-benar terbuka (hasil `cached`), atau `null`.
  *
  * Dipakai pembaca yang TIDAK boleh membuka penyimpanan sendiri - mis. indikator status sync dan
- * reload store setelah pull. `ensure()` memang idempoten untuk sesi yang sudah terbuka (tidak lagi
- * menulis `loading`), tetapi ia tetap PEMBUKA: saat belum terbuka ia mengubah status bersama dan
- * memuat modul storage (~49 KB gzip). Pembaca yang hanya butuh sesi yang sudah ada tetap memakai
- * `current()`.
+ * reload store setelah pull.
  */
 let opened: LocalDataSession | null = null
-
-/**
- * Apakah ini perangkat PERTAMA akun ini, jadi boleh membuat kunci utama baru?
- *
- * Ada envelope passkey di server = akun sudah punya kunci di perangkat lain. Membuat kunci baru di sini
- * terlihat mulus, tapi saat user mengaktifkan passkey envelope di server TERTIMPA - dan kunci lama
- * kehilangan pembuka cadangannya. Kalau server tidak terjangkau, jawabannya gagal (bukan "boleh"):
- * menebak "boleh" adalah arah yang bisa menghilangkan data.
- */
-async function isFirstDeviceOfAccount(): Promise<boolean> {
-  // `import()` di sini, bukan impor statis: `keys-gateway` membawa skema zod dari
-  // `@improve-personal/contracts` (~28 KB gzip). Impor statis menaruhnya di graf awal SEMUA rute -
-  // termasuk landing yang tidak pernah memanggil fungsi ini. Dipanggil paling banyak sekali per sesi.
-  const { createKeysGateway } = await import('~/utils/crypto/keys-gateway')
-  const keys = createKeysGateway((path, init) => $fetch(path, init))
-
-  return (await keys.listEnvelopes()).length === 0
-}
-
-/**
- * Pesan error state saat server menolak klaim KID (`KEY_IDENTITY_CONFLICT`): akun ini sudah dipegang
- * kunci utama LAIN. Tidak ada resolusi otomatis - sync tidak boleh jalan dengan KID yang ditolak.
- * Ditampilkan apa adanya oleh `KeyStatusNotice` (pesan dari kode kita, bukan dari server).
- */
-export const KEY_IDENTITY_CONFLICT_MESSAGE =
-  'akun ini sudah terikat ke kunci enkripsi lain (KEY_IDENTITY_CONFLICT): sinkronisasi dihentikan'
-
-/**
- * Klaim KID di server sebelum sesi dianggap siap. Idempoten untuk KID yang sama.
- *
- * Sync hanya mulai setelah status `ready` (`sync.client.ts`), jadi klaim yang ditaruh sebelum `ready`
- * otomatis menahan sync sampai KID diterima. `import()` dinamis karena alasan yang sama dengan
- * `isFirstDeviceOfAccount`.
- */
-class KeyIdentityConflictError extends Error {
-  constructor(options: { cause: unknown }) {
-    super(KEY_IDENTITY_CONFLICT_MESSAGE, options)
-    this.name = 'KeyIdentityConflictError'
-  }
-}
-
-async function claimKeyIdentity(kid: string): Promise<void> {
-  const { createKeysGateway, KeysRequestError } = await import('~/utils/crypto/keys-gateway')
-  const keys = createKeysGateway((path, init) => $fetch(path, init))
-
-  try {
-    await keys.claimIdentity(kid)
-  } catch (error) {
-    if (error instanceof KeysRequestError && error.code === 'KEY_IDENTITY_CONFLICT') {
-      throw new KeyIdentityConflictError({ cause: error })
-    }
-
-    throw error
-  }
-}
 
 export function useLocalData() {
   const auth = useAuthSession()
@@ -133,21 +64,14 @@ export function useLocalData() {
   /**
    * Buka sesi milik akun yang sedang login, atau `null` kalau tidak bisa / belum login.
    *
-   * Idempoten untuk sesi yang SUDAH terbuka: pemanggil berikutnya (mis. reload setelah pull, atau
-   * tulis lokal susulan) mendapat sesi yang sama tanpa menulis `status` apa pun. Dulu setiap
-   * panggilan menulis `loading`, dan plugin sync memakai status itu sebagai sinyal untuk mematikan
-   * lalu memasang ulang controller - satu reload = satu `GET /v1/sync/pull` tambahan (security review
-   * #77 M1).
-   *
-   * Kegagalan TIDAK disembunyikan: statusnya jadi `error` dan pesannya diringkas untuk log - bukan
-   * ditelan, karena "data lokal tidak bisa dibuka" berarti user melihat aplikasi kosong, dan sebabnya
-   * harus terlihat.
+   * Idempoten untuk sesi yang SUDAH terbuka: pemanggil berikutnya mendapat sesi yang sama tanpa
+   * menulis `status` apa pun. Dulu setiap panggilan menulis `loading`, dan plugin sync memakai status
+   * itu sebagai sinyal untuk mematikan lalu memasang ulang controller.
    */
   async function ensure(): Promise<LocalDataSession | null> {
     if (!import.meta.client) return null
 
-    // Jalur cepat: sesi akun yang sedang login sudah terbuka. Dibaca dari `auth.session` (sudah ada
-    // di memori setelah `ensure()` pertama), jadi tidak ada await dan tidak ada perubahan state.
+    // Jalur cepat: sesi akun yang sedang login sudah terbuka.
     const activeUserId = auth.session.value?.user.id
     if (activeUserId !== undefined && opened !== null && opened.userId === activeUserId) {
       return opened
@@ -168,43 +92,16 @@ export function useLocalData() {
       }
 
       if (cached !== null && cached.userId !== userId) {
-        // Akun berganti (mis. login akun lain tanpa reload penuh): sesi lama dibuang, TIDAK dipakai ulang.
+        // Akun berganti (mis. login akun lain tanpa reload penuh): sesi lama dibuang.
         cached = null
         opened = null
       }
 
       // Ditugaskan SINKRON (tanpa `await` di antara cek dan isi): dua pemanggil `ensure()` yang
-      // berbarengan (mis. preferensi tampilan + daftar task) harus memakai satu promise sesi. Kalau
-      // tidak, dua `openLocalDataSession` bisa berjalan bersamaan dan sama-sama membuat kunci utama
-      // di perangkat yang belum punya pembuka.
+      // berbarengan harus memakai satu promise sesi.
       cached ??= {
         userId,
-        promise: loadSessionModule().then(async (module) => {
-          const session = await module.openLocalDataSession({
-            userId,
-            canCreateKey: isFirstDeviceOfAccount,
-          })
-
-          // Di dalam promise bersama: pemanggil `ensure()` yang berbarengan menunggu klaim yang sama.
-          try {
-            await claimKeyIdentity(session.kid)
-          } catch (error) {
-            // Kunci yang BARU dibuat di pemanggilan ini ditolak server (akun sudah dipegang kunci lain):
-            // slot `device`-nya sudah tertulis, dan tanpa dibuang retry akan memakai kunci salah yang
-            // sama selamanya, sementara semua jalur pemulihan menolak slot yang terisi. Belum ada record
-            // yang disegel dengan kunci ini, jadi aman dibuang -> status `locked` (layar pemulihan).
-            // Perangkat yang kuncinya sudah mapan (`isFreshKey === false`) TIDAK disentuh.
-            if (error instanceof KeyIdentityConflictError && session.isFreshKey) {
-              const { removeDeviceUnlock } = await import('~/utils/crypto/device-slot')
-              await removeDeviceUnlock(session.keyStore)
-              throw new module.LocalKeyMissingError()
-            }
-
-            throw error
-          }
-
-          return session
-        }),
+        promise: loadSessionModule().then((module) => module.openLocalDataSession({ userId })),
       }
 
       const session = await cached.promise
@@ -212,7 +109,6 @@ export function useLocalData() {
 
       state.value = {
         status: 'ready',
-        isFreshKey: session.isFreshKey,
         deviceId: session.deviceId,
         userId,
         error: null,
@@ -220,18 +116,9 @@ export function useLocalData() {
 
       return session
     } catch (error) {
-      // Dibiarkan bisa dicoba lagi pada muat berikutnya (mis. storage sementara tidak bisa dibuka).
+      // Dibiarkan bisa dicoba lagi pada muat berikutnya.
       cached = null
       opened = null
-
-      const LocalKeyMissingError = await loadSessionModule()
-        .then((module) => module.LocalKeyMissingError)
-        .catch(() => null)
-
-      if (LocalKeyMissingError !== null && error instanceof LocalKeyMissingError) {
-        state.value = { ...emptyState('locked'), userId: auth.session.value?.user.id ?? null }
-        return null
-      }
 
       state.value = {
         ...emptyState('error'),
