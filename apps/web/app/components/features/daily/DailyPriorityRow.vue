@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import type { PriorityTask } from '~/utils/dailyRoutine'
-import { QUADRANT_STYLE, isOverdue } from '~/utils/tasks'
+import { isOverdue } from '~/utils/tasks'
 
-/** Satu baris Prioritas Daily (PRD F12): nomor, judul, penanda asal, prioritas, sisa waktu. */
+/** Satu baris Prioritas Daily (PRD F12): nomor, judul, sisa waktu (kalau ada deadline). */
 const { item, index, now } = defineProps<{ item: PriorityTask; index: number; now: number }>()
 const emit = defineEmits<{ toggle: []; focus: [title: string]; edit: [] }>()
 
@@ -10,6 +10,8 @@ const { t } = useI18n()
 const formatTimeLeft = useTimeLeft()
 
 const task = computed(() => item.task)
+/** Tanpa deadline baris meta tidak dirender (judul rata tengah); task selesai tetap menampilkan status selesai. */
+const hasTimeLeft = computed(() => task.value.done || task.value.deadline !== null)
 const timeLeft = computed(() =>
   task.value.done ? t('time.done') : formatTimeLeft(task.value.deadline, now),
 )
@@ -20,16 +22,7 @@ const timeLeft = computed(() =>
     <span class="num" aria-hidden="true">{{ index + 1 }}</span>
     <div class="text">
       <span class="task-title">{{ task.title }}</span>
-      <span class="meta">
-        <!-- Asal "Urgent" sudah terwakili badge prioritasnya, jadi chip asal cuma untuk kuadran. -->
-        <span
-          v-if="item.origin === 'quadrant'"
-          class="origin"
-          :style="{ background: QUADRANT_STYLE.do.bg, color: QUADRANT_STYLE.do.text }"
-        >
-          {{ $t('daily.prio.origin.quadrant') }}
-        </span>
-        <PriorityBadge :level="task.priority" size="sm" />
+      <span v-if="hasTimeLeft" class="meta">
         <span class="left" :class="{ overdue: isOverdue(task, now) }">{{ timeLeft }}</span>
       </span>
     </div>
@@ -106,14 +99,6 @@ const timeLeft = computed(() =>
   flex-wrap: wrap;
   align-items: center;
   gap: 4px 6px;
-}
-
-.origin {
-  padding: 1px 8px;
-  border-radius: var(--radius-pill);
-  font-weight: var(--fw-strong);
-  font-size: var(--fs-eyebrow);
-  white-space: nowrap;
 }
 
 .left {

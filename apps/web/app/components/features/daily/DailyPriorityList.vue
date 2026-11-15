@@ -1,9 +1,24 @@
 <script setup lang="ts">
+import { TASK_TITLE_MAX } from '~/utils/tasks'
 import { PRIORITY_VISIBLE_COUNT, type PriorityTask } from '~/utils/dailyRoutine'
 
 /** Prioritas hari ini (PRD F12): Penting & Mendesak + urgent, tanpa batas; daftar panjang dilipat. */
 const { priorities, now } = defineProps<{ priorities: readonly PriorityTask[]; now: number }>()
-const emit = defineEmits<{ toggle: [id: string]; focus: [title: string]; edit: [id: string] }>()
+const emit = defineEmits<{
+  toggle: [id: string]
+  focus: [title: string]
+  edit: [id: string]
+  add: [title: string]
+}>()
+
+const draft = ref('')
+
+function submit(): void {
+  const title = draft.value.trim()
+  if (!title) return
+  emit('add', title)
+  draft.value = ''
+}
 
 const isExpanded = ref(false)
 const hiddenCount = computed(() => Math.max(0, priorities.length - PRIORITY_VISIBLE_COUNT))
@@ -49,6 +64,18 @@ const visible = computed(() =>
     >
       {{ isExpanded ? $t('daily.prio.less') : $t('daily.prio.more', { n: hiddenCount }) }}
     </Button>
+
+    <form class="add" @submit.prevent="submit">
+      <span class="plus" aria-hidden="true">+</span>
+      <Input
+        v-model="draft"
+        variant="bare"
+        class="add-input"
+        :maxlength="TASK_TITLE_MAX"
+        :placeholder="$t('daily.prio.add')"
+        :aria-label="$t('daily.prio.addLabel')"
+      />
+    </form>
   </section>
 </template>
 
@@ -118,5 +145,48 @@ const visible = computed(() =>
 
 .more {
   align-self: flex-start;
+}
+.add {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 14px;
+  border: var(--border-thin) dashed var(--dash);
+  border-radius: var(--radius-pill);
+}
+
+.add:hover {
+  border-color: var(--dash-2);
+}
+
+/* Wadah pill yang menandai fokus (a11y), bukan <input> di dalamnya. */
+.add:focus-within {
+  border-color: var(--outline);
+  border-style: solid;
+}
+
+/* Indikator fokus sudah di `.add:focus-within`; ring input persegi di dalam pill dimatikan. */
+.add-input:focus-visible {
+  outline: none;
+}
+
+.plus {
+  width: 22px;
+  text-align: center;
+  font-weight: var(--fw-strong);
+  font-size: 18px;
+  color: var(--accent);
+}
+
+.add-input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  font-family: var(--font-hand);
+  /* Patrick Hand hanya punya weight 400; input mewarisi `--fw-body` (700) → faux-bold. */
+  font-weight: 400;
+  font-size: 18px;
+  line-height: 32px;
 }
 </style>

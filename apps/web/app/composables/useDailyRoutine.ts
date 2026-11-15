@@ -126,7 +126,7 @@ export function useDailyRoutine() {
   })
 
   // ---- Prioritas & to-do ----
-  const { tasks, toggle, add } = useTasks()
+  const { tasks, toggle, add, setQuadrant } = useTasks()
   const priorities = computed(() => dailyPriorities(tasks.value, day.value.checkedTaskIds))
   const todayList = computed(() =>
     todayTasks(
@@ -156,6 +156,18 @@ export function useDailyRoutine() {
 
     const added = day.value.addedTaskIds
     if (!added.includes(id)) updateDay({ addedTaskIds: [...added, id] })
+    return true
+  }
+
+  /**
+   * Quick add Prioritas (PRD F12): task langsung ditaruh di kuadran Penting & Mendesak, jadi muncul
+   * di Prioritas dan Eisenhower sekaligus. Tidak dicatat di `addedTaskIds` karena bukan to-do hari ini.
+   */
+  function addPriorityTask(title: string): boolean {
+    const id = add(title, 'medium', null)
+    if (id === null) return false
+
+    setQuadrant(id, 'do')
     return true
   }
 
@@ -212,6 +224,7 @@ export function useDailyRoutine() {
     weather: computed(() => day.value.weather),
     toggleRoutineItem,
     toggleTask,
+    addPriorityTask,
     toggleHabit: (id: string) => habitStore.toggleDay(id, today.value),
     addTodayTask,
     setWeather: (weather: WeatherKind | null) => updateDay({ weather }),

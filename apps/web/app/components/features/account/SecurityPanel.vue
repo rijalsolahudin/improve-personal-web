@@ -95,6 +95,15 @@ onMounted(async () => {
             >
               {{ t('account.devices.revoke') }}
             </Button>
+            <Button
+              v-else-if="device.revokedAt"
+              variant="outline"
+              size="xs"
+              :disabled="account.busy.value"
+              @click="account.removeDevice(device.id)"
+            >
+              {{ t('account.devices.remove') }}
+            </Button>
           </li>
         </ul>
       </article>

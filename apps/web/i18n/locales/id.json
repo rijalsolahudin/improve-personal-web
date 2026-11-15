@@ -176,11 +176,10 @@
       "link": "Eisenhower →",
       "linkHint": "Otomatis: kuadran Penting & Mendesak + to-do Urgent",
       "empty": "Belum ada task penting & mendesak atau urgent.",
-      "origin": {
-        "quadrant": "Penting & Mendesak"
-      },
       "more": "Lihat {n} lagi",
-      "less": "Lipat lagi"
+      "less": "Lipat lagi",
+      "add": "Tambah prioritas, lalu Enter…",
+      "addLabel": "Judul prioritas baru"
     },
     "todo": {
       "title": "To-do hari ini",
@@ -1228,7 +1227,8 @@
       "current": "perangkat ini",
       "lastSeen": "aktif",
       "revoked": "sudah dicabut",
-      "revoke": "Cabut akses"
+      "revoke": "Cabut akses",
+      "remove": "Hapus"
     },
     "delete": {
       "cardTitle": "Hapus akun",

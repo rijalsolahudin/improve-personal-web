@@ -4,7 +4,7 @@ import {
   type DeviceDto,
   type DeviceInfo,
 } from '@improve-personal/contracts'
-import { and, count, desc, eq, isNull, sql } from 'drizzle-orm'
+import { and, count, desc, eq, isNotNull, isNull, sql } from 'drizzle-orm'
 
 import { devices, sessions } from '../db/schema'
 import { apiProblem } from '../utils/api-error'
@@ -447,4 +447,25 @@ export async function revokeDevice(
       .set({ revokedAt: ctx.now })
       .where(and(eq(sessions.deviceId, device.id), isNull(sessions.revokedAt)))
   })
+}
+
+/**
+ * Hapus jejak perangkat yang sudah dicabut (PRD F15). Sesi perangkat itu ikut terhapus lewat
+ * `ON DELETE CASCADE`; sesi aktif tidak mungkin ada karena `revokeDevice` sudah menutupnya.
+ *
+ * Filter `revoked_at IS NOT NULL` ada di DELETE-nya sendiri, bukan cek terpisah: perangkat aktif
+ * tidak pernah terhapus walau dua request berpacu. Perangkat aktif, milik user lain, dan yang tidak
+ * ada semuanya `NOT_FOUND` supaya tidak jadi oracle keberadaan id.
+ */
+export async function deleteRevokedDevice(
+  ctx: ServiceContext,
+  userId: string,
+  deviceId: string,
+): Promise<void> {
+  const deleted = await ctx.db
+    .delete(devices)
+    .where(and(eq(devices.id, deviceId), eq(devices.userId, userId), isNotNull(devices.revokedAt)))
+    .returning({ id: devices.id })
+
+  if (deleted.length === 0) throw apiProblem('NOT_FOUND')
 }

@@ -33,6 +33,7 @@ const request = vi.fn<JsonFetch>(async (path) => {
   if (path === '/v1/devices') {
     return { data: { devices: [device(OTHER_DEVICE_ID), device(SERVER_DEVICE_ID)] } }
   }
+  if (path.endsWith('/revoked')) return null
   throw new Error(`request tak terduga: ${path}`)
 })
 
@@ -67,5 +68,31 @@ describe('useAccount: penanda perangkat ini', () => {
     await account.load()
 
     expect(account.devices.value.some((row) => row.isCurrent)).toBe(false)
+  })
+})
+
+describe('useAccount: hapus jejak perangkat', () => {
+  it('memanggil DELETE /v1/devices/:id/revoked lalu memuat ulang daftar', async () => {
+    const account = useAccount({ request })
+
+    await account.removeDevice(OTHER_DEVICE_ID)
+
+    expect(request).toHaveBeenCalledWith(`/v1/devices/${OTHER_DEVICE_ID}/revoked`, {
+      method: 'DELETE',
+    })
+    expect(request).toHaveBeenLastCalledWith('/v1/devices', { method: 'GET' })
+    expect(account.error.value).toBeNull()
+  })
+
+  it('kegagalan server masuk ke error dan tidak melempar', async () => {
+    const failing = vi.fn<JsonFetch>(async () => {
+      throw { status: 404, data: { error: { code: 'NOT_FOUND' } } }
+    })
+    const account = useAccount({ request: failing })
+
+    await account.removeDevice(OTHER_DEVICE_ID)
+
+    expect(account.error.value).toContain('NOT_FOUND')
+    expect(account.busy.value).toBe(false)
   })
 })

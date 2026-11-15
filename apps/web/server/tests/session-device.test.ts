@@ -19,6 +19,7 @@ import { afterAll, afterEach, describe, expect, it } from 'vitest'
 
 import {
   countActiveDevices,
+  deleteRevokedDevice,
   listDevices,
   resolveDeviceForLogin,
   revokeDevice,
@@ -391,6 +392,34 @@ describe('perangkat', () => {
     await expect(findSessionByToken(bob.ctx(), bobSession.token)).resolves.toMatchObject({
       userId: bobSession.userId,
     })
+  })
+
+  it('hapus jejak: hanya perangkat yang sudah dicabut milik sendiri yang terhapus', async () => {
+    const alice = scope.fixture({ prefix: 'purge-alice' })
+    const bob = scope.fixture({ prefix: 'purge-bob' })
+    const current = await seedSession(alice.ctx(), { email: alice.email, deviceName: 'Laptop' })
+    const other = await seedSession(alice.ctx(), {
+      email: alice.email,
+      deviceName: 'HP',
+      client: 'mobile',
+    })
+    const bobSession = await seedSession(bob.ctx(), { email: bob.email })
+
+    // Perangkat aktif tidak bisa dihapus langsung, begitu pula milik user lain.
+    for (const deviceId of [other.deviceId, bobSession.deviceId]) {
+      const problem = await captureProblem(
+        deleteRevokedDevice(alice.ctx(), current.userId, deviceId),
+      )
+      expect(problem).toMatchObject({ code: 'NOT_FOUND', statusCode: 404 })
+    }
+
+    await revokeDevice(alice.ctx(), current.userId, other.deviceId)
+    await deleteRevokedDevice(alice.ctx(), current.userId, other.deviceId)
+
+    const ids = (await listDevices(alice.ctx(), current.userId)).map((device) => device.id)
+    expect(ids).toEqual([current.deviceId])
+    const bobIds = (await listDevices(bob.ctx(), bobSession.userId)).map((device) => device.id)
+    expect(bobIds).toContain(bobSession.deviceId)
   })
 
   it('perangkat yang tidak ada dan perangkat user lain memberi respons yang sama (bukan oracle)', async () => {

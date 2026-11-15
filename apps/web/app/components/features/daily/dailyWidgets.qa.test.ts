@@ -88,17 +88,33 @@ describe('DailyPriorityList (AC1)', () => {
     expect(wrapper.findAll('li')[8]?.text()).toContain('Urgent 7')
   })
 
-  it('tiap item diberi penanda asal: chip "Penting & Mendesak" + badge "Urgent"', async () => {
+  it('tanpa chip kuadran maupun badge prioritas; sisa waktu hanya kalau ada deadline', async () => {
+    const mixed: PriorityTask[] = [
+      {
+        task: task('a', { quadrant: 'do', priority: 'medium', title: 'Biasa' }),
+        origin: 'quadrant',
+      },
+      {
+        task: task('b', {
+          quadrant: 'do',
+          priority: 'urgent',
+          title: 'Genting',
+          deadline: NOW + 3_600_000,
+        }),
+        origin: 'quadrant',
+      },
+    ]
     const wrapper = await mountSuspended(DailyPriorityList, {
-      props: { priorities, now: NOW },
+      props: { priorities: mixed, now: NOW },
     })
     mounted.push(wrapper)
 
     const rows = wrapper.findAll('li')
-    expect(rows[0]?.text()).toContain('Penting & Mendesak')
-    expect(rows[0]?.text()).toContain('Urgent')
+    expect(rows[0]?.text()).not.toMatch(/Penting & Mendesak|Medium|Tanpa deadline/)
+    expect(rows[0]?.find('.left').exists()).toBe(false)
+    expect(rows[1]?.text()).not.toContain('Urgent')
+    expect(rows[1]?.find('.left').exists()).toBe(true)
     expect(rows[1]?.text()).not.toContain('Penting & Mendesak')
-    expect(rows[1]?.text()).toContain('Urgent')
   })
 
   it('klik centang mengirim id task ke halaman, bukan menyalin atau mengubah task sendiri', async () => {

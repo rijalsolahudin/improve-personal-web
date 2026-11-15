@@ -66,12 +66,12 @@ export function useAccount(options: UseAccountOptions = {}) {
     }
   }
 
-  /** Logout jarak jauh: cabut perangkat lain, lalu segarkan daftarnya. */
-  async function revokeDevice(id: string): Promise<void> {
+  /** Jalankan aksi perangkat lalu segarkan daftarnya; kegagalan masuk `error`. */
+  async function mutateDevice(action: () => Promise<void>): Promise<void> {
     busy.value = true
 
     try {
-      await devices.revoke(id)
+      await action()
       await load()
     } catch (cause) {
       status.value = 'error'
@@ -81,6 +81,12 @@ export function useAccount(options: UseAccountOptions = {}) {
     }
   }
 
+  /** Logout jarak jauh: cabut perangkat lain. */
+  const revokeDevice = (id: string): Promise<void> => mutateDevice(() => devices.revoke(id))
+
+  /** Hapus jejak perangkat yang sudah dicabut dari daftar. */
+  const removeDevice = (id: string): Promise<void> => mutateDevice(() => devices.remove(id))
+
   return {
     status: computed(() => status.value),
     error: computed(() => error.value),
@@ -88,5 +94,6 @@ export function useAccount(options: UseAccountOptions = {}) {
     devices: computed(() => deviceList.value),
     load,
     revokeDevice,
+    removeDevice,
   }
 }

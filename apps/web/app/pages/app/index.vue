@@ -50,6 +50,7 @@ const next = computed(() => {
           @toggle="daily.toggleTask"
           @focus="focus"
           @edit="editing = $event"
+          @add="daily.addPriorityTask"
         />
         <DailyTodoCard
           class="todo"

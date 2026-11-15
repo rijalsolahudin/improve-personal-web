@@ -27,6 +27,8 @@ export type DevicesGateway = {
   list: () => Promise<readonly DeviceDto[]>
   /** Logout jarak jauh: soft-revoke perangkat + tutup sesinya di server. */
   revoke: (id: string) => Promise<void>
+  /** Hapus jejak perangkat yang sudah dicabut dari daftar. Perangkat aktif ditolak server. */
+  remove: (id: string) => Promise<void>
 }
 
 /** Kegagalan request perangkat, selalu membawa `code` kontrak. Pesan server tidak jadi teks UI. */
@@ -78,6 +80,14 @@ export function createDevicesGateway(request: JsonFetch): DevicesGateway {
       try {
         // `204 No Content`: tidak ada body yang bisa diparse, jadi jangan memaksa membaca JSON.
         await request(`${DEVICES_PATH}/${encodeURIComponent(id)}`, { method: 'DELETE' })
+      } catch (error) {
+        throw toError(error)
+      }
+    },
+
+    async remove(id) {
+      try {
+        await request(`${DEVICES_PATH}/${encodeURIComponent(id)}/revoked`, { method: 'DELETE' })
       } catch (error) {
         throw toError(error)
       }

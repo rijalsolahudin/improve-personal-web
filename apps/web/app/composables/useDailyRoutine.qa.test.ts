@@ -154,6 +154,18 @@ describe('quick add & quick habit check (AC3)', () => {
     expect(added?.isOverdue).toBe(false)
   })
 
+  it('quick add Prioritas langsung masuk kuadran Penting & Mendesak, bukan To-do hari ini', () => {
+    const { addPriorityTask, priorities, todayList } = useDailyRoutine()
+    const { tasks } = useTasks()
+
+    expect(addPriorityTask('   ')).toBe(false)
+    expect(addPriorityTask('Kirim laporan')).toBe(true)
+
+    expect(priorities.value.map(({ task: item }) => item.title)).toEqual(['Kirim laporan'])
+    expect(tasks.value[0]?.quadrant).toBe('do')
+    expect(todayList.value).toEqual([])
+  })
+
   it('quick add tidak memberi deadline (PRD F12 revisi): task langsung masuk To-do hari ini', () => {
     // Panduan dulu menjanjikan "deadline hari ini", sekarang quick add sengaja tanpa deadline;
     // task tetap tampil karena id-nya dicatat di `addedTaskIds` tanggal ini.
