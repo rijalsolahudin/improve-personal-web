@@ -113,6 +113,8 @@ const model = defineModel<T>({ required: true })
 }
 
 .swatch {
+  flex: none;
+  box-sizing: border-box;
   width: 16px;
   height: 16px;
   border-radius: 50%;
