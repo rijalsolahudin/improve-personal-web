@@ -7,15 +7,11 @@ import type { ServiceContext } from './context'
 /**
  * Baris `users` - akun.
  *
- * Dipisah dari `account.ts` (hapus akun) supaya tidak ada impor melingkar: `otp.ts` butuh "cari atau
- * buat user", sedangkan `account.ts` butuh `otp.ts` untuk memverifikasi kode konfirmasi. Satu berkas
- * kecil yang tidak mengimpor keduanya memutus siklus itu.
- *
  * Email selalu datang dalam bentuk yang sudah dinormalkan `emailSchema` (trim + lowercase) - bukan
  * dinormalkan lagi di sini, supaya tidak ada dua tempat yang bisa berbeda pendapat.
  */
 
-export async function findUserByEmail(ctx: ServiceContext, email: string): Promise<UserRow | null> {
+async function findUserByEmail(ctx: ServiceContext, email: string): Promise<UserRow | null> {
   const rows = await ctx.db.select().from(users).where(eq(users.email, email)).limit(1)
   return rows[0] ?? null
 }

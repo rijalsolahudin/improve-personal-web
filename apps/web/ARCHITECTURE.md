@@ -27,24 +27,24 @@ app/
 i18n/               # locale (default id)
 public/             # manifest PWA, icon
 docs/               # symlink ke docs/ root
-server/             # API v1 (auth + sync + enkripsi at-rest) - Nitro/H3 di app yang sama
-├── routes/api/     # endpoint /v1/** (auth, devices, sync, account)
-├── services/       # logika (OTP, sesi, sync upsert)
+server/             # API v1 - Nitro/H3 di app yang sama. Sejak ADR 15 tanpa data user: auth OTP/Google
+│                   # tinggal sampai T33 mengubahnya jadi aktivasi lisensi; relay transfer menyusul (T30)
+├── routes/v1/      # endpoint /v1/** (auth)
+├── services/       # logika (OTP, sesi, Google, rate limit)
 ├── db/             # drizzle schema + migrasi
-├── middleware/     # auth, rate limit, request id, error handler
+├── middleware/     # rate limit, request id, CSRF, batas body, error handler
 ├── utils/          # helper server (validasi env, hmac)
-└── tasks/          # job terjadwal (purge tombstone, bersihkan OTP kedaluwarsa)
+└── tasks/          # job terjadwal (bersihkan OTP/OAuth state/rate limit kedaluwarsa)
 ```
 
 - Nggak ada app server terpisah (ADR 7 direvisi): API tinggal di `server/**` app ini dan dilayani Nitro bersama UI-nya.
-- Server menyegel `payload` sebelum menyimpan dan membukanya saat pull (`server/utils/record-crypto.ts`, AES-256-GCM, keyring env). Client tetap tidak memegang kunci server; plaintext hanya hidup di memori proses/permintaan.
+- Server tidak menerima, menyimpan, atau menyegel record user (ADR 15). Data hanya di IndexedDB perangkat.
 - Konvensi penamaan & batas ukuran file: [`.claude/rules/code-quality.md`](.claude/rules/code-quality.md).
 
 ## 2. Mode render & output build
 
-- Data user tidak perlu dirender server (butuh sesi + lokal-first), jadi halaman app tetap `ssr: false` dan hanya landing publik yang di-prerender (ADR 6).
-- Ditetapkan per route di `routeRules` (`nuxt.config.ts`), bukan global: `/` prerender, `/login` SSR, `/app/**` `ssr: false`.
-  - `/login` SSR sejak T66: teks form ada di HTML pertama (LCP tidak lagi menunggu bundel SPA + `_i18n/**/messages.json`). Halaman ini tidak memuat data akun - hanya form + hasil guard sesi (`useRequestFetch` meneruskan cookie request); HTML-nya tetap **tidak** di-cache service worker.
+- Data user hanya ada di perangkat, jadi halaman app tetap `ssr: false` dan hanya landing publik yang di-prerender (ADR 6).
+- Ditetapkan per route di `routeRules` (`nuxt.config.ts`), bukan global: `/` prerender, `/app/**` `ssr: false`. Tidak ada halaman login (ADR 15); `/app` terbuka langsung.
 - Output: `nitro.preset` **bukan** `static` lagi - ada server route API di app ini, jadi build-nya preset server (Node). Konsekuensi deploy: butuh host Node, `apps/web` nggak bisa lagi disajikan murni sebagai situs statis dari CDN.
 
 ## 3. PWA
@@ -62,7 +62,7 @@ Pemilik data tetap `packages/core`, bukan store. Store cuma **cermin reaktif** p
 - Store per domain core: `useTodoStore`, `useScheduleStore`, `useHabitStore`, `useMemoStore`, `useGoalStore`, `useCountdownStore`, `useDecoStore`; plus lintas fitur: `useSyncStore`, `useAppearanceStore`, `useUiStore`.
 - Derived state jadi `getter` (progress goal F13, agregasi Overview F11, streak F7, sisa waktu F2) - dihitung sekali per perubahan sumber, bukan di-scan ulang tiap komponen (AC T5, T13).
 - Perubahan lintas tab: core kirim event via `BroadcastChannel`, store yang subscribe lalu patch dirinya (AC F12).
-- Sesi & kunci: store dikosongkan saat logout/ganti akun. Bahan kunci perangkat nggak pernah masuk store.
+- Bahan kunci perangkat nggak pernah masuk store. Setelah import/restore, store yang sudah dimuat dibaca ulang lewat `utils/storage/reload.ts`.
 
 ## 5. Plugin runtime
 
@@ -72,7 +72,7 @@ Pemilik data tetap `packages/core`, bukan store. Store cuma **cermin reaktif** p
 | `pomodoro.client.ts` | Satu pengamat fase Pomodoro app-wide (`dependsOn: ticker`) + beep Web Audio; fase selesai tetap ke-deteksi walau halaman Pomodoro nggak dibuka |
 | `theme.client.ts` | Restore pilihan tema/gaya dari storage sebelum render pertama route client - biar nggak ada kedip tampilan salah (F16) |
 
-Plugin init `core` (adapter IndexedDB, crypto, sync) menyusul di T2/T21; dia yang mengisi store setelah unlock.
+Sesi data lokal dibuka malas oleh `useLocalData` (profil lokal tunggal `LOCAL_PROFILE_ID`); tidak ada plugin sync.
 
 ## 6. Tampilan & i18n
 

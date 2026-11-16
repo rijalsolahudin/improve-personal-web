@@ -1,5 +1,5 @@
 <script setup lang="ts">
-/** Modal "Keamanan & perangkat". Isinya baru dimuat (dan memanggil server) saat dibuka. */
+/** Modal "Data di perangkat ini": penyimpanan lokal (dan nanti backup/transfer, T28/T31). */
 const { open } = defineProps<{ open: boolean }>()
 const emit = defineEmits<{ close: [] }>()
 
@@ -12,9 +12,9 @@ const { t } = useI18n()
     :title="t('account.title')"
     is-dismissible
     align="top"
-    width="72rem"
+    width="40rem"
     @close="emit('close')"
   >
-    <AccountSecurityPanel v-if="open" />
+    <AccountStorageCard v-if="open" />
   </Modal>
 </template>

@@ -15,7 +15,16 @@ import { localDatabaseNameFor } from '#shared/tech-identity'
 const USER_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 /**
- * `userId` WAJIB UUID dari sesi server.
+ * Profil lokal tunggal (ADR 15): tidak ada akun server, jadi satu perangkat = satu bak data.
+ *
+ * Konstanta, bukan UUID acak yang disimpan: ID yang hilang (localStorage dibersihkan, IndexedDB tidak)
+ * akan membuat database lama tidak pernah dibuka lagi - data ada tapi tak terjangkau. Nilainya tetap
+ * mengisi slot `userId` di nama database dan AAD blob v2, jadi format record lokal tidak berubah.
+ */
+export const LOCAL_PROFILE_ID = '00000000-0000-4000-8000-000000000001'
+
+/**
+ * `userId` WAJIB UUID (sejak ADR 15 selalu `LOCAL_PROFILE_ID`).
  *
  * Nilainya masuk ke nama database, jadi nilai bebas di situ adalah cara paling halus membuat dua akun
  * berbagi satu bak data - atau satu akun punya beberapa bak - tanpa ada yang sadar. Ditolak dengan pesan
@@ -24,7 +33,7 @@ const USER_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-
 export function assertUserId(userId: string): string {
   if (!USER_ID_PATTERN.test(userId)) {
     throw new Error(
-      'userId harus UUID dari sesi server: penyimpanan lokal tidak boleh dibuka tanpa akun yang jelas',
+      'userId harus UUID: penyimpanan lokal tidak boleh dibuka tanpa profil yang jelas',
     )
   }
 

@@ -1,7 +1,13 @@
 <script setup lang="ts">
 import { isOverdue, type Task } from '~/utils/tasks'
 
-/** Kartu task di kuadran: pegangan drag, centang, sisa waktu, titik prioritas, "▶ Fokus", keluarkan. */
+/**
+ * Kartu task di kuadran: pegangan drag, centang, sisa waktu, titik prioritas, "▶ Fokus", keluarkan.
+ *
+ * "▶ Fokus" melayang di pojok kanan bawah kartu (absolute), bukan ikut baris: tombol hover-reveal
+ * tetap memakan lebar walau transparan, dan di kuadran yang sempit lebar itu dulu memeras judul
+ * jadi satu kata per baris.
+ */
 const {
   task,
   now,
@@ -32,23 +38,25 @@ const timeLeft = computed(() => (task.done ? t('time.done') : formatTimeLeft(tas
     />
     <span class="text">
       <span class="title">{{ task.title }}</span>
-      <span class="left" :class="{ overdue: isOverdue(task, now) }">{{ timeLeft }}</span>
+      <span class="meta">
+        <span class="left" :class="{ overdue: isOverdue(task, now) }">{{ timeLeft }}</span>
+        <Button
+          v-if="!task.done"
+          variant="chip"
+          size="xs"
+          class="focus reveal"
+          :aria-label="$t('daily.focusLabel', { title: task.title })"
+          @click.stop="$emit('focus', task.title)"
+        >
+          {{ $t('daily.focus') }}
+        </Button>
+      </span>
     </span>
     <span
       class="prio"
       :style="{ background: `var(--prio-${task.priority}-fg)` }"
       :title="$t(`priority.${task.priority}`)"
     />
-    <Button
-      v-if="!task.done"
-      variant="chip"
-      size="xs"
-      class="focus reveal"
-      :aria-label="$t('daily.focusLabel', { title: task.title })"
-      @click.stop="$emit('focus', task.title)"
-    >
-      {{ $t('daily.focus') }}
-    </Button>
     <IconButton
       tone="muted"
       :size="26"
@@ -64,6 +72,7 @@ const timeLeft = computed(() => (task.done ? t('time.done') : formatTimeLeft(tas
 
 <style scoped>
 .card {
+  position: relative;
   display: flex;
   align-items: center;
   gap: var(--space-10);
@@ -97,11 +106,19 @@ const timeLeft = computed(() => (task.done ? t('time.done') : formatTimeLeft(tas
   min-width: 0;
   display: flex;
   flex-direction: column;
+  gap: 2px;
 }
 
 .title {
   font-weight: var(--fw-strong);
   font-size: var(--fs-14);
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.meta {
+  display: flex;
+  align-items: center;
 }
 
 .done .title {
@@ -127,10 +144,13 @@ const timeLeft = computed(() => (task.done ? t('time.done') : formatTimeLeft(tas
   border-radius: 50%;
 }
 
-/* Design kartu Eisenhower: pill "▶ Fokus" 26px, padding 0 10, teks 12px. Button xs sudah
-   segitu; dikunci di sini supaya tidak ikut mengecil kalau primitif berubah. */
-.card > .focus {
-  min-height: 26px;
+/* Design kartu Eisenhower: pill "▶ Fokus" 22px, padding 0 10, teks 12px. Melayang di kiri kolom
+   titik prioritas + "×" (48px dari kanan) supaya tidak menutupi keduanya saat muncul. */
+.meta > .focus {
+  position: absolute;
+  right: 48px;
+  bottom: var(--space-6);
+  min-height: 22px;
   padding: 0 var(--space-10);
   font-size: var(--fs-12);
 }

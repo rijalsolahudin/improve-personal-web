@@ -11,11 +11,9 @@ const { open } = defineProps<{ open: boolean }>()
 const emit = defineEmits<{ close: [] }>()
 
 const { t } = useI18n()
-const { session } = useAuthSession()
 const localData = useLocalData()
 const { profile, save } = useProfile()
 
-const email = computed(() => session.value?.user.email ?? '')
 const isUnlocked = computed(() => localData.state.value.status === 'ready')
 
 const draftName = ref('')
@@ -100,7 +98,7 @@ async function submit(): Promise<void> {
   >
     <form class="profile" @submit.prevent="submit">
       <div class="photo-row">
-        <AccountProfileAvatar :src="draftAvatar" :label="draftName || email" :size="88" />
+        <AccountProfileAvatar :src="draftAvatar" :label="draftName" :size="88" />
         <div class="photo-actions">
           <Button variant="outline" size="sm" :disabled="!isUnlocked" @click="fileInput?.click()">
             {{ draftAvatar ? t('profile.changePhoto') : t('profile.addPhoto') }}
@@ -135,7 +133,6 @@ async function submit(): Promise<void> {
         />
       </Field>
 
-      <p v-if="email" class="email">{{ t('profile.emailNote', { email }) }}</p>
       <p v-if="!isUnlocked" class="hint">{{ t('profile.locked') }}</p>
       <p v-if="message" class="error" role="alert">{{ message }}</p>
 
@@ -169,7 +166,6 @@ async function submit(): Promise<void> {
   gap: var(--space-10);
 }
 
-.email,
 .hint {
   color: var(--text-muted);
   font-size: var(--fs-body-sm);

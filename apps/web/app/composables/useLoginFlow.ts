@@ -6,8 +6,13 @@ import { isValidEmail, safeRedirectPath } from '~/utils/validation'
 import { AuthRequestError, type AuthGateway } from './auth/gateway'
 import { useAuthGateway } from './auth/http-gateway'
 import { useAuthSession } from './useAuthSession'
+import { useLicense } from './useLicense'
 
-export type LoginStep = 'choose' | 'otp'
+/**
+ * `license` = login berhasil tapi token lisensi tidak bisa diterbitkan (belum membeli, jatah perangkat
+ * habis, server tak terjangkau). Sebabnya di `licenseError`.
+ */
+export type LoginStep = 'choose' | 'otp' | 'license'
 
 /** Kunci pesan di i18n `login.error.*` - semua generik (F15: jangan bocorkan email terdaftar). */
 export const LOGIN_ERROR_KEYS = [
@@ -65,12 +70,18 @@ function toLoginError(error: unknown, validation: LoginError): LoginError {
 
 export type LoginFlow = ReturnType<typeof useLoginFlow>
 
-/** Alur login email OTP + Google (Login.dc.html). */
+/**
+ * Alur login email OTP + Google (Login.dc.html) + aktivasi lisensi (ADR 15).
+ *
+ * Login hanya membuktikan pemilik email. Setelah itu sesi ditukar jadi token lisensi; baru dengan token
+ * itu `/app` terbuka (`middleware/license.global.ts`).
+ */
 export function useLoginFlow(gateway: AuthGateway = useAuthGateway()) {
   const now = useNow()
   const route = useRoute()
   const otp = useOtpInput()
   const auth = useAuthSession(gateway)
+  const license = useLicense(gateway)
 
   const step = ref<LoginStep>('choose')
   const email = ref('')
@@ -127,7 +138,7 @@ export function useLoginFlow(gateway: AuthGateway = useAuthGateway()) {
       const session = await gateway.verifyEmailOtp(email.value, otp.code.value)
       // Hasil login langsung jadi state sesi: guard & kartu akun tidak perlu request tambahan.
       auth.setSession(session)
-      await navigateTo(safeRedirectPath(route.query.redirect))
+      await enterApp()
     } catch (error) {
       otpError.value = toLoginError(error, 'otpInvalid')
       otp.clear()
@@ -163,6 +174,51 @@ export function useLoginFlow(gateway: AuthGateway = useAuthGateway()) {
     }
   }
 
+  /** Tukar sesi jadi lisensi lalu masuk app; gagal = tampilkan sebabnya di langkah `license`. */
+  async function enterApp(): Promise<void> {
+    if (await license.activate()) {
+      await navigateTo(safeRedirectPath(route.query.redirect))
+      return
+    }
+    // Sesi ternyata tidak ada (mis. kedaluwarsa di antara langkah): tetap di form login.
+    if (license.activationError.value !== null) step.value = 'license'
+  }
+
+  /**
+   * Dipanggil saat halaman login dibuka di client.
+   *
+   * - Perangkat sudah berlisensi (mis. tombol back) -> langsung kembali ke app, tanpa jaringan.
+   * - Sesi sudah ada tapi token belum (kembali dari Google, atau aktivasi sebelumnya terputus) ->
+   *   aktivasi otomatis, user tidak perlu login dua kali.
+   */
+  async function resume(): Promise<void> {
+    if (await license.ensureChecked()) {
+      await navigateTo(safeRedirectPath(route.query.redirect))
+      return
+    }
+
+    const session = await auth.ensureLoaded()
+    if (session !== null) await enterApp()
+  }
+
+  /** Coba aktivasi lagi (mis. setelah koneksi pulih, atau setelah pembelian selesai). */
+  async function retryLicense(): Promise<void> {
+    await enterApp()
+  }
+
+  /** Keluar dari sesi email ini dan kembali ke form - untuk masuk dengan email pembeli yang benar. */
+  async function switchEmail(): Promise<void> {
+    try {
+      await gateway.signOut()
+    } catch {
+      // Sesi lama yang gagal dicabut tetap berakhir sendiri; yang penting form kembali kosong.
+    }
+    auth.clear()
+    license.clearActivationError()
+    otp.clear()
+    step.value = 'choose'
+  }
+
   function setEmail(value: string): void {
     email.value = value
     emailError.value = null
@@ -179,6 +235,7 @@ export function useLoginFlow(gateway: AuthGateway = useAuthGateway()) {
     emailError: readonly(emailError),
     otpError: readonly(otpError),
     googleError: readonly(googleError),
+    licenseError: license.activationError,
     isSending: readonly(isSending),
     isVerifying: readonly(isVerifying),
     isGooglePending: readonly(isGooglePending),
@@ -190,5 +247,8 @@ export function useLoginFlow(gateway: AuthGateway = useAuthGateway()) {
     resend,
     loginWithGoogle,
     backToEmail,
+    resume,
+    retryLicense,
+    switchEmail,
   }
 }

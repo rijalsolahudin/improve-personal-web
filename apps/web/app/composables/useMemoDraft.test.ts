@@ -2,7 +2,6 @@ import { beforeEach, describe, expect, it } from 'vitest'
 
 import { MEMO_TEXT_MAX, type Memo } from '~/utils/memo'
 
-import { clearAppStorage } from './useLogout'
 import { MEMO_DRAFT_PREFIX, useMemoDraft } from './useMemoDraft'
 import { useMemos } from './useMemos'
 
@@ -230,22 +229,5 @@ describe('useMemoDraft', () => {
     const third = useMemoDraft()
     third.showDay(DAY, null)
     expect(third.draft.value).toEqual({ title: '', text: 'Draf', feelings: ['tenang'] })
-  })
-
-  it('logout menghapus semua draf jurnal tanpa menyentuh key situs lain', () => {
-    const { draft, showDay } = useMemoDraft()
-    showDay(DAY, null)
-    draft.value.text = 'Isi pribadi'
-    showDay(OTHER_DAY, null)
-    draft.value.text = 'Isi pribadi lain'
-    localStorage.setItem('other-site', 'keep')
-
-    expect(localStorage.getItem(keyOf(DAY))).not.toBeNull()
-    expect(localStorage.getItem(keyOf(OTHER_DAY))).not.toBeNull()
-    clearAppStorage(localStorage)
-
-    expect(localStorage.getItem(keyOf(DAY))).toBeNull()
-    expect(localStorage.getItem(keyOf(OTHER_DAY))).toBeNull()
-    expect(localStorage.getItem('other-site')).toBe('keep')
   })
 })

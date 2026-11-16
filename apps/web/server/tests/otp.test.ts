@@ -235,21 +235,6 @@ describe('verifyOtp', () => {
     )
     expect(afterLimit?.code).toBe('OTP_INVALID')
   })
-
-  it('kode untuk purpose lain tidak bisa dipakai (purpose ditentukan endpoint, bukan klien)', async () => {
-    const fixture = scope.fixture({ prefix: 'otp-purpose' })
-
-    await requestOtp(fixture.ctx(), {
-      email: fixture.email,
-      purpose: 'delete_account',
-      mailer: fixture.mailer.mailer,
-    })
-
-    const problem = await captureProblem(
-      verifyOtp(fixture.ctx(), { email: fixture.email, code: FIXED_OTP_CODE, purpose: 'login' }),
-    )
-    expect(problem?.code).toBe('OTP_INVALID')
-  })
 })
 
 describe('kode OTP tidak pernah bocor ke log (security.md §11)', () => {
@@ -491,30 +476,6 @@ describe('pemilihan mailer (batas keluar email: Resend / SMTP - tidak ada yang m
     expect(env.fixedOtpEnabled).toBe(false)
   })
 
-  it('subject mengikuti purpose, jadi kode hapus akun tidak tertukar dengan kode login', async () => {
-    const sent: Array<{ subject: string; text: string; html: string }> = []
-    const mailer = createOtpMailer(
-      makeEnv({
-        appEnv: 'staging',
-        smtpUrl: 'smtp://127.0.0.1:1025',
-        mailFrom: 'qa@improve-personal.test',
-      }),
-      {
-        smtpSend: async (message) => {
-          sent.push(message)
-        },
-      },
-    )
-
-    await mailer.sendOtp({ to: 'qa@qa.test', code: '111111', purpose: 'login' })
-    await mailer.sendOtp({ to: 'qa@qa.test', code: '222222', purpose: 'delete_account' })
-
-    expect(sent).toHaveLength(2)
-    expect(sent[0]?.subject).not.toBe(sent[1]?.subject)
-    expect(sent[0]?.text).toContain('111111')
-    expect(sent[1]?.text).toContain('222222')
-  })
-
   it('production: kode benar-benar dikirim lewat Resend (fetch disuntik, tidak menyentuh jaringan)', async () => {
     const calls: Array<{ url: string; body: string; authorization: string }> = []
     const mailer = createOtpMailer(
@@ -522,6 +483,9 @@ describe('pemilihan mailer (batas keluar email: Resend / SMTP - tidak ada yang m
         appEnv: 'production',
         resendApiKey: 'qa-resend-key',
         mailFrom: 'qa@improve-personal.test',
+        // Production juga mewajibkan kunci Mayar (ADR 15); tidak dipakai jalur email ini.
+        mayarApiKey: 'qa-mayar-key',
+        mayarWebhookToken: 'qa-mayar-webhook-token',
       }),
       {
         fetchImpl: async (url: string, init: RequestInit) => {
@@ -578,42 +542,24 @@ describe('template email OTP (HTML): layout reusable, copy per purpose, escaping
     expect(sembilanPuluhDetik.html).toContain('90 detik')
   })
 
-  it('kedua purpose memakai layout yang sama (brand + footer) tapi copy tidak tertukar', () => {
+  it('email login memakai layout brand + footer dan copy masuk', () => {
     const login = renderOtpEmail({ code: '111111', purpose: 'login' })
-    const deletion = renderOtpEmail({ code: '222222', purpose: 'delete_account' })
 
-    for (const email of [login, deletion]) {
-      expect(email.html).toContain('<!DOCTYPE html>')
-      expect(email.html).toContain('>ip</td>')
-      expect(email.html).toContain('Improve')
-      expect(email.html).toContain('Personal')
-      expect(email.html).toContain('border:3px dashed')
-      expect(email.html).toContain('user-select:all')
-      expect(email.html).toContain('Email otomatis karena')
-      expect(email.html).toContain('Jakarta, Indonesia')
-      expect(email.html).toContain('<!--[if mso]>')
-      expect(email.html).toContain('prefers-color-scheme:dark')
-      expect(email.html).toContain('max-width:620px')
-      expect(email.html).toContain('mailto:halo@improvepersonal.app')
-    }
-
+    expect(login.html).toContain('<!DOCTYPE html>')
+    expect(login.html).toContain('>ip</td>')
+    expect(login.html).toContain('Improve')
+    expect(login.html).toContain('Personal')
+    expect(login.html).toContain('border:3px dashed')
+    expect(login.html).toContain('user-select:all')
+    expect(login.html).toContain('Email otomatis karena')
+    expect(login.html).toContain('Jakarta, Indonesia')
+    expect(login.html).toContain('<!--[if mso]>')
+    expect(login.html).toContain('prefers-color-scheme:dark')
+    expect(login.html).toContain('max-width:620px')
+    expect(login.html).toContain('mailto:halo@improvepersonal.app')
     expect(login.html).toContain('KODE MASUK · SEKALI PAKAI')
-    expect(login.html).not.toContain('KONFIRMASI HAPUS AKUN')
     expect(login.html).toContain('Nggak merasa minta kode')
-    expect(login.html).not.toContain('Nggak merasa minta hapus akun')
-
-    expect(deletion.html).toContain('KONFIRMASI HAPUS AKUN · SEKALI PAKAI')
-    expect(deletion.html).not.toContain('KODE MASUK · SEKALI PAKAI')
-    expect(deletion.html).toContain('Nggak merasa minta hapus akun')
-    expect(deletion.html).not.toContain('Nggak merasa minta kode')
-
-    // Kode masing-masing hanya ada di emailnya sendiri - tidak ada template yang tertukar.
     expect(login.html).toContain('111111')
-    expect(login.html).not.toContain('222222')
-    expect(deletion.html).toContain('222222')
-    expect(deletion.html).not.toContain('111111')
-
-    expect(login.subject).not.toBe(deletion.subject)
   })
 
   it('nilai dinamis di-escape: kode bertanda HTML tidak lolos jadi markup', () => {

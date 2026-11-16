@@ -25,8 +25,11 @@ useSeoMeta({
       render. Angka `modulepreload` turun 16,5 KB (chunk ikon) + chunk bagian landing; lihat
       `app/utils/bundle-budget.test.ts`.
     -->
-    <LazyLandingFeatureGrid hydrate-never />
-    <LazyLandingSteps hydrate-never />
+    <LazyLandingShowcase hydrate-never />
+    <LazyLandingMore hydrate-never />
+    <LazyLandingPrivacy hydrate-never />
+    <LazyLandingPricing hydrate-never />
+    <LazyLandingFaq hydrate-never />
     <LazyLandingOutro hydrate-never />
     <LazyLandingFooter hydrate-never />
   </div>

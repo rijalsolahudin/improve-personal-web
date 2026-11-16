@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest'
 
-import * as accountModule from './account.ts'
 import * as authModule from './auth.ts'
 import * as devicesModule from './devices.ts'
 import * as hlcModule from './hlc.ts'
+import * as licenseModule from './license.ts'
+import * as purchaseModule from './purchase.ts'
 import * as contracts from './index.ts'
 import * as protocolModule from './protocol.ts'
 import * as recordFormatModule from './record-format.ts'
-import * as syncModule from './sync.ts'
 
 /**
  * Nama yang WAJIB ada di permukaan publik paket ini.
@@ -43,15 +43,8 @@ const NAMA_WAJIB = [
   'sessionDtoSchema',
   'currentSessionResultSchema',
   'deviceDtoSchema',
-  'syncRecordDtoSchema',
-  'syncPushInputSchema',
-  'syncPushResultSchema',
-  'syncPullQuerySchema',
-  'syncPullResultSchema',
-  'SYNC_MAX_BATCH',
   'RECORD_PAYLOAD_MAX_BYTES',
   'otpPurposeSchema',
-  'deleteAccountInputSchema',
   'kidSchema',
   'encodeRecordAadV2',
   'parseSealedBlobHeader',
@@ -66,13 +59,13 @@ const NAMA_WAJIB = [
  * paket yang mencoba mengimpornya dari `@improve-personal/contracts`.
  */
 const MODULES = {
-  'account.ts': accountModule,
   'auth.ts': authModule,
   'devices.ts': devicesModule,
   'hlc.ts': hlcModule,
+  'license.ts': licenseModule,
+  'purchase.ts': purchaseModule,
   'protocol.ts': protocolModule,
   'record-format.ts': recordFormatModule,
-  'sync.ts': syncModule,
 } as const
 
 describe('permukaan publik index.ts', () => {
@@ -85,8 +78,7 @@ describe('permukaan publik index.ts', () => {
   it('nilai runtime yang jadi patokan lintas paket', () => {
     expect(contracts.API_VERSION).toBe('v1')
     expect(contracts.API_PREFIX).toBe('/v1')
-    expect(contracts.ERROR_CODES).toHaveLength(13)
-    expect(contracts.SYNC_MAX_BATCH).toBe(500)
+    expect(contracts.ERROR_CODES).toHaveLength(15)
     expect(contracts.RECORD_PAYLOAD_MAX_BYTES).toBe(1_048_576)
     expect(contracts.compareHlc('999-0-a', '1000-0-b')).toBe(-1)
   })

@@ -13,9 +13,10 @@
  *
  * Urutan dependensi antar modul (satu arah, tanpa siklus):
  *
- *   protocol.ts -> devices.ts -> auth.ts -> account.ts
- *   protocol.ts -> sync.ts (juga memakai hlc.ts)
- *   hlc.ts + protocol.ts + sync.ts -> record-format.ts
+ *   protocol.ts -> devices.ts -> auth.ts
+ *   protocol.ts -> license.ts
+ *   auth.ts -> purchase.ts
+ *   hlc.ts + protocol.ts -> record-format.ts
  *   hlc.ts      -> mandiri, tidak mengimpor modul lain di paket ini
  *
  * Aturan yang berlaku untuk semua schema request: `.strict()` (field asing ditolak) dan TIDAK ADA
@@ -115,6 +116,7 @@ export {
   CLIENT_KINDS,
   EMAIL_MAX_LENGTH,
   OTP_CODE_LENGTH,
+  OTP_PURPOSES,
   OTP_RESEND_COOLDOWN_SECONDS,
   OTP_TTL_SECONDS,
   SESSION_TOKEN_MIN_LENGTH,
@@ -127,6 +129,7 @@ export {
   googleStartResultSchema,
   mobileSessionDtoSchema,
   otpCodeSchema,
+  otpPurposeSchema,
   otpRequestInputSchema,
   otpVerifyInputSchema,
   sessionDeviceSchema,
@@ -140,6 +143,7 @@ export {
   type GoogleStartQuery,
   type GoogleStartResult,
   type MobileSessionDto,
+  type OtpPurpose,
   type OtpRequestInput,
   type OtpVerifyInput,
   type SessionDevice,
@@ -149,38 +153,43 @@ export {
 } from './auth.ts'
 
 // -----------------------------------------------------------------------------
-// Sync: push/pull delta, batch, cursor
+// Lisensi (ADR 15): token bertanda tangan Ed25519, diverifikasi offline oleh app
 // -----------------------------------------------------------------------------
 
 export {
-  RECORD_PAYLOAD_MAX_BYTES,
-  SEALED_RECORD_MAX_BLOB_BYTES,
-  SYNC_DEFAULT_PULL_LIMIT,
-  SYNC_MAX_BATCH,
-  SYNC_MAX_PULL_BYTES,
-  SYNC_MAX_PULL_LIMIT,
-  SYNC_MIN_PULL_LIMIT,
-  SYNC_RECORD_STATUSES,
-  SYNC_TOMBSTONE_RETENTION_DAYS,
-  serverRecordSchema,
-  serverSeqSchema,
-  syncPullQuerySchema,
-  syncPullResultSchema,
-  syncPushInputSchema,
-  syncPushResultSchema,
-  syncRecordDtoSchema,
-  syncRecordResultSchema,
-  syncRecordStatusSchema,
-  type RecordPayload,
-  type ServerRecord,
-  type SyncRecordDto,
-  type SyncPullQuery,
-  type SyncPullResult,
-  type SyncPushInput,
-  type SyncPushResult,
-  type SyncRecordResult,
-  type SyncRecordStatus,
-} from './sync.ts'
+  LICENSE_EDITIONS,
+  LICENSE_SIGNATURE_BYTES,
+  LICENSE_TOKEN_MAX_LENGTH,
+  LICENSE_TOKEN_VERSION,
+  licenseRefreshInputSchema,
+  licenseTokenPayloadSchema,
+  licenseTokenResultSchema,
+  licenseTokenSchema,
+  splitLicenseToken,
+  type LicenseEdition,
+  type LicenseRefreshInput,
+  type LicenseTokenPayload,
+  type LicenseTokenResult,
+} from './license.ts'
+
+// -----------------------------------------------------------------------------
+// Pembelian (ADR 16): checkout Mayar, tiga paket prabayar untuk semua platform
+// -----------------------------------------------------------------------------
+
+export {
+  BUYER_NAME_MAX_LENGTH,
+  DEFAULT_LICENSE_PLAN,
+  LICENSE_PLAN_IDS,
+  LICENSE_PLANS,
+  buyerMobileSchema,
+  checkoutInputSchema,
+  checkoutResultSchema,
+  licensePlanSchema,
+  type CheckoutInput,
+  type CheckoutResult,
+  type LicensePlan,
+  type LicensePlanId,
+} from './purchase.ts'
 
 // -----------------------------------------------------------------------------
 // Format blob record v2 (penyimpanan LOKAL): layout, AAD biner kanonik, padding, batas plaintext
@@ -215,16 +224,9 @@ export {
   sealedRecordV2BlobBytes,
   type RecordAadV2Input,
   type SealedBlobHeaderV2,
+  RECORD_PAYLOAD_MAX_BYTES,
+  SEALED_RECORD_MAX_BLOB_BYTES,
+  TOMBSTONE_RETENTION_DAYS,
+  recordPayloadSchema,
+  type RecordPayload,
 } from './record-format.ts'
-
-// -----------------------------------------------------------------------------
-// Akun: hapus akun permanen
-// -----------------------------------------------------------------------------
-
-export {
-  OTP_PURPOSES,
-  deleteAccountInputSchema,
-  otpPurposeSchema,
-  type DeleteAccountInput,
-  type OtpPurpose,
-} from './account.ts'

@@ -28,12 +28,11 @@ import type { LocalDataSession } from '~/utils/storage/session'
 import {
   isReloadSessionActive,
   readAfterWrites,
-  registerSyncReloader,
+  registerDataReloader,
   reloadSession,
-} from '~/utils/sync/refresh'
+} from '~/utils/storage/reload'
 import { createUuidV7Generator } from '~/utils/storage/uuid'
 
-import { useAuthSession } from './useAuthSession'
 import { useLocalData } from './useLocalData'
 
 /** Preferensi & state timer aktif (bukan data sensitif) → localStorage, divalidasi saat dibaca. */
@@ -50,7 +49,7 @@ const PHASES: readonly PomodoroPhase[] = ['focus', 'short', 'long']
  * Ditulis lokal, bukan `createSystemClock()` dari core: `usePomodoro` dipanggil plugin yang jalan di
  * SETIAP rute (termasuk landing yang tidak punya timer), dan mengimpor barrel core hanya untuk
  * `Date.now()` menyeret skema zod + repository ke JS awal - 11 KB gzip untuk fitur yang tidak dipakai
- * di sana. Pola yang sama ada di `utils/device-installation.ts`.
+ * di sana.
  */
 const SYSTEM_CLOCK: Clock = {
   nowMs: () => Date.now(),
@@ -225,10 +224,10 @@ function readTimer(): StoredTimer | null {
 export function usePomodoro(options: UsePomodoroOptions = {}) {
   const localData = useLocalData()
   const getSession = options.session ?? localData.ensure
-  const auth = useAuthSession()
+  const route = useRoute()
 
-  /** Akun yang sedang login; `null` = belum ada sesi (landing, atau sebelum guard selesai). */
-  const signedInUserId = computed(() => auth.session.value?.user.id ?? null)
+  /** Riwayat hanya relevan di dalam app (`/app/**`); landing publik tidak boleh membuka penyimpanan. */
+  const isInApp = computed(() => route.path.startsWith(APP_HOME_PATH))
 
   const now = useNow()
   const config = useState<PomodoroConfig>('pomodoro-config', readConfig)
@@ -341,14 +340,11 @@ export function usePomodoro(options: UsePomodoroOptions = {}) {
   }
 
   /**
-   * Mulai hidrasi riwayat setelah AKUN diketahui, dan tetap hidup kalau sesi muncul belakangan.
+   * Mulai hidrasi riwayat begitu user berada di dalam app, dan tetap hidup kalau ia masuk belakangan.
    *
-   * `hydrate()` -> `localData.ensure()` -> `auth.ensureLoaded()` = `GET /v1/auth/session`. Plugin
-   * pomodoro jalan di SEMUA rute, sedangkan landing sengaja melewati middleware auth: memanggil
-   * hydrate tanpa sesi membuat halaman publik yang belum tentu login ikut mengunduh chunk gateway
-   * auth dan memanggil endpoint yang tidak dibutuhkan. Karena itu: belum ada user id = jangan sentuh
-   * penyimpanan sama sekali; sesi yang muncul kemudian (login di tab ini tanpa reload, atau pindah ke
-   * `/app` setelah guard memuat sesi) yang memulai.
+   * Plugin pomodoro jalan di SEMUA rute, termasuk landing publik. Membuka penyimpanan di sana berarti
+   * landing ikut mengunduh chunk kripto + IndexedDB yang tidak dipakainya. Karena itu: di luar `/app`
+   * jangan sentuh penyimpanan; navigasi ke `/app` (tanpa reload) yang memulai.
    */
   function startHistoryHydration(): void {
     // Di server tidak ada penyimpanan dan tidak ada watcher: status tetap `idle` sampai client.
@@ -360,15 +356,15 @@ export function usePomodoro(options: UsePomodoroOptions = {}) {
     if (!sessionWatchApps.has(app)) {
       sessionWatchApps.add(app)
       sessionWatchStops.push(
-        watch(signedInUserId, (userId) => {
-          if (userId === null) return
+        watch(isInApp, (inApp) => {
+          if (!inApp) return
           void historyHydrators.get(app)?.()
         }),
       )
     }
 
-    // Sesi sudah ada sebelum composable ini dibuat (mis. reload di `/app`): hidrasi seperti dulu.
-    if (signedInUserId.value !== null) void hydrate()
+    // Sudah di dalam app saat composable ini dibuat (mis. reload di `/app`): langsung hidrasi.
+    if (isInApp.value) void hydrate()
   }
 
   /**
@@ -472,7 +468,7 @@ export function usePomodoro(options: UsePomodoroOptions = {}) {
   startHistoryHydration()
 
   // Halaman yang memakai riwayat pomodoro ikut memuat ulang saat pull menerapkan data perangkat lain.
-  registerSyncReloader('pomodoro', reload)
+  registerDataReloader('pomodoro', reload)
 
   return {
     config: readonly(config),

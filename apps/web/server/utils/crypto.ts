@@ -4,9 +4,8 @@ import { createHash, createHmac, randomBytes, randomInt, timingSafeEqual } from 
  * Primitif kripto server - sengaja tipis dan tanpa "algoritma sendiri".
  *
  * Yang dipakai cuma dari `node:crypto`: HMAC-SHA256 untuk hash OTP/email/IP, SHA-256 untuk hash token
- * sesi, `randomBytes`/`randomInt` untuk nilai acak. Enkripsi isi record punya modulnya sendiri
- * (`server/utils/record-crypto.ts`) dan sengaja TIDAK tinggal di sini: berkas ini cuma identitas,
- * token, dan hash metadata.
+ * sesi, `randomBytes`/`randomInt` untuk nilai acak. Server tidak mengenkripsi isi record (ADR 15):
+ * berkas ini cuma identitas, token, dan hash metadata.
  *
  * Dua aturan yang dipegang di seluruh berkas ini:
  * - Tidak ada nilai rahasia yang pernah dikembalikan dalam bentuk yang bisa di-log: fungsi hash

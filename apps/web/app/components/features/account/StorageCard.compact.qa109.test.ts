@@ -65,7 +65,7 @@ describe('kartu Penyimpanan: bersihkan riwayat terhapus (task #109)', () => {
     await wrapper.get('button').trigger('click')
     await flushPromises()
 
-    // Cutoff dihitung util (now - SYNC_TOMBSTONE_RETENTION_DAYS), bukan angka yang ditulis di UI.
+    // Cutoff dihitung util (now - TOMBSTONE_RETENTION_DAYS), bukan angka yang ditulis di UI.
     expect(purgeTombstones).toHaveBeenCalledTimes(1)
     expect(typeof purgeTombstones.mock.calls[0]?.[0]).toBe('number')
     expect(wrapper.text()).toContain('3 record dibersihkan.')

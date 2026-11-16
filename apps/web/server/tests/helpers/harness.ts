@@ -1,10 +1,9 @@
 import { randomInt, randomUUID } from 'node:crypto'
 
 import { eq, inArray } from 'drizzle-orm'
-import postgres from 'postgres'
 
 import { closeAllDatabases, databaseFor, type ServerDatabase } from '../../db/client'
-import { otpChallenges, rateLimits, users } from '../../db/schema'
+import { licenses, otpChallenges, purchases, rateLimits, users } from '../../db/schema'
 import type { ServiceContext } from '../../services/context'
 import { resolveDeviceForLogin } from '../../services/device'
 import type { OtpMail, OtpMailer } from '../../services/mailer'
@@ -12,12 +11,8 @@ import type { RateLimitScope } from '../../services/rate-limit'
 import { issueSession } from '../../services/session'
 import { findOrCreateUserByEmail } from '../../services/user'
 import { hmacSha256 } from '../../utils/crypto'
-import {
-  createRecordCipher,
-  parseRecordEncryptionKeyring,
-  type RecordCipher,
-} from '../../utils/record-crypto'
 import { resolveServerEnv, type ServerEnv } from '../../utils/env'
+import { createLicenseSigner } from '../../utils/license-signing'
 
 export type { ServerEnv }
 
@@ -57,15 +52,9 @@ export const TEST_RATE_LIMIT_PEPPER = 'qa-test-rate-limit-pepper-000000000000000
 /** Redirect URI Google khusus test; cukup URL lengkap karena tidak pernah dipanggil ke Google. */
 export const TEST_GOOGLE_REDIRECT_URI = 'https://qa.test/v1/auth/google/callback'
 
-/**
- * Kunci enkripsi at-rest khusus test: 32 byte bernilai tetap, base64.
- *
- * Sengaja konstanta (bukan acak) supaya test bisa membuka ciphertext yang ditulis request lain dalam
- * proses yang sama. Bukan kunci produksi apa pun.
- */
-export const TEST_RECORD_ENCRYPTION_KEY = Buffer.alloc(32, 7).toString('base64')
-export const TEST_RECORD_ENCRYPTION_KEYS = `1:${TEST_RECORD_ENCRYPTION_KEY}`
-export const TEST_RECORD_ENCRYPTION_ACTIVE_VERSION = 1
+/** Seed Ed25519 lisensi khusus test (bukan kunci produksi apa pun) + public key pasangannya. */
+export const TEST_LICENSE_SIGNING_KEY = Buffer.alloc(32, 7).toString('base64')
+export const TEST_LICENSE_PUBLIC_KEY = createLicenseSigner(TEST_LICENSE_SIGNING_KEY).publicKey
 
 /** Env yang dibaca Nitro lewat key privat `runtimeConfig` (`NUXT_*`). */
 export const TEST_ENV_VARS = {
@@ -78,8 +67,8 @@ export const TEST_ENV_VARS = {
   NUXT_GOOGLE_CLIENT_SECRET: 'qa-google-client-secret',
   NUXT_GOOGLE_REDIRECT_URI_WEB: TEST_GOOGLE_REDIRECT_URI,
   NUXT_GOOGLE_REDIRECT_URI_MOBILE: TEST_GOOGLE_REDIRECT_URI,
-  NUXT_RECORD_ENCRYPTION_KEYS: TEST_RECORD_ENCRYPTION_KEYS,
-  NUXT_RECORD_ENCRYPTION_ACTIVE_VERSION: String(TEST_RECORD_ENCRYPTION_ACTIVE_VERSION),
+  NUXT_LICENSE_SIGNING_KEY: TEST_LICENSE_SIGNING_KEY,
+  NUXT_PUBLIC_LICENSE_PUBLIC_KEY: TEST_LICENSE_PUBLIC_KEY,
 } as const
 
 // Diisi saat modul ini di-import - SEBELUM `setup()` membangun instance Nitro pada test HTTP.
@@ -116,8 +105,8 @@ export function makeEnv(overrides: Record<string, unknown> = {}): ServerEnv {
     googleClientSecret: 'qa-google-client-secret',
     googleRedirectUriWeb: TEST_GOOGLE_REDIRECT_URI,
     googleRedirectUriMobile: TEST_GOOGLE_REDIRECT_URI,
-    recordEncryptionKeys: TEST_RECORD_ENCRYPTION_KEYS,
-    recordEncryptionActiveVersion: TEST_RECORD_ENCRYPTION_ACTIVE_VERSION,
+    licenseSigningKey: TEST_LICENSE_SIGNING_KEY,
+    public: { licensePublicKey: TEST_LICENSE_PUBLIC_KEY },
     ...overrides,
   })
 }
@@ -236,8 +225,7 @@ export function createFixture(options: { prefix?: string; env?: ServerEnv } = {}
         // supaya run kedua tidak menemukan penghitung dari run pertama (fixed window-nya sama
         // karena `FIXED_NOW` juga sama).
         //
-        // Scope per user (`sync:pull`, `devices:revoke`, `account:delete`) memakai identifier
-        // `userId`, jadi semuanya tercakup
+        // Scope per user (`license:token`) memakai identifier `userId`, jadi tercakup
         // `owned.map(row => row.id)` di bawah. Identifier konstan `'delete-otp'` yang dulu ada di
         // daftar ini sudah TIDAK dipakai lagi - identifier konstan itu justru temuan M1 (satu bucket
         // untuk seluruh sistem).
@@ -246,14 +234,18 @@ export function createFixture(options: { prefix?: string; env?: ServerEnv } = {}
           `ip:${clientIp}`,
           clientIp,
           `verify:${emailHash}:${ipHash}`,
+          // `purchase:email` memakai email apa adanya sebagai identifier.
+          target,
           ...owned.map((row) => row.id),
         ]
         const buckets = identifiers.map((identifier) => hmacSha256(identifier, env.rateLimitPepper))
 
         await db.delete(rateLimits).where(inArray(rateLimits.bucket, buckets))
         await db.delete(otpChallenges).where(eq(otpChallenges.emailHash, emailHash))
-        // Cascade dari FK (`server/db/schema.ts`) membuang devices, sessions, records, dan
-        // sync_watermarks milik user ini.
+        // Lisensi dikunci ke email (bukan user), jadi dibuang terpisah; aktivasinya ikut lewat cascade.
+        await db.delete(licenses).where(eq(licenses.email, target))
+        await db.delete(purchases).where(eq(purchases.email, target))
+        // Cascade dari FK (`server/db/schema.ts`) membuang devices dan sessions milik user ini.
         await db.delete(users).where(eq(users.email, target))
       }
     },
@@ -329,57 +321,4 @@ export async function otpChallengeCount(env: ServerEnv, email: string): Promise<
     .where(eq(otpChallenges.emailHash, hmacSha256(email, env.otpPepper)))
 
   return rows.length
-}
-
-/**
- * Kolom `information_schema` seluruh tabel `public`.
- *
- * Dipakai membuktikan skema DB: tidak ada satu pun kolom plaintext data user. Query-nya langsung ke
- * Postgres (bukan lewat drizzle) supaya yang diperiksa benar-benar DB yang sudah dimigrasi, bukan
- * definisi skema di kode.
- */
-export async function informationSchemaColumns(): Promise<
-  Array<{ table_name: string; column_name: string }>
-> {
-  const sql = postgres(TEST_DATABASE_URL, { max: 1 })
-
-  try {
-    return await sql<Array<{ table_name: string; column_name: string }>>`
-      select table_name, column_name
-      from information_schema.columns
-      where table_schema = 'public'
-    `
-  } finally {
-    await sql.end({ timeout: 5 })
-  }
-}
-
-/** Cipher dengan konfigurasi env test - dipakai untuk memeriksa `records.blob` dari luar service. */
-export function testRecordCipher(): RecordCipher {
-  return createRecordCipher({
-    keys: parseRecordEncryptionKeyring(TEST_RECORD_ENCRYPTION_KEYS),
-    activeVersion: TEST_RECORD_ENCRYPTION_ACTIVE_VERSION,
-  })
-}
-
-/** Payload uji: teks penanda, supaya isi record bisa dibandingkan tanpa membaca ciphertext. */
-export function testPayload(text: string): { readonly text: string } {
-  return { text }
-}
-
-/** Buka `records.blob` hasil server dengan kunci test. */
-export function openStoredPayload(row: {
-  readonly userId: string
-  readonly id: string
-  readonly hlc: string
-  readonly deleted: boolean
-  readonly blob: Uint8Array
-}): unknown {
-  return testRecordCipher().open({
-    userId: row.userId,
-    recordId: row.id,
-    hlc: row.hlc,
-    deleted: row.deleted,
-    blob: row.blob,
-  })
 }

@@ -1,25 +1,26 @@
 # PRD — Improve Personal (Aplikasi Produktivitas Personal)
 
 ## Konteks
-Individu butuh satu tempat buat ngatur goal jangka panjang, jadwal (sekali & rutin), to-do, prioritas (Eisenhower), fokus (Pomodoro), momen penting (countdown), habit, dan refleksi harian (journal: perasaan, afirmasi, syukur). Sekarang tersebar di banyak app. Target: pengguna personal, satu akun dipakai di banyak perangkat (laptop, HP). Isinya personal (journal, mood, goal hidup), jadi user harus yakin datanya cuma bisa dibaca dia sendiri.
+Individu butuh satu tempat buat ngatur goal jangka panjang, jadwal (sekali & rutin), to-do, prioritas (Eisenhower), fokus (Pomodoro), momen penting (countdown), habit, dan refleksi harian (journal: perasaan, afirmasi, syukur). Sekarang tersebar di banyak app. Target: pengguna personal yang membeli app sekali dan memakainya di perangkatnya sendiri (laptop, HP). Isinya personal (journal, mood, goal hidup), jadi user harus yakin datanya cuma ada di perangkatnya dan cuma bisa dibaca dia sendiri.
 
 ## Tujuan & kriteria sukses
-Satu app di **web desktop, PWA, dan aplikasi native Android (APK) & iOS** yang bikin user bisa rencanain hari, eksekusi dengan fokus, dan refleksi. Semua data saling terhubung (jadwal ↔ task ↔ journal ↔ goal), tersinkron antar perangkat, dan terenkripsi end-to-end.
+Satu app di **web desktop, PWA, dan aplikasi native Android (APK) & iOS** yang bikin user bisa rencanain hari, eksekusi dengan fokus, dan refleksi. Semua data saling terhubung (jadwal ↔ task ↔ journal ↔ goal), tersimpan hanya di perangkat, dan setiap salinan yang keluar perangkat (backup, transfer) terenkripsi end-to-end.
 - User bisa bikin jadwal rutin "tiap 2 minggu, Senin & Kamis, 09:00–10:30" dan jadwal itu muncul benar di kalender view hari/pekan/bulan.
 - User bisa bikin task urgent dari Daily, lihat sisa waktunya turun real-time, taruh di kuadran Eisenhower, lalu fokusin lewat Pomodoro — tanpa pindah konteks data.
 - User bisa bikin main goal dengan 2 chapter + item "Sepanjang goal", nyelesaiin task/habit di dalamnya, dan progress chapter & main goal berubah sesuai rumus.
-- Task yang dibuat di HP (offline) muncul di web desktop setelah online, dan database server cuma berisi data terenkripsi (nggak ada judul/isi yang terbaca).
-- User yang kehilangan akses ke satu perangkat tetap bisa membuka data dengan login di perangkat lain — tanpa langkah pemulihan kunci.
+- Setelah aktivasi lisensi, app jalan penuh dengan internet mati; server tidak menyimpan data user apa pun.
+- User bisa memindahkan seluruh data ke HP baru dengan scan QR dalam < 1 menit, atau memulihkannya dari berkas backup / Google Drive dengan kata sandi backup.
 
 ## Cakupan
 **Masuk:**
 - Platform: **web desktop**, **PWA** (bisa di-install, jalan offline), **native Android (APK) & iOS**. Web pakai Nuxt, native pakai React Native, logika inti di-share.
-- Fitur: [F1 Schedule](#f1-schedule), [F2 To-do](#f2-to-do), [F3 Eisenhower](#f3-eisenhower), [F4 Pomodoro](#f4-pomodoro), [F5 Countdown](#f5-countdown), [F6 Calendar](#f6-calendar), [F7 Habit](#f7-habit), [F8 Journal](#f8-journal), [F9 Guide](#f9-guide), [F10 Import/Export](#f10-importexport), [F11 Overview](#f11-overview), [F12 Daily](#f12-daily), [F13 Goals](#f13-goals), [F14 Sticker](#f14-sticker), [F15 Account](#f15-account-sync--security), [F16 Tampilan](#f16-tampilan-tema-warna--gaya).
-- Akun + sync antar perangkat + enkripsi at-rest di server (kunci di env) dan salinan lokal berkunci perangkat.
+- Fitur: [F1 Schedule](#f1-schedule), [F2 To-do](#f2-to-do), [F3 Eisenhower](#f3-eisenhower), [F4 Pomodoro](#f4-pomodoro), [F5 Countdown](#f5-countdown), [F6 Calendar](#f6-calendar), [F7 Habit](#f7-habit), [F8 Journal](#f8-journal), [F9 Guide](#f9-guide), [F10 Import/Export](#f10-importexport), [F11 Overview](#f11-overview), [F12 Daily](#f12-daily), [F13 Goals](#f13-goals), [F14 Sticker](#f14-sticker), [F15 Lisensi & Pindah Perangkat](#f15-lisensi-pindah-perangkat--keamanan), [F16 Tampilan](#f16-tampilan-tema-warna--gaya).
+- Local-only tanpa akun, lisensi bulanan/tahunan/lifetime (ADR 16), pindah perangkat via QR, backup terenkripsi (berkas + Google Drive terjadwal), salinan lokal berkunci perangkat (ADR 15).
 
 **TIDAK dikerjakan sekarang:**
 - Kolaborasi/sharing.
-- Brankas HSM untuk kunci env: kunci at-rest disimpan di secret manager/HSM, bukan di repo atau database.
+- Sync otomatis antar perangkat (sengaja tidak ada, ADR 15).
+- Backup ke iCloud/Dropbox/WebDAV (Google Drive dulu).
 - Notifikasi push dari server (cuma notifikasi in-app + suara saat Pomodoro selesai).
 - Integrasi Google Calendar (import format .ics ditunda).
 - Upload sticker sendiri (cuma sticker bawaan).
@@ -383,13 +384,13 @@ Halaman statis: section tiap fitur, FAQ, backup guide, keamanan data (bahasa awa
    - Screenshot (opsional)
    - Tips & trik
 2. **FAQ** — pertanyaan umum & jawaban
-3. **Cara Backup** — export/import (F10)
+3. **Cara Backup & Pindah HP** — backup terenkripsi, Google Drive, transfer QR (F15), export/import (F10)
 4. **Gimana Data Lo Dijaga** (khusus)
-   - Enkripsi dalam bahasa awam: "Data lo dienkripsi di database dan di perangkat. Login yang berhasil langsung membukanya."
-   - Kunci at-rest dipegang server (env); kunci perangkat hanya melindungi salinan lokal dan dibuat otomatis
-   - Apa yang server tahu vs nggak tahu
-   - Backup: export JSON berisi data terbaca, dan kenapa kunci env wajib di-backup operator
-   - Lupa OTP? Gimana cara pulih?
+   - Enkripsi dalam bahasa awam: "Data lo cuma ada di perangkat ini dan dikunci. Kami nggak punya salinannya."
+   - Server cuma tahu lisensi lo, bukan isi data
+   - Backup itu tanggung jawab lo: berkas terenkripsi, Google Drive terjadwal, dan apa yang terjadi kalau HP hilang tanpa backup
+   - Lupa kata sandi backup? Selama HP lama masih ada, bikin backup baru
+   - Pindah HP: scan QR (online / offline)
 
 ### Daftar Isi Navigasi
 - Sidebar atau top menu dengan link ke section
@@ -404,7 +405,7 @@ Halaman statis: section tiap fitur, FAQ, backup guide, keamanan data (bahasa awa
 
 ### Format
 - Bahasa Indonesia santai, bukan formal
-- Penjelasan enkripsi pakai analogi (brankas: kunci di server, salinan di perangkat)
+- Penjelasan enkripsi pakai analogi (brankas di rumah lo; kuncinya cuma lo yang pegang)
 - Screenshot/diagram kalau perlu (tapi bisa ditunda ke fase polish)
 
 ## F10. Import & Export
@@ -434,7 +435,7 @@ Export semua data → JSON (terbaca, peringatan). Import: validasi, preview, pil
    - **Gabung:** tambah data baru, update yang ada (by ID)
    - **Ganti semua:** hapus semua data sekarang, import file
 5. **Konfirmasi dulu sebelum ganti:** "Yakin hapus semua data sekarang dan import file?"
-6. **Proses:** validasi ulang → execute import → sync (kalau ada akun) → notify user "Import selesai, N data masuk"
+6. **Proses:** validasi ulang → execute import → notify user "Import selesai, N data masuk"
 
 ### Round-trip Test
 - Export → wipe (hapus semua) → import → identik dengan asli (unit test)
@@ -772,195 +773,121 @@ Koleksi bawaan per pack, dipakai di jurnal/ikon/hias halaman. Diganti kapan aja.
 - Di luar mode hias: nggak ada UI hias (clean)
 - Responsive di semua ukuran
 
-## F15. Account, Sync & Security
+## F15. Lisensi, Pindah Perangkat & Keamanan
 
-Web + PWA (Nuxt) dan native Android/iOS (React Native), dengan logika inti di-share. Local-first: data utama di perangkat (SQLite native, IndexedDB web/PWA), sync ke server, akun dengan login OTP + Google SSO, enkripsi at-rest di server dengan kunci env.
+Web + PWA (Nuxt) dan native Android/iOS (React Native), dengan logika inti di-share. **Local-only** (ADR 15): data hanya ada di perangkat (IndexedDB web/PWA, SQLite native), tidak ada akun, tidak ada sync server. Dijual dalam **tiga paket prabayar: bulanan, tahunan, lifetime** (ADR 16). Domain menyajikan app dan menerbitkan lisensi; setelah itu app jalan penuh offline.
 
 ### Platform
 - **Web desktop:** Nuxt (Vue + TypeScript), IndexedDB local storage
-- **PWA:** same web, manifest + service worker + offline
+- **PWA:** same web, manifest + service worker + offline (direkomendasikan di-install)
 - **Native Android (APK):** React Native, SQLite local storage
 - **Native iOS:** React Native, SQLite local storage
-- UI dua codebase (Nuxt & React Native); logika inti (repository, kripto, sync) + design token di package TypeScript bersama, adapter repository per platform
+- UI dua codebase (Nuxt & React Native); logika inti (repository, kripto, backup, transfer, lisensi) + design token di package TypeScript bersama
 
-### Login (Tanpa Password)
-
-#### Email OTP
-- Daftar pakai email
-- Setiap login: kirim kode 6 digit ke inbox
-- OTP kedaluwarsa ≤ 10 menit
-- Dikirim via Resend/SendGrid (production) atau SMTP (`NUXT_SMTP_URL`, nodemailer; non-production)
-- Rate limit per email (prevent brute force)
-
-#### OTP per Environment
-| Environment | OTP | Email dikirim? |
+### Peran Server (yang tersisa)
+| Momen | Yang terjadi | Data user ke server? |
 |---|---|---|
-| `production` | Random 6 digit, sekali pakai, ≤ 10 menit | Ya (Resend/SendGrid) |
-| Selain production (`development`, `staging`, `test`, `preview`) dengan `NUXT_SMTP_URL` terisi | Random 6 digit, sekali pakai, ≤ 10 menit | Ya (SMTP/nodemailer) |
-| Selain production (`development`, `staging`, `test`, `preview`) tanpa `NUXT_SMTP_URL` | Fix **`777777`** | Nggak |
+| Kunjungan pertama | Unduh app (di-cache service worker) + aktivasi lisensi | Tidak, hanya kode lisensi |
+| Pemakaian harian | App dari cache, data dari DB lokal; jalan walau internet mati atau domain down | Tidak |
+| Update | Service worker cek versi baru saat online, pasang di latar belakang | Tidak |
+| Transfer QR | Relay mempertemukan dua perangkat / meneruskan ciphertext | Tidak terbaca, tidak disimpan |
+| Backup Drive | Browser langsung ke Google Drive user | Tidak lewat server kita |
+| Cuaca (F12) | Proxy cuaca tanpa menyimpan lokasi | Koordinat sesaat, tidak disimpan |
 
-- Tujuan: dev/QA/e2e test bisa login tanpa inbox beneran.
-- **Kalau `NUXT_SMTP_URL` terisi, server benar-benar mengirim email OTP lewat SMTP (nodemailer), dan mode OTP fix `777777` mati otomatis di env itu** — kode yang dikirim jadi random 6 digit seperti production.
-- Konteks lokal developer: Mailpit jalan sebagai container `local-mailpit` (axllent/mailpit) — SMTP `127.0.0.1:1025`, UI inbox `http://127.0.0.1:8025`. `apps/web/.env.example` memuat `NUXT_SMTP_URL=smtp://127.0.0.1:1025`.
-- `NUXT_MAIL_FROM` wajib diisi kalau ada transport email (SMTP di non-production, Resend di production).
-- Flow & UI tetap sama di semua environment (email → OTP); yang beda cuma generate + kirim kode.
-- Rate limit & expiry tetap jalan di non-production (biar perilakunya identik).
-- **Fail-closed:** OTP fix cuma aktif kalau env server **eksplisit** non-production (mis. `APP_ENV`) **dan** `NUXT_SMTP_URL` kosong. Env kosong/nggak dikenal = dianggap production. Nggak ada flag client/header/query yang bisa nyalain.
-- Build/deploy production wajib gagal (atau server nolak start) kalau mode OTP fix kebaca aktif, dan production **nolak start** kalau `NUXT_SMTP_URL` ikut terisi (tanda berkas env non-production kebaca di deployment production).
-- Kode `777777` nggak pernah diterima di production, walau dikirim manual.
+### Pembelian & Lisensi
+- **Harga (ADR 16), berlaku di semua platform** (web/PWA, Android, iOS):
 
-#### Google SSO
-- Daftar/login lewat Google, aktif di **semua environment** (production & non-production)
-- OAuth2 standard flow (Authorization Code + PKCE, validasi `state` & ID token)
-- Email auto-filled dari Google account
-- Client ID/secret & redirect URI terpisah per environment, cuma dari env
+  | Paket | Harga | Masa aktif | Catatan |
+  |---|---|---|---|
+  | Bulanan | Rp19.000 | 30 hari | untuk coba dulu |
+  | Tahunan | Rp99.000 | 365 hari | paket utama, label "Paling hemat" (hemat 57% vs 12× bulanan) |
+  | Lifetime | Rp249.000 | selamanya | termasuk semua update |
 
-#### Tanpa Passkey
-- Versi ini tidak memakai passkey, kode pemulihan, atau QR transfer kunci.
-- Kunci at-rest dipegang server; kunci perangkat dibuat otomatis untuk melindungi salinan lokal. Login yang berhasil langsung membuka data.
+- **Prabayar, tanpa auto-debit.** Perpanjang = beli lagi dengan email yang sama; masa aktif ditambahkan ke sisa yang ada (tidak hangus). Beli lifetime saat masih punya paket = langsung lifetime, tanpa prorata.
+1. Beli di `/beli` (pilih paket, lalu nama, email, nomor WhatsApp) → bayar di **Mayar** → kembali ke `/beli/selesai` ("masuk dengan email pembelian"). Lunas resmi lewat webhook Mayar, bukan halaman ini.
+2. Di app (perangkat mana pun): layar aktivasi → **masukkan email pembeli → OTP 6 digit** (atau Google dengan email yang sama). Sekali per perangkat, butuh online.
+3. Server cocokkan email dengan pembelian → balas token bertanda tangan berisi paket + tanggal habis; app memverifikasinya **offline** setiap start. Tidak ada sesi login yang tersisa.
+- **Perpanjangan terbawa otomatis:** saat online dan sisa masa aktif < 7 hari (atau sudah habis), app menyegarkan token di latar belakang tanpa OTP ulang. Perpanjang di satu perangkat → perangkat lain ikut aktif begitu online.
+- **Pengingat:** mulai H-7 banner "Lisensi habis dalam N hari - Perpanjang" (bisa ditutup, muncul lagi besoknya). Lifetime tidak pernah melihatnya.
+- **Lisensi habis = baca-saja:** semua data tetap bisa dilihat, dicari, diekspor, di-backup, dan dipindah perangkat. Menambah/mengubah/menghapus data diblokir dengan pesan "Lisensi habis - perpanjang untuk mengubah data" + tombol Perpanjang. Data tidak pernah dihapus atau dikunci.
+4. Batas aktivasi per pembelian: default 5 perangkat (bisa diubah operator). Perangkat yang menerima transfer QR ikut membawa lisensi.
+- Login ini **hanya membuktikan email sudah membeli**, tidak membuka atau menyinkronkan data.
+- Email belum membeli → setelah OTP benar: "Email ini belum terdaftar membeli" + tombol beli. Permintaan OTP selalu dijawab generik.
+- Server menyimpan email login + bukti pembelian (untuk support/refund); token di perangkat tidak memuat email. Isi data aplikasi tidak pernah ke server.
+- Belum pernah punya lisensi di perangkat ini: hanya layar aktivasi + halaman beli yang terbuka. (Pernah aktif lalu habis = baca-saja, bukan terkunci.)
+- Aturan OTP per environment lama tetap berlaku (production random via Resend; non-production `777777` hanya kalau `NUXT_SMTP_URL` kosong; fail-closed).
+- **Native:** aturan Apple/Google soal pembelian di luar toko wajib dicek sebelum rilis native; kemungkinan IAP tetap disediakan sebagai jalur beli kedua ke lisensi yang sama.
 
-#### Login di Web Browser
-- Email OTP (standard flow)
-- **atau** scan QR dari HP yang sudah login (ala WhatsApp)
+### Pindah Perangkat via QR (ala WhatsApp)
+1. **Perangkat lama:** Akun → "Pindahkan ke perangkat baru" → tampil QR.
+2. **Perangkat baru:** layar awal → "Pindahan dari perangkat lain" → scan QR.
+3. Kedua layar menampilkan **kode 6 digit**; user konfirmasi di perangkat lama bahwa kodenya sama.
+4. Data terkirim terenkripsi (progress bar dengan jumlah data), perangkat baru memvalidasi lalu menyimpan dengan kunci perangkatnya sendiri.
+5. Selesai → ringkasan "N jadwal, M task, …" di dua sisi. Perangkat lama tidak menghapus datanya.
+- **Jalur:** langsung antar perangkat (WebRTC); kalau gagal tersambung dalam ~8 detik, otomatis lewat relay (tetap terenkripsi). User tidak perlu memilih.
+- **Tanpa internet sama sekali:** opsi "Transfer offline" → perangkat lama menampilkan rangkaian QR bergerak, perangkat baru terus memindai sampai 100%. Lebih lambat; dipakai kalau dua perangkat tidak bisa online.
+- Perangkat baru sudah berisi data → pilih "Ganti semua" atau "Gabung" (update terakhir menang per record), sama seperti import.
+- QR berlaku 10 menit dan sekali pakai. Batal / timeout → tidak ada data yang tertulis setengah jalan.
 
-#### Halaman Perangkat
-- Daftar perangkat yang login sekarang
-- Nama perangkat, waktu login terakhir, lokasi (dari IP)
-- Logout dari jauh per perangkat
+### Backup
+#### Berkas Terenkripsi (default)
+- Akun → Backup → "Unduh backup terenkripsi" → buat kata sandi backup (min 12 karakter, meter kekuatan, ketik ulang).
+- File `improve-personal-backup-YYYY-MM-DD.ipbackup`. Tanpa kata sandi, isinya tidak bisa dibuka siapa pun, termasuk kami.
+- Restore: layar awal "Pulihkan dari backup" atau Akun → Backup → pilih file → kata sandi → preview jumlah data → Ganti semua / Gabung.
+- Export JSON plaintext (F10) tetap ada untuk dibaca manusia, dengan peringatan lama.
 
-#### Hapus Akun Permanen
-- Minta konfirmasi (email OTP ulang)
-- Hapus semua data user di server
-- Hapus akun permanen
+#### Google Drive Terjadwal
+- Akun → Backup → "Sambungkan Google Drive" → izin Google (scope sempit, hanya berkas buatan app) → pilih jadwal (harian / mingguan) → pakai kata sandi backup.
+- Berkas sudah terenkripsi sebelum diunggah; diunggah langsung dari perangkat ke Drive user, tidak lewat server kami.
+- Simpan 5 versi terakhir; yang lebih lama dihapus otomatis.
+- Web: backup jalan saat app dibuka kalau jadwalnya sudah lewat. Native: jalan di latar belakang sesuai jadwal OS.
+- Status terlihat: "Backup terakhir: 2 hari lalu" + tombol "Backup sekarang"; gagal → alasan + coba lagi.
+- Restore di perangkat baru: "Pulihkan dari Google Drive" → login Google → pilih versi → kata sandi backup.
 
-### Enkripsi At-Rest
+#### Pengingat
+- Belum pernah backup / backup terakhir > 7 hari → pengingat di Daily (bisa ditunda, tidak bisa dimatikan permanen).
+- Browser menolak penyimpanan permanen (`persist()`) → pengingat lebih tegas + ajakan install PWA.
 
-#### Di Server
-- Isi record disimpan sebagai ciphertext AES-256-GCM (`node:crypto`) di kolom `records.blob`.
-- Format: `ips1 | key_version(u16) | iv(12) | tag(16) | ciphertext`; AAD mengikat `userId`, `recordId`, `hlc`, `deleted`, dan versi kunci.
-- Kunci: keyring `versi:base64-32-byte` di `NUXT_RECORD_ENCRYPTION_KEYS`, versi aktif di `NUXT_RECORD_ENCRYPTION_ACTIVE_VERSION`. Versi lama tetap dibaca saat rotasi.
-- Server menolak start kalau kunci hilang/invalid. Kunci wajib di-backup di secret manager terpisah dari database.
-
-#### Di Perangkat
-- IndexedDB menyimpan record tersegel dengan kunci perangkat (XChaCha20-Poly1305, libsodium). Kunci dibuat otomatis dan dibungkus `CryptoKey` non-extractable.
-- Kunci perangkat hilang (data situs dihapus) bukan kehilangan data: salinan lokal dibuang, kunci baru dibuat, lalu full pull dari server.
+### Enkripsi
+- **Di perangkat:** record disegel XChaCha20-Poly1305 dengan kunci perangkat (dibuat otomatis, non-extractable).
+- **Berkas backup & Drive:** kunci diturunkan dari kata sandi backup (Argon2id). Kata sandi tidak pernah disimpan atau dikirim.
+- **Transfer:** kunci sekali pakai yang hanya ada di QR; relay hanya melihat ciphertext.
+- **Server:** tidak menyimpan data user sama sekali.
 
 #### Konsekuensi yang Disepakati
-- Server (pemegang kunci env) bisa membaca data. Ini trade-off sadar: E2EE membuat data tidak bisa dipulihkan saat user kehilangan kunci.
-- Database tanpa kunci env tidak bisa dibaca. Backup kunci adalah tanggung jawab operator.
-- Transport tetap TLS; payload tidak boleh di-log dan tidak boleh di-cache (`/v1/**` sudah `no-store`).
+- **Perangkat hilang/rusak/data situs dihapus tanpa backup = data hilang permanen.** Tidak ada pemulihan dari server, support tidak bisa membantu. Ini ditulis jelas di onboarding, layar backup, dan Panduan.
+- **Lupa kata sandi backup = berkas backup itu tidak bisa dibuka.** Selama perangkat lama masih ada, buat backup baru dengan kata sandi baru.
+- Tidak ada sync otomatis; pindah/samakan data antar perangkat lewat transfer atau backup.
+- Domain harus tetap dimiliki dan diperpanjang (pemilik domain lain bisa membaca data lokal lewat kode baru).
 
-#### Tidak Ada Lagi
-- Kunci utama user, passkey/WebAuthn, kode pemulihan 24 kata, berkas terenkripsi kata sandi, QR transfer kunci, KID, `key_envelopes`, `key_transfers`, `account_keys`.
-- Layar "Buka datamu di perangkat ini" dan gate onboarding kunci.
+#### Dihapus (ADR 15)
+- Akun, sesi login, halaman perangkat, logout jarak jauh, hapus akun. (Email OTP + Google tetap ada, dialihfungsikan hanya untuk aktivasi lisensi.)
+- Sync engine (push/pull/outbox/status sync) dan enkripsi at-rest server (`NUXT_RECORD_ENCRYPTION_KEYS`, tabel `records`).
 
-### Tambah Perangkat
-
-- Perangkat baru cukup login dengan email OTP atau Google.
-- Data diambil dari server lewat sync delta; kunci perangkat baru dibuat otomatis.
-- Tidak ada transfer kunci antar perangkat.
-
-### Sync
-
-#### Data Flow
-- Tiap perubahan disimpan lokal dulu (instant UI feedback)
-- Lalu dikirim ke server sebagai record terenkripsi (queue lokal)
-- Server simpan → reply konfirmasi
-- Device lain tarik perubahan (delta, berhalaman)
-
-#### Konflik
-- Per record: **update terakhir menang** (timestamp + ID perangkat)
-- Record yg conflict: server assign-nya ke device dengan timestamp terbaru
-- Harmonisasi di perangkat lain saat pull berikutnya
-
-#### Hapus
-- Hapus = tanda hapus (tombstone)
-- Tombstone ikut tersinkron ke device lain
-- Hard delete (purge) bisa nanti kalau space butuh
-
-#### Pull Perubahan
-- Cuma ambil yang **baru** sejak cursor terakhir (delta sync)
-- Berhalaman (page size ~100–1000 record)
-- Bukan semua data (performa)
-
-#### Status Sync Terlihat
-- Indikator ringkas di dock kanan bawah (sebelah tombol Hias), bukan banner di atas halaman
-- Sedang sync: "Menyinkronkan…" + spinner, hanya selama siklus push/pull berjalan
-- Perlu perhatian: menunggu dikirim / offline / gagal (+ tombol coba lagi)
-- Tersinkron tidak ditampilkan terus-menerus supaya tidak jadi noise; user tahu kapan data butuh perhatian
-
-### Database Server
-- Cuma simpan ciphertext (terenkripsi)
-- Metadata minimal: ID record, `updatedAt`, ID perangkat, tombstone flag
-- **Nggak ada plaintext data di server** (judul, isi, jurnal, dsb)
+### Onboarding
+1. Kunjungan pertama → halaman produk / beli.
+2. Setelah beli → buka app → aktivasi lisensi (email pembeli + OTP).
+3. Pilih: **Mulai baru** / **Pindahan dari perangkat lain (scan QR)** / **Pulihkan dari backup** (berkas atau Google Drive).
+4. Mulai baru → satu layar penjelasan "data cuma di perangkat ini, backup itu tanggung jawabmu" + ajakan sambungkan Drive (bisa dilewati).
+5. Masuk ke Daily.
 
 ### Keamanan
-
-#### Kunci & Secret
-- Kunci enkripsi (env) dan payload record nggak pernah logged
-- OTP nggak pernah di-log
-- Kunci at-rest hanya ada di env server dan wajib disimpan di secret manager; tidak ada kode pemulihan user
-- Secret (API key, dsb) cuma dari env
-- OTP fix `777777` cuma di non-production **dan** cuma kalau `NUXT_SMTP_URL` kosong, ditentukan env server (fail-closed) — lihat [OTP per Environment](#otp-per-environment)
-
-#### HTTPS & Rate Limit
-- Semua lalu lintas HTTPS
-- Login: rate limit per email
-- Tidak ada percobaan kode pemulihan: tidak ada envelope/kunci user yang perlu dibuka di perangkat
-
-#### Biometric Local
-- Di native: Keychain/Keystore menangani security
-- Di web: WebAuthn API (browser handle)
-
-#### Penyimpanan Lokal per Akun
-- Database lokal dipisah **per akun**: record di `ip-<userId>`, bahan kunci di `ip-keys-<userId>` — satu browser bukan lagi satu bak data untuk semua akun
-- Akun lain yang login di browser yang sama **nggak bisa melihat data akun sebelumnya** (dulu ini bug: logout lalu login akun lain menampilkan data akun pertama)
-- Data dari penamaan lama dimigrasikan **sekali jalan** saat sesi lokal dibuka; database lama **tanpa akun** sengaja **tidak** dipetakan ke akun mana pun karena nggak bisa diatribusikan
-- Penyimpanan lokal **baru dibuka setelah sesi server diketahui** (dari situ `userId`-nya), dan sesi di memori dibuang kalau `userId` berubah
-- Bahan kunci perangkat nggak pernah masuk state yang ter-hidrasi (`window.__NUXT__`); yang hidup di memori cuma kunci data lokal
-
-#### CSP & WebAssembly
-- `script-src` memuat `'wasm-unsafe-eval'` karena libsodium (enkripsi salinan lokal) berjalan sebagai WebAssembly; tanpa token itu browser menolak kompilasi WASM dan data lokal nggak bisa dibuka
-- `'unsafe-eval'` **tetap dilarang** — token ini cuma mengizinkan kompilasi WebAssembly, bukan `eval()`/`Function()`
-
-### UI/UX
-
-#### Daftar Flow
-1. Email
-2. OTP kirim 30 detik
-3. Ketik OTP
-4. **Langsung masuk ke data** - tidak ada onboarding kunci atau layar pemulihan
-5. **Simpan kode pemulihan — disarankan, satu tap ke cloud** (kartu yang sama bisa dibuka kapan saja dari halaman Akun)
-6. Selesai
-
-#### Login Flow
-- Email → OTP
-- atau Google SSO
-- atau sidik jari/Face ID (kalau sudah aktif)
-
-#### Lupa OTP
-- Email -> OTP. Tidak ada alur pemulihan kunci.
-- Ke flow masing-masing
-- **Alur lupa OTP di UI belum ada** — ini baru rencana flow-nya
-
-#### Pesan Error
-- Nggak membocorkan apakah email terdaftar ("Email nggak ditemukan vs Email terdaftar")
-- Semua pesan generik buat security
+- Kunci, kata sandi backup, OTP, email plaintext, payload record, dan isi frame transfer tidak pernah di-log.
+- Relay: sesi di memori, TTL 10 menit, maks 2 peserta, batas byte per sesi, rate limit per IP, tidak menyimpan isi.
+- Endpoint lisensi & webhook: rate limit OTP per email + per IP, verifikasi signature webhook, idempoten.
+- Kunci app biometrik (native) tetap ada sebagai kunci layar lokal.
+- CSP: `script-src` memuat `'wasm-unsafe-eval'` (libsodium WASM); `'unsafe-eval'` tetap dilarang. `connect-src` hanya domain sendiri + endpoint Google Drive/OAuth.
+- Service worker tidak pernah cache respons `/v1/**`.
 
 ### Performa
-- Enkripsi/dekripsi di client (bukan server)
-- Sync non-blocking (background, nggak freeze UI)
-- Local query instant (SQLite/IndexedDB)
-- Tarik delta sekali per app launch + interval (mis. 5 menit)
+- Enkripsi/dekripsi di client; backup & transfer berjalan di worker, tidak memblok UI.
+- Argon2id ≤ 3 detik di HP kelas bawah.
+- Transfer 10.000 record via P2P di jaringan yang sama < 15 detik.
+- Local query instant (SQLite/IndexedDB).
 
 ### Yang Belum Ada (jujur)
-
-- **Simpan langsung ke Google Drive dari dalam app** — belum ada; yang ada cuma share sheet OS / unduh berkas
-- **Tambah perangkat via QR (UI)** — belum ada
-- **Hapus akun via UI** — belum ada (endpoint server sudah ada)
-- **Alur lupa OTP di UI** — belum ada
-- **Indikator status sync** — belum ada
-- **Sync engine yang tersambung (T21)** — belum ada; status sync lokal masih `offline` dan belum ada push/pull yang jalan dari UI
+- Semua alur di F15 ini baru keputusan (ADR 15); implementasi dilacak di T26–T34. Tiga paket (ADR 16) dilacak di T35–T36; T33 sudah membangun jalur sekali beli Rp99.000 yang dirombak T35.
+- Kode server lama (akun, sesi, sync, at-rest) masih ada sampai T26 selesai.
 
 ## F16. Tampilan: Tema Warna & Gaya
 
@@ -987,7 +914,7 @@ Gaya mengatur: font, radius, ketebalan border, bayangan, pola latar, dan dekoras
 
 ### Pengaturan
 - Menu "Tampilan" di Akun/Pengaturan: pilih tema warna + pilih gaya, dengan **preview langsung** sebelum disimpan (kartu contoh: task, habit, jurnal)
-- Berlaku langsung tanpa reload; pilihan **tersimpan per akun dan ikut sync** ke semua perangkat (terenkripsi seperti data lain)
+- Berlaku langsung tanpa reload; pilihan **tersimpan di perangkat dan ikut backup/transfer** ke semua perangkat (terenkripsi seperti data lain)
 - Pertama kali buka (belum ada pilihan): Cute + Kuning
 - Pilihan tampil juga di layar login/onboarding sesuai default
 
@@ -1002,20 +929,20 @@ Gaya mengatur: font, radius, ketebalan border, bayangan, pola latar, dan dekoras
 - Gaya dipasang sebelum render pertama (tanpa kedip tema/gaya salah saat load)
 
 ### Keamanan & Kualitas
-- Nilai gaya/tema divalidasi terhadap daftar putih; nilai tak dikenal (mis. dari sync/import versi lain) → kembali ke default tanpa error
+- Nilai gaya/tema divalidasi terhadap daftar putih; nilai tak dikenal (mis. dari transfer/import versi lain) → kembali ke default tanpa error
 - Kontras teks memenuhi WCAG AA di setiap kombinasi gaya × tema
 
 ---
 
 ## Requirements (Task Table)
 
-Data utama ada di perangkat dan diakses lewat interface repository; server cuma relay + simpan data terenkripsi. `be` pegang lapisan data/logika murni, kripto, sync, dan server; `fe` pegang UI + shell platform.
+Data hanya ada di perangkat dan diakses lewat interface repository; server cuma lisensi + relay transfer (ADR 15). `be` pegang lapisan data/logika murni, kripto, backup, transfer, dan server; `fe` pegang UI + shell platform.
 
 | Modul | ID | Kebutuhan | Acceptance criteria | Pemilik | BlockedBy | Size |
 |---|---|---|---|---|---|---|
 | M1 Fondasi | T1 | Setup project, routing, layout + nav semua halaman | Semua 15 halaman (termasuk Akun & Keamanan) bisa dibuka lewat nav; lint/typecheck/build lulus; responsif ≥360px sampai desktop | `fe` | - | M |
 | M1 Fondasi | T2 | Lapisan data (interface repository) + skema ber-versi + adapter IndexedDB (web/PWA) | Semua fitur akses data lewat satu interface repo; skema punya `version`; tiap record punya ID, `updatedAt`, ID perangkat, tanda hapus; query list bisa difilter per rentang tanggal (pakai index, bukan scan penuh di jalur panas) | `be` | - | M |
-| M1 Fondasi | T19 | Server: akun (daftar/login email OTP + Google SSO), sesi per perangkat, logout jarak jauh, hapus akun | Production: OTP random 6 digit dikirim via service (Resend/SendGrid) dengan rate limit, sekali pakai; OTP kedaluwarsa ≤ 10 menit; non-production (env server eksplisit dev/staging/test/preview): OTP fix `777777`, email nggak dikirim, rate limit & expiry tetap jalan, TAPI kalau `NUXT_SMTP_URL` terisi maka email benar-benar dikirim via SMTP (nodemailer) dan mode fix mati otomatis (kode random 6 digit); `NUXT_MAIL_FROM` wajib kalau ada transport email; production nolak start kalau `NUXT_SMTP_URL` ikut terisi; env kosong/nggak dikenal diperlakukan production (fail-closed); `777777` ditolak di production (ada test-nya); nggak ada flag client/header/query buat nyalain OTP fix; Google SSO aktif di semua env, OAuth2 Authorization Code + PKCE dengan validasi `state` & ID token, client ID/redirect URI per env; login dibatasi rate limit per email; token sesi bisa dicabut per perangkat; tiap endpoint cek kepemilikan data di server; hapus akun menghapus semua record user; kunci at-rest hanya di env (tidak di database) dan wajib di-backup di secret manager; secret cuma dari env; semua lalu lintas HTTPS | `be` | - | L |
+| M1 Fondasi | T19 | ~~Server: akun OTP + Google SSO, sesi, perangkat, hapus akun~~ **Dicabut ADR 15** - kodenya dihapus di T26 | - | `be` | - | - |
 | M2 Jadwal & Task | T3 | Engine recurrence (harian N=1–6, mingguan 1/2 minggu multi-hari, bulanan tgl/minggu-ke-N, end rule, exception) | Unit test: tiap pola menghasilkan tanggal benar untuk rentang 1 tahun; tgl 31 di bulan pendek dilewati; ekspansi cuma di rentang yang diminta; edit "ini saja/berikutnya/semua" benar | `be` | T2 | L |
 | M2 Jadwal & Task | T4 | UI jadwal: form (mulai–selesai / durasi), recurrence, edit/hapus 3 opsi, tautan task, tandai kejadian hadir | Dua mode waktu menghasilkan data identik; validasi selesai > mulai; input teks di-escape (no HTML injection) | `fe` | T1, T3 | L |
 | M2 Jadwal & Task | T5 | To-do list: CRUD, deadline, prioritas, sisa waktu dinamis, filter/sort, tautan jadwal | Format sisa waktu sesuai F2 (unit test batas: 59 mnt, 1 jam, 1 hari, 1 bulan, lewat); satu timer global, bukan satu interval per item | `fe` | T1, T2 | M |
@@ -1029,55 +956,65 @@ Data utama ada di perangkat dan diakses lewat interface repository; server cuma 
 | M6 Data | T12 | Import/export JSON (gabung / ganti semua) | Round-trip export→wipe→import identik; file invalid/versi asing ditolak tanpa mengubah data; batas ukuran file; peringatan "file tidak terenkripsi" sebelum export | `be` | T2 | M |
 | M7 Dashboard | T13 | Halaman Overview (isi F11) | 5 rentang (Keseluruhan/Harian/Pekanan/Bulanan/Tahunan) + prev/next jalan; semua metrik & streak F11 benar per rentang (unit test agregasi + streak); agregasi satu kali per ganti rentang, bukan per widget re-scan | `fe` | T7, T10, T11, T24 | L |
 | M7 Dashboard | T14 | Halaman Daily (isi F12) + label menu sidebar "Daily" | Widget Prioritas tanpa batas 3: task kuadran Penting & Mendesak dulu, lalu task urgent (tanpa duplikat, masing-masing urut deadline); task di Prioritas & To-do hari ini bisa diedit/dihapus dari widget dan perubahan langsung tercermin di F2/F3/F6; to-do hari ini (termasuk terlambat) + progress benar; quick add masuk to-do; quick habit check update streak; kalender hari ini menampilkan jadwal (recurring ter-expand) + task tertaut/ber-deadline hari ini; cuaca gagal/offline tidak memblokir widget lain & menampilkan data terakhir; koordinat cuaca tidak disimpan di server | `fe` | T7, T10, T11, T24 | M |
-| M7 Dashboard | T15 | Halaman Panduan (termasuk "Gimana data lo dijaga") | Ada section tiap fitur F1–F16 + FAQ + backup + penjelasan enkripsi at-rest & kunci env; daftar isi bisa diklik | `fe` | T1 | S |
+| M7 Dashboard | T15 | Halaman Panduan (termasuk "Gimana data lo dijaga") | Ada section tiap fitur F1–F16 + FAQ + backup + penjelasan keamanan data (isi direvisi T34 sesuai ADR 15); daftar isi bisa diklik | `fe` | T1 | S |
 | M8 Goals | T17 | Model goal + chapter + tautan item, kalkulasi progress & status chapter | Unit test: progress task/habit/jadwal, Sepanjang goal ikut rata-rata, goal tanpa chapter, chapter selesai manual, status terlewat; periode chapter di luar main goal ditolak; satu item cuma satu tautan; hapus goal/chapter sesuai edge case F13 | `be` | T2 | M |
 | M8 Goals | T18 | Halaman Goals + field "Untuk goal" di form task/habit/jadwal + sticker sampul + review berkala + integrasi (jurnal `#goal`, countdown, kalender, Overview, Daily) | Stepper chapter + progress tampil benar; dropdown "Untuk goal" berisi Sepanjang goal + chapter; kartu review muncul saat chapter berakhir/terlewat & akhir pekan, jawabannya jadi bagian jurnal; teks goal dirender aman (escape). Catatan: kartu review Daily + penyimpanan jawaban review ke jurnal dicabut di task #85 | `fe` | T4, T5, T10, T11, T17, T24 | L |
-| M9 Akun & Sync | T20 | Enkripsi at-rest server + salinan lokal: AES-256-GCM dengan keyring env, ciphertext lokal berkunci perangkat | Unit test: ciphertext `ips1` tidak memuat plaintext; AAD menolak baris yang dipindah ke akun/record lain; versi kunci lama tetap terbaca setelah rotasi; env tanpa kunci valid menolak start; kunci perangkat non-extractable; payload/kunci tidak pernah di-log | `be` | T2 | L |
-| M9 Akun & Sync | T21 | Sync engine: antrean lokal, push/pull delta berhalaman, konflik update-terakhir-menang, tombstone, status sync | Uji 2 perangkat: edit offline di keduanya → setelah online hasil sama di dua sisi; hapus ikut tersinkron; pull cuma ambil perubahan sejak cursor terakhir (berhalaman); isi DB server terbukti cuma ciphertext (cek manual tabel) | `be` | T19, T20 | L |
-| M9 Akun & Sync | T22 | UI akun: daftar/login email OTP + Google SSO, daftar perangkat + logout jarak jauh, hapus akun, kunci app biometrik (native), indikator status sync | Daftar: email -> OTP kirim 30 detik -> ketik OTP -> langsung masuk ke data (tanpa onboarding kunci/pemulihan); login: email -> OTP atau Google SSO; daftar perangkat tampil nama, waktu login terakhir, lokasi (dari IP); hapus akun minta konfirmasi email + OTP ulang; pesan error nggak membocorkan apakah email terdaftar | `fe` | T19, T20, T23, T24 | L |
-| M10 Platform | T23 | App native React Native (Android APK + iOS) pakai package logika bersama + PWA Nuxt (manifest, service worker, offline) + adapter SQLite di native | Build APK & iOS jalan di perangkat nyata; app RN pakai package inti yang sama dengan web (nggak ada duplikasi logika data/kripto/sync); PWA bisa di-install & dibuka offline; adapter SQLite lolos test repository yang sama dengan IndexedDB; service worker nggak cache respons API berisi data user | `fe` | T1, T2 | L |
-| M10 Platform | T25 | Tampilan: tema warna (Kuning/Hijau/Ungu) + 7 gaya (Cute default, Cute Pure, Kertas, Simple, Elegan, Vintage, Tegas) sebagai design token, menu Tampilan + preview, simpan per akun & sync | Ganti gaya/tema langsung tanpa reload & tanpa layout shift; pilihan bertahan setelah restart dan tersinkron antar perangkat; default Cute + Kuning; nilai tak dikenal → default tanpa error; gaya terpasang sebelum render pertama (tanpa kedip); font gaya di-lazy-load & offline; kontras AA di semua kombinasi gaya × tema; semua halaman yang ada tampil benar di tiap gaya | `fe` | T2, T24 | L |
-| M11 QA | T16 | Uji end-to-end seluruh AC + kriteria sukses di web desktop, PWA, Android, iOS | Semua AC terverifikasi dengan bukti per platform; nol `blocker`/`mayor` kebuka | `qa` | T4–T15, T17–T25 | L |
+| M9 Lisensi & Pindah | T20 | ~~Enkripsi at-rest server~~ **Dicabut ADR 15**; salinan lokal berkunci perangkat tetap (sudah ada) | - | `be` | - | - |
+| M9 Lisensi & Pindah | T21 | ~~Sync engine~~ **Dicabut ADR 15**; merge LWW HLC tetap dipakai import/transfer "gabung" | - | `be` | - | - |
+| M9 Lisensi & Pindah | T22 | ~~UI akun OTP/SSO/perangkat~~ **Dicabut ADR 15**; kunci app biometrik (native) pindah ke T23 | - | `fe` | - | - |
+| M9 Lisensi & Pindah | T26 | Hapus server & client lama (akun, sesi, perangkat, hapus akun, sync, at-rest) + DB lokal satu profil tanpa `userId`; OTP + Google + mailer dipertahankan untuk T33 | Route `/v1/devices|sync|account/**` + sesi/cookie + service + tabel `users/devices/sessions/records/sync_watermarks` hilang lewat migrasi; env `NUXT_RECORD_ENCRYPTION_*` dihapus dari `.env.example` & validasi env; client tidak punya gate login/sesi dan tidak pernah request endpoint itu; DB lokal `ip-local` + ID profil lokal di AAD; `otp_challenges`, service OTP, Google OAuth, mailer tetap (dipindah ke T33); lint/typecheck/test lulus tanpa dead code | `be` | - | L |
+| M9 Lisensi & Pindah | T27 | Berkas backup terenkripsi `ip-backup-enc` di `core/io` + kripto web (Argon2id + secretstream) | Round-trip export→wipe→restore identik; kata sandi salah/header diubah/chunk diubah/dipotong ditolak tanpa menulis apa pun; kata sandi < 12 karakter ditolak; Argon2id ≤ 3 dtk di HP kelas bawah (diukur); batas ukuran & record sama dengan import; jalan di worker; kata sandi & kunci tidak pernah di-log atau disimpan | `be` | T26 | M |
+| M9 Lisensi & Pindah | T28 | UI backup/restore + onboarding 3 jalur (Mulai baru / Pindahan QR / Pulihkan) + pengingat backup + `storage.persist()` | Unduh backup terenkripsi & restore (Ganti semua/Gabung) dari Akun dan layar awal; preview jumlah data sebelum terapkan; pengingat muncul saat belum pernah / > 7 hari, bisa ditunda tapi tidak dimatikan permanen; `persist()` ditolak → pengingat tegas + ajakan install; teks konsekuensi "HP hilang tanpa backup = data hilang" tampil di onboarding & layar backup | `fe` | T26, T27 | M |
+| M9 Lisensi & Pindah | T29 | Backup terjadwal ke Google Drive (client-only OAuth, scope sempit) | Sambung/putus Drive; backup harian/mingguan jalan saat app dibuka kalau jadwal lewat (web) / background task (native); simpan 5 versi, sisanya dihapus; restore pilih versi + kata sandi; berkas di Drive terbukti ciphertext; token hanya di memori; tidak ada request lewat server kita; Backup Key dibungkus Device Key, kata sandi tidak disimpan; status "backup terakhir" + error yang jelas | `fe` | T27, T28 | L |
+| M9 Lisensi & Pindah | T30 | Protokol transfer QR (`core/transfer`) + relay WebSocket di server + adapter WebRTC | Payload QR `ipt1` tervalidasi; kode verifikasi 6 digit sama di dua sisi dan wajib dikonfirmasi; P2P gagal ≤ 8 dtk → otomatis lewat relay; relay: sesi di memori, TTL 10 menit, maks 2 peserta, batas byte, rate limit, tidak menyimpan/log isi (ada test); frame diubah → transfer gagal tanpa tulis setengah jalan; token lisensi ikut terkirim | `be` | T26 | L |
+| M9 Lisensi & Pindah | T31 | UI transfer QR: tampil QR, scan kamera, konfirmasi kode, progress, Ganti semua/Gabung | Alur F15 "Pindah Perangkat via QR" jalan web↔web, web↔native, native↔native; izin kamera ditolak → pesan + alternatif backup; batal/timeout tidak meninggalkan data parsial; 10.000 record P2P < 15 dtk di jaringan sama | `fe` | T30 | M |
+| M9 Lisensi & Pindah | T32 | Transfer offline animated QR (fountain code) | Dua perangkat tanpa jaringan bisa transfer data contoh 2 MB; urutan scan bebas & frame terlewat tidak perlu diulang; progress %; kode verifikasi tetap wajib; hasil identik dengan transfer online | `be` | T30, T31 | M |
+| M9 Lisensi & Pindah | T33 | Lisensi sekali beli Rp99.000 semua platform: halaman beli, webhook pembayaran, aktivasi email pembeli (OTP/Google), verifikasi offline Ed25519, layar aktivasi | Webhook diverifikasi signature & idempoten; aktivasi lewat login OTP/Google lama + `POST /v1/license/token` menghormati batas 5 & pencabutan; email belum beli → pesan + tombol beli (hanya setelah OTP benar); permintaan OTP selalu generik; token diverifikasi offline tiap start (app jalan dengan jaringan mati); token env lain ditolak; keypair dev ditolak di production; tidak ada sesi/cookie yang dibuat; tanpa lisensi hanya layar aktivasi + beli yang terbuka | `be` | T26 | L |
+| M9 Lisensi & Pindah | T35 | Server & kontrak tiga paket (ADR 16): `LICENSE_PLANS` di contracts, `plan` di checkout & `purchases`, satu lisensi per email + `license_grants`, perpanjangan `max(now, exp)`, token v2 (`plan`, `exp`), `POST /v1/license/refresh` | Nominal hanya dari server per paket; webhook ulang tidak memperpanjang dua kali; perpanjangan menumpuk dari sisa, tidak dari hari bayar; lifetime tidak pernah turun; lisensi dicabut → refresh ditolak; refresh hanya untuk `lid`+`did` yang tercatat; token v1 ditolak (belum ada user production; perangkat dev cukup aktivasi ulang) | `be` | T33 | M |
+| M9 Lisensi & Pindah | T36 | Client tiga paket: pilih paket di `/beli` (tahunan default + "Paling hemat"), verifikasi `exp` offline, refresh otomatis saat online (< 7 hari / habis), banner H-7, mode baca-saja saat habis | Paket terpilih ikut ke checkout; lisensi habis → semua halaman tetap terbuka tapi aksi tulis diblokir dengan pesan + tombol Perpanjang, export/backup/transfer tetap jalan; refresh gagal/offline tidak memblokir apa pun; banner tidak muncul untuk lifetime; harga di UI diambil dari `LICENSE_PLANS` | `fe` | T35 | M |
+| M9 Lisensi & Pindah | T34 | Revisi Panduan "Gimana data lo dijaga" + FAQ backup/pindah HP sesuai ADR 15 | Isi F9 terbaru; tidak ada lagi penyebutan akun/OTP/sync/kunci env; analogi brankas di rumah; konsekuensi kehilangan data ditulis jelas | `fe` | T28, T31 | S |
+| M10 Platform | T23 | App native React Native (Android APK + iOS) pakai package logika bersama + PWA Nuxt (manifest, service worker, offline) + adapter SQLite di native | Build APK & iOS jalan di perangkat nyata; app RN pakai package inti yang sama dengan web (nggak ada duplikasi logika data/kripto/backup/transfer); kunci app biometrik lokal (dari T22); PWA bisa di-install & dibuka offline; adapter SQLite lolos test repository yang sama dengan IndexedDB; service worker nggak cache respons API berisi data user | `fe` | T1, T2 | L |
+| M10 Platform | T25 | Tampilan: tema warna (Kuning/Hijau/Ungu) + 7 gaya (Cute default, Cute Pure, Kertas, Simple, Elegan, Vintage, Tegas) sebagai design token, menu Tampilan + preview, simpan di perangkat, ikut backup/transfer | Ganti gaya/tema langsung tanpa reload & tanpa layout shift; pilihan bertahan setelah restart dan ikut terbawa lewat backup/transfer; default Cute + Kuning; nilai tak dikenal → default tanpa error; gaya terpasang sebelum render pertama (tanpa kedip); font gaya di-lazy-load & offline; kontras AA di semua kombinasi gaya × tema; semua halaman yang ada tampil benar di tiap gaya | `fe` | T2, T24 | L |
+| M11 QA | T16 | Uji end-to-end seluruh AC + kriteria sukses di web desktop, PWA, Android, iOS | Semua AC terverifikasi dengan bukti per platform; nol `blocker`/`mayor` kebuka | `qa` | T4–T15, T17, T18, T23–T36 | L |
 
 ### PARALEL
-- T1 ∥ T2 ∥ T19.
-- T3 ∥ T5 ∥ T8 ∥ T10 ∥ T12 ∥ T15 ∥ T17 ∥ T20 ∥ T23 (setelah fondasi).
+- T1 ∥ T2.
+- T3 ∥ T5 ∥ T8 ∥ T10 ∥ T12 ∥ T15 ∥ T17 ∥ T23 (setelah fondasi).
 - T6 ∥ T7 (setelah T5).
 - T9 ∥ T11 (setelah T4).
 - T24 setelah T4–T11 & T15 (layer hias dipasang ke halaman yang sudah jadi).
 - T25 setelah T2 & T24 (token gaya dipakai semua halaman; boleh paralel dengan T13/T14/T18).
-- T21 setelah T19 & T20 (boleh jalan barengan grup mana pun di atas).
-- T13 ∥ T14 ∥ T18 ∥ T22 (setelah T24; Overview butuh widget goal dari T18 → integrasinya dikerjain di T18, bukan T13).
+- ADR 15: T26 dulu (hapus kode lama), lalu T27 ∥ T30 ∥ T33; T28 setelah T27; T29 setelah T28; T31 setelah T30; T32 setelah T31; T34 setelah T28 & T31; ADR 16: T35 lalu T36.
+- T13 ∥ T14 ∥ T18 (setelah T24; Overview butuh widget goal dari T18 → integrasinya dikerjain di T18, bukan T13).
 
 ### Definition of Done
-- Semua task T1–T15, T17–T25 `done`, QA (T16) verdict LULUS.
-- Lint, typecheck, unit test (recurrence, sisa waktu, countdown, streak, progress goal, import/export, kripto, sync), build web + PWA + APK + iOS lulus.
+- Semua task aktif (T1–T15, T17, T18, T23–T36) `done`, QA (T16) verdict LULUS.
+- Lint, typecheck, unit test (recurrence, sisa waktu, countdown, streak, progress goal, import/export, kripto, backup terenkripsi, transfer, lisensi), build web + PWA + APK + iOS lulus.
 - Nggak ada `innerHTML` dari input user tanpa sanitasi; import divalidasi skema sebelum nulis apa pun.
-- Database server terbukti nggak berisi data user yang terbaca; OTP, kunci env, dan payload record nggak pernah di-log; kunci env tidak ada di database.
-- Data bertahan setelah app ditutup, jalan offline, dan tersinkron antar perangkat.
+- Server terbukti nggak menyimpan data user apa pun; berkas backup, berkas di Drive, dan aliran transfer terbukti ciphertext; kunci, kata sandi backup, kode lisensi, dan payload nggak pernah di-log.
+- Data bertahan setelah app ditutup, app jalan penuh offline setelah aktivasi, dan drill restore (berkas, Drive, QR online, QR offline) menghasilkan data identik.
 - Panduan sesuai fitur yang benar-benar jadi.
 
 ## Assumptions & Open Questions
 
 ### Assumptions
 
-#### Login & Keamanan
-- **Login = Email OTP + Google SSO (tanpa password)** — lebih simpel, dan sesi login langsung membuka data karena kunci at-rest dipegang server (ADR 14).
-- **OTP non-production = email sungguhan lewat SMTP kalau `NUXT_SMTP_URL` diisi, kalau kosong fallback fix `777777` tanpa kirim email** — dev/QA login pakai email sungguhan (Mailpit) supaya jalur email benar-benar teruji, sementara `777777` tetap ada sebagai kemudahan non-production yang mati sendiri begitu ada transport email. Production tetap OTP random via Resend. Penentuan pakai env server, default (env kosong/nggak dikenal) = production. Google SSO aktif di semua environment.
-- **Tidak ada 24 kata/kode pemulihan** — kunci user adalah beban yang terus memakan korban. Kunci at-rest dipegang server, dan kunci perangkat dibuat otomatis.
-- **Onboarding = login saja** — tidak ada dialog kunci yang bisa dilewati atau dipaksakan.
-- **Backup = export JSON** berisi data terbaca untuk pindah/arsip; kunci env di-backup operator di secret manager.
-- **Simpan langsung ke Google Drive dari dalam app BELUM ada** — butuh scope OAuth `drive.file` + consent screen; untuk sekarang lewat share sheet / unduh berkas.
-- **Berkas terenkripsi kata sandi sudah ada di level data** (Argon2id + XChaCha20-Poly1305, min 12 karakter, huruf besar/kecil dihitung), **UI-nya menyusul** — jangan dianggap fitur yang bisa dipakai user sekarang.
-
-#### Penyimpanan & Sync
-- **Penyimpanan = local-first + sync + enkripsi at-rest server (kunci env) + salinan lokal berkunci perangkat** — hasil diskusi; sudah diputuskan (ADR 14).
-- **Tanpa mode titip kunci & HSM** di rilis ini — biar klaim "server nggak bisa baca" konsisten dan biaya rendah.
-- **Konflik sync: update terakhir menang per record** — cukup buat app personal satu orang; merge per field/CRDT ditunda.
+#### Lisensi, Penyimpanan & Keamanan (ADR 15)
+- **Payment provider = Mayar** (pola Ergonio/konveksiin: webhook-gateway dengan tag di `description`).
+- **Model jual = tiga paket prabayar (ADR 16): bulanan Rp19.000, tahunan Rp99.000, lifetime Rp249.000, semua platform, tanpa auto-debit** — habis = baca-saja, bukan terkunci; lifetime termasuk semua update; aktivasi sekali per perangkat dengan email pembeli (OTP/Google), lalu diverifikasi offline; login tidak membuka data.
+- **Penyimpanan = local-only + salinan lokal berkunci perangkat** — tidak ada sync server dan tidak ada enkripsi at-rest di server. Menggantikan ADR 14.
+- **Pindah perangkat = transfer QR (WebRTC, fallback relay, fallback animated QR offline) atau backup** — tidak ada sync otomatis.
+- **Backup = berkas terenkripsi kata sandi (default) + Google Drive terjadwal (v1)** — export JSON plaintext tetap ada untuk dibaca manusia.
+- **Berkas terenkripsi kata sandi BELUM ada** (dulu tertulis "sudah ada di level data", ternyata `io/backup.ts` hanya plaintext) — dibangun di T27.
+- **Tidak ada kunci utama user / 24 kata** — tiga kunci terpisah (perangkat, backup dari kata sandi, sesi transfer di QR) sudah cukup tanpa beban kunci jangka panjang.
+- **Kehilangan data tanpa backup diterima sebagai konsekuensi** — dimitigasi dengan pengingat backup, `persist()`, dan dorongan install PWA, bukan dengan salinan di server.
+- **Domain tetap dimiliki & diperpanjang** — komitmen ke pembeli karena origin menentukan siapa yang bisa membaca data lokal.
+- **Konflik saat "gabung" (import/transfer): update terakhir menang per record** (HLC) — cukup buat app personal satu orang; merge per field/CRDT ditunda.
+- **Diasumsikan belum ada user production** dengan data di server lama — kalau ternyata ada, perlu task ekspor/migrasi sebelum T26 menghapus tabel `records`.
 
 #### Platform & Stack
 - **Satu rilis buat semua platform** (web desktop, PWA, Android, iOS) — sesuai permintaan.
-- **Stack client:** web + PWA pakai **Nuxt** (Vue + TypeScript); native Android & iOS pakai **React Native** (TypeScript). UI dua codebase, tapi logika murni (lapisan data/repository, kripto, sync, recurrence, dsb) + design token di-share sebagai package TypeScript tanpa ketergantungan framework UI. Stack server sudah diputuskan: API (auth + relay ciphertext) pakai **Nitro/H3** di dalam `apps/web` (`server/routes/v1/**`) + **PostgreSQL** + **Drizzle**; syaratnya tetap cuma simpan ciphertext + metadata minimal, dan nggak ada app server terpisah.
+- **Stack client:** web + PWA pakai **Nuxt** (Vue + TypeScript); native Android & iOS pakai **React Native** (TypeScript). UI dua codebase, tapi logika murni (lapisan data/repository, kripto, backup, transfer, lisensi, recurrence, dsb) + design token di-share sebagai package TypeScript tanpa ketergantungan framework UI. Stack server sudah diputuskan: API (lisensi + relay transfer + proxy cuaca) pakai **Nitro/H3** di dalam `apps/web` (`server/routes/v1/**`) + **PostgreSQL** + **Drizzle**; syaratnya server tidak menyimpan data user sama sekali, dan nggak ada app server terpisah.
 
 #### Fitur Khusus
 - **Sticker** = koleksi bawaan buat dekorasi jurnal, ikon habit/countdown/goal, dan hias semua halaman; bisa diganti kapan aja; upload sticker sendiri ditunda (butuh validasi file + storage terenkripsi).
@@ -1111,11 +1048,11 @@ Data utama ada di perangkat dan diakses lewat interface repository; server cuma 
 ### Open Questions
 
 #### Blocking
-Tidak ada — semua keputusan login, penyimpanan, platform sudah final.
+1. **Forward webhook-gateway `improve-personal/<env>`** harus didaftarkan di `mayar-webhook.rijalsolahudin.com` sebelum pembayaran pertama.
 
 #### Default
 1. **Notifikasi pengingat jadwal/deadline di luar app?** Di native/PWA bisa pakai notifikasi lokal tanpa server (tetap privat). Sementara: nggak, cuma in-app.
 2. **Mood 5 skala emoji cukup, atau mau label sendiri?** Sementara: 5 emoji.
 3. **Perlu dark mode di rilis pertama?** Sementara: ikut tema sistem (light/dark auto).
 4. **Maksud "Cute Pure"?** Sementara: versi Cute yang lebih bersih/polos (pastel, tanpa dekorasi berat). Koreksi kalau yang dimaksud lain.
-5. **Gaya per perangkat atau per akun?** Sementara: per akun, ikut sync.
+5. **Gaya per perangkat?** Ya (tidak ada akun); ikut terbawa lewat backup/transfer.

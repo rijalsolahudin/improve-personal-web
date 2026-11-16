@@ -1,16 +1,15 @@
 // =============================================================================
-// SERVER — Improve Personal (auth + sync + ciphertext at-rest)
+// SERVER — Improve Personal (auth + rate limit; tanpa data user sejak ADR 15)
 // Target: apps/web (Nitro server route) + PostgreSQL + Drizzle
 //
-// Sumber : ARCHITECTURE.md §6 (skema Postgres) + §8 auth + §9 sync + docs/PRD.md F15
+// Sumber : ARCHITECTURE.md §6 (skema Postgres) + §8 lisensi + docs/PRD.md F15
 // Render : https://dbdiagram.io  (paste berkas ini)
 //
 // -----------------------------------------------------------------------------
-// Server TIDAK punya tabel jadwal / todo / habit / jurnal — dan memang tidak boleh.
-// Yang disimpan hanya:
-//   - ciphertext  -> records.blob (AES-256-GCM, kunci dari env)
-//   - metadata    -> user, perangkat, sesi, id record, hlc, tombstone, server_seq
-// `type` entitas ada di dalam payload yang disegel, jadi tidak ada kolom tipe.
+// Server TIDAK menyimpan data user sama sekali (ADR 15, local-only). Tabel `records`
+// dan `sync_watermarks` di-drop di migrasi 0009. Yang tersisa: auth OTP/Google
+// (users, devices, sessions, otp_challenges, oauth_states) + rate_limits, sampai T33
+// mengubah login jadi aktivasi lisensi.
 //
 // Data di perangkat ada di berkas terpisah: database.dbml.
 // -----------------------------------------------------------------------------
@@ -19,25 +18,14 @@
 //  - rate limit disimpan di Postgres, bukan memori, supaya benar kalau pod-nya banyak.
 //  - sesi pakai token opaque (hash di DB), BUKAN JWT panjang: revoke per perangkat
 //    harus instan.
-//  - HLC dipecah jadi kolom turunan (hlc_wall_ms, hlc_counter, hlc_device) untuk
-//    dibandingkan. Membandingkan string hlc mentah akan salah.
 //  - devices.installation_id membedakan INSTALASI, bukan mesin.
-//  - tombstone dibersihkan > 90 hari; klien yang cursor-nya ketinggalan dapat
-//    409 SYNC_RESET_REQUIRED (lihat sync_watermarks).
 //
 // -----------------------------------------------------------------------------
-// KEPUTUSAN KRIPTO (ADR 14)
+// KEPUTUSAN KRIPTO (ADR 15, menggantikan ADR 14)
 // -----------------------------------------------------------------------------
-//  D1. Enkripsi at-rest DIPINDAH KE SERVER: AES-256-GCM, keyring versi di
-//      NUXT_RECORD_ENCRYPTION_KEYS. Format ciphertext:
-//        "ips1" | key_version(u16) | iv(12) | tag(16) | ciphertext
-//      AAD mengikat key_version, user_id, id, hlc, dan deleted.
-//  D2. Tidak ada kunci user: passkey, kode pemulihan 24 kata, QR transfer, KID,
-//      dan tabel relay kunci DIHAPUS. Login yang berhasil langsung membuka data.
-//
-//  Akibatnya: kunci env adalah satu-satunya pembuka database dan wajib di-backup
-//  di secret manager terpisah. Server (pemegang env) bisa membaca data — trade-off
-//  sadar supaya data tidak hilang saat perangkat berganti.
+//  Tidak ada enkripsi at-rest di server karena tidak ada data user di server.
+//  Kunci perangkat, kunci backup (dari kata sandi), dan kunci sesi transfer (QR)
+//  tidak pernah dikirim ke server - lihat ARCHITECTURE.md §7.
 // =============================================================================
 
 
@@ -54,7 +42,18 @@ Enum client_kind {
 
 Enum otp_purpose {
   login
-  delete_account
+}
+
+Enum license_plan {
+  monthly
+  yearly
+  lifetime
+}
+
+Enum purchase_status {
+  pending
+  paid
+  failed
 }
 
 Table users {
@@ -192,6 +191,58 @@ Table oauth_states {
   '''
 }
 
+Table licenses {
+  id              uuid         [pk, note: 'UUID v7']
+  email           text         [not null, unique, note: 'lowercase; SATU lisensi per email (ADR 16)']
+  plan            license_plan [not null, note: 'paket yang berlaku; lifetime tidak pernah turun']
+  expires_at      timestamptz  [note: 'NULL = lifetime']
+  edition         text         [not null, default: 'standard']
+  max_activations int          [not null, default: 5]
+  revoked_at      timestamptz
+  created_at      timestamptz  [not null, default: `now()`]
+
+  Note: '''
+  Dikunci ke email, bukan users.id: pembelian terjadi sebelum pembeli pernah login.
+  Setiap pembelian lunas memperpanjang expires_at dari max(now, expires_at) lewat license_grants.
+  '''
+}
+
+Table license_grants {
+  order_ref  text         [pk, note: 'purchases.id atau ref manual CLI - kunci idempotensi webhook']
+  license_id uuid         [not null]
+  plan       license_plan [not null]
+  granted_at timestamptz  [not null, default: `now()`]
+}
+
+Table license_activations {
+  license_id   uuid        [not null]
+  device_id    uuid        [not null]
+  activated_at timestamptz [not null, default: `now()`]
+
+  indexes {
+    (license_id, device_id) [pk, name: 'pk_license_activations']
+  }
+}
+
+Table purchases {
+  id          uuid            [pk, note: 'UUID v7; jadi order_ref saat lunas']
+  email       text            [not null]
+  plan        license_plan    [not null]
+  amount      int             [not null, note: 'rupiah yang ditagih; pembanding amount di webhook']
+  status      purchase_status [not null, default: 'pending']
+  mayar_id    text            [unique]
+  payment_url text
+  expires_at  timestamptz     [not null, note: 'umur link bayar (24 jam)']
+  paid_at     timestamptz
+  created_at  timestamptz     [not null, default: `now()`]
+
+  indexes {
+    email [name: 'idx_purchases_email']
+  }
+
+  Note: 'Nomor HP pembeli TIDAK disimpan: hanya diteruskan ke Mayar.'
+}
+
 Table rate_limits {
   scope        text        [not null, note: 'mis. otp:email | otp:ip | keys:envelope | weather']
   bucket       text        [not null, note: 'HMAC dari identifier (email/IP/user) — bukan nilai polos']
@@ -209,72 +260,11 @@ Table rate_limits {
   '''
 }
 
-Table records {
-  user_id     uuid        [not null]
-  id          uuid        [not null, note: 'UUID v7 dibuat client']
-  hlc         text        [not null, note: 'string asli ${wallMs}-${counter}-${deviceId}, dikembalikan apa adanya']
-  hlc_wall_ms bigint      [not null, note: 'hasil pecah hlc — dipakai untuk BANDING, bukan hlc mentah']
-  hlc_counter int         [not null]
-  hlc_device  text        [not null, note: 'deviceId lowercase tanpa dash, biar urutan leksikografis konsisten']
-  deleted     bool        [not null, default: false, note: 'tombstone']
-  blob        bytea       [not null, note: 'AES-256-GCM; format ips1 | key_version(u16) | iv(12) | tag(16) | ciphertext. AAD = keyVersion|userId|recordId|hlc|deleted']
-  key_version smallint    [not null, default: 1, note: 'versi kunci dari header ciphertext; CHECK (key_version > 0)']
-  server_seq  bigint      [not null, note: 'nextval(records_seq) — cursor pull']
-  created_at  timestamptz [not null, default: `now()`]
-  updated_at  timestamptz [not null, default: `now()`, note: 'dipakai job purge tombstone']
-
-  indexes {
-    (user_id, id) [pk, name: 'pk_records']
-    (user_id, server_seq) [unique, name: 'uq_records_user_server_seq']
-    (hlc_wall_ms, hlc_counter, hlc_device, user_id) [name: 'idx_records_hlc']
-    // PARTIAL: where deleted — untuk job purge
-    (deleted, updated_at) [name: 'idx_records_purge']
-  }
-
-  Note: '''
-  Satu-satunya tabel isi data user, dan isinya selalu ciphertext milik server.
-  Nggak ada kolom type/title/content: seluruh payload ada di dalam blob yang disegel.
-
-  Catatan penting soal HLC: membandingkan string hlc mentah akan SALAH begitu panjang
-  digitnya beda ("999-0-a" > "1000-0-b"). Karena itu dibandingkan sebagai tuple
-  (hlc_wall_ms, hlc_counter, hlc_device). Poison compare-nya ditulis SEKALI di
-  packages/contracts/src/hlc.ts dan dipakai server + client — kalau dua implementasi
-  berbeda, data bisa divergen permanen.
-
-  Tombstone dibersihkan > 90 hari (job cron), bukan lewat HTTP.
-  '''
-}
-
-Table sync_watermarks {
-  user_id     uuid        [pk, note: '1:1 dengan users']
-  purged_seq  bigint      [not null, default: 0, note: 'server_seq tertinggi yang sudah dipurge']
-  updated_at  timestamptz [not null, default: `now()`]
-
-  Note: '''
-  Sabuk pengaman purge: kalau cursor klien < purged_seq, server balas 409
-  SYNC_RESET_REQUIRED supaya klien full resync. Tanpa ini, HP yang lama offline bisa
-  "menghidupkan lagi" data yang user sudah hapus (zombie resurrection).
-  '''
-}
-
-// -----------------------------------------------------------------------------
-// KEPUTUSAN TERBUKA [2]: aktifkan hanya kalau purge perlu tahu posisi pull per
-// perangkat. Kalau pakai pendekatan sync_watermarks di atas, tabel ini nggak perlu.
-//
-// Table device_cursors {
-//   device_id    uuid        [pk]
-//   user_id      uuid        [not null]
-//   last_pull_seq bigint     [not null, default: 0]
-//   updated_at   timestamptz [not null, default: `now()`]
-// }
-// -----------------------------------------------------------------------------
-
 Ref: devices.user_id > users.id
 
 Ref: sessions.user_id > users.id
 Ref: sessions.device_id > devices.id
 
-Ref: records.user_id > users.id
-
-// 1:1 ditegakkan lewat [pk] di sync_watermarks.user_id (bukan Ref 1:1, biar FK-nya nggak terbalik)
-Ref: sync_watermarks.user_id > users.id
+Ref: license_grants.license_id > licenses.id [delete: cascade]
+Ref: license_activations.license_id > licenses.id [delete: cascade]
+Ref: license_activations.device_id > devices.id [delete: cascade]

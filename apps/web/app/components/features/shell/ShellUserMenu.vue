@@ -1,5 +1,5 @@
 <script setup lang="ts">
-/** Kaki sidebar Desktop.dc.html: kartu akun + menu (profil, keamanan, preferensi, panduan, logout). */
+/** Kaki sidebar Desktop.dc.html: kartu profil + menu (profil, data, preferensi, panduan). */
 import type { AccountDialog } from '~/composables/useAccountDialogs'
 
 const { collapsed = false } = defineProps<{ collapsed?: boolean }>()
@@ -9,13 +9,10 @@ const root = useTemplateRef<HTMLElement>('root')
 useDismiss(root, isOpen)
 
 const { isPickerOpen } = useAppearance()
-const { logout } = useLogout()
 const accountDialogs = useAccountDialogs()
 const { profile } = useProfile()
 
-// Email dari sesi asli (tanpa request - guard halaman sudah memuatnya); nama & foto dari profil terenkripsi.
-const { session } = useAuthSession()
-const accountEmail = computed(() => session.value?.user.email ?? '')
+// Nama & foto dari profil lokal terenkripsi; tidak ada akun server (ADR 15).
 const displayName = computed(() => profile.value.displayName)
 
 /** Modal akun: dibuka lewat state bersama, dirender di layout. */
@@ -71,10 +68,6 @@ function onLink(key: (typeof linkItems)[number]['key']): void {
         <span class="item-icon" aria-hidden="true">{{ item.glyph }}</span>
         <span>{{ $t(item.label) }}</span>
       </NuxtLink>
-      <button type="button" class="item logout" @click="logout">
-        <span class="item-icon" aria-hidden="true">⏻</span>
-        <span>{{ $t('shell.user.logout') }}</span>
-      </button>
     </div>
     <button
       type="button"
@@ -85,10 +78,10 @@ function onLink(key: (typeof linkItems)[number]['key']): void {
       aria-controls="user-menu"
       @click="isOpen = !isOpen"
     >
-      <AccountProfileAvatar :src="profile.avatar" :label="displayName || accountEmail" />
+      <AccountProfileAvatar :src="profile.avatar" :label="displayName" />
       <span v-if="!collapsed" class="who">
-        <span class="name">{{ displayName || accountEmail || $t('shell.user.name') }}</span>
-        <span class="sub">{{ displayName ? accountEmail : $t('shell.user.label') }}</span>
+        <span class="name">{{ displayName || $t('shell.user.name') }}</span>
+        <span class="sub">{{ $t('shell.user.label') }}</span>
       </span>
       <span v-if="!collapsed" class="caret" aria-hidden="true">{{ isOpen ? '▾' : '▴' }}</span>
       <span v-else class="visually-hidden">{{ $t('shell.user.label') }}</span>
@@ -204,19 +197,10 @@ function onLink(key: (typeof linkItems)[number]['key']): void {
   color: var(--ink);
 }
 
-.item-button,
-.logout {
+.item-button {
   border: 0;
   background: none;
   text-align: left;
-}
-
-.logout {
-  color: var(--danger);
-}
-
-.logout:hover {
-  color: var(--danger);
 }
 
 .item-icon {

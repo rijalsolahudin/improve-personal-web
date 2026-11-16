@@ -10,7 +10,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createRecordWriter } from '~/utils/storage/record-writer'
 import { createRepositorySet } from '~/utils/storage/repository'
 import type { LocalDataSession } from '~/utils/storage/session'
-import { resetSyncReloadersForTest } from '~/utils/sync/refresh'
+import { resetDataReloadersForTest } from '~/utils/storage/reload'
 import { loadTasks, persistTask } from '~/utils/tasks/persistence'
 import type { Task } from '~/utils/tasks'
 import { createUuidV7Generator } from '~/utils/storage/uuid'
@@ -70,7 +70,7 @@ function taskOf(id: string, title: string): Task {
 beforeEach(() => {
   clearNuxtState(['tasks', 'tasksStatus', 'tasksError', 'localData', 'goalLinks'])
   resetTasksHydrationForTest()
-  resetSyncReloadersForTest()
+  resetDataReloadersForTest()
 })
 
 describe('useTasks: tulisan saat reload membaca (AC T77)', () => {

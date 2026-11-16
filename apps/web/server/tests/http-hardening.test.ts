@@ -33,19 +33,12 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import { setup, url } from '@nuxt/test-utils/e2e'
 
-import { RATE_LIMIT_RULES, type RateLimitScope } from '../services/rate-limit'
+import { RATE_LIMIT_RULES } from '../services/rate-limit'
 import { startGoogleLogin } from '../services/google'
 import { OAUTH_STATE_COOKIE_NAME } from '../utils/oauth-state-cookie'
-import { hmacSha256, sha256Hex } from '../utils/crypto'
+import { sha256Hex } from '../utils/crypto'
 import { rateLimits, oauthStates } from '../db/schema'
-import {
-  clearRateLimitScope,
-  closeTestDb,
-  rateLimitCount,
-  seedSession,
-  testDb,
-  type Fixture,
-} from './helpers/harness'
+import { clearRateLimitScope, closeTestDb, testDb, type Fixture } from './helpers/harness'
 import { testScope } from './helpers/scope'
 
 await setup({ server: true })
@@ -69,8 +62,6 @@ async function api(
     readonly body?: unknown
     readonly cookie?: string
     readonly redirect?: RequestRedirect
-    /** Nilai `x-expected-user-id`. Endpoint sync mewajibkannya bila request membawa cookie sesi. */
-    readonly expectedUserId?: string
   } = {},
 ): Promise<ApiResponse> {
   const method = request.method ?? 'GET'
@@ -81,9 +72,6 @@ async function api(
     headers: {
       ...(request.body === undefined ? {} : { 'content-type': 'application/json' }),
       ...(request.cookie === undefined ? {} : { cookie: request.cookie }),
-      ...(request.expectedUserId === undefined
-        ? {}
-        : { 'x-expected-user-id': request.expectedUserId }),
       ...(needsProof ? { 'sec-fetch-site': 'same-origin' } : {}),
     },
     body: request.body === undefined ? undefined : JSON.stringify(request.body),
@@ -120,10 +108,6 @@ function liveCtx(fixture: Fixture) {
   return fixture.ctx({ now: new Date() })
 }
 
-function cookieFor(token: string): string {
-  return `ip_session=${token}`
-}
-
 /** Cookie binding web untuk `state` dari `startGoogleLogin` (hash state, seperti `/start` memasangnya). */
 function bindingCookieFor(state: string): string {
   return `${OAUTH_STATE_COOKIE_NAME}=${sha256Hex(state)}`
@@ -135,11 +119,6 @@ function bindingCookieClear(response: ApiResponse): boolean {
     entry.startsWith(`${OAUTH_STATE_COOKIE_NAME}=`),
   )
   return cleared !== undefined && /Max-Age=0/i.test(cleared)
-}
-
-/** Payload JSON untuk body yang sah. */
-function payloadOf(text: string): { readonly text: string } {
-  return { text }
 }
 
 // ---------------------------------------------------------------------------
@@ -313,7 +292,7 @@ describe('H1: batas ukuran body tidak bisa dilewati lewat chunked', () => {
   it('`content-length` di atas batas ditolak dari HEADER-nya saja, termasuk method PATCH', async () => {
     // `PATCH` sengaja dipilih: limiter bawaan nuxt-security hanya memeriksa POST/PUT/DELETE, jadi
     // respons 413 di sini datang dari middleware `server/middleware/15-body-limit.ts`.
-    const response = await declaredLengthUpload('/v1/sync/push', 'PATCH', OVERSIZE_BYTES)
+    const response = await declaredLengthUpload('/v1/auth/otp/request', 'PATCH', OVERSIZE_BYTES)
 
     expect(response.status).toBe(413)
     const problem = apiErrorBodySchema.safeParse(response.json())
@@ -339,161 +318,6 @@ describe('H1: batas ukuran body tidak bisa dilewati lewat chunked', () => {
     ])
 
     expect(response.status, `body chunked yang sah ditolak: ${response.body}`).toBe(204)
-  })
-
-  it('batch push di bawah batas byte yang sah diterima, dan yang di atas 8 MB dijawab 413', async () => {
-    const fixture = scope.fixture({ prefix: 'http-body-limit-sah' })
-    const session = await seedSession(liveCtx(fixture), { email: fixture.email })
-    const cookie = cookieFor(session.token)
-
-    // Batch SAH menurut kontrak (500 x 1 MB) tapi totalnya dibatasi KLIEN per byte: di sini ~6,5 MB
-    // (7 record x ~700 kB payload).
-    const records = Array.from({ length: 7 }, (_, index) => ({
-      id: randomUUID(),
-      hlc: `1000-${index}-a`,
-      deleted: false,
-      payload: payloadOf('x'.repeat(700_000)),
-    }))
-    const sized = Buffer.byteLength(JSON.stringify({ records }))
-    expect(sized).toBeLessThan(8_388_608)
-
-    const accepted = await api('/v1/sync/push', {
-      method: 'POST',
-      cookie,
-      expectedUserId: session.userId,
-      body: { records },
-    })
-    expect(accepted.status, JSON.stringify(accepted.body)).toBe(200)
-
-    const oversize = await chunkedUpload('/v1/sync/push', 'POST', [
-      Buffer.from(JSON.stringify({ records })),
-      Buffer.alloc(8_500_000, 'x'),
-    ])
-    expect(oversize.status).toBe(413)
-    expect(apiErrorBodySchema.safeParse(oversize.json()).success).toBe(true)
-  })
-})
-
-describe('M4/M1: limiter endpoint mahal & bucket per akun', () => {
-  /**
-   * Isi bucket satu scope sampai tepat di plafon, untuk identifier ini.
-   *
-   * Seeding lebih andal daripada mengirim `limit + 1` request sungguhan: jendela fixed 1 jam, dan
-   * yang diuji di sini adalah "penghitungnya dijalankan di endpoint itu", bukan aritmetika jendela.
-   */
-  async function seedAtLimit(
-    env: Fixture['env'],
-    scope: RateLimitScope,
-    identifier: string,
-  ): Promise<void> {
-    const windowMs = RATE_LIMIT_RULES[scope].windowSeconds * 1_000
-    const windowStart = new Date(Math.floor(Date.now() / windowMs) * windowMs)
-    const bucket = hmacSha256(identifier, env.rateLimitPepper)
-
-    await testDb()
-      .insert(rateLimits)
-      .values({ scope, bucket, windowStart, count: RATE_LIMIT_RULES[scope].limit })
-      .onConflictDoUpdate({
-        target: [rateLimits.scope, rateLimits.bucket, rateLimits.windowStart],
-        set: { count: RATE_LIMIT_RULES[scope].limit },
-      })
-  }
-
-  type Case = {
-    readonly label: string
-    readonly scope: RateLimitScope
-    readonly request: (
-      cookie: string,
-      fixture: Fixture,
-      userId: string,
-      deviceId: string,
-    ) => Promise<ApiResponse>
-  }
-
-  const cases: readonly Case[] = [
-    {
-      label: 'GET /v1/sync/pull',
-      scope: 'sync:pull',
-      request: (cookie, _fixture, userId) =>
-        api('/v1/sync/pull?cursor=0&limit=1', { cookie, expectedUserId: userId }),
-    },
-    {
-      label: 'DELETE /v1/devices/:id',
-      scope: 'devices:revoke',
-      request: (cookie, _fixture, _userId, deviceId) =>
-        api(`/v1/devices/${deviceId}`, { method: 'DELETE', cookie }),
-    },
-    {
-      label: 'DELETE /v1/account',
-      scope: 'account:delete',
-      request: (cookie, fixture) =>
-        api('/v1/account', {
-          method: 'DELETE',
-          cookie,
-          body: { email: fixture.email, code: '000000' },
-        }),
-    },
-  ]
-
-  it.each(cases)('$label melewati jatahnya -> 429 + `retry-after`', async (testCase) => {
-    const fixture = scope.fixture({ prefix: 'http-limit' })
-    const session = await seedSession(liveCtx(fixture), { email: fixture.email })
-    const cookie = cookieFor(session.token)
-
-    await seedAtLimit(fixture.env, testCase.scope, session.userId)
-
-    const limited = await testCase.request(cookie, fixture, session.userId, session.deviceId)
-
-    expect(limited.status, `${testCase.label} tidak pernah dijawab 429`).toBe(429)
-    expect(problemOf(limited).error.code).toBe('RATE_LIMITED')
-    expect(limited.headers.get('retry-after')).toMatch(/^[1-9][0-9]*$/)
-
-    // Penghitungnya bertambah SATU untuk request ini, dan bucket-nya milik user dari sesi.
-    expect(await rateLimitCount(fixture.env, session.userId)).toBe(
-      RATE_LIMIT_RULES[testCase.scope].limit + 1,
-    )
-
-    // Identifier tetap di-HMAC: tidak ada id user polos di tabel `rate_limits`.
-    const rows = await testDb()
-      .select()
-      .from(rateLimits)
-      .where(eq(rateLimits.scope, testCase.scope))
-    expect(JSON.stringify(rows)).not.toContain(session.userId)
-    expect(rows.length).toBeGreaterThan(0)
-  })
-
-  it('jatah `sync:pull` milik AKUN: habis di user A, user B tetap bisa pull', async () => {
-    const alice = scope.fixture({ prefix: 'http-pull-limited-alice' })
-    const bob = scope.fixture({ prefix: 'http-pull-limited-bob' })
-    const aliceSession = await seedSession(liveCtx(alice), { email: alice.email })
-    const bobSession = await seedSession(liveCtx(bob), { email: bob.email })
-
-    await seedAtLimit(alice.env, 'sync:pull', aliceSession.userId)
-
-    const limited = await api('/v1/sync/pull?cursor=0&limit=1', {
-      cookie: cookieFor(aliceSession.token),
-      expectedUserId: aliceSession.userId,
-    })
-    expect(limited.status).toBe(429)
-
-    const allowed = await api('/v1/sync/pull?cursor=0&limit=1', {
-      cookie: cookieFor(bobSession.token),
-      expectedUserId: bobSession.userId,
-    })
-    expect(allowed.status, JSON.stringify(allowed.body)).toBe(200)
-  })
-
-  it('endpoint yang tidak butuh limiter tetap bebas (GET /v1/devices)', async () => {
-    // Sengaja TIDAK ditambahkan limiter: halaman "Perangkat" boleh dibuka berulang kali, biayanya satu
-    // query terindeks dengan batas `DEVICE_LIST_MAX` baris, dan limiter di sini hanya akan menghukum
-    // pemakaian normal. Yang mahal (revoke, transfer, pull, callback) yang dibatasi.
-    const fixture = scope.fixture({ prefix: 'http-devices-free' })
-    const session = await seedSession(liveCtx(fixture), { email: fixture.email })
-
-    for (let attempt = 0; attempt < 3; attempt += 1) {
-      const response = await api('/v1/devices', { cookie: cookieFor(session.token) })
-      expect(response.status).toBe(200)
-    }
   })
 })
 

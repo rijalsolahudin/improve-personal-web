@@ -3,8 +3,10 @@
     <NuxtLink to="/" class="home-link"><BrandMark wordmark="inline" /></NuxtLink>
     <div class="links">
       <a href="#fitur" class="link">{{ $t('landing.nav.features') }}</a>
-      <a href="#cara" class="link">{{ $t('landing.nav.how') }}</a>
-      <NuxtLink to="/login" class="cta">{{ $t('landing.nav.cta') }}</NuxtLink>
+      <a href="#privasi" class="link">{{ $t('landing.nav.privacy') }}</a>
+      <a href="#harga" class="link">{{ $t('landing.nav.pricing') }}</a>
+      <a href="#faq" class="link">{{ $t('landing.nav.faq') }}</a>
+      <NuxtLink :to="APP_HOME_PATH" class="cta">{{ $t('landing.nav.cta') }}</NuxtLink>
     </div>
   </nav>
 </template>

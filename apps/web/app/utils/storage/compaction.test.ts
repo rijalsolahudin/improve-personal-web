@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 
 import type { StorageAdapter } from '@improve-personal/core'
-import { SYNC_TOMBSTONE_RETENTION_DAYS } from '@improve-personal/contracts'
+import { TOMBSTONE_RETENTION_DAYS } from '@improve-personal/contracts'
 
 import { compactTombstones, supportsTombstonePurge, tombstoneCutoffMs } from './compaction'
 import type { IndexedDbStorage } from './indexeddb'
@@ -11,7 +11,7 @@ const NOW_MS = 1_800_000_000_000
 
 describe('tombstoneCutoffMs', () => {
   it('memakai batas retensi tombstone dari kontrak, bukan angka lokal', () => {
-    expect(tombstoneCutoffMs(NOW_MS)).toBe(NOW_MS - SYNC_TOMBSTONE_RETENTION_DAYS * DAY_MS)
+    expect(tombstoneCutoffMs(NOW_MS)).toBe(NOW_MS - TOMBSTONE_RETENTION_DAYS * DAY_MS)
   })
 })
 

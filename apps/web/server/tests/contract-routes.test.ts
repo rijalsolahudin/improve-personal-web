@@ -73,8 +73,8 @@ describe('daftar endpoint kontrak vs route `/v1`', () => {
     expect(
       documented.length,
       'daftar endpoint di protocol.ts tidak terbaca',
-    ).toBeGreaterThanOrEqual(12)
-    expect(routes.length, 'route `/v1` tidak terbaca').toBeGreaterThanOrEqual(12)
+    ).toBeGreaterThanOrEqual(6)
+    expect(routes.length, 'route `/v1` tidak terbaca').toBeGreaterThanOrEqual(6)
 
     const routeSet = new Set(routes)
     const documentedSet = new Set(documented)

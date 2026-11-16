@@ -3,6 +3,7 @@ import {
   apiDataEnvelopeSchema,
   apiErrorBodySchema,
   currentSessionResultSchema,
+  licenseTokenResultSchema,
   webSessionDtoSchema,
   type CurrentSessionResult,
   type ErrorCode,
@@ -20,6 +21,7 @@ const OTP_REQUEST_PATH = '/v1/auth/otp/request'
 const OTP_VERIFY_PATH = '/v1/auth/otp/verify'
 const SESSION_PATH = '/v1/auth/session'
 const LOGOUT_PATH = '/v1/auth/logout'
+const LICENSE_TOKEN_PATH = '/v1/license/token'
 
 /**
  * Batas jaringan gateway: satu fungsi saja, supaya test bisa menukar transportnya tanpa mem-mock
@@ -47,6 +49,7 @@ export interface AuthGatewayOptions {
  */
 const sessionEnvelopeSchema = apiDataEnvelopeSchema(currentSessionResultSchema)
 const loginEnvelopeSchema = apiDataEnvelopeSchema(webSessionDtoSchema)
+const licenseEnvelopeSchema = apiDataEnvelopeSchema(licenseTokenResultSchema)
 
 /**
  * Status -> kode kontrak saat body error TIDAK bisa dibaca (mis. respons kosong dari proxy/host).
@@ -176,12 +179,18 @@ export function createAuthGateway(request: AuthFetch, options: AuthGatewayOption
     await call(LOGOUT_PATH, { method: 'POST' })
   }
 
+  async function issueLicenseToken(): Promise<string> {
+    const body = await call(LICENSE_TOKEN_PATH, { method: 'POST' })
+    return readEnvelope(licenseEnvelopeSchema, body).token
+  }
+
   return {
     requestEmailOtp,
     verifyEmailOtp,
     startGoogleLogin,
     currentSession,
     signOut,
+    issueLicenseToken,
   }
 }
 

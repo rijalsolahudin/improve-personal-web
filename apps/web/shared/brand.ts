@@ -32,5 +32,4 @@ export const BRAND = {
 /** Subjek email OTP, memakai `BRAND.name` supaya ikut berubah saat nama diganti. */
 export const MAIL_SUBJECTS = {
   login: `Kode masuk ${BRAND.name}`,
-  delete_account: `Kode konfirmasi hapus akun ${BRAND.name}`,
 } as const

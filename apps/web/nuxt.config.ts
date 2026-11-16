@@ -10,11 +10,9 @@ import { EARLY_APPEARANCE_SCRIPT } from './shared/appearance'
 // jadi build-nya tidak lagi situs statis murni dan deploy-nya butuh host Node (trade-off dicatat di
 // ARCHITECTURE.md §2).
 //
-// Batas ukuran request. Ketegangannya nyata: `SYNC_MAX_BATCH` (500 record) x
-// `RECORD_PAYLOAD_MAX_BYTES` (1 MB) = sampai 500 MB untuk satu batch yang SAH menurut kontrak.
-// Plafon 8 MB dipilih supaya satu request tidak bisa menghabiskan memori server sebelum validasi
-// lain jalan - konsekuensinya KLIEN WAJIB membatasi batch per BYTE, bukan hanya jumlah record
-// (500 record hanya aman kalau total blob-nya di bawah ~8 MB).
+// Batas ukuran request: plafon 8 MB supaya satu request tidak bisa menghabiskan memori server
+// sebelum validasi lain jalan. Sejak ADR 15 tidak ada endpoint yang menerima data user, jadi
+// plafon ini cukup longgar untuk semua endpoint yang tersisa.
 //
 // Angkanya hidup di `server/utils/request-size.ts` (satu sumber), karena ada DUA penegaknya:
 // middleware `server/middleware/15-body-limit.ts` (menghitung byte body yang mengalir, semua method)
@@ -155,14 +153,20 @@ export default defineNuxtConfig({
     // (`server/utils/env.ts`). Production tidak memakainya (jalurnya Resend) dan menolak start kalau
     // key ini terisi - supaya berkas env non-production yang ikut ter-deploy ketahuan saat startup.
     smtpUrl: '',
-    // Enkripsi at-rest isi record: `1:<base64 32 byte>[,2:<...>]` + versi yang dipakai untuk tulisan
-    // baru. Kunci ini TIDAK PERNAH ke client; server menyegel/membuka `records.blob` dengan AES-256-GCM
-    // (`server/utils/record-crypto.ts`). Keyring (bukan satu kunci) supaya rotasi tidak mengunci data
-    // lama. Default kosong = server menolak start (fail-closed).
-    recordEncryptionKeys: '',
-    recordEncryptionActiveVersion: 1,
+    // Seed Ed25519 penanda tangan token lisensi (ADR 15). Rahasia: hanya di server.
+    licenseSigningKey: '',
+    // Pembayaran Mayar (ADR 15): API key + token webhook = rahasia server. `mayarProduct` +
+    // `mayarEnvironment` jadi tag rute webhook-gateway; `priceOverrideIdr` hanya untuk uji di
+    // non-production.
+    mayarApiKey: '',
+    mayarWebhookToken: '',
+    mayarProduct: '',
+    mayarEnvironment: '',
+    priceOverrideIdr: '',
     // `public.appEnv` cuma untuk UI (mis. login demo). Kosong = production.
-    public: { appEnv: 'production' },
+    // `public.licensePublicKey` = pasangan public key `licenseSigningKey`; app memakainya untuk
+    // memverifikasi token lisensi secara offline. Public key memang boleh publik.
+    public: { appEnv: 'production', licensePublicKey: '' },
   },
   $development: {
     runtimeConfig: { appEnv: 'development', public: { appEnv: 'development' } },
@@ -174,20 +178,17 @@ export default defineNuxtConfig({
 
   routeRules: {
     '/': { prerender: true },
-    // `/login` SSR: HTML-nya sudah membawa teks form, jadi LCP tidak lagi menunggu bundel SPA +
-    // `_i18n/**/messages.json` (QA T16 lanjutan: LCP 3,8 s). Percobaan `ssr: true` sebelumnya
-    // menghasilkan CLS 0,233 - penyebab sesungguhnya bukan i18n, melainkan dua aturan CSS yang
-    // berebut `position` pada maskot panel merek (urutan CSS inline hasil SSR != CSS hasil impor
-    // client). Itu sudah diperbaiki di `AuthBrandPanel.vue`, jadi hidrasi sekarang tidak menggeser
-    // apa pun (CLS 0 diukur ulang).
-    // Guard `auth.global` tetap jalan di server: `useAuthGateway` memakai `useRequestFetch`, yang
-    // meneruskan cookie request pada SSR, sehingga user yang sudah login tidak berhenti di sini.
-    '/login': { ssr: true },
-    // `/app/**` sengaja TANPA cache (bukan `swr`/`isr`): isinya data per akun. `ssr: false` bikin
+    // Screenshot landing (`scripts/landing/shots.ts`): nama berkas tanpa hash, jadi cache seminggu,
+    // bukan `immutable` - pengambilan ulang screenshot tetap sampai ke pengunjung.
+    '/landing/**': { headers: { 'cache-control': 'public, max-age=604800' } },
+    // `/app/**` sengaja TANPA cache (bukan `swr`/`isr`): isinya data user. `ssr: false` bikin
     // HTML-nya cuma kerangka SPA (lihat catatan `pwa.workbox.runtimeCaching` di bawah).
     '/app/**': { ssr: false },
     // Halaman jurnal pindah dari `/app/memo`; bookmark lama tetap sampai.
     '/app/memo': { redirect: { to: '/app/journal', statusCode: 301 } },
+    // `/login` SSR: teks form ada di HTML pertama (LCP tidak menunggu bundel SPA). HTML-nya tidak
+    // memuat data apa pun; sesi & lisensi baru dibaca di client (`pages/login.vue`).
+    '/login': { ssr: true },
     // `/v1/**` tidak pernah di-prerender dan tidak boleh masuk cache mana pun: responsnya berisi data
     // per akun (cache/`swr`/`isr` untuk data per-user dilarang - performance.md §2, security.md §2).
     '/v1/**': {
@@ -258,7 +259,7 @@ export default defineNuxtConfig({
       //
       // `_i18n/**/messages.json` ikut precache: teks UI diambil `@nuxtjs/i18n` lewat request
       // terpisah saat runtime (bukan bagian chunk JS), jadi tanpa ini seluruh UI tampil sebagai
-      // kunci mentah ("login.meta.title") begitu offline. Isinya statis dan bukan data user.
+      // kunci mentah begitu offline. Isinya statis dan bukan data user.
       // Halaman offline (`offline/index.html`) WAJIB ikut: `precacheFallback` di bawah menunjuk
       // ke `/offline`.
       globPatterns: [
@@ -273,7 +274,7 @@ export default defineNuxtConfig({
       // `@vite-pwa/nuxt` mengisinya sendiri dengan `app.baseURL` ('/') - lihat
       // `if (!("navigateFallback" in options.workbox))` di `dist/shared/nuxt.*.mjs`. Workbox lalu
       // memasang NavigationRoute yang melayani SEMUA navigasi dengan HTML hasil prerender '/',
-      // termasuk saat ONLINE: buka `/login` -> yang tampil landing page, reload deep link
+      // termasuk saat ONLINE: reload deep link
       // `/app/to-do` -> halaman yang salah. `null` tidak bisa dipakai karena Nuxt membuang nilai
       // `null` dari config sebelum module membacanya (dibuktikan dengan `loadNuxtConfig`); `''`
       // bertahan dan falsy, jadi workbox-build tidak menghasilkan NavigationRoute sama sekali
@@ -332,14 +333,10 @@ export default defineNuxtConfig({
           options: pageCacheOptions('app-shell', APP_SHELL_MAX_ENTRIES),
         },
         {
-          // `/login` sekarang SSR (lihat `routeRules`), tetapi HTML-nya sengaja TIDAK disimpan:
-          // form login tidak berguna tanpa jaringan (OTP/Google butuh server), jadi menyimpannya
-          // hanya menampilkan halaman yang pasti gagal. HTML SSR rute ini juga berisi keputusan
-          // redirect dari guard sesi, yang tidak boleh dibekukan di cache perangkat.
-          // `NetworkOnly` + `precacheFallback` = online selalu HTML asli, offline langsung halaman
-          // offline statis. Tanpa rule ini service worker tidak menangani navigasi sama sekali dan
-          // user melihat layar error browser, bukan pesan yang jelas.
-          urlPattern: /^https?:\/\/[^/]+\/login(?:\/|$)/,
+          // `/login` (aktivasi lisensi) dan `/beli` (checkout Mayar) TIDAK disimpan (ADR 15): keduanya
+          // butuh server, jadi menyimpannya hanya menampilkan form yang pasti gagal. `NetworkOnly` +
+          // `precacheFallback` = online selalu HTML asli, offline langsung halaman offline statis.
+          urlPattern: /^https?:\/\/[^/]+\/(?:login|beli)(?:\/|$)/,
           handler: 'NetworkOnly',
           method: 'GET',
           options: { precacheFallback: { fallbackURL: OFFLINE_PAGE_URL } },
@@ -375,7 +372,7 @@ export default defineNuxtConfig({
     // `.output` (~+1 MB berkas turunan) - ditukar dengan ~60-75% byte JS/CSS di jaringan.
     compressPublicAssets: true,
     // Nitro hanya memindai `server/tasks/**` kalau flag ini menyala (nitropack:
-    // `if (nitro.options.experimental.tasks)`). Ini yang mendaftarkan task `purge-tombstones` &
+    // `if (nitro.options.experimental.tasks)`). Ini yang mendaftarkan task
     // `cleanup-ephemeral`. Aman di production: endpoint `/_nitro/tasks/<nama>` cuma ada di preset dev
     // (`presets/_nitro/runtime/nitro-dev.mjs`), jadi flag ini TIDAK mengekspos task lewat HTTP di
     // server produksi. Cron host memakai jalur `tsx scripts/task.ts` (lihat scripts/task.ts).
@@ -416,11 +413,9 @@ export default defineNuxtConfig({
     detectBrowserLanguage: false,
     locales: [{ code: 'id', language: 'id-ID', file: 'id.json' }],
     // Sengaja TIDAK memakai `experimental.preload` (pesan locale di-serialisasi ke HTML).
-    // Halaman `/login` sudah SSR, jadi teksnya tetap ada di render pertama; pesan yang sama lalu
-    // diambil dari `_i18n/**/messages.json` sebelum hidrasi (plugin i18n menunggunya), sehingga
-    // markup server & client identik. Sebaliknya `preload` menambah ~20 KB JSON ke HTML dinamis
-    // `/login` (belum terkompresi) dan ~41 KB ke landing hasil prerender - dibayar setiap kunjungan
-    // hanya untuk menghindari satu request 13 KB yang sudah dicache service worker.
+    // Pesan diambil dari `_i18n/**/messages.json` sebelum hidrasi (plugin i18n menunggunya), sehingga
+    // markup server & client identik. `preload` menambah ~41 KB ke landing hasil prerender - dibayar
+    // setiap kunjungan hanya untuk menghindari satu request 13 KB yang sudah dicache service worker.
   },
 
   security: {

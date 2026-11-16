@@ -6,11 +6,11 @@
  * - `recurrence/` : engine schedule berulang (F1)
  * - `calc/`       : sisa waktu, countdown, streak (F2/F5/F7)
  * - `repository/` : interface repository + helper index rentang (T2)
- * - `sync/`       : HLC, outbox, push/pull delta, LWW, status (F15, T21)
+ * - `sync/`       : HLC, LWW, penulisan record lokal (ADR 15: tanpa sync jaringan)
  * - `io/`         : export/import JSON + migrasi versi skema (F10, T12)
  * - `adapters/`   : implementasi `Clock` + `StorageAdapter` in-memory untuk test & kontrak (T23)
  * - `ports.ts`    : port yang diimplementasi tiap platform (IndexedDB/SQLite, Keychain/WebCrypto,
- *                   libsodium, `Date.now`, `setTimeout`, `fetch`)
+ *                   libsodium, `Date.now`, `setTimeout`)
  *
  * Barrel ini sengaja `export *` dari barrel sub-modul yang sudah eksplisit. Konsekuensinya nama yang
  * TIDAK muncul di sini tidak bisa diimpor dari `@improve-personal/core` - jadi kalau ada modul baru,
@@ -31,8 +31,6 @@
 export type {
   Clock,
   CryptoProvider,
-  HttpClient,
-  HttpRequestInit,
   OpenRecordInput,
   ScheduledAction,
   Scheduler,
@@ -42,8 +40,6 @@ export type {
   StorageAdapter,
   StoredRecord,
 } from './ports.ts'
-
-export { HttpError } from './ports.ts'
 
 // -----------------------------------------------------------------------------
 // Domain, recurrence, calc, repository, io, sync, adapters

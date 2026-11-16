@@ -25,9 +25,9 @@ import type { LocalDataSession } from '~/utils/storage/session'
 import {
   isReloadSessionActive,
   readAfterWrites,
-  registerSyncReloader,
+  registerDataReloader,
   reloadSession,
-} from '~/utils/sync/refresh'
+} from '~/utils/storage/reload'
 import { createUuidV7Generator } from '~/utils/storage/uuid'
 import { deviceTimeZone } from '~/utils/time'
 
@@ -313,7 +313,7 @@ export function useSchedules(options: UseSchedulesOptions = {}) {
   void hydrate()
 
   // Halaman yang memakai jadwal ikut memuat ulang saat pull menerapkan data perangkat lain.
-  registerSyncReloader('schedules', reload)
+  registerDataReloader('schedules', reload)
 
   return {
     schedules: computed(() => schedules.value),

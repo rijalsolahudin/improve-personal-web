@@ -63,12 +63,12 @@ describe('HSTS: browser dipaksa memakai HTTPS', () => {
   })
 
   it('halaman HTML membawa HSTS dan CSP dengan `upgrade-insecure-requests` (tanpa mixed content)', async () => {
-    const headers = await headersOf('/login')
+    const headers = await headersOf('/app')
     const csp = headers.get('content-security-policy') ?? ''
 
     expect(headers.get('strict-transport-security'), 'HSTS hilang di halaman HTML').not.toBeNull()
     expect(csp).toContain('upgrade-insecure-requests')
-    // `frame-ancestors 'none'` = halaman login tidak bisa dibingkai (clickjacking).
+    // `frame-ancestors 'none'` = halaman app tidak bisa dibingkai (clickjacking).
     expect(csp).toContain("frame-ancestors 'none'")
   })
 })

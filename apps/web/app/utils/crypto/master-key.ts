@@ -9,10 +9,8 @@ import { rawDataKeyMaterial, type RawDataKeyMaterial } from './provider'
  *   MK (32 byte acak, dibuat per perangkat)
  *    └─ KDF subkey 'data'  ->  Data Key  ->  enkripsi `record` di IndexedDB/SQLite
  *
- * Data yang dikirim ke server TIDAK memakai kunci ini: server menyegel `payload` dengan kuncinya
- * sendiri dari env (`server/utils/record-crypto.ts`). Konsekuensi yang disengaja: MK hilang = salinan
- * lokal tidak terbaca, tapi data tetap bisa dipulihkan dengan pull ulang dari server. Tidak ada
- * passkey/recovery key yang perlu dipulihkan.
+ * Kunci ini tidak pernah meninggalkan perangkat (ADR 15). MK hilang = salinan lokal tidak terbaca;
+ * pemulihan hanya lewat backup terenkripsi atau transfer dari perangkat lain.
  *
  * Aturan yang dipegang di modul ini:
  * - Kunci utama TIDAK PERNAH ditulis ke disk dalam bentuk polos, tidak pernah di-log, dan tidak pernah

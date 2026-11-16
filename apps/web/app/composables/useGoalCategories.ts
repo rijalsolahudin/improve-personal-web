@@ -26,9 +26,9 @@ import { moveGoalsToCategory } from '~/utils/goals/persistence'
 import {
   isReloadSessionActive,
   readAfterWrites,
-  registerSyncReloader,
+  registerDataReloader,
   reloadSession,
-} from '~/utils/sync/refresh'
+} from '~/utils/storage/reload'
 
 /**
  * Kategori goal (PRD F13) di atas record `goal_category`.
@@ -293,7 +293,7 @@ export function useGoalCategories(options: UseGoalCategoriesOptions = {}) {
   if (options.session) void hydrate()
 
   // Kategori dipakai di halaman Goals & filter; ikut dimuat ulang saat pull menerapkan data perangkat lain.
-  registerSyncReloader('goalCategories', reload)
+  registerDataReloader('goalCategories', reload)
 
   return {
     categories: computed(() => views.value),

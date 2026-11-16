@@ -14,7 +14,7 @@ import {
 import { encodeRecord } from '../storage/record-codec'
 import { guardStorageWrite } from '../storage/quota-guard'
 import { createOutboxId } from '../storage/uuid'
-import { notifyLocalWrite } from '../sync/events'
+import { runDataReloaders } from '../storage/reload'
 import { indexEntryForRecord } from './index-entry'
 
 /**
@@ -69,13 +69,13 @@ export async function applyBackupDocument(
   )
 
   // HLC di berkas berasal dari perangkat lain dan bisa lebih besar dari jam perangkat ini. Tanpa
-  // `observe`, edit berikutnya di sini memakai HLC lebih kecil dan kalah LWW saat sync - data hasil
-  // import lalu menimpa edit baru user. Sama seperti record hasil pull (`sync/pull.ts`).
+  // `observe`, edit berikutnya di sini memakai HLC lebih kecil dan kalah LWW saat import/transfer
+  // "gabung" berikutnya - data lama lalu menimpa edit baru user.
   for (const record of document.records) target.hlc.observe(record.hlc)
 
-  // Import menulis outbox langsung lewat core (bukan record-writer), jadi plugin sync butuh sinyal
-  // yang sama dengan tulisan biasa. PRD F10: "execute import → sync".
-  notifyLocalWrite()
+  // Import menulis langsung lewat core, bukan lewat composable fitur: store yang sudah dimuat halaman
+  // dibaca ulang supaya hasil import langsung tampil tanpa reload halaman.
+  await runDataReloaders()
 
   return result
 }

@@ -29,7 +29,6 @@ import {
   localDatabaseName,
 } from './database-names'
 import { createIndexedDbStorage } from './indexeddb'
-import { migrateLegacyLocalDatabases } from './legacy-migration'
 import {
   checkLocalDataEnvironment,
   localEnvironmentError,
@@ -43,25 +42,26 @@ import { createRecordWriter, type RecordWriter } from './record-writer'
 /**
  * Sesi data lokal: buka kunci PERANGKAT → kunci data → repository siap dipakai.
  *
- * Kunci di sini hanya melindungi salinan lokal (IndexedDB). Data yang disinkronkan disegel server
- * dengan kunci milik server dari env, jadi:
+ * Sejak ADR 15 salinan lokal adalah SATU-SATUNYA salinan hidup - tidak ada server untuk menarik ulang.
+ * Karena itu:
  *
- * - Tidak ada passkey/recovery/QR: login = akses data. Perangkat baru cukup pull.
- * - Kunci perangkat hilang (data situs dihapus) BUKAN kehilangan data: salinan lokal yang tidak bisa
- *   dibuka dibuang, kunci baru dibuat, lalu sync menarik ulang semuanya dari server.
- * - Penyimpanan tetap dipisah PER AKUN (`userId` di nama database). Tanpa itu, satu browser = satu bak
- *   data untuk semua akun.
+ * - Kunci perangkat hilang (data situs dihapus) = record lama tidak bisa dibuka siapa pun. Record itu
+ *   dibuang dan kunci baru dibuat; pemulihan hanya lewat backup/transfer.
+ * - Kunci ADA tapi record tidak terbaca = TIDAK dibuang. Sesi gagal dibuka dengan
+ *   `LocalDataUnreadableError` supaya user masih bisa memulihkan dari backup dan bug-nya terlihat,
+ *   bukan menghapus seluruh data karena satu blob rusak.
+ * - Nama database memuat `LOCAL_PROFILE_ID` (`database-names.ts`).
  *
  * Modul ini dimuat lewat `import()` dari `useLocalData`: isinya adaptor IndexedDB + kripto +
  * repository, dan rute yang tidak menyentuh data lokal tidak perlu membayarnya.
  */
 
 export type LocalDataSession = {
-  /** Pemilik penyimpanan ini. Ikut di sesi supaya pemanggil bisa memastikan tidak salah akun. */
+  /** Profil pemilik penyimpanan ini (`LOCAL_PROFILE_ID`). */
   readonly userId: string
   readonly repos: RepositorySet
   readonly writer: RecordWriter
-  /** Id perangkat yang dipakai HLC & sync. */
+  /** Id perangkat yang dipakai HLC. */
   readonly deviceId: string
   readonly dataKey: SecureKeyMaterial
   readonly hlc: HlcGenerator
@@ -74,7 +74,7 @@ export type LocalDataSession = {
 }
 
 export type OpenSessionOptions = {
-  /** Pemilik data lokal ini (`user.id` dari sesi server). Wajib. */
+  /** Profil pemilik data lokal ini (`LOCAL_PROFILE_ID`). Wajib. */
   readonly userId: string
   readonly clock?: Clock
   /** Nama database record & nama database kunci; dipisah supaya test bisa mengisolasinya. */
@@ -94,12 +94,6 @@ export async function openLocalDataSession(options: OpenSessionOptions): Promise
   const sodium = await loadSodium()
   const userId = assertUserId(options.userId)
 
-  // Migrasi nama lama HANYA di jalur nyata: kalau nama database di-override (test/tool), pemanggilnya
-  // sengaja ingin menyentuh nama tertentu.
-  if (options.databaseName === undefined && options.keysDatabaseName === undefined) {
-    await migrateLegacyLocalDatabases(userId)
-  }
-
   const storage = createIndexedDbStorage({
     clock,
     databaseName: options.databaseName ?? localDatabaseName(userId),
@@ -112,9 +106,9 @@ export async function openLocalDataSession(options: OpenSessionOptions): Promise
   const hasDeviceKey = await keyStore.has('device')
 
   if (!hasDeviceKey) {
-    // Salinan lokal tanpa kunci pembukanya tidak akan pernah bisa dibaca. Server adalah sumber
-    // kebenaran, jadi dibuang lalu dibuat kunci baru - jauh lebih baik daripada menampilkan layar
-    // "terkunci" yang tidak punya jalan keluar.
+    // Salinan lokal tanpa kunci pembukanya tidak akan pernah bisa dibaca siapa pun. Dibuang lalu
+    // dibuat kunci baru - jauh lebih baik daripada layar "terkunci" tanpa jalan keluar. Pemulihan
+    // isinya hanya lewat backup/transfer.
     if (await hasStoredRecords(storage)) await storage.wipe()
   }
 
@@ -127,10 +121,9 @@ export async function openLocalDataSession(options: OpenSessionOptions): Promise
   // bungkusnya, dan kunci polos tidak perlu hidup lebih lama dari yang perlu.
   zeroKey(masterKey)
 
-  // Salinan lokal bisa dibuat kunci/format lama (mis. setelah upgrade). Kalau satu record saja tidak
-  // bisa dibuka, seluruh salinan lokal tidak bisa dipercaya: server sumber kebenaran, jadi dibuang
-  // lalu full pull. Tanpa ini repository melempar `RecordKeyError` dan halaman tampak kosong.
-  await discardUnreadableLocalCopy({ storage, provider, dataKey })
+  // Record yang tidak terbaca dengan kunci yang ADA berarti korupsi atau bug format - bukan alasan
+  // menghapus satu-satunya salinan. Gagal keras di sini, jangan biarkan halaman tampak kosong.
+  await assertLocalCopyReadable({ storage, provider, dataKey })
 
   const deviceId = await ensureDeviceId(storage, clock)
   const hlc = createHlcGenerator({ deviceId, clock })
@@ -174,20 +167,23 @@ async function createOrAdoptMasterKey(
   }
 }
 
+/** Sesi ditolak karena record lokal tidak bisa dibuka dengan kunci perangkat yang ada. */
+export class LocalDataUnreadableError extends Error {
+  constructor() {
+    super('data lokal tidak bisa dibuka dengan kunci perangkat ini')
+    this.name = 'LocalDataUnreadableError'
+  }
+}
+
 /**
- * Buang salinan lokal kalau ada satu record yang tidak bisa dibuka dengan kunci sesi ini.
- *
- * Kenapa di sini, bukan di setiap repository: satu blob yang tidak terbaca membuat `listAll` melempar,
- * dan halaman yang memuatnya tampak kosong/rusak - padahal data di server utuh. Server adalah sumber
- * kebenaran, jadi salinan lokal yang tidak konsisten dengan kuncinya dibuang, cursor kembali 0, lalu
- * pull mengisi ulang.
+ * Pastikan satu record sampel bisa dibuka dengan kunci sesi ini.
  *
  * Sampel diambil dari `record_index` per tipe entitas: semua tulisan lewat `RecordWriter` selalu
  * menulis baris index, jadi satu record yang ada pasti bisa ditemukan tanpa memindai seluruh tabel.
  * Hanya `openRecord` yang dibungkus `try`: ia murni kripto, jadi kegagalannya berarti blob/kunci tidak
- * cocok. Kegagalan storage (membaca index/record) dibiarkan melempar - bukan alasan menghapus data.
+ * cocok. Kegagalan storage dibiarkan melempar apa adanya.
  */
-async function discardUnreadableLocalCopy(deps: {
+async function assertLocalCopyReadable(deps: {
   readonly storage: StorageAdapter
   readonly provider: CryptoProvider
   readonly dataKey: SecureKeyMaterial
@@ -204,7 +200,7 @@ async function discardUnreadableLocalCopy(deps: {
       blob: sample.blob,
     })
   } catch {
-    await deps.storage.wipe()
+    throw new LocalDataUnreadableError()
   }
 }
 
@@ -222,10 +218,8 @@ async function findSampleRecord(storage: StorageAdapter): Promise<StoredRecord |
 }
 
 /**
- * Pastikan `sync_state` punya `deviceId`.
- *
- * Cursor/status diisi nilai awal yang jujur: `cursor: 0` (belum pernah pull) dan `offline` (belum ada
- * sync sama sekali) - bukan `synced`, yang akan membuat UI berbohong ke user.
+ * Pastikan `sync_state` punya `deviceId` (dipakai HLC). Nama tabelnya warisan sync; cursor/status di
+ * dalamnya tidak dipakai lagi sejak ADR 15 dan diisi nilai awal saja.
  */
 async function ensureDeviceId(storage: StorageAdapter, clock: Clock): Promise<string> {
   const existing = await storage.getSyncState()

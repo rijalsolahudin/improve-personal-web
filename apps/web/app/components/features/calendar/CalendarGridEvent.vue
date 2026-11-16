@@ -291,6 +291,9 @@ const focusStyle = computed(() => focusPillStyle(item.size === 'tiny'))
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
+  /* `.title` memaksa satu baris; tanpa reset ini clamp 2 baris di kolom pekan tidak pernah
+     terjadi dan judul terpotong jadi "Olah…". */
+  white-space: normal;
   overflow-wrap: anywhere;
   font-size: var(--fs-13);
 }

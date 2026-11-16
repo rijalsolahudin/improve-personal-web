@@ -15,7 +15,7 @@ import type { LocalDataSession } from '~/utils/storage/session'
 import { createRecordWriter } from '~/utils/storage/record-writer'
 import { createRepositorySet } from '~/utils/storage/repository'
 import { createUuidV7Generator } from '~/utils/storage/uuid'
-import { resetSyncReloadersForTest, runSyncReloaders } from '~/utils/sync/refresh'
+import { resetDataReloadersForTest, runDataReloaders } from '~/utils/storage/reload'
 import { persistTask } from '~/utils/tasks/persistence'
 import type { Task } from '~/utils/tasks'
 import type { GoalDraft } from '~/utils/goals'
@@ -123,7 +123,7 @@ beforeEach(() => {
   resetTasksHydrationForTest()
   resetHabitsHydrationForTest()
   resetSchedulesHydrationForTest()
-  resetSyncReloadersForTest()
+  resetDataReloadersForTest()
 })
 
 describe('useGoals: presentation setelah putaran reload pull (AC T77)', () => {
@@ -155,7 +155,7 @@ describe('useGoals: presentation setelah putaran reload pull (AC T77)', () => {
     })
     expect(link.ok).toBe(true)
 
-    await runSyncReloaders()
+    await runDataReloaders()
     await flushPromises()
 
     const item = goals.findGoal(goalId)?.chapters[0]?.items.find((entry) => entry.id === task.id)
@@ -163,7 +163,7 @@ describe('useGoals: presentation setelah putaran reload pull (AC T77)', () => {
 
     // Task yang sama dicentang di perangkat lain -> putaran reload berikutnya harus memperbarui goal.
     await persistTask(session, { ...task, done: true })
-    await runSyncReloaders()
+    await runDataReloaders()
     await flushPromises()
 
     const updated = goals.findGoal(goalId)?.chapters[0]?.items.find((entry) => entry.id === task.id)

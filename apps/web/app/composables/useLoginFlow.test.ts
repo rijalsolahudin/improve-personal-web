@@ -7,7 +7,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { AuthRequestError, type AuthGateway } from './auth/gateway'
 import { AUTH_SESSION_STATE_KEYS, useAuthSession } from './useAuthSession'
+import { LICENSE_STATE_KEYS } from './useLicense'
 import { LOGIN_ERROR_KEYS, useLoginFlow } from './useLoginFlow'
+import { LICENSE_STORAGE_KEY } from '~/utils/license/token'
 
 const { navigateToMock } = vi.hoisted(() => ({ navigateToMock: vi.fn() }))
 mockNuxtImport('navigateTo', () => navigateToMock)
@@ -17,6 +19,27 @@ const routeState: { query: Record<string, unknown> } = { query: {} }
 const { useRouteMock } = vi.hoisted(() => ({ useRouteMock: vi.fn() }))
 mockNuxtImport('useRoute', () => useRouteMock)
 useRouteMock.mockImplementation(() => routeState)
+
+/**
+ * Verifikasi tanda tangan di-mock di batas util token: kriptonya sendiri diuji di
+ * `utils/license/token.test.ts`, dan runtime test tidak punya public key build. `'token-sah'` = token
+ * yang lolos verifikasi; selain itu ditolak.
+ */
+const VALID_TOKEN = 'token-sah'
+vi.mock('~/utils/license/token', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('~/utils/license/token')>()),
+  verifyLicenseToken: vi.fn(async (token: string) =>
+    token === VALID_TOKEN
+      ? {
+          v: 1,
+          lid: '018f2b3c-4d5e-7f80-9abc-def01234567a',
+          did: '018f2b3c-4d5e-7f80-9abc-def01234567d',
+          iat: 1,
+          ed: 'standard',
+        }
+      : null,
+  ),
+}))
 
 const SESSION_DTO = {
   user: { id: '018f2b3c-4d5e-7f80-9abc-def012345678', email: 'kamu@email.com' },
@@ -32,6 +55,7 @@ function fakeGateway(overrides: Partial<AuthGateway> = {}): AuthGateway {
     startGoogleLogin: vi.fn(async () => {}),
     currentSession: vi.fn(async () => null),
     signOut: vi.fn(async () => {}),
+    issueLicenseToken: vi.fn(async () => VALID_TOKEN),
     ...overrides,
   }
 }
@@ -45,7 +69,11 @@ describe('useLoginFlow', () => {
   beforeEach(() => {
     navigateToMock.mockReset()
     routeState.query = {}
-    clearNuxtState(Object.values(AUTH_SESSION_STATE_KEYS))
+    clearNuxtState([
+      ...Object.values(AUTH_SESSION_STATE_KEYS),
+      ...Object.values(LICENSE_STATE_KEYS),
+    ])
+    localStorage.clear()
   })
 
   it('memvalidasi email sebelum meminta OTP', async () => {
@@ -206,6 +234,125 @@ describe('useLoginFlow', () => {
     routeState.query = { error: 'lain' }
 
     expect(useLoginFlow(fakeGateway()).googleError.value).toBeNull()
+  })
+})
+
+describe('aktivasi lisensi setelah login (ADR 15)', () => {
+  beforeEach(() => {
+    navigateToMock.mockReset()
+    routeState.query = {}
+    clearNuxtState([
+      ...Object.values(AUTH_SESSION_STATE_KEYS),
+      ...Object.values(LICENSE_STATE_KEYS),
+    ])
+    localStorage.clear()
+  })
+
+  async function loginWith(gateway: AuthGateway) {
+    const flow = useLoginFlow(gateway)
+    flow.setEmail('kamu@email.com')
+    await flow.submitEmail()
+    flow.otp.paste('123456')
+    await flow.verify()
+    return flow
+  }
+
+  it('login sukses + sudah membeli: token disimpan, lalu masuk app', async () => {
+    const gateway = fakeGateway()
+
+    await loginWith(gateway)
+
+    expect(gateway.issueLicenseToken).toHaveBeenCalledTimes(1)
+    expect(localStorage.getItem(LICENSE_STORAGE_KEY)).toBe(VALID_TOKEN)
+    expect(navigateToMock).toHaveBeenCalledWith('/app')
+  })
+
+  it.each([
+    ['LICENSE_REQUIRED', 'notPurchased'],
+    ['LICENSE_LIMIT_REACHED', 'limitReached'],
+    ['INTERNAL', 'unavailable'],
+  ] as const)('%s -> langkah lisensi `%s`, tidak masuk app', async (code, reason) => {
+    const flow = await loginWith(
+      fakeGateway({
+        issueLicenseToken: vi.fn(async () => {
+          throw new AuthRequestError(code)
+        }),
+      }),
+    )
+
+    expect(flow.step.value).toBe('license')
+    expect(flow.licenseError.value).toBe(reason)
+    expect(navigateToMock).not.toHaveBeenCalled()
+    expect(localStorage.getItem(LICENSE_STORAGE_KEY)).toBeNull()
+  })
+
+  it('server tak terjangkau saat aktivasi -> sebab `network`', async () => {
+    const flow = await loginWith(
+      fakeGateway({
+        issueLicenseToken: vi.fn(async () => {
+          throw new AuthRequestError('INTERNAL', { isNetworkError: true })
+        }),
+      }),
+    )
+
+    expect(flow.licenseError.value).toBe('network')
+  })
+
+  it('token dari server yang tidak lolos verifikasi TIDAK disimpan', async () => {
+    const flow = await loginWith(
+      fakeGateway({ issueLicenseToken: vi.fn(async () => 'token-palsu') }),
+    )
+
+    expect(flow.step.value).toBe('license')
+    expect(localStorage.getItem(LICENSE_STORAGE_KEY)).toBeNull()
+    expect(navigateToMock).not.toHaveBeenCalled()
+  })
+
+  it('resume: perangkat sudah berlisensi -> kembali ke app tanpa request apa pun', async () => {
+    localStorage.setItem(LICENSE_STORAGE_KEY, VALID_TOKEN)
+    const gateway = fakeGateway()
+
+    await useLoginFlow(gateway).resume()
+
+    expect(navigateToMock).toHaveBeenCalledWith('/app')
+    expect(gateway.currentSession).not.toHaveBeenCalled()
+    expect(gateway.issueLicenseToken).not.toHaveBeenCalled()
+  })
+
+  it('resume: sesi sudah ada (kembali dari Google) -> aktivasi otomatis', async () => {
+    const gateway = fakeGateway({ currentSession: vi.fn(async () => SESSION_DTO) })
+
+    await useLoginFlow(gateway).resume()
+
+    expect(gateway.issueLicenseToken).toHaveBeenCalledTimes(1)
+    expect(navigateToMock).toHaveBeenCalledWith('/app')
+  })
+
+  it('resume: belum ada sesi -> tetap di form login', async () => {
+    const gateway = fakeGateway()
+    const flow = useLoginFlow(gateway)
+
+    await flow.resume()
+
+    expect(flow.step.value).toBe('choose')
+    expect(gateway.issueLicenseToken).not.toHaveBeenCalled()
+    expect(navigateToMock).not.toHaveBeenCalled()
+  })
+
+  it('pakai email lain: sesi dicabut, form kembali kosong', async () => {
+    const gateway = fakeGateway({
+      issueLicenseToken: vi.fn(async () => {
+        throw new AuthRequestError('LICENSE_REQUIRED')
+      }),
+    })
+    const flow = await loginWith(gateway)
+
+    await flow.switchEmail()
+
+    expect(gateway.signOut).toHaveBeenCalledTimes(1)
+    expect(flow.step.value).toBe('choose')
+    expect(flow.licenseError.value).toBeNull()
+    expect(storedSession()).toBeNull()
   })
 })
 

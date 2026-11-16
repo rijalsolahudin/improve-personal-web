@@ -23,6 +23,11 @@ export interface AuthGateway {
   currentSession(): Promise<CurrentSessionResult | null>
   /** Cabut sesi perangkat ini di server (cookie ikut dibersihkan server). */
   signOut(): Promise<void>
+  /**
+   * Tukar sesi jadi token lisensi untuk perangkat ini (ADR 15). Gagal dengan `LICENSE_REQUIRED`
+   * (email belum membeli) atau `LICENSE_LIMIT_REACHED` (jatah perangkat habis).
+   */
+  issueLicenseToken(): Promise<string>
 }
 
 /**

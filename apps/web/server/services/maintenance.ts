@@ -1,4 +1,4 @@
-import { and, isNotNull, lt, sql } from 'drizzle-orm'
+import { and, isNotNull, lt } from 'drizzle-orm'
 
 import { oauthStates } from '../db/schema'
 import type { ServiceContext } from './context'
@@ -10,7 +10,7 @@ import { deleteOldRateLimits } from './rate-limit'
  * Logika maintenance berkala (ARCHITECTURE.md §9, `docs/server.dbml`).
  *
  * Ini SATU-SATUNYA sumber implementasi purge/cleanup. Dua pemanggil memakai fungsi yang sama:
- * 1. Task Nitro (`server/tasks/purge-tombstones.ts`, `server/tasks/cleanup-ephemeral.ts`) - jalur
+ * 1. Task Nitro (`server/tasks/cleanup-ephemeral.ts`) - jalur
  *    Nitro yang butuh `nitro.experimental.tasks` menyala supaya task terdaftar.
  * 2. Cron HOST lewat `apps/web/scripts/task.ts` (`tsx`) - jalur yang benar-benar dipanggil crontab.
  *
@@ -23,103 +23,15 @@ import { deleteOldRateLimits } from './rate-limit'
  * aman di-retry atau dijalankan dua proses sekaligus.
  */
 
-/** Retensi tombstone: 90 hari (ARCHITECTURE.md §9, `docs/server.dbml`). */
-export const TOMBSTONE_RETENTION_DAYS = 90
-
 /** Retensi `oauth_states`: 1 jam (dbml). TTL-nya sendiri cuma <= 10 menit. */
 export const OAUTH_STATE_RETENTION_HOURS = 1
 
-const MS_PER_DAY = 24 * 60 * 60 * 1000
 const MS_PER_HOUR = 60 * 60 * 1000
-
-export type PurgeTombstonesSummary = {
-  /** Jumlah tombstone yang dihapus di jalannya kali ini. */
-  readonly purgedRecords: number
-  /** Jumlah user yang `purged_seq`-nya naik (dipakai hanya untuk laporan operasional). */
-  readonly usersAdvanced: number
-  /** Batas umur yang dipakai purge ini (ISO-8601), supaya operator bisa memverifikasi retensinya. */
-  readonly cutoff: string
-}
 
 export type CleanupEphemeralSummary = {
   readonly otpChallenges: number
   readonly oauthStates: number
   readonly rateLimits: number
-}
-
-/**
- * Hapus tombstone `records` yang sudah lewat 90 hari, lalu naikkan `sync_watermarks.purged_seq`.
- *
- * Kenapa harus satu transaksi:
- *
- * Tombstone (baris `records` dengan `deleted = true`) ikut disinkronkan supaya perangkat lain tahu
- * ada data yang dihapus. Kalau tombstone-nya dibuang TANPA memberi tahu siapa pun, perangkat yang
- * lama offline (cursor-nya masih di belakang) akan pull, tidak menemukan apa-apa, lalu saat dia push
- * versi lamanya yang masih hidup, record itu "hidup lagi" - zombie resurrection (ARCHITECTURE.md §9).
- *
- * Sabuk pengamannya `sync_watermarks.purged_seq`: nilai `server_seq` TERTINGGI yang sudah dipurge.
- * Karena itu purge dan kenaikan watermark HARUS satu transaksi: kalau dua langkah ini terpisah dan
- * prosesnya mati di antaranya, tombstone hilang sementara watermark belum naik - dan jendela itu
- * persis jendela zombie resurrection. Endpoint pull menolak cursor < `purged_seq` dengan
- * `409 SYNC_RESET_REQUIRED` (`server/services/sync.ts`), jadi klien yang ketinggalan melakukan full
- * resync alih-alih menghidupkan data yang sudah dihapus.
- *
- * Detail yang menentukan bentuk query ini:
- * - Satu statement (CTE), bukan SELECT-lalu-DELETE. Kalau max `server_seq` dihitung di query
- *   terpisah, ada jendela di antaranya di mana push paralel mengubah `updated_at` baris yang sudah
- *   "terpilih" - watermark bisa naik melewati tombstone yang sebenarnya tidak jadi dihapus, dan
- *   tombstones itu lalu hilang tanpa reset (bentuk lain dari zombie resurrection).
- * - `GREATEST(...)`: watermark HANYA boleh naik. Kalau turun, klien yang sudah lewat `purged_seq`
- *   lama akan diminta reset ulang tanpa alasan.
- * - Predikatnya (`deleted` + `updated_at < cutoff`) cocok dengan index partial
- *   `idx_records_purge` (lihat `server/db/migrations/0001_partial_indexes.sql`) supaya job harian ini
- *   tidak pernah memindai seluruh ciphertext `records`.
- *
- * Log: TIDAK mencatat id record, blob, atau user - yang dikembalikan cuma jumlah baris.
- */
-export async function purgeTombstones(ctx: ServiceContext): Promise<PurgeTombstonesSummary> {
-  const now = ctx.now
-  const cutoff = new Date(now.getTime() - TOMBSTONE_RETENTION_DAYS * MS_PER_DAY)
-
-  // Waktu dikirim sebagai ISO string + cast `::timestamptz`, BUKAN objek `Date`: driver drizzle
-  // postgres-js pada jalur `execute()` meneruskan `Date` mentah ke encoder Node dan gagal
-  // ("The string argument must be of type string ... Received an instance of Date"). String + cast
-  // memberi hasil dan semantik yang sama tanpa bergantung pada perilaku driver itu.
-  const cutoffIso = cutoff.toISOString()
-  const nowIso = now.toISOString()
-
-  const summary = await ctx.db.transaction(
-    async (tx): Promise<Omit<PurgeTombstonesSummary, 'cutoff'>> => {
-      const rows = await tx.execute<{ purgedRecords: number; usersAdvanced: number }>(sql`
-      WITH purged AS (
-        DELETE FROM records
-        WHERE deleted AND updated_at < ${cutoffIso}::timestamptz
-        RETURNING user_id, server_seq
-      ), advanced AS (
-        INSERT INTO sync_watermarks (user_id, purged_seq, updated_at)
-        SELECT user_id, MAX(server_seq), ${nowIso}::timestamptz
-        FROM purged
-        GROUP BY user_id
-        ON CONFLICT (user_id) DO UPDATE
-          SET purged_seq = GREATEST(sync_watermarks.purged_seq, EXCLUDED.purged_seq),
-              updated_at = EXCLUDED.updated_at
-        RETURNING user_id
-      )
-      SELECT
-        (SELECT COUNT(*)::int FROM purged) AS "purgedRecords",
-        (SELECT COUNT(*)::int FROM advanced) AS "usersAdvanced"
-    `)
-
-      const first = rows[0]
-
-      return {
-        purgedRecords: first?.purgedRecords ?? 0,
-        usersAdvanced: first?.usersAdvanced ?? 0,
-      }
-    },
-  )
-
-  return { ...summary, cutoff: cutoff.toISOString() }
 }
 
 /**

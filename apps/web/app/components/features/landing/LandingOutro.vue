@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { MascotName } from '~/utils/mascots'
+import { planPriceLabel, purchasePathFor } from '~/utils/price'
 
 const STICKERS: readonly { name: MascotName; tilt: number }[] = [
   { name: 'kelinci', tilt: -8 },
@@ -26,7 +27,9 @@ const STICKERS: readonly { name: MascotName; tilt: number }[] = [
     </div>
     <h2 id="landing-outro-title" class="heading">{{ $t('landing.outro.title') }}</h2>
     <p class="lead">{{ $t('landing.outro.lead') }}</p>
-    <NuxtLink to="/login" class="cta">{{ $t('landing.outro.cta') }}</NuxtLink>
+    <NuxtLink :to="purchasePathFor('yearly')" class="cta">{{
+      $t('landing.outro.cta', { price: planPriceLabel('yearly') })
+    }}</NuxtLink>
   </section>
 </template>
 

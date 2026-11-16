@@ -64,30 +64,19 @@
       "lainnya": "Lainnya"
     },
     "user": {
-      "label": "Akun",
+      "label": "Profil",
       "initial": "F",
       "name": "Friend",
       "profile": "Edit profil",
       "preferences": "Preferensi",
       "guide": "Panduan",
-      "logout": "Logout",
-      "security": "Keamanan & perangkat"
+      "security": "Data di perangkat ini"
     }
   },
   "storageQuota": {
     "message": "Penyimpanan perangkat penuh. Perubahan terakhir belum tersimpan.",
     "backup": "Unduh backup",
     "dismiss": "Tutup"
-  },
-  "sync": {
-    "status": {
-      "syncing": "Menyinkronkan…",
-      "pending": "Menunggu dikirim ({n})",
-      "offline": "Offline",
-      "error": "Gagal sinkron"
-    },
-    "lastSync": "terakhir {time}",
-    "retry": "Coba lagi"
   },
   "placeholder": {
     "note": "Halaman ini belum didesain · {code}",
@@ -178,7 +167,8 @@
       "empty": "Belum ada task penting & mendesak atau urgent.",
       "more": "Lihat {n} lagi",
       "less": "Lipat lagi",
-      "add": "Tambah prioritas, lalu Enter…",
+      "add": "Judul prioritas, lalu Enter…",
+      "addButton": "+ Tambah",
       "addLabel": "Judul prioritas baru"
     },
     "todo": {
@@ -1042,75 +1032,162 @@
   "landing": {
     "meta": {
       "title": "Rencanakan hari, fokus, rayakan progres",
-      "description": "Goals, kalender, to-do, Pomodoro, habit, sampai memo — semuanya di satu dashboard yang hangat dan nggak bikin pusing."
+      "description": "Satu aplikasi untuk jadwal, to-do, habit, jurnal, dan goals. Hangat, nggak ribet, dan isinya cuma tersimpan di perangkatmu."
     },
     "nav": {
       "label": "Navigasi halaman",
       "features": "Fitur",
-      "how": "Cara kerja",
-      "cta": "Mulai gratis"
+      "privacy": "Privasi",
+      "pricing": "Harga",
+      "faq": "FAQ",
+      "cta": "Masuk"
     },
     "hero": {
-      "badge": "Satu tempat untuk tumbuh",
+      "badge": "Teman kecil untuk hari yang lebih tertata",
       "titleLead": "Rencanakan hari, fokus, lalu",
       "titleHighlight": "rayakan progres.",
-      "lead": "Goals, kalender, to-do, Pomodoro, habit, sampai memo — semuanya di satu dashboard yang hangat dan nggak bikin pusing.",
-      "cta": "Buka dashboard",
-      "secondary": "Lihat fitur",
-      "note": "gratis · bisa offline · bisa import/export ✎"
+      "lead": "Nggak perlu lagi lompat dari satu aplikasi ke aplikasi lain. Jadwal, to-do, habit, jurnal, sampai mimpi jangka panjang kumpul di satu tempat yang enak dilihat, jadi kamu bisa fokus ke hal yang benar-benar penting hari ini.",
+      "cta": "Lihat harga",
+      "secondary": "Lihat isinya dulu",
+      "note": "mulai {price}/bulan · bisa dipakai tanpa internet · web, Android, iOS ✎",
+      "shotAlt": "Halaman Daily: sapaan pagi, prioritas, to-do, habit, dan jadwal hari ini dalam satu layar."
     },
-    "preview": {
-      "greeting": "Selamat pagi, Friend",
-      "nextLabel": "Jadwal berikutnya",
-      "nextTitle": "Belajar AWS SAA",
-      "streak": "hari streak",
-      "goals": "goal aktif",
-      "pomodoro": "pomodoro",
-      "todos": {
-        "vpc": "Review modul VPC",
-        "run": "Lari pagi 3 km",
-        "money": "Catat pengeluaran"
-      }
-    },
-    "features": {
+    "showcase": {
       "kicker": "FITUR",
-      "titleLine1": "Sembilan alat kecil,",
-      "titleLine2": "satu kebiasaan besar.",
-      "lead": "Pakai yang kamu butuh, sembunyikan sisanya. Semua saling terhubung — to-do bisa nempel ke goal, sesi fokus tercatat di overview.",
-      "desc": {
-        "goals": "Pecah target besar jadi milestone yang jelas.",
-        "kalender": "Lihat jadwal mingguan dan sesi fokus sekaligus.",
-        "to-do": "Daftar tugas harian yang bisa nempel ke goal.",
-        "eisenhower": "Pilah mana yang penting, mana yang mendesak.",
-        "pomodoro": "Timer fokus 25 menit dengan jeda otomatis.",
-        "habit": "Bangun streak dari kebiasaan kecil.",
-        "memo": "Catat ide dan refleksi sebelum hilang.",
-        "overview": "Ringkasan progres mingguan dalam satu layar.",
-        "countdown": "Hitung mundur ke ujian, deadline, atau liburan."
+      "title": "Semua yang kamu butuh, tanpa ribet pindah-pindah aplikasi.",
+      "lead": "Setiap bagian saling nyambung. Task yang kamu tulis muncul di kalender, habit yang kamu centang terhitung di laporan, dan goal besar pelan-pelan terpecah jadi langkah harian yang masuk akal.",
+      "items": {
+        "calendar": {
+          "kicker": "KALENDER",
+          "title": "Atur jadwal rutin sekali, beres seterusnya.",
+          "desc": "Olahraga tiap pagi, kelas tiap Selasa-Kamis, rapat tiap Senin. Cukup atur sekali, sisanya muncul sendiri di kalender. Lihat harimu, pekanmu, atau bulanmu, tinggal pilih.",
+          "p1": "Jadwal harian, mingguan, sampai bulanan",
+          "p2": "Ada yang bergeser? Ubah satu hari saja tanpa merusak sisanya",
+          "p3": "Jadwal dan deadline hari ini kelihatan dalam satu pandangan",
+          "alt": "Kalender tampilan pekan dengan jadwal rutin berwarna dan ringkasan hari ini."
+        },
+        "tasks": {
+          "kicker": "TO-DO & EISENHOWER",
+          "title": "Tahu harus mulai dari mana.",
+          "desc": "Daftar tugas panjang sering bikin bingung. Tulis semuanya dulu, lalu pilah mana yang penting dan mana yang cuma terasa mendesak. Yang benar-benar penting nggak akan tenggelam lagi.",
+          "p1": "Selalu tahu sisa waktu sampai deadline",
+          "p2": "Geser tugas ke kotak yang pas, prioritasnya ikut menyesuaikan",
+          "p3": "Tugas yang sudah beres bisa dirapikan sekali klik",
+          "alt": "Matriks Eisenhower dengan tugas di kotak Kerjakan, Jadwalkan, Delegasikan, dan Hapus."
+        },
+        "habit": {
+          "kicker": "HABIT",
+          "title": "Kebiasaan kecil yang akhirnya jadi.",
+          "desc": "Centang tiap hari, lalu lihat streak-mu tumbuh. Ada rasa puas tersendiri waktu angkanya terus naik, dan itu yang bikin kamu bertahan. Bisa juga untuk target berkali-kali sehari, misalnya minum 8 gelas air.",
+          "p1": "Streak dan rekor terbaik untuk tiap kebiasaan",
+          "p2": "Atur untuk tiap hari atau hari-hari tertentu saja",
+          "p3": "Kasih ikon dan warna sesuai selera",
+          "alt": "Tabel habit bulan ini dengan centang harian, streak, dan persentase."
+        },
+        "journal": {
+          "kicker": "JOURNAL",
+          "title": "Tempat tenang untuk ngobrol sama diri sendiri.",
+          "desc": "Tulis gimana perasaanmu hari ini, hal yang kamu syukuri, dan cerita yang pengin kamu ingat. Kertasnya bergaris, nyaman ditulis, dan cuma kamu yang bisa membacanya.",
+          "p1": "Catat mood harian dan lihat polanya dari waktu ke waktu",
+          "p2": "Sebut jadwal atau goal langsung di tulisanmu dengan {'@'} dan {'#'}",
+          "p3": "Mode fokus kalau lagi pengin nulis tanpa gangguan",
+          "alt": "Halaman Journal dengan pilihan mood, kalimat penyemangat, dan catatan harian."
+        },
+        "goals": {
+          "kicker": "GOALS",
+          "title": "Mimpi besar, dicicil jadi langkah kecil.",
+          "desc": "Tulis apa yang ingin kamu capai dan kenapa itu penting. Pecah jadi beberapa tahap, sambungkan dengan tugas dan kebiasaan harianmu, lalu lihat progresnya bergerak sedikit demi sedikit.",
+          "p1": "Progres terisi sendiri dari tugas dan kebiasaan yang terhubung",
+          "p2": "Kelompokkan per bidang: karier, kesehatan, keuangan, dan lainnya",
+          "p3": "Bikin hitung mundur ke target dengan satu klik",
+          "alt": "Halaman Goals dengan daftar goal aktif, progres, dan tahapannya."
+        }
       }
     },
-    "steps": {
-      "kicker": "CARA KERJA",
-      "title": "Tiga langkah, tiap hari.",
+    "more": {
+      "title": "Dan masih ada lagi.",
       "items": {
-        "1": {
-          "title": "Tulis goal",
-          "desc": "Mulai dari satu tujuan yang kamu peduli, lalu pecah jadi langkah kecil."
+        "overview": {
+          "title": "Overview",
+          "desc": "Lihat seberapa jauh kamu melangkah: menit fokus, kebiasaan yang tercapai, tugas yang selesai tepat waktu, sampai naik-turun mood-mu, per pekan, bulan, atau tahun.",
+          "alt": "Overview pekanan dengan menit fokus, streak, dan tren mood."
         },
-        "2": {
-          "title": "Jadwalkan & fokus",
-          "desc": "Taruh di kalender, tekan Fokus, dan biarkan Pomodoro jaga ritmenya."
+        "pomodoro": {
+          "title": "Pomodoro",
+          "desc": "Fokus 25 menit, istirahat sebentar, ulangi. Tinggal pilih tugas yang mau dikerjakan, sisanya timer yang jaga ritme.",
+          "alt": "Timer Pomodoro."
         },
-        "3": {
-          "title": "Lihat progresnya",
-          "desc": "Overview dan streak habit menunjukkan seberapa jauh kamu melangkah."
+        "countdown": {
+          "title": "Countdown",
+          "desc": "Hitung mundur ke liburan, ulang tahun orang tersayang, atau deadline penting, biar momen yang ditunggu selalu kelihatan.",
+          "alt": "Daftar hitung mundur menuju liburan, ulang tahun, dan deadline."
+        }
+      }
+    },
+    "privacy": {
+      "kicker": "PRIVASI",
+      "title": "Isinya punyamu. Bukan punya kami.",
+      "items": {
+        "local": {
+          "title": "Cuma kamu yang bisa baca",
+          "desc": "Jurnal, mood, dan rencanamu tersimpan di perangkatmu sendiri, bukan di server kami. Nggak ada yang ikut mengintip."
+        },
+        "offline": {
+          "title": "Tetap jalan walau sinyal hilang",
+          "desc": "Di kereta, di pesawat, atau pas kuota habis, aplikasinya tetap bisa dibuka dan dipakai seperti biasa."
+        },
+        "backup": {
+          "title": "Ganti HP tanpa drama",
+          "desc": "Simpan semua datamu jadi satu berkas kapan saja, lalu buka lagi di perangkat baru. Semuanya kembali seperti semula."
+        }
+      }
+    },
+    "pricing": {
+      "kicker": "HARGA",
+      "title": "Pilih yang paling pas buatmu.",
+      "lead": "Semua paket dapat semua fitur, di web, Android, dan iOS. Bayar di muka, tanpa tagihan otomatis yang tiba-tiba memotong saldo.",
+      "featured": "Paling hemat · hemat {percent}%",
+      "items": {
+        "monthly": "Pas untuk coba dulu. Kalau cocok, perpanjang kapan saja tanpa kehilangan sisa hari.",
+        "yearly": "Pilihan favorit. Setahun penuh, cuma sekitar {perMonth} per bulan.",
+        "lifetime": "Sekali bayar, pakai seterusnya, termasuk semua pembaruan."
+      },
+      "cta": "Pilih {plan}",
+      "note": "Kalau masa aktifmu habis, datamu tetap aman. Kamu masih bisa membuka, menyimpan, dan memindahkannya. Hanya menambah dan mengubah isinya yang menunggu sampai kamu perpanjang."
+    },
+    "faq": {
+      "title": "Yang sering ditanyakan",
+      "items": {
+        "internet": {
+          "q": "Harus selalu online, nggak?",
+          "a": "Nggak. Internet cuma perlu waktu membeli dan saat pertama kali masuk di perangkat. Setelah itu kamu bisa pakai kapan saja, ada sinyal atau nggak."
+        },
+        "storage": {
+          "q": "Jurnal dan rencanaku disimpan di mana?",
+          "a": "Di perangkatmu sendiri. Kami cuma mencatat email yang kamu pakai membeli supaya bisa memastikan langgananmu aktif. Isi jurnal, jadwal, dan catatanmu nggak pernah kami simpan."
+        },
+        "devices": {
+          "q": "Bisa dipakai di HP dan laptop sekaligus?",
+          "a": "Bisa. Satu pembelian berlaku di web, Android, dan iOS, untuk sampai 5 perangkat dengan email yang sama."
+        },
+        "expired": {
+          "q": "Kalau langganan habis, dataku hilang?",
+          "a": "Nggak sama sekali. Semua isinya tetap ada dan bisa kamu buka, simpan, atau pindahkan. Begitu diperpanjang, kamu bisa langsung lanjut menulis dan menambah lagi."
+        },
+        "move": {
+          "q": "Gimana kalau ganti HP?",
+          "a": "Simpan datamu jadi satu berkas di HP lama, lalu buka berkas itu di HP baru. Biasakan menyimpan cadangan secara rutin, karena kalau perangkat hilang tanpa cadangan, isinya nggak bisa kami kembalikan."
+        },
+        "payment": {
+          "q": "Bayarnya pakai apa?",
+          "a": "Bisa QRIS, e-wallet, atau transfer bank, lewat Mayar. Sekali bayar di muka, tanpa potongan otomatis di kemudian hari."
         }
       }
     },
     "outro": {
       "title": "Progres kecil tetap progres.",
-      "lead": "Pilih stiker favoritmu, atur tema, dan mulai dari satu to-do hari ini.",
-      "cta": "Mulai sekarang — gratis"
+      "lead": "Mulai dari satu hal kecil hari ini: satu to-do, satu kebiasaan, satu kalimat di jurnal. Sisanya biar pelan-pelan tumbuh.",
+      "cta": "Mulai sekarang · {price}/tahun"
     },
     "footer": {
       "label": "Tautan footer",
@@ -1123,16 +1200,16 @@
     },
     "brand": {
       "headline": "Halo lagi! Yuk lanjut tumbuh pelan-pelan.",
-      "sub": "Task, jurnal, habit, dan pomodoro-mu sudah nunggu."
+      "sub": "Datamu tetap di perangkat ini. Masuk cuma buat memastikan lisensimu."
     },
     "google": {
       "idle": "Lanjut dengan Google",
       "pending": "Menghubungkan ke Google…"
     },
     "choose": {
-      "eyebrow": "MASUK / DAFTAR",
-      "title": "Masuk ke akunmu",
-      "sub": "Belum punya akun? Cara yang sama langsung bikin akun baru.",
+      "eyebrow": "AKTIVASI",
+      "title": "Masuk dengan email pembelian",
+      "sub": "Pakai email yang kamu pakai saat membeli. Cukup sekali per perangkat; setelah itu aplikasi jalan tanpa internet.",
       "divider": "ATAU PAKAI EMAIL",
       "emailLabel": "EMAIL",
       "emailPlaceholder": "kamu{'@'}email.com",
@@ -1164,7 +1241,74 @@
       "unavailable": "Server login belum bisa dihubungi. Cek koneksimu, lalu coba lagi.",
       "generic": "Ada yang salah. Coba lagi sebentar lagi."
     },
-    "terms": "Dengan masuk, kamu setuju dengan Ketentuan dan Kebijakan Privasi."
+    "terms": "Dengan masuk, kamu setuju dengan Ketentuan dan Kebijakan Privasi.",
+    "license": {
+      "eyebrow": "LISENSI",
+      "notPurchased": {
+        "title": "Email ini belum membeli",
+        "body": "Aplikasi ini dipakai dengan email yang sama saat membeli (bulanan, tahunan, atau lifetime). Kalau kamu membeli dengan email lain, masuk pakai email itu."
+      },
+      "limitReached": {
+        "title": "Jatah perangkat habis",
+        "body": "Lisensi ini sudah aktif di jumlah perangkat maksimum. Hubungi kami untuk memindahkannya ke perangkat ini."
+      },
+      "network": {
+        "title": "Server nggak terjangkau",
+        "body": "Aktivasi butuh internet sekali saja. Cek koneksi lalu coba lagi; setelah aktif, aplikasi jalan tanpa internet."
+      },
+      "unavailable": {
+        "title": "Aktivasi belum berhasil",
+        "body": "Ada masalah di sisi kami. Coba lagi sebentar lagi."
+      },
+      "buy": "Beli sekarang",
+      "retry": "Coba lagi",
+      "otherEmail": "Masuk dengan email lain"
+    }
+  },
+  "purchase": {
+    "meta": {
+      "title": "Beli"
+    },
+    "eyebrow": "BELI LISENSI",
+    "title": "Pilih paketmu",
+    "sub": "Berlaku di web, Android, dan iOS. Bayar di muka, tanpa tagihan otomatis. Datamu tetap di perangkatmu sendiri.",
+    "planLabel": "PAKET",
+    "nameLabel": "NAMA",
+    "emailLabel": "EMAIL",
+    "emailHint": "Email ini yang nanti dipakai untuk masuk ke aplikasi.",
+    "mobileLabel": "NOMOR WHATSAPP",
+    "mobilePlaceholder": "08xxxxxxxxxx",
+    "submit": "Bayar {price}",
+    "haveLicense": "Sudah beli? Masuk di sini",
+    "note": "Pembayaran diproses Mayar (QRIS, e-wallet, transfer bank). Nomor WhatsApp hanya diteruskan ke Mayar, tidak kami simpan.",
+    "error": {
+      "fields": "Cek lagi nama, email, dan nomor WhatsApp-nya.",
+      "rateLimited": "Terlalu banyak percobaan. Coba lagi sebentar lagi.",
+      "unavailable": "Server nggak terjangkau. Cek koneksi lalu coba lagi.",
+      "generic": "Pembayaran belum bisa dibuat. Coba lagi sebentar lagi."
+    },
+    "done": {
+      "eyebrow": "TERIMA KASIH",
+      "title": "Pembayaran diterima",
+      "body": "Masuk dengan email yang kamu pakai saat membeli. Kalau aplikasi bilang belum membeli, tunggu sebentar lalu tekan Coba lagi - konfirmasi dari Mayar kadang butuh beberapa menit.",
+      "cta": "Masuk sekarang",
+      "note": "Butuh bantuan? Balas email konfirmasi dari Mayar atau hubungi kami."
+    }
+  },
+  "plans": {
+    "monthly": {
+      "name": "Bulanan",
+      "period": "/bulan"
+    },
+    "yearly": {
+      "name": "Tahunan",
+      "period": "/tahun"
+    },
+    "lifetime": {
+      "name": "Lifetime",
+      "period": " sekali bayar"
+    },
+    "saving": "Hemat {percent}%"
   },
   "appearance": {
     "label": "Tampilan",
@@ -1213,14 +1357,8 @@
     },
     "listItem": "{list} nomor {n}"
   },
-  "keys": {
-    "freshKeyWarning": "Data di perangkat ini dienkripsi dengan kunci baru. Recovery key belum diatur: kalau perangkat ini hilang atau datanya terhapus, isinya tidak bisa dipulihkan. Jangan dipakai untuk data penting sampai onboarding kunci selesai.",
-    "localDataError": "Data lokal tidak bisa dibuka, jadi daftar ini kosong. Coba muat ulang halaman; kalau tetap gagal, periksa penyimpanan browser.",
-    "localDataErrorDetail": "Sebab teknis:"
-  },
   "account": {
-    "title": "Keamanan & perangkat",
-    "errorPrefix": "Gagal:",
+    "title": "Data di perangkat ini",
     "storage": {
       "title": "Penyimpanan",
       "usageValue": "{used} dari {total} ({pct}%)",
@@ -1229,8 +1367,8 @@
       "protectionOn": "aktif",
       "protectionOff": "belum aktif",
       "protectionUnknown": "tidak diketahui",
-      "unprotectedHint": "Browser bisa menghapus salinan lokal saat ruang perangkat menipis. Data tetap aman di server dan akan diunduh ulang saat dibutuhkan.",
-      "nearFull": "Penyimpanan lokal hampir penuh. Data tetap aman di server; bersihkan riwayat atau export kalau perlu salinan.",
+      "unprotectedHint": "Browser bisa menghapus data saat ruang perangkat menipis, dan data ini tidak ada di server mana pun. Aktifkan penyimpanan permanen dan unduh backup secara rutin.",
+      "nearFull": "Penyimpanan lokal hampir penuh. Unduh backup dulu supaya ada salinan, lalu bersihkan riwayat terhapus.",
       "protect": "Jadikan permanen",
       "backup": "Unduh backup",
       "compact": "Bersihkan riwayat terhapus",
@@ -1238,41 +1376,6 @@
       "compactDone": "{n} record dibersihkan.",
       "compactNone": "Tidak ada riwayat yang perlu dibersihkan.",
       "unsupported": "Browser ini tidak menyediakan informasi penyimpanan lokal."
-    },
-    "devices": {
-      "title": "Perangkat",
-      "empty": "Belum ada perangkat lain.",
-      "current": "perangkat ini",
-      "lastSeen": "aktif",
-      "revoked": "sudah dicabut",
-      "revoke": "Cabut akses",
-      "remove": "Hapus"
-    },
-    "delete": {
-      "cardTitle": "Hapus akun",
-      "cardHint": "Semua data di server terhapus permanen.",
-      "open": "Hapus akun",
-      "title": "Hapus akun permanen",
-      "warning": "Semua data akun di server dihapus permanen: perangkat, sesi, dan seluruh record. Tindakan ini tidak bisa dibatalkan.",
-      "emailLabel": "Email akun",
-      "emailHint": "Ketik ulang email akunmu - harus sama dengan email yang login.",
-      "codeLabel": "Kode konfirmasi",
-      "codePlaceholder": "6 digit",
-      "send": "Kirim kode ke email",
-      "sending": "Mengirim kode…",
-      "resendIn": "Kirim ulang dalam {time}",
-      "submit": "Hapus akun permanen",
-      "busy": "Menghapus…",
-      "errors": {
-        "emailEmpty": "Isi email akun dulu ya.",
-        "emailInvalid": "Format email belum benar.",
-        "emailMismatch": "Email ini bukan email akun yang sedang login.",
-        "codeIncomplete": "Lengkapi 6 digit kodenya.",
-        "codeInvalid": "Kode salah atau sudah kedaluwarsa.",
-        "rateLimited": "Kebanyakan percobaan. Tunggu sebentar, lalu coba lagi.",
-        "unavailable": "Server tidak bisa dihubungi. Periksa koneksi, lalu coba lagi.",
-        "generic": "Ada yang salah. Coba lagi sebentar lagi."
-      }
     }
   },
   "profile": {
@@ -1282,7 +1385,6 @@
     "removePhoto": "Hapus foto",
     "nameLabel": "Nama",
     "namePlaceholder": "Nama panggilanmu",
-    "emailNote": "Masuk sebagai {email}",
     "locked": "Buka datamu di perangkat ini dulu untuk mengubah profil.",
     "cancel": "Batal",
     "save": "Simpan",

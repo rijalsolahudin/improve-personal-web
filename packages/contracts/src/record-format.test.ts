@@ -25,9 +25,9 @@ import {
   kidSchema,
   parseSealedBlobHeader,
   sealedRecordV2BlobBytes,
+  SEALED_RECORD_MAX_BLOB_BYTES,
   type RecordAadV2Input,
 } from './record-format.ts'
-import { SEALED_RECORD_MAX_BLOB_BYTES } from './sync.ts'
 
 // -----------------------------------------------------------------------------
 // Fixture deterministik. MENGUBAH SATU PUN NILAI DI SINI berarti vektor emas harus dibuat ulang

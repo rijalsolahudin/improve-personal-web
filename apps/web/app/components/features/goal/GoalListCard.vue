@@ -14,6 +14,8 @@ defineEmits<{ select: [] }>()
 
 const { dayMonthYear } = useDateFormat()
 const progress = computed(() => goalProgress(goal))
+/** Daftar cukup bilangan bulat; desimal ("33.3%") hanya menambah lebar tanpa info berarti. */
+const progressLabel = computed(() => Math.round(progress.value))
 const isReview = computed(() => needsReview(goal, today))
 /** Status "aktif" adalah keadaan normal - chip-nya cuma menambah bising (design v2). */
 const hasChips = computed(() => goal.status !== 'aktif' || isReview.value)
@@ -41,9 +43,13 @@ const palette = computed(() => ({
           {{ $t('goals.target', { date: dayMonthYear(fromIsoDate(goal.end).getTime()) }) }}
         </span>
       </span>
-      <span class="pct">{{ progress }}%</span>
     </span>
-    <ProgressBar class="bar" :pct="progress" color="var(--goal-solid)" track="var(--chip)" />
+    <!-- Persentase di baris progress, bukan di baris judul: kolom daftar sempit, dan angka di
+         samping judul dulu memeras judul jadi satu kata per baris. -->
+    <span class="progress">
+      <ProgressBar class="bar" :pct="progress" color="var(--goal-solid)" track="var(--chip)" />
+      <span class="pct">{{ progressLabel }}%</span>
+    </span>
     <span v-if="hasChips" class="chips">
       <GoalChip v-if="goal.status !== 'aktif'" :tone="GOAL_STATUS_TONE[goal.status]">{{
         $t(`goals.status.${goal.status}`)
@@ -89,6 +95,7 @@ const palette = computed(() => ({
   font-weight: var(--fw-display);
   font-size: var(--fs-display-18);
   line-height: 1.15;
+  text-wrap: balance;
 }
 
 .meta {
@@ -97,10 +104,20 @@ const palette = computed(() => ({
   color: var(--mute);
 }
 
+.progress {
+  display: flex;
+  align-items: center;
+  gap: var(--space-10);
+}
+
+.bar {
+  flex: 1;
+}
+
 .pct {
   font-family: var(--font-display);
   font-weight: var(--fw-display);
-  font-size: var(--fs-display-18);
+  font-size: var(--fs-display-15);
   font-variant-numeric: tabular-nums;
 }
 

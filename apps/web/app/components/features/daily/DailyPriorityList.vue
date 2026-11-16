@@ -2,7 +2,13 @@
 import { TASK_TITLE_MAX } from '~/utils/tasks'
 import { PRIORITY_VISIBLE_COUNT, type PriorityTask } from '~/utils/dailyRoutine'
 
-/** Prioritas hari ini (PRD F12): Penting & Mendesak + urgent, tanpa batas; daftar panjang dilipat. */
+/**
+ * Prioritas hari ini (PRD F12): Penting & Mendesak + urgent, tanpa batas; daftar panjang dilipat.
+ *
+ * Tambah prioritas lewat tombol "+ Tambah" di kepala (seperti panel Kalender), bukan baris input
+ * yang selalu terlihat: input baru muncul setelah tombol ditekan, lalu tetap terbuka untuk isian
+ * berikutnya sampai Esc atau ditinggal kosong.
+ */
 const { priorities, now } = defineProps<{ priorities: readonly PriorityTask[]; now: number }>()
 const emit = defineEmits<{
   toggle: [id: string]
@@ -12,12 +18,30 @@ const emit = defineEmits<{
 }>()
 
 const draft = ref('')
+const isAdding = ref(false)
+const addForm = useTemplateRef<HTMLFormElement>('addForm')
+
+async function startAdding(): Promise<void> {
+  isAdding.value = true
+  await nextTick()
+  addForm.value?.querySelector('input')?.focus()
+}
+
+function stopAdding(): void {
+  draft.value = ''
+  isAdding.value = false
+}
 
 function submit(): void {
   const title = draft.value.trim()
   if (!title) return
   emit('add', title)
   draft.value = ''
+}
+
+/** Ditinggal kosong = batal; yang sudah diketik tidak dibuang hanya karena fokus pindah. */
+function onBlur(): void {
+  if (!draft.value.trim()) stopAdding()
 }
 
 const isExpanded = ref(false)
@@ -34,9 +58,25 @@ const visible = computed(() =>
         <AppIcon icon="target" color="--icon-countdown" :size="38" />
         <h2 id="daily-prio-title" class="title">{{ $t('daily.prio.title') }}</h2>
       </div>
-      <NuxtLink :to="getFeature('eisenhower').path" class="link" :title="$t('daily.prio.linkHint')">
-        <span class="link-dot" aria-hidden="true" />{{ $t('daily.prio.link') }}
-      </NuxtLink>
+      <div class="actions">
+        <NuxtLink
+          :to="getFeature('eisenhower').path"
+          class="link"
+          :title="$t('daily.prio.linkHint')"
+        >
+          <span class="link-dot" aria-hidden="true" />{{ $t('daily.prio.link') }}
+        </NuxtLink>
+        <Button
+          variant="ghost"
+          size="xs"
+          class="add-btn"
+          :aria-expanded="isAdding"
+          aria-controls="daily-prio-add"
+          @click="startAdding"
+        >
+          {{ $t('daily.prio.addButton') }}
+        </Button>
+      </div>
     </div>
 
     <ol v-if="priorities.length" id="daily-prio-list" class="list">
@@ -65,8 +105,7 @@ const visible = computed(() =>
       {{ isExpanded ? $t('daily.prio.less') : $t('daily.prio.more', { n: hiddenCount }) }}
     </Button>
 
-    <form class="add" @submit.prevent="submit">
-      <span class="plus" aria-hidden="true">+</span>
+    <form v-if="isAdding" id="daily-prio-add" ref="addForm" class="add" @submit.prevent="submit">
       <Input
         v-model="draft"
         variant="bare"
@@ -74,6 +113,8 @@ const visible = computed(() =>
         :maxlength="TASK_TITLE_MAX"
         :placeholder="$t('daily.prio.add')"
         :aria-label="$t('daily.prio.addLabel')"
+        @keydown.esc="stopAdding"
+        @blur="onBlur"
       />
     </form>
   </section>
@@ -105,6 +146,12 @@ const visible = computed(() =>
   font-weight: var(--fw-display);
   font-size: var(--fs-h2);
   line-height: 1.1;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-14);
 }
 
 .link {
@@ -146,38 +193,27 @@ const visible = computed(() =>
 .more {
   align-self: flex-start;
 }
+.add-btn {
+  white-space: nowrap;
+}
+
+/* Bentuk sama dengan kartu prioritas: isian baru terlihat seperti baris yang akan muncul. */
 .add {
   display: flex;
-  /* Baseline, bukan center: tiap gaya memasangkan font `+` dan font tulisan tangan yang posisi
-     glyph-nya di line box berbeda (Special Elite duduk tinggi), jadi center membuat `+` turun. */
-  align-items: baseline;
-  gap: var(--space-12);
-  padding: var(--space-4) var(--space-14);
-  border: var(--border-thin) dashed var(--dash);
-  border-radius: var(--radius-pill);
+  padding: var(--space-6) var(--space-16);
+  border: var(--border) solid var(--outline);
+  border-radius: calc(18px * var(--rk));
+  background: var(--paper);
 }
 
-.add:hover {
-  border-color: var(--dash-2);
-}
-
-/* Wadah pill yang menandai fokus (a11y), bukan <input> di dalamnya. */
+/* Indikator fokus di wadah, bukan ring persegi input di dalamnya. */
 .add:focus-within {
-  border-color: var(--outline);
-  border-style: solid;
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
 }
 
-/* Indikator fokus sudah di `.add:focus-within`; ring input persegi di dalam pill dimatikan. */
 .add-input:focus-visible {
   outline: none;
-}
-
-.plus {
-  width: 22px;
-  text-align: center;
-  font-weight: var(--fw-strong);
-  font-size: var(--fs-18);
-  color: var(--accent);
 }
 
 .add-input {
@@ -185,10 +221,8 @@ const visible = computed(() =>
   min-width: 0;
   border: 0;
   background: transparent;
-  font-family: var(--font-hand);
-  /* Patrick Hand hanya punya weight 400; input mewarisi `--fw-body` (700) → faux-bold. */
-  font-weight: 400;
-  font-size: var(--fs-hand-18);
-  line-height: 32px;
+  font-weight: var(--fw-strong);
+  font-size: var(--fs-15);
+  line-height: 36px;
 }
 </style>

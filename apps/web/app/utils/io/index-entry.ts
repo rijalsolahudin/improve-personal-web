@@ -6,13 +6,9 @@ import { fromIsoDate } from '../time'
 /**
  * Baris `record_index` dari record domain yang sudah didekripsi.
  *
- * Dipakai dua jalur yang harus menghasilkan rentang SAMA dengan jalur tulis fiturnya:
- * - import backup (`utils/io/import.ts`),
- * - record hasil pull sync (`utils/sync/controller.ts`).
- *
- * Kalau rentangnya beda, data masuk ke storage tetapi tidak muncul di query kalender/daftar.
- * Modul ini sengaja terpisah dari `io/import.ts` supaya controller sync tidak menyeret seluruh
- * mesin import/backup ke chunk shell.
+ * Dipakai jalur yang menulis record di luar composable fitur (import backup, `utils/io/import.ts`), dan
+ * harus menghasilkan rentang SAMA dengan jalur tulis fiturnya. Kalau rentangnya beda, data masuk ke
+ * storage tetapi tidak muncul di query kalender/daftar.
  */
 
 type IndexRange = {

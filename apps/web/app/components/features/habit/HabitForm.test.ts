@@ -6,7 +6,6 @@ import { resetHabitsHydrationForTest } from '~/composables/useHabits'
 import { resetLocalDataSessionForTest } from '~/composables/useLocalData'
 import type { Habit } from '~/utils/habits'
 
-import { TEST_USER_A, signIn } from '../../../../tests/nuxt/local-session'
 import HabitForm from './HabitForm.vue'
 
 /**
@@ -80,21 +79,11 @@ async function expectWriteError(wrapper: VueWrapper, text: string): Promise<void
 }
 
 beforeEach(() => {
-  clearNuxtState([
-    'habits',
-    'habitsCheckIns',
-    'habitsStatus',
-    'habitsError',
-    'localData',
-    'auth-session',
-    'auth-session-pending',
-    'auth-session-error',
-  ])
+  clearNuxtState(['habits', 'habitsCheckIns', 'habitsStatus', 'habitsError', 'localData'])
   resetHabitsHydrationForTest()
   resetLocalDataSessionForTest()
   openSession.mockReset()
   openSession.mockRejectedValue(new Error('penyimpanan tidak bisa dibuka'))
-  signIn(TEST_USER_A)
 })
 
 afterEach(async () => {

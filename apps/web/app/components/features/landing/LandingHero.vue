@@ -1,3 +1,12 @@
+<script setup lang="ts">
+import { planPriceLabel } from '~/utils/price'
+
+const PHONE_WIDTH = 600
+const PHONE_HEIGHT = 1298
+/** Screenshot Daily dipotret 1440x1300 (`scripts/landing/shots.ts`) supaya Habit ikut terlihat. */
+const DAILY_SHOT_HEIGHT = 1444
+</script>
+
 <template>
   <header class="hero">
     <div class="copy">
@@ -11,20 +20,31 @@
       </h1>
       <p class="lead">{{ $t('landing.hero.lead') }}</p>
       <div class="actions">
-        <NuxtLink :to="APP_HOME_PATH" class="btn btn-primary">{{
-          $t('landing.hero.cta')
-        }}</NuxtLink>
+        <a href="#harga" class="btn btn-primary">{{ $t('landing.hero.cta') }}</a>
         <a href="#fitur" class="btn btn-outline">{{ $t('landing.hero.secondary') }}</a>
       </div>
-      <p class="note">{{ $t('landing.hero.note') }}</p>
+      <p class="note">{{ $t('landing.hero.note', { price: planPriceLabel('monthly') }) }}</p>
     </div>
-    <!--
-      Cuplikan dashboard di hero: murni hiasan statis (`aria-hidden`), tidak punya state atau
-      interaksi. Dirender saat build/pre-render, tetapi tidak dihidrasi - chunk maskot yang
-      dibutuhkannya tidak lagi masuk `modulepreload` halaman ini (Nuxt masih memberi hint
-      `prefetch` prioritas rendah karena komponennya async; itu perilaku framework).
-    -->
-    <LazyLandingPreviewCard hydrate-never />
+
+    <div class="stage">
+      <LandingShot
+        name="daily"
+        :alt="$t('landing.hero.shotAlt')"
+        is-eager
+        :height="DAILY_SHOT_HEIGHT"
+        sizes="(min-width: 1200px) 1100px, 100vw"
+      />
+      <!-- Versi HP: hiasan pendamping (alt kosong) - isinya sama dengan screenshot di sebelahnya. -->
+      <img
+        class="phone"
+        src="/landing/daily-phone.webp"
+        alt=""
+        :width="PHONE_WIDTH"
+        :height="PHONE_HEIGHT"
+        loading="lazy"
+        decoding="async"
+      />
+    </div>
   </header>
 </template>
 
@@ -32,17 +52,44 @@
 .hero {
   width: 100%;
   max-width: 1200px;
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 440px), 1fr));
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: var(--space-48);
+  gap: clamp(40px, 6vw, 72px);
+}
+
+.stage {
+  position: relative;
+  width: 100%;
+  max-width: 1100px;
+}
+
+.phone {
+  position: absolute;
+  right: clamp(-48px, -3vw, -16px);
+  bottom: -40px;
+  width: clamp(120px, 17%, 190px);
+  height: auto;
+  border: var(--border-thick) solid var(--outline);
+  border-radius: calc(26px * var(--rk));
+  box-shadow: calc(6px * var(--sx)) calc(6px * var(--sy)) calc(6px * var(--sbl))
+    var(--shadow-color, var(--ink));
+  transform: rotate(calc(4deg * var(--bev)));
+}
+
+/* Di layar sempit screenshot HP menutupi terlalu banyak isi screenshot utama. */
+@media (max-width: 640px) {
+  .phone {
+    display: none;
+  }
 }
 
 .copy {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: center;
   gap: var(--space-22);
+  text-align: center;
 }
 
 .badge {
@@ -70,7 +117,8 @@
 .title {
   font-family: var(--font-display);
   font-weight: var(--fw-display);
-  font-size: calc(clamp(44px, 6vw, 72px) * var(--fk-display));
+  max-width: 15em;
+  font-size: calc(clamp(40px, 6vw, 72px) * var(--fk-display));
   line-height: 1.12;
   letter-spacing: -0.01em;
   text-wrap: balance;
@@ -102,6 +150,7 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+  justify-content: center;
   gap: var(--space-12);
 }
 

@@ -77,8 +77,7 @@ const SAME_RULE = vueFiles(appRoot())
 const DESCENDANT_TEXT = [
   { file: '/components/ui/StatTile/index.vue', selector: '.tile-primary .label' },
   { file: '/components/features/calendar/CalendarDayPanel.vue', selector: '.dow' },
-  { file: '/components/features/landing/LandingSteps.vue', selector: '.kicker' },
-  { file: '/components/features/landing/LandingPreviewCard.vue', selector: '.next-label' },
+  { file: '/components/features/landing/LandingPrivacy.vue', selector: '.kicker' },
   { file: '/components/features/daily/DailyWeatherPicker.vue', selector: '.option.on' },
 ] as const
 

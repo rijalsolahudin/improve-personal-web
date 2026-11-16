@@ -1,11 +1,12 @@
+import { randomBytes } from 'node:crypto'
+
+import { emailSchema, licensePlanSchema } from '@improve-personal/contracts'
+
 import { closeAllDatabases, databaseFor } from '../server/db/client'
-import {
-  cleanupEphemeral,
-  purgeTombstones,
-  type CleanupEphemeralSummary,
-  type PurgeTombstonesSummary,
-} from '../server/services/maintenance'
+import { grantLicense } from '../server/services/license'
+import { cleanupEphemeral, type CleanupEphemeralSummary } from '../server/services/maintenance'
 import { resolveServerEnv } from '../server/utils/env'
+import { LICENSE_SEED_BYTES, createLicenseSigner } from '../server/utils/license-signing'
 
 /**
  * Entry cron HOST - dijalankan di luar proses Nitro lewat `tsx`.
@@ -28,8 +29,9 @@ import { resolveServerEnv } from '../server/utils/env'
  * (`NUXT_DATABASE_URL`, pepper, dst) dari secret manager/container - bukan dari berkas yang di-commit.
  *
  * Pakai:
- *   tsx scripts/task.ts purge-tombstones
  *   tsx scripts/task.ts cleanup-ephemeral
+ *   tsx scripts/task.ts license-keygen
+ *   tsx scripts/task.ts license-grant <email> <order-ref> [monthly|yearly|lifetime]
  */
 
 /** Petakan env `NUXT_*` ke bentuk config yang diterima `resolveServerEnv` (key privat runtimeConfig). */
@@ -47,21 +49,49 @@ function runtimeConfigFromProcessEnv(): Record<string, unknown> {
     trustedProxyHops: process.env.NUXT_TRUSTED_PROXY_HOPS,
     resendApiKey: process.env.NUXT_RESEND_API_KEY,
     mailFrom: process.env.NUXT_MAIL_FROM,
-    recordEncryptionKeys: process.env.NUXT_RECORD_ENCRYPTION_KEYS,
-    recordEncryptionActiveVersion: process.env.NUXT_RECORD_ENCRYPTION_ACTIVE_VERSION,
+    licenseSigningKey: process.env.NUXT_LICENSE_SIGNING_KEY,
+    mayarApiKey: process.env.NUXT_MAYAR_API_KEY,
+    mayarWebhookToken: process.env.NUXT_MAYAR_WEBHOOK_TOKEN,
+    mayarProduct: process.env.NUXT_MAYAR_PRODUCT,
+    mayarEnvironment: process.env.NUXT_MAYAR_ENVIRONMENT,
+    priceOverrideIdr: process.env.NUXT_PRICE_OVERRIDE_IDR,
+    public: { licensePublicKey: process.env.NUXT_PUBLIC_LICENSE_PUBLIC_KEY },
   }
 }
 
+function contextFromProcessEnv() {
+  const env = resolveServerEnv(runtimeConfigFromProcessEnv())
+  return { db: databaseFor(env.databaseUrl), env, now: new Date(), clientIp: null }
+}
+
 const TASKS = {
-  'purge-tombstones': async (): Promise<PurgeTombstonesSummary> => {
-    const env = resolveServerEnv(runtimeConfigFromProcessEnv())
-    const ctx = { db: databaseFor(env.databaseUrl), env, now: new Date(), clientIp: null }
-    return purgeTombstones(ctx)
+  'cleanup-ephemeral': async (): Promise<CleanupEphemeralSummary> =>
+    cleanupEphemeral(contextFromProcessEnv()),
+  /**
+   * Pasangan kunci lisensi baru untuk satu environment. Seed-nya RAHASIA: salin langsung ke secret
+   * manager (`NUXT_LICENSE_SIGNING_KEY`), jangan ke berkas yang di-commit. Tidak butuh DB/env.
+   */
+  'license-keygen': async () => {
+    const seed = randomBytes(LICENSE_SEED_BYTES).toString('base64')
+    return {
+      NUXT_LICENSE_SIGNING_KEY: seed,
+      NUXT_PUBLIC_LICENSE_PUBLIC_KEY: createLicenseSigner(seed).publicKey,
+    }
   },
-  'cleanup-ephemeral': async (): Promise<CleanupEphemeralSummary> => {
-    const env = resolveServerEnv(runtimeConfigFromProcessEnv())
-    const ctx = { db: databaseFor(env.databaseUrl), env, now: new Date(), clientIp: null }
-    return cleanupEphemeral(ctx)
+  /**
+   * Catat pembelian manual (penjualan di luar webhook, kompensasi, uji). Idempoten per order-ref.
+   * Paket default `lifetime` (kompensasi/uji paling sering butuh akses tanpa batas).
+   * Output hanya id lisensi - email tidak ikut dicetak supaya log operator tidak menyimpan PII.
+   */
+  'license-grant': async () => {
+    const email = emailSchema.parse(process.argv[3])
+    const orderRef = process.argv[4]
+    if (!orderRef)
+      throw new Error('order-ref wajib: tsx scripts/task.ts license-grant <email> <ref> [paket]')
+    const plan = licensePlanSchema.parse(process.argv[5] ?? 'lifetime')
+
+    const license = await grantLicense(contextFromProcessEnv(), { email, orderRef, plan })
+    return { licenseId: license.id, plan: license.plan, expiresAt: license.expiresAt }
   },
 } as const
 
@@ -76,7 +106,8 @@ async function main(): Promise<void> {
   const run = TASKS[name as keyof typeof TASKS]
   const result = await run()
 
-  // Output cuma jumlah baris (tanpa id/user/blob) supaya aman masuk log cron (security.md §11).
+  // Output tanpa data user (jumlah baris / id lisensi) supaya aman masuk log cron (security.md §11).
+  // Pengecualian sadar: `license-keygen` mencetak seed - perintah manual operator, bukan cron.
   process.stdout.write(`${JSON.stringify({ task: name, result })}\n`)
 }
 

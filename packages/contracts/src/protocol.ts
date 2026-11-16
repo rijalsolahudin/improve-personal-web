@@ -3,7 +3,7 @@ import { z } from 'zod'
 /**
  * Protokol API v1: versi, prefix path, kode error, DTO error, dan primitif wire format.
  *
- * Modul paling dasar di paket ini (dipakai `hlc`, `devices`, `auth`, `sync`, `account`) dan
+ * Modul paling dasar di paket ini (dipakai `hlc`, `devices`, `auth`, `record-format`) dan
  * sengaja tidak mengimpor modul lain, supaya urutan dependensi tetap satu arah tanpa siklus.
  *
  * Endpoint yang dilayani kontrak ini (ARCHITECTURE.md §9). Versi ada di path, schema-nya di paket ini
@@ -15,21 +15,17 @@ import { z } from 'zod'
  *   GET    /v1/auth/google/start       auth.ts     googleStartQuerySchema -> googleStartResultSchema
  *   GET    /v1/auth/google/callback    auth.ts     googleCallbackQuerySchema -> sessionDtoSchema
  *   GET    /v1/auth/session            auth.ts     currentSessionResultSchema
- *   GET    /v1/devices                 devices.ts  deviceListResultSchema
- *   DELETE /v1/devices/:id             devices.ts  deviceRevokeParamsSchema
- *   POST   /v1/sync/push               sync.ts     syncPushInputSchema -> syncPushResultSchema
- *   GET    /v1/sync/pull               sync.ts     syncPullQuerySchema -> syncPullResultSchema
- *   POST   /v1/account/deletion-otp    account.ts  (tanpa body; email dari SESI; 204)
- *   DELETE /v1/account                 account.ts  deleteAccountInputSchema
+ *   POST   /v1/license/token           license.ts  (tanpa body; email + perangkat dari SESI) -> licenseTokenResultSchema
+ *   POST   /v1/license/refresh         license.ts  licenseRefreshInputSchema -> licenseTokenResultSchema (publik; token lama = bukti)
+ *   POST   /v1/purchase/checkout       purchase.ts checkoutInputSchema -> checkoutResultSchema (publik)
+ *   POST   /v1/payments/webhook/mayar  -           webhook Mayar (publik, token rahasia)
  *
- * Dua endpoint akun adalah SATU alur (PRD F15 "Hapus Akun Permanen"): `deletion-otp` yang mengirim
- * kode konfirmasi ke email sesi, lalu `DELETE /v1/account` dengan kode itu. Tanpa yang pertama, kode
- * ber-`purpose` `delete_account` tidak bisa diminta sama sekali, jadi alurnya tidak bisa diselesaikan -
- * karena itu ia ikut tercatat di sini, bukan cuma hidup di route.
+ * Sejak ADR 15 tidak ada endpoint data (sync), perangkat, atau akun. Login (OTP/Google) hanya
+ * membuktikan email pembeli; `license/token` menukar sesi itu jadi token lisensi yang diverifikasi
+ * offline oleh app, dan `license/refresh` memperbarui `exp` token itu tanpa login ulang (ADR 16).
  *
  * Daftar di atas WAJIB sama dengan isi `apps/web/server/routes/v1/**`; kalau tidak, ada endpoint yang
- * dipakai klien tapi tidak tercatat sebagai kontrak (pernah terjadi pada `deletion-otp` dan
- * `auth/logout`). Kesamaannya dijaga test `apps/web/server/tests/contract-routes.test.ts`.
+ * dipakai klien tapi tidak tercatat sebagai kontrak (pernah terjadi pada `auth/logout`). Kesamaannya dijaga test `apps/web/server/tests/contract-routes.test.ts`.
  *
  * ATURAN AMPLOP (mengikat server dan klien, satu bentuk untuk SEMUA endpoint):
  * - Sukses: SELALU `{ "data": <DTO> }` (`apiDataEnvelopeSchema` / `ApiSuccessResponse`). DTO endpoint
@@ -39,8 +35,7 @@ import { z } from 'zod'
  *   dengan status dari `ERROR_HTTP_STATUS`. Inilah satu-satunya jalur kegagalan: handler, middleware,
  *   dan plugin error global memakai bentuk yang sama.
  * - Endpoint yang memang TIDAK punya body tetap `204` tanpa body sama sekali - bukan `{ "data": null }`:
- *   `POST /v1/auth/logout`, `DELETE /v1/devices/:id`, `DELETE /v1/account`,
- *   `POST /v1/auth/otp/request`, `POST /v1/account/deletion-otp`. Alasannya dua: (a) tidak ada nilai
+ *   `POST /v1/auth/logout`, `POST /v1/auth/otp/request`. Alasannya dua: (a) tidak ada nilai
  *   yang bisa dibalas, dan `{ "data": null }` memaksa klien membedakan "berhasil tanpa isi" dari
  *   "berhasil dengan isi null"; (b) untuk permintaan OTP, bentuk jawaban yang berbeda-beda (status,
  *   field, atau body apa pun) jadi oracle untuk menebak email mana yang punya akun.
@@ -95,6 +90,10 @@ export const ERROR_CODES = [
    */
   'METHOD_NOT_ALLOWED',
   'INTERNAL',
+  /** Sesi sah, tapi email sesi belum tercatat membeli (atau lisensinya dicabut). ADR 15. */
+  'LICENSE_REQUIRED',
+  /** Lisensi sah, tapi jatah perangkat aktivasi sudah habis. ADR 15. */
+  'LICENSE_LIMIT_REACHED',
 ] as const
 
 export type ErrorCode = (typeof ERROR_CODES)[number]
@@ -124,6 +123,10 @@ export const ERROR_HTTP_STATUS = {
   DEVICE_LIMIT_REACHED: 409,
   METHOD_NOT_ALLOWED: 405,
   INTERNAL: 500,
+  // 403: user dikenali (sesi sah) tapi tidak punya hak memakai app - belum membeli.
+  LICENSE_REQUIRED: 403,
+  // 409: sama seperti `DEVICE_LIMIT_REACHED` - berhak, tapi jatah perangkatnya habis.
+  LICENSE_LIMIT_REACHED: 409,
 } as const satisfies Record<ErrorCode, number>
 
 export type ErrorHttpStatus = (typeof ERROR_HTTP_STATUS)[ErrorCode]
@@ -152,6 +155,9 @@ export const GENERIC_ERROR_MESSAGES = {
     'Jumlah perangkat aktif sudah mencapai batas. Hapus salah satu perangkat lalu coba lagi.',
   METHOD_NOT_ALLOWED: 'Metode permintaan ini tidak dilayani untuk alamat tersebut.',
   INTERNAL: 'Terjadi kesalahan di server.',
+  LICENSE_REQUIRED: 'Email ini belum tercatat membeli aplikasi.',
+  LICENSE_LIMIT_REACHED:
+    'Lisensi ini sudah dipakai di jumlah perangkat maksimum. Hubungi kami untuk memindahkannya.',
 } as const satisfies Record<ErrorCode, string>
 
 // -----------------------------------------------------------------------------

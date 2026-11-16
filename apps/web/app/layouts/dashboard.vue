@@ -5,16 +5,12 @@ const route = useRoute()
 const isMenuOpen = ref(false)
 
 /**
- * Preferensi tampilan per akun (PRD F16: record `user_prefs`, ikut sync). Dulu dipanggil di
- * `app.vue`, tetapi halaman publik (`/`, `/login`) tidak punya akun: memanggilnya di root membuat
- * modul `@improve-personal/core` (skema zod + repository) ikut ke JS awal SETIAP rute - 10 KB gzip
- * untuk fitur yang tidak bisa dipakai sebelum login. Shell ber-sesi inilah tempatnya.
+ * Preferensi tampilan (PRD F16: record `user_prefs`). Dulu dipanggil di `app.vue`, tetapi landing
+ * publik tidak memakainya: memanggilnya di root membuat modul `@improve-personal/core` (skema zod +
+ * repository) ikut ke JS awal SETIAP rute - 10 KB gzip. Shell app inilah tempatnya.
  *
  * Hanya di client: layout ini dipakai rute `/app/**` yang `ssr: false` (tidak pernah dirender
  * server), dan datanya ada di IndexedDB.
- *
- * Komposabel ini tetap menonton pergantian akun (`localData.state.userId`), jadi akun B tidak
- * mewarisi tampilan akun A tanpa reload.
  */
 if (import.meta.client) useAppearancePrefs()
 
@@ -44,7 +40,7 @@ function toggleDeco(): void {
  * karena situs lama tidak dibuka. `ensureStorageProtection` melewati permintaan kalau sudah persistent.
  *
  * Tidak menunggu hasilnya: penolakan browser bukan error, hanya berarti data tetap bisa di-evict
- * (statusnya terlihat di kartu Penyimpanan pada modal Keamanan & perangkat).
+ * (statusnya terlihat di kartu Penyimpanan pada modal Data di perangkat ini).
  */
 onMounted(() => {
   void ensureStorageProtection()
@@ -72,9 +68,6 @@ onMounted(() => {
     <LazyDecoLayer v-if="isDecoMounted" />
     <div class="fab-dock" data-deco-ui>
       <ShellPomodoroPill />
-      <!-- Indikator sync berdiri sendiri di kiri tombol Hias; saat normal ia tidak dirender, jadi
-           dock tidak berubah lebar dan tidak ada ruang kosong yang menetap. -->
-      <ShellSyncStatus />
       <button
         type="button"
         class="fab"
