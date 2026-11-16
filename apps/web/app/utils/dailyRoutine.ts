@@ -203,8 +203,7 @@ function isCreatedToday(task: Task, start: number, end: number): boolean {
  * perangkat ini (`addedIds`, design `addedOn`).
  * Task yang sudah tampil di Prioritas tidak diulang; yang selesai hari ini tetap tampil dicoret.
  * Hasilnya daftar datar dengan urutan tetap (tidak dikelompokkan di sini). Pengelompokan visual
- * (Terlambat / Hari ini / Selesai) hanya di `DailyTodoCard`, jadi baris yang baru dicentang memang
- * pindah ke grup "Selesai" sesuai design.
+ * (Terlambat / Hari ini) hanya di `DailyTodoCard`; baris yang dicentang tetap di grupnya.
  */
 export function todayTasks(
   tasks: readonly Task[],

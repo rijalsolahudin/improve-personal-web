@@ -119,6 +119,7 @@ describe('state selesai tetap terbedakan (QA #62)', () => {
     expect(done.get('[role="checkbox"]').attributes('aria-checked')).toBe('true')
     expect(done.get('.task-title').text()).toBe('Tulis laporan')
     expect(done.get('.num').text()).toBe('1')
+    expect(done.find('.meta').exists()).toBe(false)
   })
 })
 

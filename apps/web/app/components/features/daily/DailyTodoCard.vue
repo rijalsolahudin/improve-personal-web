@@ -29,10 +29,10 @@ interface TodoRow {
 }
 
 interface TodoGroup {
-  key: 'late' | 'today' | 'done'
+  key: 'late' | 'today'
   label: string
   /** Warna chip label; null = grup tanpa label (Hari ini). */
-  tone: 'late' | 'done' | null
+  tone: 'late' | null
   rows: TodoRow[]
   /** Jumlah sebelum dilipat; label grup tetap menghitung semua. */
   total: number
@@ -58,13 +58,12 @@ const rows = computed<TodoRow[]>(() =>
 )
 
 /**
- * Design `todoGroups`: terlambat dulu, lalu yang belum selesai (tanpa label), selesai paling bawah
- * dengan label + jumlah. Murni presentasi dari props, urutan data tidak diubah.
+ * Terlambat dulu (belum selesai), sisanya tanpa label: task selesai tetap di tempatnya, tidak
+ * dipisah dari yang belum. Murni presentasi dari props, urutan data tidak diubah.
  */
 const groups = computed<TodoGroup[]>(() => {
   const late = rows.value.filter((row) => !row.isDone && row.isOverdue)
-  const todayRows = rows.value.filter((row) => !row.isDone && !row.isOverdue)
-  const done = rows.value.filter((row) => row.isDone)
+  const todayRows = rows.value.filter((row) => row.isDone || !row.isOverdue)
   const all: TodoGroup[] = [
     {
       key: 'late',
@@ -74,13 +73,6 @@ const groups = computed<TodoGroup[]>(() => {
       total: late.length,
     },
     { key: 'today', label: '', tone: null, rows: todayRows, total: todayRows.length },
-    {
-      key: 'done',
-      label: t('daily.todo.group.done'),
-      tone: 'done',
-      rows: done,
-      total: done.length,
-    },
   ]
   return all.filter((group) => group.rows.length > 0)
 })
@@ -170,7 +162,7 @@ function submit(): void {
 .card {
   display: flex;
   flex-direction: column;
-  padding: 16px 18px;
+  padding: var(--space-16) var(--space-18);
   border: var(--border) solid var(--outline);
   border-radius: var(--radius-card);
   background: var(--paper);
@@ -178,54 +170,49 @@ function submit(): void {
 }
 
 .card-head {
-  padding-bottom: 12px;
+  padding-bottom: var(--space-12);
   border-bottom: var(--border-thin) dashed var(--dash);
 }
 
 .group {
-  padding-top: 12px;
+  padding-top: var(--space-12);
 }
 
 .group-head {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding-bottom: 4px;
+  gap: var(--space-8);
+  padding-bottom: var(--space-4);
 }
 
 .group-label {
-  padding: 2px 9px;
+  padding: 2px var(--space-10);
   border-radius: var(--radius-pill);
   font-weight: var(--fw-strong);
-  font-size: 11px;
+  font-size: var(--fs-11);
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
-/* Warna grup mengikuti token prioritas (design: Terlambat = urgent, Selesai = low). */
+/* Warna grup mengikuti token prioritas (design: Terlambat = urgent). */
 .group-label.late {
   background: var(--prio-urgent-bg);
   color: var(--prio-urgent-fg);
 }
 
-.group-label.done {
-  background: var(--prio-low-bg);
-  color: var(--prio-low-fg);
-}
-
 .group-count {
   font-weight: var(--fw-strong);
-  font-size: 11.5px;
+  font-size: var(--fs-12);
   color: var(--mute-3);
 }
 
 .more {
   align-self: flex-start;
-  margin-top: 8px;
+  margin-top: var(--space-8);
 }
 
 .empty {
-  padding: 8px 0;
+  padding: var(--space-8) 0;
   font-family: var(--font-hand);
   /* Patrick Hand hanya punya weight 400; paragraf mewarisi `--fw-body` (700) → faux-bold. */
   font-weight: 400;
@@ -235,10 +222,12 @@ function submit(): void {
 
 .add {
   display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-top: 10px;
-  padding: 4px 14px;
+  /* Baseline, bukan center: tiap gaya memasangkan font `+` dan font tulisan tangan yang posisi
+     glyph-nya di line box berbeda (Special Elite duduk tinggi), jadi center membuat `+` turun. */
+  align-items: baseline;
+  gap: var(--space-12);
+  margin-top: var(--space-10);
+  padding: var(--space-4) var(--space-14);
   border: var(--border-thin) dashed var(--dash);
   border-radius: var(--radius-pill);
 }
@@ -266,7 +255,7 @@ function submit(): void {
   width: 22px;
   text-align: center;
   font-weight: var(--fw-strong);
-  font-size: 18px;
+  font-size: var(--fs-18);
   color: var(--accent);
 }
 
@@ -278,7 +267,7 @@ function submit(): void {
   font-family: var(--font-hand);
   /* Patrick Hand hanya punya weight 400; input mewarisi `--fw-body` (700) → faux-bold. */
   font-weight: 400;
-  font-size: 18px;
+  font-size: var(--fs-hand-18);
   line-height: 32px;
 }
 </style>

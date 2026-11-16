@@ -188,8 +188,7 @@
       "add": "Tambah to-do, lalu Enter…",
       "addLabel": "Judul to-do baru",
       "group": {
-        "late": "Terlambat",
-        "done": "Selesai"
+        "late": "Terlambat"
       },
       "more": "Lihat {n} lagi",
       "less": "Lipat lagi"

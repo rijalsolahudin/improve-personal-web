@@ -53,7 +53,7 @@ describe('DailyTodoCard - daftar panjang', () => {
 })
 
 describe('DailyTodoCard - grup (design todoGroups)', () => {
-  it('mengelompokkan Terlambat di atas, Hari ini tanpa label, Selesai paling bawah + jumlah', async () => {
+  it('mengelompokkan Terlambat di atas, sisanya (termasuk selesai) tanpa label dalam satu grup', async () => {
     const items: TodayTask[] = [
       { task: { ...task('selesai-1'), done: true }, isOverdue: false },
       { task: task('hari-ini'), isOverdue: false },
@@ -64,16 +64,14 @@ describe('DailyTodoCard - grup (design todoGroups)', () => {
     const wrapper = await mountSuspended(DailyTodoCard, { props: { items, today: TODAY } })
     mounted.push(wrapper)
 
-    expect(wrapper.findAll('.group-label').map((label) => label.text())).toEqual([
-      'Terlambat',
-      'Selesai',
-    ])
-    expect(wrapper.findAll('.group-count').map((count) => count.text())).toEqual(['2', '1'])
+    expect(wrapper.findAll('.group-label').map((label) => label.text())).toEqual(['Terlambat'])
+    expect(wrapper.findAll('.group-count').map((count) => count.text())).toEqual(['2'])
+    expect(wrapper.findAll('.group')).toHaveLength(2)
     expect(wrapper.findAll('.line .title').map((title) => title.text())).toEqual([
       'telat-1',
       'telat-2',
-      'hari-ini',
       'selesai-1',
+      'hari-ini',
     ])
   })
 })

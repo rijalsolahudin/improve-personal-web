@@ -6,15 +6,12 @@ import { isOverdue } from '~/utils/tasks'
 const { item, index, now } = defineProps<{ item: PriorityTask; index: number; now: number }>()
 const emit = defineEmits<{ toggle: []; focus: [title: string]; edit: [] }>()
 
-const { t } = useI18n()
 const formatTimeLeft = useTimeLeft()
 
 const task = computed(() => item.task)
-/** Tanpa deadline baris meta tidak dirender (judul rata tengah); task selesai tetap menampilkan status selesai. */
-const hasTimeLeft = computed(() => task.value.done || task.value.deadline !== null)
-const timeLeft = computed(() =>
-  task.value.done ? t('time.done') : formatTimeLeft(task.value.deadline, now),
-)
+/** Baris meta hanya untuk task aktif ber-deadline; task selesai tidak butuh sisa waktu (judul rata tengah). */
+const hasTimeLeft = computed(() => !task.value.done && task.value.deadline !== null)
+const timeLeft = computed(() => formatTimeLeft(task.value.deadline, now))
 </script>
 
 <template>
@@ -59,8 +56,8 @@ const timeLeft = computed(() =>
 .row {
   display: flex;
   align-items: center;
-  gap: 14px;
-  padding: 12px 14px 12px 16px;
+  gap: var(--space-14);
+  padding: var(--space-12) var(--space-14) var(--space-12) var(--space-16);
   border: var(--border) solid var(--outline);
   border-radius: calc(20px * var(--rk)) calc(20px * var(--rk)) calc(20px * var(--rk))
     calc(7px * var(--rk));
@@ -85,7 +82,7 @@ const timeLeft = computed(() =>
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 4px;
+  gap: var(--space-4);
 }
 
 .task-title {
@@ -98,7 +95,7 @@ const timeLeft = computed(() =>
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 4px 6px;
+  gap: var(--space-4) var(--space-6);
 }
 
 .left {
@@ -127,7 +124,7 @@ const timeLeft = computed(() =>
 
 .row .focus {
   min-height: 32px;
-  padding: 0 12px;
+  padding: 0 var(--space-12);
   font-size: var(--fs-caption);
 }
 </style>
