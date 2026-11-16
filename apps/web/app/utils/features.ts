@@ -45,11 +45,13 @@ export interface Feature {
 export const APP_HOME_PATH = '/app'
 
 /**
- * Halaman login. Tinggal di sini (bersama `APP_HOME_PATH`), bukan di composable yang memakainya:
- * guard rute dan `useLogout` dua-duanya menavigasi ke path ini, dan dua literal terpisah bisa
- * menyimpang diam-diam saat route login berubah.
+ * Halaman login/aktivasi. Tinggal di sini (bersama `APP_HOME_PATH`): gerbang lisensi dan halaman
+ * login sama-sama memakai path ini, dan dua literal terpisah bisa menyimpang diam-diam.
  */
 export const LOGIN_PATH = '/login'
+
+/** Halaman beli lisensi (ADR 15). Dipakai landing dan langkah "belum membeli" di login. */
+export const PURCHASE_PATH = '/beli'
 
 const feature = (
   id: FeatureId,

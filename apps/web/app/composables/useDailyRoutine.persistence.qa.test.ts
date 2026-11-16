@@ -5,9 +5,6 @@ import { EMPTY_DAILY_DAY, type DailyDay, type RoutineStep } from '~/utils/dailyR
 import type { Task } from '~/utils/tasks'
 import { MS_PER_HOUR, addDays, fromIsoDate } from '~/utils/time'
 
-import { clearAppStorage, useLogout } from './useLogout'
-import type { AuthGateway } from './auth/gateway'
-import { useAuthSession } from './useAuthSession'
 import { DAILY_STORAGE_KEY, useDailyRoutine } from './useDailyRoutine'
 
 /**
@@ -35,23 +32,6 @@ function task(id: string, patch: Partial<Task> = {}): Task {
     quadrant: null,
     position: 0,
     ...patch,
-  }
-}
-
-const SESSION_DTO = {
-  user: { id: '018f2b3c-4d5e-7f80-9abc-def012345678', email: 'kamu@email.com' },
-  device: { id: '018f2b3c-4d5e-7f80-9abc-def012345678', name: 'Chrome di Linux' },
-  expiresAt: '2026-05-10T09:00:00.000Z',
-  client: 'web' as const,
-}
-
-function stubGateway(): AuthGateway {
-  return {
-    requestEmailOtp: vi.fn(async () => {}),
-    verifyEmailOtp: vi.fn(async () => SESSION_DTO),
-    startGoogleLogin: vi.fn(async () => {}),
-    currentSession: vi.fn(async () => null),
-    signOut: vi.fn(async () => {}),
   }
 }
 
@@ -149,34 +129,6 @@ describe('state harian bertahan setelah reload (B3)', () => {
 
     expect(daily.weather.value).toBe('mendung')
     expect(daily.priorities.value.map(({ task: item }) => item.id)).toEqual(['do-1'])
-  })
-})
-
-describe('logout membuang state harian (B3)', () => {
-  it('logout menghapus `ip-daily` tanpa menyentuh key situs lain', async () => {
-    const gateway = stubGateway()
-    const daily = useDailyRoutine()
-    daily.setWeather('hujan')
-    expect(localStorage.getItem(DAILY_STORAGE_KEY)).not.toBeNull()
-    localStorage.setItem('other-site', 'keep')
-
-    await useLogout(gateway).logout()
-
-    expect(localStorage.getItem(DAILY_STORAGE_KEY)).toBeNull()
-    expect(localStorage.getItem('other-site')).toBe('keep')
-    expect(useAuthSession(gateway).session.value).toBeNull()
-  })
-
-  it('`clearAppStorage` hanya menghapus key ber-prefix app (dipakai logout & hapus akun)', () => {
-    localStorage.setItem(DAILY_STORAGE_KEY, '{}')
-    localStorage.setItem('ip-theme', 'ungu')
-    localStorage.setItem('other-site', 'keep')
-
-    clearAppStorage(localStorage)
-
-    expect(localStorage.getItem(DAILY_STORAGE_KEY)).toBeNull()
-    expect(localStorage.getItem('ip-theme')).toBeNull()
-    expect(localStorage.getItem('other-site')).toBe('keep')
   })
 })
 

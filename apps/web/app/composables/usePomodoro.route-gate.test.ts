@@ -1,23 +1,29 @@
-import type { CurrentSessionResult } from '@improve-personal/contracts'
+import { mockNuxtImport } from '@nuxt/test-utils/runtime'
 import { flushPromises } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { reactive } from 'vue'
 
 import type { LocalDataSession } from '~/utils/storage/session'
 
 import { resetPomodoroHistoryForTest, usePomodoro } from './usePomodoro'
-import { AUTH_SESSION_STATE_KEYS, useAuthSession } from './useAuthSession'
 
 /**
- * Gerbang sesi untuk hidrasi riwayat Pomodoro (regresi landing yang memanggil `GET /v1/auth/session`).
+ * Gerbang rute untuk hidrasi riwayat Pomodoro.
  *
- * `usePomodoro()` dipanggil plugin global di SEMUA rute. Kalau riwayat dihidrasi tanpa sesi,
- * `hydrate()` -> `localData.ensure()` -> `auth.ensureLoaded()` meminta sesi ke server dari halaman
- * publik - dan chunk gateway auth ikut masuk JS awal landing. Test ini menjaga dua sisi:
- * belum ada sesi = tidak menyentuh penyimpanan; sesi (yang muncul belakangan) = tetap dihidrasi.
+ * `usePomodoro()` dipanggil plugin global di SEMUA rute. Kalau riwayat dihidrasi di landing publik,
+ * `hydrate()` -> `localData.ensure()` membuka IndexedDB + kripto di halaman yang tidak memakainya.
+ * Test ini menjaga dua sisi: di luar `/app` = tidak menyentuh penyimpanan; masuk `/app` (belakangan
+ * atau sejak awal) = tetap dihidrasi.
  *
  * Mock di BATAS modul (`useLocalData` = akses penyimpanan, `persistence` = baca record), bukan di
  * dalam composable, supaya yang diuji perilakunya, bukan detail implementasi.
  */
+
+/** Rute di-mock di batas Nuxt: me-mount halaman `/app` sungguhan ikut memasang shell + pill timer. */
+const route = reactive({ path: '/' })
+
+mockNuxtImport('useRoute', () => () => route)
+
 const mocks = vi.hoisted(() => ({
   ensure: vi.fn(),
   loadFocusSessions: vi.fn(),
@@ -33,34 +39,23 @@ vi.mock('~/utils/pomodoro/persistence', () => ({
   persistFocusSession: mocks.persistFocusSession,
 }))
 
-const USER_ID = '018f2c4e-0000-7000-8000-00000000000a'
-
-const SESSION: CurrentSessionResult = {
-  user: { id: USER_ID, email: 'kamu@email.com' },
-  device: { id: USER_ID, name: 'Chrome di Linux' },
-  expiresAt: '2027-05-10T09:00:00.000Z',
-}
-
 /** Cukup untuk lolos ke `loadFocusSessions`; isi sesi sendiri tidak dibaca di jalur ini. */
-const LOCAL_SESSION = { userId: USER_ID } as unknown as LocalDataSession
+const LOCAL_SESSION = {
+  userId: '00000000-0000-4000-8000-000000000001',
+} as unknown as LocalDataSession
 
-const POMODORO_STATE_KEYS = [
-  'pomodoro',
-  'pomodoro-config',
-  'pomodoro-target',
-  'pomodoro-target-kind',
-  'pomodoro-history',
-  'pomodoro-history-status',
-  'pomodoro-history-error',
-  'pomodoro-sound',
-  'pomodoro-notice',
-]
+/**
+ * Hanya state RIWAYAT yang dibersihkan antar kasus. State timer (`pomodoro`, `pomodoro-config`) sedang
+ * dibaca pengamat plugin global; mengosongkannya membuat pengamat itu membaca `undefined`.
+ */
+const HISTORY_STATE_KEYS = ['pomodoro-history', 'pomodoro-history-status', 'pomodoro-history-error']
 
-function signIn(): void {
-  useAuthSession().setSession(SESSION)
+function enterApp(): void {
+  route.path = '/app/pomodoro'
 }
 
 beforeEach(() => {
+  route.path = '/'
   localStorage.clear()
   mocks.ensure.mockReset()
   mocks.loadFocusSessions.mockReset()
@@ -70,12 +65,12 @@ beforeEach(() => {
   mocks.loadFocusSessions.mockResolvedValue([])
   mocks.persistFocusSession.mockResolvedValue(undefined)
 
-  clearNuxtState([...Object.values(AUTH_SESSION_STATE_KEYS), ...POMODORO_STATE_KEYS])
+  clearNuxtState(HISTORY_STATE_KEYS)
   resetPomodoroHistoryForTest()
 })
 
-describe('usePomodoro - gerbang sesi riwayat', () => {
-  it('tanpa sesi: tidak membuka penyimpanan dan status riwayat tetap idle', async () => {
+describe('usePomodoro - gerbang rute riwayat', () => {
+  it('di landing: tidak membuka penyimpanan dan status riwayat tetap idle', async () => {
     const pomodoro = usePomodoro()
     await flushPromises()
 
@@ -85,20 +80,20 @@ describe('usePomodoro - gerbang sesi riwayat', () => {
     expect(pomodoro.history.value).toEqual([])
   })
 
-  it('sesi muncul setelah composable dibuat: hidrasi jalan tepat sekali, status ready', async () => {
+  it('masuk /app setelah composable dibuat: hidrasi jalan tepat sekali, status ready', async () => {
     const pomodoro = usePomodoro()
     await flushPromises()
     expect(mocks.ensure).not.toHaveBeenCalled()
 
-    signIn()
+    enterApp()
 
     await vi.waitFor(() => expect(pomodoro.historyStatus.value).toBe('ready'))
     expect(mocks.ensure).toHaveBeenCalledTimes(1)
     expect(mocks.loadFocusSessions).toHaveBeenCalledTimes(1)
   })
 
-  it('sesi sudah ada sebelum composable dibuat: hidrasi langsung seperti sebelumnya', async () => {
-    signIn()
+  it('sudah di /app sebelum composable dibuat: hidrasi langsung', async () => {
+    enterApp()
 
     const pomodoro = usePomodoro()
 
@@ -107,8 +102,8 @@ describe('usePomodoro - gerbang sesi riwayat', () => {
     expect(mocks.loadFocusSessions).toHaveBeenCalledTimes(1)
   })
 
-  it('tanpa window (SSR): tidak menyentuh penyimpanan walau sesi diketahui', async () => {
-    signIn()
+  it('tanpa window (SSR): tidak menyentuh penyimpanan walau di /app', async () => {
+    enterApp()
     vi.stubGlobal('window', undefined)
 
     try {

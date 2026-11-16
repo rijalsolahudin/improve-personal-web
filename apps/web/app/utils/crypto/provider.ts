@@ -21,8 +21,7 @@ import { loadSodium, type SodiumModule } from './sodium'
 /**
  * `CryptoProvider` web: XChaCha20-Poly1305 lewat libsodium - untuk penyimpanan LOKAL saja.
  *
- * Server tidak memakai provider ini: `payload` polos disegel server dengan AES-256-GCM dan kunci dari
- * env (`server/utils/record-crypto.ts`). Provider ini menjaga salinan IndexedDB perangkat.
+ * Provider ini menjaga salinan IndexedDB perangkat - satu-satunya salinan hidup sejak ADR 15.
  *
  * Catatan tempat: logika kunci masih hidup di `apps/web`; saat mobile mulai, pindahkan ke paket
  * bersama - JANGAN disalin. Kontraknya tetap `CryptoProvider` dari core.
@@ -127,8 +126,8 @@ function sealV2(sodium: SodiumModule, input: SealRecordInput): string {
   const { key, identity } = readDataKey(input.dataKey)
   const plaintext = encode(input.plaintext)
 
-  // Writer sudah memeriksa batas ini; di sini jaring pengaman, karena blob yang kelewat besar ditolak
-  // server dan record-nya macet di outbox selamanya.
+  // Writer sudah memeriksa batas ini; di sini jaring pengaman supaya blob kelewat besar tidak pernah
+  // tertulis ke penyimpanan lokal.
   if (plaintext.length > SEALED_RECORD_V2_MAX_PLAINTEXT_BYTES) {
     throw new RangeError('plaintext record melebihi batas blob v2')
   }

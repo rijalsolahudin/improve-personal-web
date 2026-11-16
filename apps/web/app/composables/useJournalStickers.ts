@@ -14,9 +14,9 @@ import { createUuidV7Generator } from '~/utils/storage/uuid'
 import {
   isReloadSessionActive,
   readAfterWrites,
-  registerSyncReloader,
+  registerDataReloader,
   reloadSession,
-} from '~/utils/sync/refresh'
+} from '~/utils/storage/reload'
 
 import { useLocalData } from './useLocalData'
 
@@ -181,7 +181,7 @@ export function useJournalStickers(options: UseJournalStickersOptions = {}) {
     },
   )
   void hydrate()
-  registerSyncReloader('journalStickers', reload)
+  registerDataReloader('journalStickers', reload)
 
   return {
     stickersOf,

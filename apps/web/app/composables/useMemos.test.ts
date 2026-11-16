@@ -15,7 +15,7 @@ import { createUuidV7Generator } from '~/utils/storage/uuid'
 import { MEMO_TEXT_MAX } from '~/utils/memo'
 import type { Memo } from '~/utils/memo'
 import { loadMemoRecords, persistMemo } from '~/utils/memo/persistence'
-import { resetSyncReloadersForTest } from '~/utils/sync/refresh'
+import { resetDataReloadersForTest } from '~/utils/storage/reload'
 
 import {
   resetMemosHydrationForTest,
@@ -383,7 +383,7 @@ describe('useMemos: muat ulang setelah pull (AC T77)', () => {
     localStorage.clear()
     clearNuxtState([...STATE_KEYS, 'goalLinks'])
     resetMemosHydrationForTest()
-    resetSyncReloadersForTest()
+    resetDataReloadersForTest()
   })
 
   function memoOf(session: LocalDataSession, date: string, text: string): Memo {

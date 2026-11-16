@@ -1,44 +1,28 @@
 import { sql } from 'drizzle-orm'
 import {
-  bigint,
-  boolean,
-  check,
   index,
   integer,
   pgEnum,
-  smallint,
-  pgSequence,
   pgTable,
   primaryKey,
   text,
   timestamp,
   uniqueIndex,
   uuid,
-  customType,
 } from 'drizzle-orm/pg-core'
 
 /**
- * Skema Postgres server (relay ciphertext + metadata minimal).
+ * Skema Postgres server: login (OTP/Google) + lisensi + rate limit. Sejak ADR 15 tidak ada data isi
+ * aplikasi di server sama sekali - login hanya membuktikan email pembeli (`licenses`).
  *
  * Sumber yang mengikat: `apps/web/docs/server.dbml` (tabel, enum, index termasuk index partial,
  * catatan implementasi, keputusan D1/D2). Berkas ini harus dibaca bersama dbml itu - kalau salah
  * satunya berubah, yang lain ikut di PR yang sama.
  *
- * Yang SENGAJA tidak ada di sini (dan tidak boleh ditambahkan):
- * - Tabel isi data user (`todo`, `schedule`, `habit`, `memo`, ...). `type`/`schemaVersion`/`data`
- *   seluruhnya ada di dalam `records.blob`, yang disegel server dengan AES-256-GCM
- *   (`server/utils/record-crypto.ts`) memakai kunci dari env.
- * - Kolom plaintext apa pun di `records` (tidak ada `type`/`title`/`content`).
- * - Tabel envelope/transfer kunci dan registry KID: tidak ada lagi kunci per akun yang perlu
- *   direlay atau dipulihkan. Kunci at-rest milik server, bukan user.
+ * Yang SENGAJA tidak ada di sini (dan tidak boleh ditambahkan): tabel atau kolom isi data user.
+ * Record hanya hidup di perangkat (ADR 15).
  *
  * Catatan teknis yang memengaruhi bentuk skema:
- * - `bytea` tidak punya tipe bawaan di drizzle, jadi dibuat lewat `customType` di bawah. Nilainya
- *   selalu `Uint8Array` (bukan string base64): konversi base64 <-> biner terjadi di boundaries
- *   (`server/services/sync.ts`, `server/services/keys.ts`), bukan di skema.
- * - HLC dibandingkan sebagai tuple `(hlc_wall_ms, hlc_counter, hlc_device)` - membandingkan string
- *   `hlc` mentah SALAH begitu panjang digitnya beda. Perbandingannya ada di
- *   `@improve-personal/contracts` (`compareHlc`); kolom turunan di sini yang menyimpannya.
  * - Index partial (`WHERE revoked_at IS NULL`, `WHERE consumed_at IS NULL`, `WHERE deleted`)
  *   umumnya ditulis di migrasi SQL tangan, bukan di skema ini, supaya bentuk SQL-nya persis seperti
  *   dbml dan tidak bergantung pada dukungan `where()` drizzle-kit. Lihat
@@ -47,14 +31,6 @@ import {
  *   `ON CONFLICT` di `services/device.ts`) ditulis di sini supaya ikut terbawa `drizzle-kit generate`.
  */
 
-/** `bytea` Postgres - selalu dibaca/ditulis sebagai `Uint8Array`, tidak pernah sebagai string. */
-export const bytea = customType<{ data: Uint8Array; driverData: Uint8Array }>({
-  dataType() {
-    return 'bytea'
-  },
-})
-
-/** `device_platform` (dbml `devices.platform`). */
 export const devicePlatformEnum = pgEnum('device_platform', ['web', 'ios', 'android'])
 
 /** `client_kind` (dbml `sessions.client`, `oauth_states.client`). */
@@ -63,10 +39,6 @@ export const clientKindEnum = pgEnum('client_kind', ['web', 'mobile'])
 /** `otp_purpose` (dbml `otp_challenges.purpose`). */
 export const otpPurposeEnum = pgEnum('otp_purpose', ['login', 'delete_account'])
 
-/** `records_seq` - sumber `records.server_seq`, yaitu cursor pull. */
-export const recordsSeq = pgSequence('records_seq', { startWith: 1, increment: 1 })
-
-/** Tabel `users` - akun. Tanpa `deleted_at`: hapus akun = hard delete (dbml `users`). */
 export const users = pgTable(
   'users',
   {
@@ -244,71 +216,86 @@ export const rateLimits = pgTable(
 )
 
 /**
- * Tabel `records` - satu-satunya tabel isi data user, dan isinya selalu ciphertext milik SERVER.
+ * Tabel `licenses` - bukti pembelian (ADR 15). Satu baris per pembelian.
  *
- * Format ciphertext: `ips1 | key_version(u16) | iv(12) | tag(16) | ciphertext` (AES-256-GCM). AAD
- * mengikat `user_id`, `id`, `hlc`, `deleted`, dan `key_version` - lihat `server/utils/record-crypto.ts`.
+ * Dikunci ke EMAIL, bukan ke `users.id`: pembelian terjadi di halaman beli (lewat payment provider)
+ * sebelum pembeli pernah login, jadi baris `users` untuk email itu bisa saja belum ada. Saat aktivasi,
+ * email sesi dicocokkan ke kolom ini.
  */
-export const records = pgTable(
-  'records',
+export const licenses = pgTable(
+  'licenses',
   {
-    userId: uuid('user_id')
-      .notNull()
-      .references(() => users.id, { onDelete: 'cascade' }),
-    /** UUIDv7 dibuat client. */
-    id: uuid('id').notNull(),
-    /** String `${wallMs}-${counter}-${deviceId}` apa adanya, dikembalikan seperti diterima. */
-    hlc: text('hlc').notNull(),
-    /** Hasil pecah `hlc` - inilah yang dibandingkan, bukan string mentahnya. */
-    hlcWallMs: bigint('hlc_wall_ms', { mode: 'number' }).notNull(),
-    hlcCounter: integer('hlc_counter').notNull(),
-    /** `deviceId` lowercase tanpa dash, biar urutan leksikografis konsisten. */
-    hlcDevice: text('hlc_device').notNull(),
-    /** Tombstone. */
-    deleted: boolean('deleted').notNull().default(false),
-    /** AES-256-GCM(`type` + `schemaVersion` + `data`) - kunci dari env, bukan dari client. */
-    blob: bytea('blob').notNull(),
-    /** Versi kunci yang dipakai header ciphertext. Dipakai untuk audit & rotasi. */
-    keyVersion: smallint('key_version').notNull().default(1),
-    /** `nextval('records_seq')` - cursor pull. */
-    serverSeq: bigint('server_seq', { mode: 'number' })
-      .notNull()
-      .default(sql`nextval('records_seq')`),
+    id: uuid('id').primaryKey(),
+    /** Selalu lowercase (dinormalkan `emailSchema`), sama seperti `users.email`. */
+    email: text('email').notNull(),
+    /** Id transaksi dari payment provider - kunci idempotensi webhook. */
+    orderRef: text('order_ref').notNull(),
+    edition: text('edition').notNull().default('standard'),
+    maxActivations: integer('max_activations').notNull().default(5),
+    revokedAt: timestamp('revoked_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-    /** Dipakai job purge tombstone. */
-    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
-    primaryKey({ name: 'pk_records', columns: [table.userId, table.id] }),
-    // Unique (user_id, server_seq) sekaligus jadi index pull: `server_seq > cursor ORDER BY
-    // server_seq` ter-scope user_id, jadi tidak perlu index tambahan.
-    uniqueIndex('uq_records_user_server_seq').on(table.userId, table.serverSeq),
-    index('idx_records_hlc').on(table.hlcWallMs, table.hlcCounter, table.hlcDevice, table.userId),
-    check('ck_records_key_version_positive', sql`${table.keyVersion} > 0`),
-    // `idx_records_purge` = PARTIAL (WHERE deleted) -> migrasi SQL tangan.
+    uniqueIndex('uq_licenses_order_ref').on(table.orderRef),
+    index('idx_licenses_email').on(table.email),
+  ],
+)
+
+export const purchaseStatusEnum = pgEnum('purchase_status', ['pending', 'paid', 'failed'])
+
+/**
+ * Tabel `purchases` - satu checkout Mayar. Begitu `paid`, lisensi diterbitkan dengan
+ * `licenses.order_ref = purchases.id` (idempoten).
+ *
+ * Nomor HP pembeli TIDAK disimpan: hanya diteruskan ke Mayar yang mewajibkannya.
+ */
+export const purchases = pgTable(
+  'purchases',
+  {
+    id: uuid('id').primaryKey(),
+    email: text('email').notNull(),
+    /** Nominal yang ditagih (rupiah) - pembanding `amount` di webhook. */
+    amount: integer('amount').notNull(),
+    status: purchaseStatusEnum('status').notNull().default('pending'),
+    /** Id transaksi Mayar; diisi setelah payment request dibuat. */
+    mayarId: text('mayar_id'),
+    paymentUrl: text('payment_url'),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    paidAt: timestamp('paid_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('uq_purchases_mayar_id').on(table.mayarId),
+    index('idx_purchases_email').on(table.email),
   ],
 )
 
 /**
- * Tabel `sync_watermarks` - sabuk pengaman purge.
+ * Tabel `license_activations` - perangkat yang sudah menerima token untuk satu lisensi.
  *
- * Kalau cursor klien < `purged_seq`, server balas `409 SYNC_RESET_REQUIRED` supaya klien full
- * resync. Tanpa ini, HP yang lama offline bisa "menghidupkan lagi" data yang user sudah hapus
- * (zombie resurrection).
+ * Satu baris per (lisensi, perangkat): login ulang di instalasi yang sama memakai baris `devices` yang
+ * sama, jadi tidak menghabiskan jatah. Token yang sudah terbit tidak bisa ditarik (diverifikasi
+ * offline), jadi baris ini hanya penghitung jatah, bukan daftar token aktif.
  */
-export const syncWatermarks = pgTable('sync_watermarks', {
-  /** 1:1 dengan `users.id`, ditegakkan lewat PK (bukan Ref 1:1 yang gampang terbalik). */
-  userId: uuid('user_id')
-    .primaryKey()
-    .references(() => users.id, { onDelete: 'cascade' }),
-  /** `server_seq` tertinggi yang sudah dipurge. */
-  purgedSeq: bigint('purged_seq', { mode: 'number' }).notNull().default(0),
-  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
-})
+export const licenseActivations = pgTable(
+  'license_activations',
+  {
+    licenseId: uuid('license_id')
+      .notNull()
+      .references(() => licenses.id, { onDelete: 'cascade' }),
+    deviceId: uuid('device_id')
+      .notNull()
+      .references(() => devices.id, { onDelete: 'cascade' }),
+    activatedAt: timestamp('activated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    primaryKey({ name: 'pk_license_activations', columns: [table.licenseId, table.deviceId] }),
+  ],
+)
 
 export type UserRow = typeof users.$inferSelect
 export type DeviceRow = typeof devices.$inferSelect
 export type SessionRow = typeof sessions.$inferSelect
 export type OtpChallengeRow = typeof otpChallenges.$inferSelect
-export type RecordRow = typeof records.$inferSelect
-export type SyncWatermarkRow = typeof syncWatermarks.$inferSelect
+export type LicenseRow = typeof licenses.$inferSelect
+export type PurchaseRow = typeof purchases.$inferSelect

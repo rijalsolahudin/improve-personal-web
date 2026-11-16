@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import DecoLayer from './DecoLayer.vue'
 import { DECO_STORAGE_KEY, useDeco } from '~/composables/useDeco'
+import { LICENSE_STATE_KEYS, type LicenseStatus } from '~/composables/useLicense'
 import type { DecoItem } from '~/utils/deco'
 
 /**
@@ -155,6 +156,9 @@ async function mountLayer(route = '/app/journal'): Promise<VueWrapper> {
 beforeEach(() => {
   localStorage.clear()
   clearNuxtState(STATE_KEYS)
+  // Harness di-mount pada rute `/app/**`, jadi gerbang lisensi ikut jalan. Yang diuji di sini layer
+  // hias, bukan gerbangnya (`middleware/license.global.test.ts`): perangkat dianggap sudah aktif.
+  useState<LicenseStatus>(LICENSE_STATE_KEYS.status).value = 'valid'
   matchMediaQueries.length = 0
   renders.count = 0
   setWidth(HOST_W)

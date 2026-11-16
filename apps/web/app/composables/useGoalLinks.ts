@@ -4,7 +4,7 @@ import { goalLinkKey } from '@improve-personal/core'
 
 import { loadGoalLinks } from '~/utils/goals/links'
 import type { LocalDataSession } from '~/utils/storage/session'
-import { isReloadSessionActive, registerSyncReloader, reloadSession } from '~/utils/sync/refresh'
+import { isReloadSessionActive, registerDataReloader, reloadSession } from '~/utils/storage/reload'
 
 import { useLocalData } from './useLocalData'
 
@@ -52,7 +52,7 @@ export function useGoalLinks(options: UseGoalLinksOptions = {}) {
         const loaded = await loadGoalLinks(active)
 
         // Akun bisa berganti selama pembacaan (jalur yang sama dengan `isReloadSessionActive` di
-        // `utils/sync/refresh`): tautan akun lama tidak boleh mendarat di layar akun baru. Cek
+        // `utils/storage/reload`): tautan akun lama tidak boleh mendarat di layar akun baru. Cek
         // dilakukan sebelum menulis, bukan sesudah, karena `links.value` adalah state yang tampil.
         const owner = localData.current()
         if (owner !== null && owner.userId !== active.userId) return
@@ -123,7 +123,7 @@ export function useGoalLinks(options: UseGoalLinksOptions = {}) {
   void hydrate()
 
   // Tautan dimuat paling awal di registry: task/jadwal/habit membangun goalId dari snapshot ini.
-  registerSyncReloader('goalLinks', reload)
+  registerDataReloader('goalLinks', reload)
 
   return {
     links: computed(() => links.value),

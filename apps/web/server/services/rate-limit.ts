@@ -17,7 +17,7 @@ import type { ServiceContext } from './context'
  * RATE_LIMIT_PEPPER)`. Tabel `rate_limits` karenanya tidak bisa dipakai membaca email atau IP user.
  */
 
-/** Scope minimal yang dipakai endpoint (prompt T19/T21). */
+/** Scope minimal yang dipakai endpoint (prompt T19). */
 export const RATE_LIMIT_RULES = {
   /** Per alamat email: mencegah spam OTP ke satu inbox. */
   'otp:email': { limit: 5, windowSeconds: 900 },
@@ -32,33 +32,20 @@ export const RATE_LIMIT_RULES = {
    * beban - dan `state` yang tidak dikenal pun sampai menyentuh DB.
    */
   'google:callback:ip': { limit: 60, windowSeconds: 900 },
-  /** Push jalan tiap beberapa detik saat app aktif, jadi jatahnya per menit. */
-  'sync:push': { limit: 120, windowSeconds: 60 },
   /**
-   * Per user (temuan H2/M4 audit keamanan): pull TIDAK dibatasi per menit karena perangkat yang baru
-   * bangun dari offline memang perlu menarik banyak halaman. Jatahnya per jam dan longgar - yang
-   * menutup DoS memori adalah plafon byte halaman (`SYNC_MAX_PULL_BYTES`), limiter ini yang menutup
-   * penyalahgunaan egress/CPU tanpa henti.
+   * Per user: penerbitan token lisensi menulis DB (kunci baris + sisip aktivasi). Normalnya dipanggil
+   * sekali per perangkat, jadi jatahnya kecil.
    */
-  'sync:pull': { limit: 600, windowSeconds: 3600 },
-  'account:delete': { limit: 5, windowSeconds: 3600 },
-  /** Per user: revoke perangkat menulis DB (soft-revoke + tutup sesi dalam satu transaksi). */
-  'devices:revoke': { limit: 60, windowSeconds: 3600 },
+  'license:token': { limit: 20, windowSeconds: 3600 },
+  /**
+   * Checkout publik: tiap checkout baru membuat payment request Mayar (yang mengirim email ke
+   * pembeli). Per email menahan spam ke satu inbox; per IP menahan satu IP menyapu banyak email.
+   */
+  'purchase:email': { limit: 5, windowSeconds: 3600 },
+  'purchase:ip': { limit: 20, windowSeconds: 3600 },
 } as const
 
 export type RateLimitScope = keyof typeof RATE_LIMIT_RULES
-
-/** Scope yang bucket-nya per user (jalur yang sudah butuh sesi), bukan per IP/email. */
-const USER_SCOPED: readonly RateLimitScope[] = [
-  'sync:push',
-  'sync:pull',
-  'devices:revoke',
-  'account:delete',
-]
-
-export function isUserScopedScope(scope: RateLimitScope): boolean {
-  return USER_SCOPED.includes(scope)
-}
 
 /**
  * Naikkan penghitung scope ini, dan LEMPAR `RATE_LIMITED` kalau jatahnya habis.

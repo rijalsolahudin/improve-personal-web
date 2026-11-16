@@ -4,7 +4,7 @@
  * Dipakai middleware CSRF dan plugin error global: keduanya memutuskan sesuatu berdasarkan "ini
  * request `/v1` atau bukan", dan keputusan itu tidak boleh bergantung pada string mentah dari klien.
  *
- * `event.path` masih memuat query string (`/v1/sync/pull?cursor=0`), jadi path-nya diambil dari
+ * `event.path` masih memuat query string (`/v1/auth/google/start?client=web`), jadi path-nya diambil dari
  * `getRequestURL` - sumber yang sama dengan log server. Kalau URL-nya tidak bisa dibangun (header
  * `Host` hilang/rusak) yang dipakai path mentah tanpa query; tidak ada tebakan host di sini.
  */

@@ -72,9 +72,11 @@ describe('pemuatan tema & font gaya (F16)', () => {
   it('halaman app dirender client, landing publik di-prerender', async () => {
     const config = await muatKonfigurasi()
     expect(config.routeRules?.['/app/**']?.ssr).toBe(false)
-    // `/login` SSR sejak T66: teks form harus ada di HTML pertama (LCP), tetapi HTML-nya tidak
-    // memuat data akun dan tetap tidak di-cache service worker (lihat `pwa.workbox.runtimeCaching`).
-    expect(config.routeRules?.['/login']?.ssr).toBe(true)
     expect(config.routeRules?.['/']?.prerender).toBe(true)
+  })
+
+  it('halaman aktivasi `/login` di-SSR (LCP), tanpa data user', async () => {
+    const config = await muatKonfigurasi()
+    expect(config.routeRules?.['/login']?.ssr).toBe(true)
   })
 })

@@ -64,30 +64,19 @@
       "lainnya": "Lainnya"
     },
     "user": {
-      "label": "Akun",
+      "label": "Profil",
       "initial": "F",
       "name": "Friend",
       "profile": "Edit profil",
       "preferences": "Preferensi",
       "guide": "Panduan",
-      "logout": "Logout",
-      "security": "Keamanan & perangkat"
+      "security": "Data di perangkat ini"
     }
   },
   "storageQuota": {
     "message": "Penyimpanan perangkat penuh. Perubahan terakhir belum tersimpan.",
     "backup": "Unduh backup",
     "dismiss": "Tutup"
-  },
-  "sync": {
-    "status": {
-      "syncing": "Menyinkronkan…",
-      "pending": "Menunggu dikirim ({n})",
-      "offline": "Offline",
-      "error": "Gagal sinkron"
-    },
-    "lastSync": "terakhir {time}",
-    "retry": "Coba lagi"
   },
   "placeholder": {
     "note": "Halaman ini belum didesain · {code}",
@@ -1048,16 +1037,16 @@
       "label": "Navigasi halaman",
       "features": "Fitur",
       "how": "Cara kerja",
-      "cta": "Mulai gratis"
+      "cta": "Masuk"
     },
     "hero": {
       "badge": "Satu tempat untuk tumbuh",
       "titleLead": "Rencanakan hari, fokus, lalu",
       "titleHighlight": "rayakan progres.",
       "lead": "Goals, kalender, to-do, Pomodoro, habit, sampai memo — semuanya di satu dashboard yang hangat dan nggak bikin pusing.",
-      "cta": "Buka dashboard",
+      "cta": "Beli {price}",
       "secondary": "Lihat fitur",
-      "note": "gratis · bisa offline · bisa import/export ✎"
+      "note": "sekali beli · data cuma di perangkatmu · jalan offline ✎"
     },
     "preview": {
       "greeting": "Selamat pagi, Friend",
@@ -1110,7 +1099,7 @@
     "outro": {
       "title": "Progres kecil tetap progres.",
       "lead": "Pilih stiker favoritmu, atur tema, dan mulai dari satu to-do hari ini.",
-      "cta": "Mulai sekarang — gratis"
+      "cta": "Beli sekarang · {price}"
     },
     "footer": {
       "label": "Tautan footer",
@@ -1123,16 +1112,16 @@
     },
     "brand": {
       "headline": "Halo lagi! Yuk lanjut tumbuh pelan-pelan.",
-      "sub": "Task, jurnal, habit, dan pomodoro-mu sudah nunggu."
+      "sub": "Datamu tetap di perangkat ini. Masuk cuma buat memastikan lisensimu."
     },
     "google": {
       "idle": "Lanjut dengan Google",
       "pending": "Menghubungkan ke Google…"
     },
     "choose": {
-      "eyebrow": "MASUK / DAFTAR",
-      "title": "Masuk ke akunmu",
-      "sub": "Belum punya akun? Cara yang sama langsung bikin akun baru.",
+      "eyebrow": "AKTIVASI",
+      "title": "Masuk dengan email pembelian",
+      "sub": "Pakai email yang kamu pakai saat membeli. Cukup sekali per perangkat; setelah itu aplikasi jalan tanpa internet.",
       "divider": "ATAU PAKAI EMAIL",
       "emailLabel": "EMAIL",
       "emailPlaceholder": "kamu{'@'}email.com",
@@ -1164,7 +1153,58 @@
       "unavailable": "Server login belum bisa dihubungi. Cek koneksimu, lalu coba lagi.",
       "generic": "Ada yang salah. Coba lagi sebentar lagi."
     },
-    "terms": "Dengan masuk, kamu setuju dengan Ketentuan dan Kebijakan Privasi."
+    "terms": "Dengan masuk, kamu setuju dengan Ketentuan dan Kebijakan Privasi.",
+    "license": {
+      "eyebrow": "LISENSI",
+      "notPurchased": {
+        "title": "Email ini belum membeli",
+        "body": "Aplikasi ini dibeli sekali (Rp99.000) dan dipakai dengan email yang sama saat membeli. Kalau kamu membeli dengan email lain, masuk pakai email itu."
+      },
+      "limitReached": {
+        "title": "Jatah perangkat habis",
+        "body": "Lisensi ini sudah aktif di jumlah perangkat maksimum. Hubungi kami untuk memindahkannya ke perangkat ini."
+      },
+      "network": {
+        "title": "Server nggak terjangkau",
+        "body": "Aktivasi butuh internet sekali saja. Cek koneksi lalu coba lagi; setelah aktif, aplikasi jalan tanpa internet."
+      },
+      "unavailable": {
+        "title": "Aktivasi belum berhasil",
+        "body": "Ada masalah di sisi kami. Coba lagi sebentar lagi."
+      },
+      "buy": "Beli sekarang",
+      "retry": "Coba lagi",
+      "otherEmail": "Masuk dengan email lain"
+    }
+  },
+  "purchase": {
+    "meta": {
+      "title": "Beli"
+    },
+    "eyebrow": "SEKALI BELI",
+    "title": "Punya selamanya, {price}",
+    "sub": "Satu pembelian berlaku di web, Android, dan iOS. Datamu tetap di perangkatmu sendiri.",
+    "nameLabel": "NAMA",
+    "emailLabel": "EMAIL",
+    "emailHint": "Email ini yang nanti dipakai untuk masuk ke aplikasi.",
+    "mobileLabel": "NOMOR WHATSAPP",
+    "mobilePlaceholder": "08xxxxxxxxxx",
+    "submit": "Bayar {price}",
+    "haveLicense": "Sudah beli? Masuk di sini",
+    "note": "Pembayaran diproses Mayar (QRIS, e-wallet, transfer bank). Nomor WhatsApp hanya diteruskan ke Mayar, tidak kami simpan.",
+    "error": {
+      "fields": "Cek lagi nama, email, dan nomor WhatsApp-nya.",
+      "rateLimited": "Terlalu banyak percobaan. Coba lagi sebentar lagi.",
+      "unavailable": "Server nggak terjangkau. Cek koneksi lalu coba lagi.",
+      "generic": "Pembayaran belum bisa dibuat. Coba lagi sebentar lagi."
+    },
+    "done": {
+      "eyebrow": "TERIMA KASIH",
+      "title": "Pembayaran diterima",
+      "body": "Masuk dengan email yang kamu pakai saat membeli. Kalau aplikasi bilang belum membeli, tunggu sebentar lalu tekan Coba lagi - konfirmasi dari Mayar kadang butuh beberapa menit.",
+      "cta": "Masuk sekarang",
+      "note": "Butuh bantuan? Balas email konfirmasi dari Mayar atau hubungi kami."
+    }
   },
   "appearance": {
     "label": "Tampilan",
@@ -1213,14 +1253,8 @@
     },
     "listItem": "{list} nomor {n}"
   },
-  "keys": {
-    "freshKeyWarning": "Data di perangkat ini dienkripsi dengan kunci baru. Recovery key belum diatur: kalau perangkat ini hilang atau datanya terhapus, isinya tidak bisa dipulihkan. Jangan dipakai untuk data penting sampai onboarding kunci selesai.",
-    "localDataError": "Data lokal tidak bisa dibuka, jadi daftar ini kosong. Coba muat ulang halaman; kalau tetap gagal, periksa penyimpanan browser.",
-    "localDataErrorDetail": "Sebab teknis:"
-  },
   "account": {
-    "title": "Keamanan & perangkat",
-    "errorPrefix": "Gagal:",
+    "title": "Data di perangkat ini",
     "storage": {
       "title": "Penyimpanan",
       "usageValue": "{used} dari {total} ({pct}%)",
@@ -1229,8 +1263,8 @@
       "protectionOn": "aktif",
       "protectionOff": "belum aktif",
       "protectionUnknown": "tidak diketahui",
-      "unprotectedHint": "Browser bisa menghapus salinan lokal saat ruang perangkat menipis. Data tetap aman di server dan akan diunduh ulang saat dibutuhkan.",
-      "nearFull": "Penyimpanan lokal hampir penuh. Data tetap aman di server; bersihkan riwayat atau export kalau perlu salinan.",
+      "unprotectedHint": "Browser bisa menghapus data saat ruang perangkat menipis, dan data ini tidak ada di server mana pun. Aktifkan penyimpanan permanen dan unduh backup secara rutin.",
+      "nearFull": "Penyimpanan lokal hampir penuh. Unduh backup dulu supaya ada salinan, lalu bersihkan riwayat terhapus.",
       "protect": "Jadikan permanen",
       "backup": "Unduh backup",
       "compact": "Bersihkan riwayat terhapus",
@@ -1238,41 +1272,6 @@
       "compactDone": "{n} record dibersihkan.",
       "compactNone": "Tidak ada riwayat yang perlu dibersihkan.",
       "unsupported": "Browser ini tidak menyediakan informasi penyimpanan lokal."
-    },
-    "devices": {
-      "title": "Perangkat",
-      "empty": "Belum ada perangkat lain.",
-      "current": "perangkat ini",
-      "lastSeen": "aktif",
-      "revoked": "sudah dicabut",
-      "revoke": "Cabut akses",
-      "remove": "Hapus"
-    },
-    "delete": {
-      "cardTitle": "Hapus akun",
-      "cardHint": "Semua data di server terhapus permanen.",
-      "open": "Hapus akun",
-      "title": "Hapus akun permanen",
-      "warning": "Semua data akun di server dihapus permanen: perangkat, sesi, dan seluruh record. Tindakan ini tidak bisa dibatalkan.",
-      "emailLabel": "Email akun",
-      "emailHint": "Ketik ulang email akunmu - harus sama dengan email yang login.",
-      "codeLabel": "Kode konfirmasi",
-      "codePlaceholder": "6 digit",
-      "send": "Kirim kode ke email",
-      "sending": "Mengirim kode…",
-      "resendIn": "Kirim ulang dalam {time}",
-      "submit": "Hapus akun permanen",
-      "busy": "Menghapus…",
-      "errors": {
-        "emailEmpty": "Isi email akun dulu ya.",
-        "emailInvalid": "Format email belum benar.",
-        "emailMismatch": "Email ini bukan email akun yang sedang login.",
-        "codeIncomplete": "Lengkapi 6 digit kodenya.",
-        "codeInvalid": "Kode salah atau sudah kedaluwarsa.",
-        "rateLimited": "Kebanyakan percobaan. Tunggu sebentar, lalu coba lagi.",
-        "unavailable": "Server tidak bisa dihubungi. Periksa koneksi, lalu coba lagi.",
-        "generic": "Ada yang salah. Coba lagi sebentar lagi."
-      }
     }
   },
   "profile": {
@@ -1282,7 +1281,6 @@
     "removePhoto": "Hapus foto",
     "nameLabel": "Nama",
     "namePlaceholder": "Nama panggilanmu",
-    "emailNote": "Masuk sebagai {email}",
     "locked": "Buka datamu di perangkat ini dulu untuk mengubah profil.",
     "cancel": "Batal",
     "save": "Simpan",

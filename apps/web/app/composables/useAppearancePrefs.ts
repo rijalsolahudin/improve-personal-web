@@ -19,9 +19,9 @@ import type { LocalDataSession } from '~/utils/storage/session'
 import {
   isReloadSessionActive,
   readAfterWrites,
-  registerSyncReloader,
+  registerDataReloader,
   reloadSession,
-} from '~/utils/sync/refresh'
+} from '~/utils/storage/reload'
 
 /**
  * Penyimpanan preferensi tampilan ke `user_prefs` (PRD F16): PER AKUN dan ikut sync antar perangkat.
@@ -275,7 +275,7 @@ export function useAppearancePrefs(options: UseAppearancePrefsOptions = {}) {
 
   // Preferensi tampilan dipakai layout dashboard, jadi ikut dimuat ulang saat pull menerapkan data
   // perangkat lain (mis. tema diganti di ponsel).
-  registerSyncReloader('appearance', reload)
+  registerDataReloader('appearance', reload)
 
   return {
     status: computed(() => status.value),

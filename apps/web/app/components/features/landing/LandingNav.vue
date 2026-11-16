@@ -4,7 +4,7 @@
     <div class="links">
       <a href="#fitur" class="link">{{ $t('landing.nav.features') }}</a>
       <a href="#cara" class="link">{{ $t('landing.nav.how') }}</a>
-      <NuxtLink to="/login" class="cta">{{ $t('landing.nav.cta') }}</NuxtLink>
+      <NuxtLink :to="APP_HOME_PATH" class="cta">{{ $t('landing.nav.cta') }}</NuxtLink>
     </div>
   </nav>
 </template>

@@ -17,9 +17,9 @@ import { removeItemGoalLinks, syncItemGoalLink } from '~/utils/goals/links'
 import {
   isReloadSessionActive,
   readAfterWrites,
-  registerSyncReloader,
+  registerDataReloader,
   reloadSession,
-} from '~/utils/sync/refresh'
+} from '~/utils/storage/reload'
 import { loadTasks, persistTask, removeTask } from '~/utils/tasks/persistence'
 import type { LocalDataSession } from '~/utils/storage/session'
 import { createUuidV7Generator } from '~/utils/storage/uuid'
@@ -359,7 +359,7 @@ export function useTasks(options: UseTasksOptions = {}) {
   void hydrate()
 
   // Halaman yang memakai task ikut memuat ulang saat pull menerapkan data perangkat lain.
-  registerSyncReloader('tasks', reload)
+  registerDataReloader('tasks', reload)
 
   return {
     tasks: computed(() => tasks.value),

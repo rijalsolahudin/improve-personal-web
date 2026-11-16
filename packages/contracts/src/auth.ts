@@ -83,6 +83,18 @@ export const otpCodeSchema = z
   .string()
   .regex(/^[0-9]{6}$/, `Kode OTP harus ${OTP_CODE_LENGTH} digit angka`)
 
+export const OTP_PURPOSES = ['login'] as const
+
+export type OtpPurpose = (typeof OTP_PURPOSES)[number]
+
+/**
+ * Tujuan challenge OTP (`server.dbml` enum `otp_purpose`).
+ *
+ * `purpose` TIDAK PERNAH datang dari body client: endpoint yang menentukan. Pemisahan ini bagian dari
+ * authz - endpoint login tidak boleh bisa meminta kode untuk aksi lain.
+ */
+export const otpPurposeSchema = z.enum(OTP_PURPOSES)
+
 /** `POST /v1/auth/otp/request` - minta kode dikirim ke email. */
 export const otpRequestInputSchema = z
   .object({

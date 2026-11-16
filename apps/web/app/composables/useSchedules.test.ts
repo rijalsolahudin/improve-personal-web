@@ -14,7 +14,7 @@ import { attendanceKey, loadScheduleData, persistSchedule } from '~/utils/schedu
 import { createRecordWriter } from '~/utils/storage/record-writer'
 import { createRepositorySet } from '~/utils/storage/repository'
 import type { LocalDataSession } from '~/utils/storage/session'
-import { resetSyncReloadersForTest } from '~/utils/sync/refresh'
+import { resetDataReloadersForTest } from '~/utils/storage/reload'
 import { createUuidV7Generator } from '~/utils/storage/uuid'
 import { addDays, deviceTimeZone } from '~/utils/time'
 
@@ -210,7 +210,7 @@ describe('useSchedules: muat ulang setelah pull (AC T77)', () => {
       'goalLinks',
     ])
     resetSchedulesHydrationForTest()
-    resetSyncReloadersForTest()
+    resetDataReloadersForTest()
   })
 
   /** Sesi yang tulisannya ditahan sampai `release()` - antrean tulis yang belum mendarat. */

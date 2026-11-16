@@ -26,11 +26,10 @@ import {
   makeEnv,
   TEST_DATABASE_URL,
   TEST_GOOGLE_REDIRECT_URI,
+  TEST_LICENSE_PUBLIC_KEY,
+  TEST_LICENSE_SIGNING_KEY,
   TEST_OTP_PEPPER,
   TEST_RATE_LIMIT_PEPPER,
-  TEST_RECORD_ENCRYPTION_ACTIVE_VERSION,
-  TEST_RECORD_ENCRYPTION_KEY,
-  TEST_RECORD_ENCRYPTION_KEYS,
 } from './helpers/harness'
 import { captureProblem, testScope } from './helpers/scope'
 
@@ -45,13 +44,19 @@ function baseConfig(overrides: Record<string, unknown> = {}): Record<string, unk
     googleClientSecret: 'qa-google-client-secret',
     googleRedirectUriWeb: TEST_GOOGLE_REDIRECT_URI,
     googleRedirectUriMobile: TEST_GOOGLE_REDIRECT_URI,
-    recordEncryptionKeys: TEST_RECORD_ENCRYPTION_KEYS,
-    recordEncryptionActiveVersion: TEST_RECORD_ENCRYPTION_ACTIVE_VERSION,
+    licenseSigningKey: TEST_LICENSE_SIGNING_KEY,
+    public: { licensePublicKey: TEST_LICENSE_PUBLIC_KEY },
     ...overrides,
   }
 }
 
-const PRODUCTION_MAIL = { resendApiKey: 'qa-resend-key', mailFrom: 'qa@improve-personal.test' }
+/** Kunci yang wajib di production: email (Resend) + pembayaran (Mayar). */
+const PRODUCTION_REQUIRED = {
+  resendApiKey: 'qa-resend-key',
+  mailFrom: 'qa@improve-personal.test',
+  mayarApiKey: 'qa-mayar-key',
+  mayarWebhookToken: 'qa-mayar-webhook-token',
+}
 
 describe('resolveAppEnv (fail-closed: apa pun yang tidak dikenal = production)', () => {
   it('env kosong, hilang, bukan string, atau typo diperlakukan production', () => {
@@ -137,7 +142,7 @@ describe('transport email non-production (`NUXT_SMTP_URL`)', () => {
     // ter-deploy. Ditegaskan: ditolak, bukan diabaikan - transport yang dikonfigurasi tapi tidak
     // dipakai tidak boleh berlalu tanpa jejak.
     expect(() =>
-      resolveServerEnv(baseConfig({ appEnv: 'production', ...PRODUCTION_MAIL, ...SMTP })),
+      resolveServerEnv(baseConfig({ appEnv: 'production', ...PRODUCTION_REQUIRED, ...SMTP })),
     ).toThrow(ServerEnvError)
   })
 
@@ -192,7 +197,7 @@ describe('resolveServerEnv - server menolak start kalau env tidak valid', () => 
     // membuat server menolak start.
     for (const raw of ['production', 'PRODUCTION', '', 'prod', undefined] as const) {
       const env = resolveServerEnv(
-        baseConfig({ appEnv: raw, ...PRODUCTION_MAIL, otpFixed: true, fixedOtpEnabled: true }),
+        baseConfig({ appEnv: raw, ...PRODUCTION_REQUIRED, otpFixed: true, fixedOtpEnabled: true }),
       )
 
       expect(env.isProduction).toBe(true)
@@ -296,7 +301,7 @@ describe('kode OTP fix tidak pernah istimewa di production (T19 AC)', () => {
   it('production memakai kode acak 6 digit dan `fixedOtpEnabled` tetap false', async () => {
     const fixture = scope.fixture({
       prefix: 'prod-otp',
-      env: makeEnv({ appEnv: 'production', ...PRODUCTION_MAIL }),
+      env: makeEnv({ appEnv: 'production', ...PRODUCTION_REQUIRED }),
     })
     const ctx = fixture.ctx()
 
@@ -329,7 +334,7 @@ describe('kode OTP fix tidak pernah istimewa di production (T19 AC)', () => {
   it('challenge dengan kode asli 123456 menolak 777777 (tanpa bergantung mailer)', async () => {
     const fixture = scope.fixture({
       prefix: 'prod-manual',
-      env: makeEnv({ appEnv: 'production', ...PRODUCTION_MAIL }),
+      env: makeEnv({ appEnv: 'production', ...PRODUCTION_REQUIRED }),
     })
     const ctx = fixture.ctx()
 
@@ -384,7 +389,7 @@ describe('assertServerEnvForStartup (validasi yang dijalankan plugin startup)', 
     // Ini AC T19 yang paling berbahaya kalau lolos: `NUXT_OTP_FIX=true` di production = siapa pun
     // bisa login dengan 777777. Mode fix HARUS murni turunan APP_ENV.
     expect(() =>
-      assertServerEnvForStartup(baseConfig({ appEnv: 'production', ...PRODUCTION_MAIL }), [
+      assertServerEnvForStartup(baseConfig({ appEnv: 'production', ...PRODUCTION_REQUIRED }), [
         'NUXT_OTP_FIX',
       ]),
     ).toThrow(ServerEnvError)
@@ -408,7 +413,7 @@ describe('assertServerEnvForStartup (validasi yang dijalankan plugin startup)', 
       assertServerEnvForStartup(
         baseConfig({
           appEnv: 'production',
-          ...PRODUCTION_MAIL,
+          ...PRODUCTION_REQUIRED,
           smtpUrl: 'smtp://127.0.0.1:1025',
         }),
         [],
@@ -435,7 +440,7 @@ describe('assertServerEnvForStartup (validasi yang dijalankan plugin startup)', 
 
   it('konfigurasi valid lolos dan mengembalikan env yang dipakai server', () => {
     const production = assertServerEnvForStartup(
-      baseConfig({ appEnv: 'production', ...PRODUCTION_MAIL }),
+      baseConfig({ appEnv: 'production', ...PRODUCTION_REQUIRED }),
       [],
     )
     expect(production.isProduction).toBe(true)
@@ -482,7 +487,7 @@ describe('assertServerEnvForStartup (validasi yang dijalankan plugin startup)', 
     // Production dengan label yang benar: mode fix mati, jadi tidak ada yang perlu ditolak.
     expect(() =>
       assertServerEnvForStartup(
-        baseConfig({ appEnv: 'production', ...PRODUCTION_MAIL }),
+        baseConfig({ appEnv: 'production', ...PRODUCTION_REQUIRED }),
         [],
         'production',
       ),
@@ -504,30 +509,58 @@ describe('assertServerEnvForStartup (validasi yang dijalankan plugin startup)', 
   })
 })
 
-describe('enkripsi record at-rest', () => {
-  const keyV2 = Buffer.alloc(32, 2).toString('base64')
-
-  it('menolak env tanpa NUXT_RECORD_ENCRYPTION_KEYS (fail-closed)', () => {
-    expect(() => resolveServerEnv(baseConfig({ recordEncryptionKeys: '' }))).toThrow(ServerEnvError)
+describe('kunci lisensi (ADR 15)', () => {
+  it('pasangan seed + public key yang cocok diterima', () => {
+    expect(resolveServerEnv(baseConfig()).licenseSigningKey).toBe(TEST_LICENSE_SIGNING_KEY)
   })
 
-  it('menolak versi aktif yang tidak ada di keyring', () => {
-    expect(() =>
-      resolveServerEnv(
-        baseConfig({ recordEncryptionKeys: `2:${keyV2}`, recordEncryptionActiveVersion: 1 }),
-      ),
-    ).toThrow(ServerEnvError)
-  })
-
-  it('menerima keyring berversi dan versi aktif yang ada di dalamnya', () => {
-    const env = resolveServerEnv(
-      baseConfig({
-        recordEncryptionKeys: `1:${TEST_RECORD_ENCRYPTION_KEY},2:${keyV2}`,
-        recordEncryptionActiveVersion: 2,
-      }),
+  it('menolak seed yang tidak cocok dengan public key di app (aktivasi akan mati total)', () => {
+    const otherSeed = Buffer.alloc(32, 9).toString('base64')
+    expect(() => resolveServerEnv(baseConfig({ licenseSigningKey: otherSeed }))).toThrow(
+      ServerEnvError,
     )
+  })
 
-    expect(env.recordEncryptionActiveVersion).toBe(2)
-    expect([...env.recordEncryptionKeys.keys()]).toEqual([1, 2])
+  it('menolak seed yang bukan 32 byte, dan pesannya tidak memuat nilai kunci', () => {
+    const shortSeed = Buffer.alloc(16, 1).toString('base64')
+    try {
+      resolveServerEnv(baseConfig({ licenseSigningKey: shortSeed }))
+      expect.unreachable('env dengan seed 16 byte harus ditolak')
+    } catch (error) {
+      expect(error).toBeInstanceOf(ServerEnvError)
+      expect(String(error)).not.toContain(shortSeed)
+    }
+  })
+
+  it('menolak public key kosong', () => {
+    expect(() => resolveServerEnv(baseConfig({ public: { licensePublicKey: '' } }))).toThrow(
+      ServerEnvError,
+    )
+  })
+})
+
+describe('Mayar (ADR 15)', () => {
+  it('production tanpa kunci Mayar ditolak start (checkout & webhook akan mati diam-diam)', () => {
+    for (const missing of ['mayarApiKey', 'mayarWebhookToken'] as const) {
+      expect(() =>
+        resolveServerEnv(
+          baseConfig({ appEnv: 'production', ...PRODUCTION_REQUIRED, [missing]: '' }),
+        ),
+      ).toThrow(ServerEnvError)
+    }
+  })
+
+  it('non-production boleh tanpa Mayar; environment default `production`', () => {
+    const env = resolveServerEnv(baseConfig())
+    expect(env.mayarApiKey).toBe('')
+    expect(env.mayarEnvironment).toBe('production')
+  })
+
+  it('override harga harus bilangan bulat > 0', () => {
+    expect(resolveServerEnv(baseConfig({ priceOverrideIdr: '1000' })).priceOverrideIdr).toBe(1000)
+    expect(() => resolveServerEnv(baseConfig({ priceOverrideIdr: '0' }))).toThrow(ServerEnvError)
+    expect(() => resolveServerEnv(baseConfig({ priceOverrideIdr: 'murah' }))).toThrow(
+      ServerEnvError,
+    )
   })
 })

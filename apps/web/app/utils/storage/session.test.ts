@@ -12,7 +12,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { createManualClock, type Todo } from '@improve-personal/core'
 
 import { createWebKeyStore } from '../crypto/key-store'
-import { openLocalDataSession } from './session'
+import { LocalDataUnreadableError, openLocalDataSession } from './session'
 
 const START_MS = 1_700_000_000_000
 /** Akun uji: penyimpanan lokal dipisah per akun (lihat `account-scope.test.ts`). */
@@ -141,7 +141,7 @@ describe('sesi data lokal', () => {
     expect(await second.repos.todo.listAll()).toEqual([])
   })
 
-  it('pembuka perangkat hilang: salinan lokal dibuang dan kunci baru dibuat (data tetap di server)', async () => {
+  it('pembuka perangkat hilang: salinan yang tak bisa dibuka dibuang dan kunci baru dibuat', async () => {
     const dbNames = names()
     const first = await openLocalDataSession({
       userId: USER_ID,
@@ -156,8 +156,8 @@ describe('sesi data lokal', () => {
     // Pembuka perangkat hilang (mis. storage kunci terhapus), sementara record-nya masih ada.
     await createWebKeyStore({ databaseName: dbNames.keysDatabaseName }).remove('device')
 
-    // Salinan lokal yang tidak bisa dibuka TIDAK boleh membuat aplikasi kosong tanpa error. Dibuang,
-    // kunci baru dibuat, lalu full pull akan mengisi ulang dari server.
+    // Tanpa kunci pembukanya record itu tidak bisa dibaca siapa pun: dibuang dan kunci baru dibuat,
+    // supaya app tidak tertahan di layar terkunci. Pemulihan isinya lewat backup/transfer.
     const reopened = await openLocalDataSession({
       userId: USER_ID,
       clock: createManualClock(START_MS),
@@ -171,7 +171,7 @@ describe('sesi data lokal', () => {
     )
   })
 
-  it('salinan lokal yang blob-nya tidak terbaca dibuang, cursor kembali 0 (pull ulang dari server)', async () => {
+  it('blob tidak terbaca dengan kunci yang ada: sesi ditolak dan record TIDAK dihapus (regresi ADR 15)', async () => {
     const dbNames = names()
     const first = await openLocalDataSession({
       userId: USER_ID,
@@ -197,14 +197,12 @@ describe('sesi data lokal', () => {
       })
     })
 
-    const reopened = await openLocalDataSession({
-      userId: USER_ID,
-      clock: createManualClock(START_MS),
-      ...dbNames,
-    })
+    // Salinan lokal adalah satu-satunya salinan: satu blob rusak tidak boleh menghapus semuanya.
+    await expect(
+      openLocalDataSession({ userId: USER_ID, clock: createManualClock(START_MS), ...dbNames }),
+    ).rejects.toBeInstanceOf(LocalDataUnreadableError)
 
-    expect(await reopened.repos.todo.listAll()).toEqual([])
-    expect((await reopened.storage.getSyncState())?.cursor).toBe(0)
+    expect(await first.storage.getRecord(id)).not.toBeNull()
   })
 
   it('dua tab membuka sesi pertama bersamaan: satu kunci akhir, keduanya membaca data yang sama', async () => {

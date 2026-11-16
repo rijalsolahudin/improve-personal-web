@@ -27,9 +27,9 @@ import type { LocalDataSession } from '~/utils/storage/session'
 import {
   isReloadSessionActive,
   readAfterWrites,
-  registerSyncReloader,
+  registerDataReloader,
   reloadSession,
-} from '~/utils/sync/refresh'
+} from '~/utils/storage/reload'
 import { createUuidV7Generator } from '~/utils/storage/uuid'
 import { toIsoDate } from '~/utils/time'
 
@@ -369,7 +369,7 @@ export function useGoals(options: UseGoalsOptions = {}) {
   void hydrate()
 
   // Halaman yang memakai goal ikut memuat ulang saat pull menerapkan data perangkat lain.
-  registerSyncReloader('goals', reload)
+  registerDataReloader('goals', reload)
 
   return {
     goals: computed(() => goals.value),

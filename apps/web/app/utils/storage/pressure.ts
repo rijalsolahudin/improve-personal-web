@@ -2,7 +2,7 @@
  * Sinyal global "penyimpanan menolak tulisan" (kuota penuh).
  *
  * Sengaja di level modul, bukan event `window`: ini hanya menghidupkan banner di shell, tidak perlu
- * bisa dikirim script lain. Pola yang sama dipakai indikator sync (`utils/sync/activity.ts`).
+ * bisa dikirim script lain.
  *
  * Dikirim dari satu tempat - pembungkus commit tulis lokal - supaya semua fitur (to-do, habit, goal,
  * jurnal, memo) memberi tahu shell tanpa masing-masing menulis kode UI sendiri.

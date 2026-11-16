@@ -5,9 +5,9 @@ import type { LocalDataSession } from '~/utils/storage/session'
 import {
   isReloadSessionActive,
   readAfterWrites,
-  registerSyncReloader,
+  registerDataReloader,
   reloadSession,
-} from '~/utils/sync/refresh'
+} from '~/utils/storage/reload'
 
 /**
  * Profil user (nama tampilan + foto) dari record `user_profile`: terenkripsi, per akun, ikut sync.
@@ -163,7 +163,7 @@ export function useProfile(options: UseProfileOptions = {}) {
 
   if (options.session) void hydrate()
 
-  registerSyncReloader('profile', reload)
+  registerDataReloader('profile', reload)
 
   return {
     profile: computed(() => profile.value),

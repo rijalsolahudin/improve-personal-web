@@ -11,8 +11,8 @@
       </h1>
       <p class="lead">{{ $t('landing.hero.lead') }}</p>
       <div class="actions">
-        <NuxtLink :to="APP_HOME_PATH" class="btn btn-primary">{{
-          $t('landing.hero.cta')
+        <NuxtLink :to="PURCHASE_PATH" class="btn btn-primary">{{
+          $t('landing.hero.cta', { price: LICENSE_PRICE_LABEL })
         }}</NuxtLink>
         <a href="#fitur" class="btn btn-outline">{{ $t('landing.hero.secondary') }}</a>
       </div>

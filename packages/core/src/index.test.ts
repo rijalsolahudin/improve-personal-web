@@ -1,4 +1,3 @@
-import { ERROR_CODES, SYNC_MAX_BATCH } from '@improve-personal/contracts'
 import { describe, expect, it } from 'vitest'
 
 import { runStorageAdapterContractTests } from './adapters/contract.ts'
@@ -7,36 +6,25 @@ import {
   CURRENT_SCHEMA_VERSION,
   DEFAULT_USER_PREFS,
   ENTITY_TYPES,
-  HttpError,
   MS_PER_DAY,
   STORAGE_TABLES,
-  SYNC_DEBOUNCE_MS,
   SYNC_OPS,
   SYNC_STATUSES,
-  SYNC_TRIGGERS,
   appStyleSchema,
   applyBackupImport,
   buildBackupDocument,
-  buildPullUrl,
   buildRecordWrite,
   compareIndexEntries,
   createHlcGenerator,
   createManualClock,
   createMemoryStorage,
   decideMerge,
-  deriveSyncStatus,
-  dueSyncTriggers,
   entityTypeSchema,
   expandOccurrenceTimes,
   habitStreak,
   pointIndex,
-  pullDelta,
-  pushOutbox,
-  readSyncStatus,
   schedulePayloadSchema,
   serializeBackup,
-  shouldPullNow,
-  syncDebounceRemainingMs,
   validateBackupText,
   type Clock,
   type StorageAdapter,
@@ -75,36 +63,21 @@ describe('barrel @improve-personal/core', () => {
     expect(pointIndex('018f2c4e-0000-7000-8000-000000000001', 'todo', 0, 0).rangeEndMs).toBeNull()
   })
 
-  it('mengekspor port: StorageAdapter, Clock, dan HttpError', () => {
+  it('mengekspor port: StorageAdapter dan Clock', () => {
     const clock: Clock = createManualClock(1_700_000_000_000)
     const storage: StorageAdapter = createMemoryStorage({ clock })
 
     expect(typeof storage.runTransaction).toBe('function')
     expect(clock.monotonicMs()).toBe(1_700_000_000_000)
-
-    const error = new HttpError(409, ERROR_CODES[0] ?? null, 'contoh')
-    expect(error.status).toBe(409)
-    expect(error.name).toBe('HttpError')
   })
 
-  it('mengekspor sync: HLC, LWW, jadwal, status, push/pull', () => {
+  it('mengekspor sync lokal: HLC, LWW, penulisan record', () => {
     const clock = createManualClock(1_700_000_000_000)
     const hlc = createHlcGenerator({ deviceId: 'devicea', clock })
 
     expect(typeof hlc.tick()).toBe('string')
     expect(decideMerge(null, { id: 'x', hlc: hlc.tick(), deleted: false }).action).toBe('insert')
-    expect(dueSyncTriggers({ online: false, nowMs: 0 })).toEqual([])
-    expect(shouldPullNow({ triggers: [], lastSyncAtMs: null, nowMs: 0 })).toBe(false)
-    expect(syncDebounceRemainingMs(0, null)).toBe(0)
-    expect(SYNC_DEBOUNCE_MS).toBe(2_000)
-    expect(SYNC_TRIGGERS).toContain('reconnect')
-    expect(deriveSyncStatus({ online: true, pendingCount: 0, hasError: false })).toBe('synced')
-    expect(typeof readSyncStatus).toBe('function')
-    expect(buildPullUrl('/v1/sync/pull', 0, 10)).toContain('cursor=0')
-    expect(typeof pushOutbox).toBe('function')
-    expect(typeof pullDelta).toBe('function')
     expect(typeof buildRecordWrite).toBe('function')
-    expect(SYNC_MAX_BATCH).toBe(500)
   })
 
   it('mengekspor io: export/import + migrasi versi skema', () => {

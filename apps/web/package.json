@@ -19,8 +19,8 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:test:create": "sh scripts/db-test-create.sh",
-    "cron:purge-tombstones": "tsx scripts/task.ts purge-tombstones",
-    "cron:cleanup-ephemeral": "tsx scripts/task.ts cleanup-ephemeral"
+    "cron:cleanup-ephemeral": "tsx scripts/task.ts cleanup-ephemeral",
+    "license": "tsx scripts/task.ts"
   },
   "dependencies": {
     "@improve-personal/contracts": "workspace:*",

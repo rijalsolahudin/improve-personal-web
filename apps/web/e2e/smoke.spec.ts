@@ -4,8 +4,8 @@ import { expect, test } from '@playwright/test'
  * Smoke E2E - hal yang hanya bisa dibuktikan browser sungguhan.
  *
  * Fokusnya bukan mengulang test komponen, melainkan memastikan kerangka web hidup: halaman publik
- * ter-render tanpa error hidrasi, manifest PWA benar-benar dilayani, API health menjawab, dan guard
- * sesi mengalihkan `/app` ke `/login` saat belum ada sesi.
+ * ter-render tanpa error hidrasi, manifest PWA benar-benar dilayani, API health menjawab, dan gerbang
+ * lisensi mengalihkan `/app` ke `/login` selama perangkat belum diaktivasi (ADR 15).
  */
 test.describe('kerangka publik', () => {
   test('landing dirender, manifest PWA ditautkan, tanpa error hidrasi', async ({ page }) => {
@@ -47,15 +47,14 @@ test.describe('kerangka publik', () => {
     expect(await response.json()).toMatchObject({ data: { status: 'ok' } })
   })
 
-  test('halaman login tampil dengan form email', async ({ page }) => {
+  test('halaman aktivasi tampil dengan form email', async ({ page }) => {
     await page.goto('/login')
 
     await expect(page.getByRole('heading').first()).toBeVisible()
     await expect(page.locator('input[type="email"]')).toBeVisible()
-    await expect(page.getByText(/Ketentuan dan Kebijakan Privasi/)).toBeVisible()
   })
 
-  test('/app tanpa sesi dialihkan ke /login', async ({ page }) => {
+  test('/app tanpa lisensi dialihkan ke /login', async ({ page }) => {
     await page.goto('/app')
 
     await expect(page).toHaveURL(/\/login/)

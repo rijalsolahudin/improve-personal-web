@@ -14,9 +14,9 @@ import type { LocalDataSession } from '~/utils/storage/session'
 import {
   isReloadSessionActive,
   readAfterWrites,
-  registerSyncReloader,
+  registerDataReloader,
   reloadSession,
-} from '~/utils/sync/refresh'
+} from '~/utils/storage/reload'
 import { createUuidV7Generator } from '~/utils/storage/uuid'
 import { MS_PER_DAY, deviceTimeZone } from '~/utils/time'
 
@@ -202,7 +202,7 @@ export function useCountdowns(options: UseCountdownsOptions = {}) {
   void hydrate()
 
   // Halaman yang memakai countdown ikut memuat ulang saat pull menerapkan data perangkat lain.
-  registerSyncReloader('countdowns', reload)
+  registerDataReloader('countdowns', reload)
 
   return {
     countdowns: computed(() => countdowns.value),

@@ -5,7 +5,7 @@ import { BRAND, MAIL_SUBJECTS } from '#shared/brand'
 import { EMAIL_FONTS, EMAIL_PALETTE, escapeHtml, renderEmailLayout } from './email-layout'
 
 /**
- * Template email OTP (PRD F15, T19) untuk kedua purpose: `login` dan `delete_account`.
+ * Template email OTP (PRD F15, T19) untuk purpose `login`.
  *
  * Kenapa template ini fungsi murni: supaya perilakunya bisa diuji tanpa transport dan tanpa jaringan.
  * Yang mengirim tetap `mailer.ts`; berkas ini cuma menyusun subjek, HTML, dan teks cadangan.
@@ -45,22 +45,12 @@ const COPY_BY_PURPOSE: Record<OtpPurpose, OtpEmailCopy> = {
     help: 'Nggak merasa minta kode? Abaikan aja email ini, akunmu tetap aman.',
     footerReason: `ada permintaan masuk ke akun ${BRAND.name}`,
   },
-  delete_account: {
-    bandLabel: 'KONFIRMASI HAPUS AKUN · SEKALI PAKAI',
-    heading: 'Halo! Konfirmasi hapus akun.',
-    instruction: `Masukkan kode ${OTP_CODE_LENGTH} digit ini buat mengonfirmasi hapus akun ${BRAND.name} kamu. Kalau dikonfirmasi, datamu tidak bisa dikembalikan.`,
-    preheaderLead: 'Kode konfirmasi hapus akun kamu',
-    help: 'Nggak merasa minta hapus akun? Abaikan aja email ini, akunmu tetap aman.',
-    footerReason: `ada permintaan hapus akun ${BRAND.name}`,
-  },
 }
 
 /** Teks polos tetap dikirim: klien yang memblokir HTML, atau notifikasi jam tangan, hanya baca ini. */
 const TEXT_BY_PURPOSE: Record<OtpPurpose, (code: string, lifetime: string) => string> = {
   login: (code, lifetime) =>
     `Kode masuk kamu: ${code}\n\nMasukkan kode ini di halaman masuk. Berlaku ${lifetime} dan hanya bisa dipakai sekali.`,
-  delete_account: (code, lifetime) =>
-    `Kode konfirmasi hapus akun: ${code}\n\nBerlaku ${lifetime} dan hanya bisa dipakai sekali.`,
 }
 
 /**

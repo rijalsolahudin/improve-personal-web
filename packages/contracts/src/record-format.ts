@@ -1,8 +1,33 @@
 import { z } from 'zod'
 
 import { parseHlc } from './hlc.ts'
-import { UUID_PATTERN } from './protocol.ts'
-import { SEALED_RECORD_MAX_BLOB_BYTES } from './sync.ts'
+import { UUID_PATTERN, utf8ByteLength } from './protocol.ts'
+
+/**
+ * Ukuran maksimum isi satu record (`{ type, schemaVersion, data }`): 1 MB, dihitung dari
+ * `JSON.stringify(payload)` dalam byte UTF-8 (bukan `string.length`). Dipakai saat menyegel record
+ * lokal dan saat memvalidasi isi berkas backup/transfer.
+ */
+export const RECORD_PAYLOAD_MAX_BYTES = 1_048_576
+
+/** Ukuran maksimum blob tersegel di penyimpanan LOKAL (IndexedDB/SQLite) - format v2 di bawah. */
+export const SEALED_RECORD_MAX_BLOB_BYTES = 1_048_576
+
+/**
+ * Umur tombstone lokal sebelum boleh dibuang: 90 hari. Tombstone yang lebih muda masih dibutuhkan
+ * saat import/transfer "gabung" supaya record yang sudah dihapus di satu perangkat tidak hidup lagi.
+ */
+export const TOMBSTONE_RETENTION_DAYS = 90
+
+/** Nilai JSON yang sah sebagai isi record. `undefined` tidak punya representasi JSON, jadi ditolak. */
+export const recordPayloadSchema = z
+  .json()
+  .refine(
+    (value) => utf8ByteLength(JSON.stringify(value)) <= RECORD_PAYLOAD_MAX_BYTES,
+    `payload maksimum ${RECORD_PAYLOAD_MAX_BYTES} byte`,
+  )
+
+export type RecordPayload = z.infer<typeof recordPayloadSchema>
 
 /**
  * Format blob record v2 + identitas kunci (KID) - spec #120 §2.1, §4.1, §4.2.

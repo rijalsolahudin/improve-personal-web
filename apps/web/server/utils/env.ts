@@ -1,6 +1,7 @@
 import { z } from 'zod'
 
-import { RECORD_KEY_VERSION_MAX, parseRecordEncryptionKeyring } from './record-crypto'
+import { isLicenseKeyPair } from './license-signing'
+import { normalizeMayarEnvironment } from './mayar'
 
 /**
  * Validasi env server - fail-closed.
@@ -123,6 +124,11 @@ const serverEnvSchema = z
         error: 'NUXT_DATABASE_URL harus connection string Postgres',
       }),
     otpPepper: pepperSchema('NUXT_OTP_PEPPER'),
+    /**
+     * Seed Ed25519 (base64 32 byte) penanda tangan token lisensi. Pasangan public key-nya WAJIB sama
+     * dengan `runtimeConfig.public.licensePublicKey` (dicek di `resolveServerEnv`).
+     */
+    licenseSigningKey: z.string({ error: 'NUXT_LICENSE_SIGNING_KEY wajib diisi' }).min(1),
     rateLimitPepper: pepperSchema('NUXT_RATE_LIMIT_PEPPER'),
     googleClientId: z.string({ error: 'NUXT_GOOGLE_CLIENT_ID wajib diisi' }).min(1),
     googleClientSecret: z.string({ error: 'NUXT_GOOGLE_CLIENT_SECRET wajib diisi' }).min(1),
@@ -138,6 +144,31 @@ const serverEnvSchema = z
      * kredensial di semua env hanya akan membuat developer mengisi nilai palsu - dan nilai palsu itulah
      * yang nanti ikut ke production.
      */
+    /**
+     * Mayar (pembayaran lisensi, ADR 15). Kosong di non-production = checkout menjawab 503; wajib di
+     * production (dicek di `resolveServerEnv`).
+     */
+    mayarApiKey: z.string().default(''),
+    /** Token rahasia yang wajib dibawa webhook Mayar. Kosong = webhook menolak semua (503). */
+    mayarWebhookToken: z.string().default(''),
+    /**
+     * Label environment untuk tag rute webhook-gateway (`[wh:product=improve-personal;env=<ini>]`):
+     * Mayar hanya meneruskan `description` ke webhook, jadi label ini yang menentukan app mana yang
+     * menerima pembayaran. Dinormalkan jadi slug; kosong = `production`.
+     */
+    mayarEnvironment: z.string().default('').transform(normalizeMayarEnvironment),
+    /**
+     * Harga uji (rupiah) untuk non-production - Mayar tidak punya sandbox, jadi uji bayar = uang
+     * sungguhan. DIABAIKAN di production (`licensePriceIdr`).
+     */
+    priceOverrideIdr: z
+      .union([z.number(), z.string()])
+      .default('')
+      .transform((value) => (value === '' ? null : Number(String(value).trim())))
+      .refine(
+        (value) => value === null || (Number.isInteger(value) && value > 0),
+        'NUXT_PRICE_OVERRIDE_IDR harus bilangan bulat rupiah > 0',
+      ),
     resendApiKey: z.string().default(''),
     mailFrom: z.string().default(''),
     /**
@@ -160,37 +191,6 @@ const serverEnvSchema = z
         'NUXT_SMTP_URL harus URL `smtp://` atau `smtps://`',
       )
       .transform((value) => value.trim()),
-    /**
-     * Keyring enkripsi at-rest untuk isi record: `1:<base64 32 byte>[,2:<base64 32 byte>]`.
-     *
-     * WAJIB di semua environment, termasuk development dan test: tanpa kunci ini server tidak punya
-     * cara menyimpan atau membaca record. Sengaja fail-closed - nilai default akan membuat satu
-     * deployment memakai kunci yang sama dengan repo, dan itu sama dengan tidak terenkripsi.
-     */
-    recordEncryptionKeys: z
-      .string({ error: 'NUXT_RECORD_ENCRYPTION_KEYS wajib diisi' })
-      .superRefine((value, ctx) => {
-        try {
-          parseRecordEncryptionKeyring(value)
-        } catch {
-          // Pesan hanya menyebut bentuk yang benar - tidak pernah nilai kuncinya.
-          ctx.addIssue({
-            code: 'custom',
-            message:
-              'NUXT_RECORD_ENCRYPTION_KEYS harus `versi:base64-32-byte` dipisah koma, mis. `1:...`',
-          })
-        }
-      })
-      .transform((value) => parseRecordEncryptionKeyring(value)),
-    /** Versi kunci yang dipakai untuk penulisan BARU. Versi lama tetap dibaca dari keyring. */
-    recordEncryptionActiveVersion: z
-      .union([z.number(), z.string()])
-      .default(1)
-      .transform((value) => (typeof value === 'number' ? value : Number(value.trim())))
-      .refine(
-        (value) => Number.isInteger(value) && value >= 1 && value <= RECORD_KEY_VERSION_MAX,
-        `NUXT_RECORD_ENCRYPTION_ACTIVE_VERSION harus integer 1..${RECORD_KEY_VERSION_MAX}`,
-      ),
   })
   .transform((value) => ({
     ...value,
@@ -270,12 +270,16 @@ export function resolveServerEnv(config: Record<string, unknown>): ServerEnv {
 
   const env = parsed.data
 
-  // Versi aktif yang tidak ada di keyring = server bisa menulis tapi tidak pernah bisa membaca
-  // hasilnya. Ditolak di sini (bukan lewat refine zod) supaya tidak bergantung pada urutan transform
-  // field di zod: pada objek, `superRefine` menerima nilai mentah sebelum transform diterapkan.
-  if (!env.recordEncryptionKeys.has(env.recordEncryptionActiveVersion)) {
+  // Token yang ditandatangani kunci yang tidak cocok dengan public key di app akan ditolak SEMUA
+  // perangkat - aktivasi mati total tanpa error yang jelas. Ditolak saat startup, bukan saat aktivasi.
+  const publicConfig = config.public
+  const licensePublicKey =
+    typeof publicConfig === 'object' && publicConfig !== null && 'licensePublicKey' in publicConfig
+      ? String(publicConfig.licensePublicKey)
+      : ''
+  if (!isLicenseKeyPair(env.licenseSigningKey, licensePublicKey)) {
     throw new ServerEnvError([
-      'NUXT_RECORD_ENCRYPTION_ACTIVE_VERSION (tidak ada di NUXT_RECORD_ENCRYPTION_KEYS)',
+      'NUXT_LICENSE_SIGNING_KEY (tidak valid atau tidak cocok dengan NUXT_PUBLIC_LICENSE_PUBLIC_KEY)',
     ])
   }
 
@@ -285,6 +289,8 @@ export function resolveServerEnv(config: Record<string, unknown>): ServerEnv {
     [
       ['NUXT_RESEND_API_KEY', env.resendApiKey],
       ['NUXT_MAIL_FROM', env.mailFrom],
+      ['NUXT_MAYAR_API_KEY', env.mayarApiKey],
+      ['NUXT_MAYAR_WEBHOOK_TOKEN', env.mayarWebhookToken],
     ] as const
   )
     .filter(([, value]) => value.trim().length === 0)

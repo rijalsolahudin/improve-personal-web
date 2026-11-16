@@ -26,7 +26,9 @@ const STICKERS: readonly { name: MascotName; tilt: number }[] = [
     </div>
     <h2 id="landing-outro-title" class="heading">{{ $t('landing.outro.title') }}</h2>
     <p class="lead">{{ $t('landing.outro.lead') }}</p>
-    <NuxtLink to="/login" class="cta">{{ $t('landing.outro.cta') }}</NuxtLink>
+    <NuxtLink :to="PURCHASE_PATH" class="cta">{{
+      $t('landing.outro.cta', { price: LICENSE_PRICE_LABEL })
+    }}</NuxtLink>
   </section>
 </template>
 

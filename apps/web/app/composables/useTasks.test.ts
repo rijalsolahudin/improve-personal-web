@@ -13,7 +13,7 @@ import { createRecordWriter } from '~/utils/storage/record-writer'
 import { createRepositorySet } from '~/utils/storage/repository'
 import { createUuidV7Generator } from '~/utils/storage/uuid'
 import { loadTasks, persistTask } from '~/utils/tasks/persistence'
-import { resetSyncReloadersForTest } from '~/utils/sync/refresh'
+import { resetDataReloadersForTest } from '~/utils/storage/reload'
 import type { Task } from '~/utils/tasks'
 import { emptyTaskDraft } from '~/utils/tasks'
 import type { LocalDataSession } from '~/utils/storage/session'
@@ -232,7 +232,7 @@ describe('useTasks: muat ulang setelah pull (AC T77)', () => {
   beforeEach(() => {
     clearNuxtState(['tasks', 'tasksStatus', 'tasksError', 'localData'])
     resetTasksHydrationForTest()
-    resetSyncReloadersForTest()
+    resetDataReloadersForTest()
   })
 
   it('reload memuat task dari perangkat lain tanpa pernah berstatus loading', async () => {
