@@ -1,5 +1,7 @@
 <script setup lang="ts">
-import { journalDates, matchesQuery, memosOn, plainText } from '~/utils/memo'
+import type { ComponentPublicInstance } from 'vue'
+
+import { journalDates, matchesQuery, plainText } from '~/utils/memo'
 import { toIsoDate } from '~/utils/time'
 
 definePageMeta({ layout: 'dashboard' })
@@ -9,7 +11,8 @@ useHead({ title: () => t('feature.memo.label') })
 
 const now = useNow()
 const today = computed(() => toIsoDate(new Date(now.value)))
-const { memos, moods, moodOn, remove } = useMemos()
+const { memos, moods, moodOn, memoOn, remove } = useMemos()
+const stickers = useJournalStickers()
 const { findSchedule } = useSchedules()
 const { findGoal } = useGoals()
 
@@ -37,7 +40,47 @@ const dates = computed(() => {
   const hits = new Set(matching.value.map((memo) => memo.date))
   return all.filter((day) => hits.has(day))
 })
-const entries = computed(() => memosOn(matching.value, selected.value))
+const isSearching = computed(() => query.value.trim() !== '')
+/** Hasil cari lintas tanggal, terbaru dulu (Diary Book PRD F8). */
+const results = computed(() =>
+  [...matching.value].sort((a, b) => b.date.localeCompare(a.date) || b.createdAt - a.createdAt),
+)
+
+/**
+ * Satu jurnal per hari, jadi editor dan kartu tidak tampil bersamaan. Hari ini dan hari kosong
+ * langsung bisa ditulis; hari lain yang sudah berisi dibuka sebagai halaman baca supaya tidak
+ * terubah karena salah klik, dan "Ubah" membuka editornya.
+ */
+const editingDay = ref<string | null>(null)
+const page = computed(() => memoOn(selected.value))
+const isEditing = computed(
+  () =>
+    selected.value === today.value || page.value === null || editingDay.value === selected.value,
+)
+const canFinishEditing = computed(
+  () => selected.value !== today.value && page.value !== null && isEditing.value,
+)
+watch(selected, () => (editingDay.value = null))
+
+const lists = useTemplateRef<ComponentPublicInstance>('lists')
+
+/** Chip "Poin hari ini": lompat ke tiga daftar di bawah kertas dan fokus ke baris pertama. */
+function showPoints(): void {
+  const element = lists.value?.$el
+  if (!(element instanceof HTMLElement)) return
+  element.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  element.querySelector('input')?.focus({ preventScroll: true })
+}
+
+function openDay(day: string): void {
+  selected.value = day
+  query.value = ''
+}
+
+function removePage(id: string): void {
+  stickers.removeAllOf(id)
+  remove(id)
+}
 </script>
 
 <template>
@@ -70,40 +113,42 @@ const entries = computed(() => memosOn(matching.value, selected.value))
     />
 
     <div class="pages">
-      <div class="daily">
-        <div class="col">
-          <JournalFeeling
-            :day="selected"
-            data-anchor="journal-feeling"
-            data-anchor-kind="content"
-          />
-          <JournalNote
-            :day="selected"
-            kind="affirm"
-            data-anchor="journal-affirm"
-            data-anchor-kind="content"
-          />
-          <JournalNote
-            :day="selected"
-            kind="reflect"
-            data-anchor="journal-reflect"
-            data-anchor-kind="content"
-          />
+      <template v-if="isSearching">
+        <MemoEntry
+          v-for="(memo, index) in results"
+          :key="memo.id"
+          :memo="memo"
+          :index="index"
+          :mood="moodOn(memo.date)"
+          mode="result"
+          @open="openDay(memo.date)"
+        />
+        <p v-if="!results.length" class="empty">{{ $t('memo.noMatch') }}</p>
+      </template>
+      <template v-else-if="isEditing">
+        <div v-if="canFinishEditing" class="mode-bar">
+          <Button variant="soft" size="sm" @click="editingDay = null">
+            {{ $t('memo.doneEditing') }}
+          </Button>
         </div>
-        <div class="col">
-          <JournalLists :day="selected" data-anchor="journal-lists" data-anchor-kind="content" />
-        </div>
-      </div>
-      <MemoEditor :day="selected" />
+        <MemoEditor :day="selected" @show-points="showPoints" />
+        <JournalLists
+          ref="lists"
+          :day="selected"
+          data-anchor="journal-lists"
+          data-anchor-kind="content"
+        />
+      </template>
       <MemoEntry
-        v-for="(memo, index) in entries"
-        :key="memo.id"
-        :memo="memo"
-        :index="index"
-        :mood="moodOn(memo.date)"
-        @remove="remove(memo.id)"
-      />
-      <p v-if="!entries.length" class="empty">{{ $t('memo.emptyDay') }}</p>
+        v-else-if="page"
+        :memo="page"
+        :index="0"
+        :mood="moodOn(page.date)"
+        @edit="editingDay = selected"
+        @remove="removePage(page.id)"
+      >
+        <JournalDaySummary :day="selected" />
+      </MemoEntry>
     </div>
   </div>
 </template>
@@ -150,23 +195,10 @@ const entries = computed(() => memosOn(matching.value, selected.value))
   min-width: 0;
 }
 
-/* Dua kolom isian harian; kolom yang lebih pendek ikut sticky saat kolom lain di-scroll. */
-.daily {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 360px), 1fr));
-  align-items: start;
-  gap: var(--space-24);
-}
-
-.col {
-  position: sticky;
-  top: var(--gap-desktop);
-  /* Di atas kolom tetangga: sticker yang ditempel di dalam kolom boleh menjorok keluar. */
-  z-index: 1;
-  min-width: 0;
+.mode-bar {
   display: flex;
-  flex-direction: column;
-  gap: var(--space-20);
+  justify-content: flex-end;
+  margin-bottom: calc(-1 * var(--space-12));
 }
 
 .empty {

@@ -498,6 +498,13 @@ export default defineNuxtConfig({
           codeSplitting: {
             groups: [
               { name: 'libsodium', test: /[\\/]node_modules[\\/](?:\.pnpm[\\/])?libsodium/ },
+              // Editor jurnal (dimuat lazy hanya di halaman Journal): satu chunk ~125 KB gzip melewati
+              // budget 100 KB per chunk, jadi ProseMirror (~68 KB) dan Tiptap (~48 KB) dipisah.
+              {
+                name: 'prosemirror',
+                test: /[\\/]node_modules[\\/](?:\.pnpm[\\/])?(?:prosemirror|orderedmap|rope-sequence|w3c-keyname)/,
+              },
+              { name: 'tiptap', test: /[\\/]node_modules[\\/](?:\.pnpm[\\/])?@tiptap/ },
             ],
           },
         },

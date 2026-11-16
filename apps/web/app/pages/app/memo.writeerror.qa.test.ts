@@ -11,6 +11,7 @@ import type { Schedule } from '~/utils/schedule'
 
 import { createMemoryLocalSession } from '../../../tests/nuxt/memo-session'
 import MemoPage from './memo.vue'
+import { diaryValue } from '../../../tests/nuxt/memo-diary'
 
 /**
  * QA #71 / BUG-65-01 - kegagalan tulis harus TERLIHAT di editor.
@@ -142,9 +143,7 @@ describe('QA #71 editor jurnal saat tulis gagal', () => {
     })
     expect(localStorage.getItem(keyOf(TODAY))).toBeNull()
     // Halaman yang disimpan tetap terbuka di editor supaya bisa dikoreksi.
-    expect(
-      (wrapper.find('section.sheet textarea.paper').element as HTMLTextAreaElement).value,
-    ).toBe(DRAFT_TEXT)
+    expect(diaryValue()).toBe(DRAFT_TEXT)
   })
 
   it('tanpa tulisan tertunda, editor tidak menampilkan banner', async () => {

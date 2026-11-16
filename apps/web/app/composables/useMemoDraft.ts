@@ -254,6 +254,14 @@ export function useMemoDraft() {
       return draftDay.value === day && sameDraft(draft.value, values)
     },
     /**
+     * `true` kalau draf tanggal `day` berbeda dari halaman tersimpan. Autosave hanya berjalan saat
+     * ini benar: memuat halaman (draf = halaman) tidak pernah memicu tulis, jadi draf kosong selama
+     * hydrate tidak bisa menimpa tulisan yang sudah tersimpan.
+     */
+    isDirty(day: string): boolean {
+      return draftDay.value === day && !sameDraft(draft.value, saved.value)
+    },
+    /**
      * Halaman yang baru disimpan tetap terbuka di editor supaya bisa dikoreksi, dan drafnya dibuang.
      *
      * `day` diisi pemanggil yang menunggu tulisan: kalau editor sudah pindah tanggal saat tulisan

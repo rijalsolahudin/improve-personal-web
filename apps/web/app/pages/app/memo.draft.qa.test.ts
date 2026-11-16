@@ -10,9 +10,10 @@ import type { Schedule } from '~/utils/schedule'
 
 import { createMemoryLocalSession } from '../../../tests/nuxt/memo-session'
 import MemoPage from './memo.vue'
+import { diaryValue, typeDiary } from '../../../tests/nuxt/memo-diary'
 
 /**
- * Sesi data lokal sungguhan (in-memory) supaya "Simpan ke jurnal" benar-benar menulis. Tanpa sesi,
+ * Sesi data lokal sungguhan (in-memory) supaya autosave benar-benar menulis. Tanpa sesi,
  * simpan memang gagal (BUG-71-01) dan draf sengaja dipertahankan - bukan yang mau diuji di sini.
  */
 const { ensureMock } = vi.hoisted(() => ({ ensureMock: vi.fn() }))
@@ -35,7 +36,7 @@ vi.mock('~/composables/useLocalData', () => ({
  * QA #54 / BUG-T11-02 - draf diary harus bertahan saat pindah tanggal dan reload.
  *
  * Test composable (`useMemoDraft.test.ts`) membuktikan logikanya; test ini membuktikan
- * WIRING-nya di halaman: textarea editor, tombol tanggal di strip, dan tombol simpan.
+ * WIRING-nya di halaman: kertas editor, tombol tanggal di strip, dan autosave (fokus keluar dari kertas).
  * Kegagalan yang mungkin lolos dari test composable (watch `day` tidak jalan, v-model tidak
  * terhubung, `load()` tidak dipanggil setelah simpan) tertangkap di sini.
  */
@@ -106,13 +107,11 @@ async function reloadPage(): Promise<VueWrapper> {
 }
 
 const keyOf = (day: string): string => MEMO_DRAFT_PREFIX + day
-const editor = (wrapper: VueWrapper) => wrapper.find('section.sheet textarea.paper')
 const titleInput = (wrapper: VueWrapper) => wrapper.find('section.sheet input.title-input')
 const dateButtons = (wrapper: VueWrapper) => wrapper.findAll('.strip .date')
 
-async function typeText(wrapper: VueWrapper, text: string): Promise<void> {
-  await editor(wrapper).setValue(text)
-  await flushPromises()
+async function typeText(_wrapper: VueWrapper, text: string): Promise<void> {
+  await typeDiary(text)
 }
 
 async function clickDay(wrapper: VueWrapper, index: number): Promise<void> {
@@ -120,6 +119,12 @@ async function clickDay(wrapper: VueWrapper, index: number): Promise<void> {
   if (!button) throw new Error(`tombol tanggal index ${index} tidak ada`)
   await button.trigger('click')
   await flushPromises()
+  // Hari lain yang sudah berisi dibuka di mode baca; skenario di sini menulis di hari itu.
+  const edit = wrapper.findAll('button').find((item) => item.text() === '✎ Ubah')
+  if (edit) {
+    await edit.trigger('click')
+    await flushPromises()
+  }
 }
 
 /**
@@ -135,8 +140,6 @@ function stored(wrapper: VueWrapper, day: string): Record<string, unknown> | nul
     ? (values as Record<string, unknown>)
     : parsed
 }
-const valueOf = (wrapper: VueWrapper): string =>
-  (editor(wrapper).element as HTMLTextAreaElement).value
 const titleValue = (wrapper: VueWrapper): string =>
   (titleInput(wrapper).element as HTMLInputElement).value
 
@@ -177,29 +180,29 @@ describe('QA #54 draf diary per tanggal lewat UI', () => {
 
     // YESTERDAY (index 1).
     await clickDay(wrapper, 1)
-    expect(valueOf(wrapper)).toBe('Halaman kemarin.')
+    expect(diaryValue()).toBe('Halaman kemarin.')
     await typeText(wrapper, 'Tulisan kemarin, belum disimpan')
     expect(stored(wrapper, YESTERDAY)?.text).toBe('Tulisan kemarin, belum disimpan')
 
     // LAST_WEEK (index 2).
     await clickDay(wrapper, 2)
-    expect(valueOf(wrapper)).toBe('Halaman pekan lalu.')
+    expect(diaryValue()).toBe('Halaman pekan lalu.')
     await typeText(wrapper, 'Tulisan pekan lalu, belum disimpan')
     expect(stored(wrapper, LAST_WEEK)?.text).toBe('Tulisan pekan lalu, belum disimpan')
 
     // Kembali: isi + judul tiap tanggal utuh dan tidak saling menimpa.
     await clickDay(wrapper, 0)
-    expect(valueOf(wrapper)).toBe('Tulisan hari ini, belum disimpan')
+    expect(diaryValue()).toBe('Tulisan hari ini, belum disimpan')
     expect(titleValue(wrapper)).toBe('Judul hari ini')
 
     await clickDay(wrapper, 1)
-    expect(valueOf(wrapper)).toBe('Tulisan kemarin, belum disimpan')
+    expect(diaryValue()).toBe('Tulisan kemarin, belum disimpan')
 
     await clickDay(wrapper, 2)
-    expect(valueOf(wrapper)).toBe('Tulisan pekan lalu, belum disimpan')
+    expect(diaryValue()).toBe('Tulisan pekan lalu, belum disimpan')
 
     await clickDay(wrapper, 0)
-    expect(valueOf(wrapper)).toBe('Tulisan hari ini, belum disimpan')
+    expect(diaryValue()).toBe('Tulisan hari ini, belum disimpan')
   })
 
   it('draf yang diketik tetap ada setelah reload halaman', async () => {
@@ -211,11 +214,11 @@ describe('QA #54 draf diary per tanggal lewat UI', () => {
 
     wrapper = await reloadPage()
 
-    expect(valueOf(wrapper)).toBe('Draf yang belum disimpan, harus selamat dari reload')
+    expect(diaryValue()).toBe('Draf yang belum disimpan, harus selamat dari reload')
     expect(titleValue(wrapper)).toBe('')
   })
 
-  it('simpan menghapus draf tanggal itu saja, halaman tersimpan normal', async () => {
+  it('pindah tanggal menyimpan ketikan tanggal itu; draf yang tersimpan dibuang', async () => {
     seed([memo({ id: 'y', date: YESTERDAY, text: 'Halaman kemarin.' })])
     const wrapper = await mountPage()
 
@@ -225,34 +228,31 @@ describe('QA #54 draf diary per tanggal lewat UI', () => {
     expect(localStorage.getItem(keyOf(YESTERDAY))).not.toBeNull()
 
     await clickDay(wrapper, 0)
-    const save = wrapper.findAll('button').find((item) => item.text() === 'Simpan ke jurnal')
-    if (!save) throw new Error('tombol simpan tidak ada')
-    await save.trigger('click')
+    await wrapper.find('section.sheet').trigger('focusout')
     await flushPromises()
 
-    // Simpan sukses: draf hari ini hilang, entri muncul, draf kemarin tidak tersentuh.
+    // Autosave: pindah tanggal menyimpan ketikan tanggal yang ditinggal, jadi kedua draf sudah
+    // tersimpan dan dibuang. Masing-masing tanggal tetap satu halaman dengan isinya sendiri.
     expect(localStorage.getItem(keyOf(TODAY))).toBeNull()
-    expect(localStorage.getItem(keyOf(YESTERDAY))).not.toBeNull()
-    expect(wrapper.findAll('.pages > .entry')).toHaveLength(1)
-    expect(wrapper.find('.pages > .entry .body').text()).toContain('Hari ini tenang.')
+    expect(localStorage.getItem(keyOf(YESTERDAY))).toBeNull()
+    expect(useMemos().memoOn(YESTERDAY)?.text).toBe('Draf kemarin yang belum disimpan.')
+    expect(useMemos().memoOn(TODAY)?.text).toBe('Hari ini tenang.')
     // Editor tetap menampilkan isi yang baru disimpan supaya bisa dikoreksi.
-    expect(valueOf(wrapper)).toBe('Hari ini tenang.')
+    expect(diaryValue()).toBe('Hari ini tenang.')
   })
 
   it('setelah simpan, reload tidak memunculkan lagi draf yang sudah dibuang', async () => {
     seed([])
-    let wrapper = await mountPage()
+    const wrapper = await mountPage()
 
     await typeText(wrapper, 'Sudah disimpan.')
-    const save = wrapper.findAll('button').find((item) => item.text() === 'Simpan ke jurnal')
-    if (!save) throw new Error('tombol simpan tidak ada')
-    await save.trigger('click')
+    await wrapper.find('section.sheet').trigger('focusout')
     await flushPromises()
 
-    wrapper = await reloadPage()
+    await reloadPage()
     // Reload: draf lama tidak boleh "hidup lagi" dari localStorage lalu menimpa halaman tersimpan.
     // (Persistensi halaman itu sendiri tidak bisa diuji di harness ini - tidak ada sesi data lokal.)
-    expect(valueOf(wrapper)).toBe('')
+    expect(diaryValue()).toBe('')
     expect(localStorage.getItem(keyOf(TODAY))).toBeNull()
   })
 
@@ -264,15 +264,15 @@ describe('QA #54 draf diary per tanggal lewat UI', () => {
     await typeText(wrapper, 'Isi tanggal 10.')
     await clickDay(wrapper, 1)
     // Tanggal kemarin tidak punya draf: editor kosong, bukan mewarisi isi tanggal 10.
-    expect(valueOf(wrapper)).toBe('')
+    expect(diaryValue()).toBe('')
     expect(localStorage.getItem(keyOf(YESTERDAY))).toBeNull()
 
     await typeText(wrapper, 'Isi tanggal 9.')
     await clickDay(wrapper, 0)
-    expect(valueOf(wrapper)).toBe('Isi tanggal 10.')
+    expect(diaryValue()).toBe('Isi tanggal 10.')
 
     await clickDay(wrapper, 1)
-    expect(valueOf(wrapper)).toBe('Isi tanggal 9.')
+    expect(diaryValue()).toBe('Isi tanggal 9.')
   })
 })
 
@@ -280,8 +280,8 @@ describe('QA #54 draf rusak / tidak tepercaya', () => {
   it('JSON rusak dan tipe salah diabaikan: editor memakai halaman tersimpan', async () => {
     seed([memo({ id: 'm', date: TODAY, text: 'Isi tersimpan.' })])
     localStorage.setItem(keyOf(TODAY), '{rusak')
-    const wrapper = await mountPage()
-    expect(valueOf(wrapper)).toBe('Isi tersimpan.')
+    await mountPage()
+    expect(diaryValue()).toBe('Isi tersimpan.')
 
     // Key rusak dibersihkan (bukan dibiarkan menumpuk) karena draf sama dengan halaman tersimpan.
     expect(localStorage.getItem(keyOf(TODAY))).toBeNull()
@@ -295,7 +295,7 @@ describe('QA #54 draf rusak / tidak tepercaya', () => {
     )
     const wrapper = await mountPage()
 
-    expect(valueOf(wrapper)).toBe('Draf')
+    expect(diaryValue()).toBe('Draf')
     const pressed = wrapper
       .findAll('.feelings button[aria-pressed="true"]')
       .map((item) => item.text())
@@ -308,7 +308,7 @@ describe('QA #54 draf rusak / tidak tepercaya', () => {
     })
   })
 
-  it('isi draf berisi HTML dirender sebagai teks di textarea, bukan elemen', async () => {
+  it('isi draf berisi HTML dirender sebagai teks di kertas, bukan elemen', async () => {
     seed([])
     localStorage.setItem(
       keyOf(TODAY),
@@ -320,7 +320,7 @@ describe('QA #54 draf rusak / tidak tepercaya', () => {
     )
     const wrapper = await mountPage()
 
-    expect(valueOf(wrapper)).toBe('<script>window.__pwned=2</script><b>tebal</b>')
+    expect(diaryValue()).toBe('<script>window.__pwned=2</script><b>tebal</b>')
     expect(titleValue(wrapper)).toBe('<img src=x onerror="window.__pwned=1">')
     expect(wrapper.find('section.sheet img').exists()).toBe(false)
     expect(wrapper.find('section.sheet script').exists()).toBe(false)

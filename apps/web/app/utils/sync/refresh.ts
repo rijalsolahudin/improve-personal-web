@@ -24,6 +24,7 @@ export type SyncReloadKey =
   | 'habits'
   | 'countdowns'
   | 'memos'
+  | 'journalStickers'
   | 'pomodoro'
   | 'appearance'
   | 'profile'
@@ -41,6 +42,7 @@ export const RELOAD_ORDER: readonly SyncReloadKey[] = [
   'habits',
   'countdowns',
   'memos',
+  'journalStickers',
   'pomodoro',
   'appearance',
   'profile',

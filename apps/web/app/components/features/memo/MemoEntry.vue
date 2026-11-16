@@ -1,12 +1,29 @@
 <script setup lang="ts">
 import { moodTints } from '@improve-personal/tokens'
 
-import { splitMentions, type Memo } from '~/utils/memo'
-import { formatHourMinute } from '~/utils/time'
+import type { Memo } from '~/utils/memo'
+import { formatHourMinute, fromIsoDate } from '~/utils/time'
 
-/** Satu halaman jurnal tersimpan (design: kertas bergaris, selotip, stempel mood). */
-const { memo, index, mood } = defineProps<{ memo: Memo; index: number; mood: number | null }>()
-defineEmits<{ remove: [] }>()
+/**
+ * Satu halaman jurnal tersimpan (design: kertas bergaris, selotip, stempel mood).
+ *
+ * `read` = mode baca hari yang dipilih (aksi ubah + hapus, slot ringkasan bagian harian);
+ * `result` = kartu hasil pencarian lintas tanggal (tanggal di kepala, aksi buka halaman).
+ */
+const {
+  memo,
+  index,
+  mood,
+  mode = 'read',
+} = defineProps<{
+  memo: Memo
+  index: number
+  mood: number | null
+  mode?: 'read' | 'result'
+}>()
+defineEmits<{ remove: []; edit: []; open: [] }>()
+
+const { shortDate } = useDateFormat()
 
 const MOODS = ['😢', '😕', '😐', '🙂', '😄'] as const
 /** Variasi kecil per urutan supaya tumpukan kertas terlihat alami (design). */
@@ -18,7 +35,6 @@ const TAPE = [
 ] as const
 
 const isConfirming = ref(false)
-const segments = computed(() => splitMentions(memo.text))
 const tape = computed(() => TAPE[index % TAPE.length] ?? TAPE[0])
 const style = computed(() => ({
   transform: `rotate(${TILT[index % TILT.length]}deg)`,
@@ -37,27 +53,36 @@ const style = computed(() => ({
     </span>
     <header class="head">
       <h3 class="title">{{ memo.title || $t('memo.untitled') }}</h3>
-      <span class="time">{{ formatHourMinute(memo.createdAt) }}</span>
+      <span class="time">
+        {{
+          mode === 'result'
+            ? shortDate(fromIsoDate(memo.date).getTime())
+            : formatHourMinute(memo.createdAt)
+        }}
+      </span>
     </header>
-    <p class="body">
-      <template v-for="(segment, i) in segments" :key="i"
-        ><MemoMention
-          v-if="segment.kind === 'mention'"
-          :schedule-id="segment.scheduleId"
-          :day="memo.date"
-        /><MemoGoalMention
-          v-else-if="segment.kind === 'goal-mention'"
-          :goal-id="segment.goalId"
-        /><span v-else class="seg">{{ segment.text }}</span></template
-      >
-    </p>
+    <MemoRichText class="body" :text="memo.text" :day="memo.date" />
+    <slot />
     <footer class="foot">
       <span class="tags">
         <span v-for="feeling in memo.feelings" :key="feeling" class="tag">#{{ feeling }}</span>
       </span>
-      <Button variant="link-danger" @click="isConfirming ? $emit('remove') : (isConfirming = true)">
-        {{ $t(isConfirming ? 'memo.deleteConfirm' : 'memo.delete') }}
-      </Button>
+      <span class="actions">
+        <Button v-if="mode === 'result'" variant="link" @click="$emit('open')">
+          {{ $t('memo.openDay') }}
+        </Button>
+        <template v-else>
+          <Button
+            variant="link-danger"
+            @click="isConfirming ? $emit('remove') : (isConfirming = true)"
+          >
+            {{ $t(isConfirming ? 'memo.deleteConfirm' : 'memo.delete') }}
+          </Button>
+          <Button variant="soft" size="sm" @click="$emit('edit')">
+            {{ $t('memo.edit') }}
+          </Button>
+        </template>
+      </span>
     </footer>
   </article>
 </template>
@@ -124,11 +149,6 @@ const style = computed(() => ({
   overflow-wrap: anywhere;
 }
 
-/* Baris baru di isi jurnal dipertahankan; spasi template di sekitar chip tidak ikut tampil. */
-.seg {
-  white-space: pre-wrap;
-}
-
 .foot {
   display: flex;
   flex-wrap: wrap;
@@ -136,6 +156,13 @@ const style = computed(() => ({
   justify-content: space-between;
   gap: var(--space-10);
   margin-top: var(--space-10);
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  margin-left: auto;
 }
 
 .tags {

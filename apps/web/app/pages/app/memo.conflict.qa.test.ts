@@ -11,9 +11,10 @@ import type { Schedule } from '~/utils/schedule'
 
 import { createMemoryLocalSession } from '../../../tests/nuxt/memo-session'
 import MemoPage from './memo.vue'
+import { diaryValue, typeDiary } from '../../../tests/nuxt/memo-diary'
 
 /**
- * Sesi data lokal sungguhan (in-memory) supaya "Simpan ke jurnal" benar-benar menulis - kegagalan
+ * Sesi data lokal sungguhan (in-memory) supaya autosave benar-benar menulis - kegagalan
  * sesi kini diperlakukan sebagai gagal simpan (BUG-71-01), bukan sukses.
  */
 const { ensureMock } = vi.hoisted(() => ({ ensureMock: vi.fn() }))
@@ -109,15 +110,11 @@ async function remountPage(): Promise<VueWrapper> {
 }
 
 const keyOf = (day: string): string => MEMO_DRAFT_PREFIX + day
-const editor = (wrapper: VueWrapper) => wrapper.find('section.sheet textarea.paper')
 const titleInput = (wrapper: VueWrapper) => wrapper.find('section.sheet input.title-input')
 const dateButtons = (wrapper: VueWrapper) => wrapper.findAll('.strip .date')
-const valueOf = (wrapper: VueWrapper): string =>
-  (editor(wrapper).element as HTMLTextAreaElement).value
 
-async function typeText(wrapper: VueWrapper, text: string): Promise<void> {
-  await editor(wrapper).setValue(text)
-  await flushPromises()
+async function typeText(_wrapper: VueWrapper, text: string): Promise<void> {
+  await typeDiary(text)
 }
 
 async function clickDay(wrapper: VueWrapper, index: number): Promise<void> {
@@ -125,16 +122,23 @@ async function clickDay(wrapper: VueWrapper, index: number): Promise<void> {
   if (!button) throw new Error(`tombol tanggal index ${index} tidak ada`)
   await button.trigger('click')
   await flushPromises()
+  // Hari lain yang sudah berisi dibuka di mode baca; skenario di sini menulis di hari itu.
+  const edit = wrapper.findAll('button').find((item) => item.text() === '✎ Ubah')
+  if (edit) {
+    await edit.trigger('click')
+    await flushPromises()
+  }
 }
 
 async function clickSave(wrapper: VueWrapper): Promise<void> {
-  const save = wrapper.findAll('button').find((item) => item.text() === 'Simpan ke jurnal')
-  if (!save) throw new Error('tombol simpan tidak ada')
-  await save.trigger('click')
+  await wrapper.find('section.sheet').trigger('focusout')
   await flushPromises()
 }
 
 async function clickFeeling(wrapper: VueWrapper, feeling: string): Promise<void> {
+  // Chip perasaan dilipat di kepala kertas; buka dulu kalau belum terbuka.
+  const more = wrapper.find('.feelings .more[aria-expanded="false"]')
+  if (more.exists()) await more.trigger('click')
   const button = wrapper.findAll('.feelings button').find((item) => item.text() === feeling)
   if (!button) throw new Error(`tombol perasaan ${feeling} tidak ada`)
   await button.trigger('click')
@@ -171,14 +175,13 @@ describe('BUG-54-01 draf editor vs penulis eksternal (review goal)', () => {
 
     // Kembali ke /app/memo: draf masih terbuka, dan catatan review ikut terlihat (tidak hilang).
     wrapper = await remountPage()
-    expect(valueOf(wrapper)).toBe(`${REVIEW}\n\nDraf saya yang belum disimpan`)
+    expect(diaryValue()).toBe(`${REVIEW}\n\nDraf saya yang belum disimpan`)
 
     await clickSave(wrapper)
 
     expect(memos.memoOn(TODAY)?.text).toBe(`${REVIEW}\n\nDraf saya yang belum disimpan`)
     // Satu halaman per tanggal: penggabungan tidak membuat entri baru.
-    expect(wrapper.findAll('.pages > .entry')).toHaveLength(1)
-    expect(wrapper.find('.pages > .entry .body').text()).toContain(REVIEW)
+    expect(memos.memos.value.filter((page) => page.date === TODAY)).toHaveLength(1)
     // Draf tanggal itu sudah tersimpan, jadi salinan lokalnya dibuang.
     expect(localStorage.getItem(keyOf(TODAY))).toBeNull()
   })
@@ -186,13 +189,13 @@ describe('BUG-54-01 draf editor vs penulis eksternal (review goal)', () => {
   it('simpan tanpa mengedit setelah catatan review masuk tidak menghapus catatan itu', async () => {
     seed([memo({ id: 'm', date: TODAY, text: 'Tulisan awal.' })])
     const memos = useMemos()
-    let wrapper = await mountPage()
-    expect(valueOf(wrapper)).toBe('Tulisan awal.')
+    await mountPage()
+    expect(diaryValue()).toBe('Tulisan awal.')
 
     // Jalur B: halaman sudah pernah disimpan, lalu kartu review menambah catatan.
     memos.append(TODAY, REVIEW)
-    wrapper = await remountPage()
-    expect(valueOf(wrapper)).toBe(`Tulisan awal.\n\n${REVIEW}`)
+    const wrapper = await remountPage()
+    expect(diaryValue()).toBe(`Tulisan awal.\n\n${REVIEW}`)
 
     // Klik simpan tanpa mengubah apa pun (draf == halaman saat dimuat).
     await clickSave(wrapper)
@@ -268,8 +271,10 @@ describe('BUG-54-01 draf editor vs penulis eksternal (review goal)', () => {
     wrapper = await remountPage()
     await clickSave(wrapper)
 
-    expect(memos.memoOn(TODAY)?.text).toBe(`${REVIEW}\n\nDraf hari ini`)
-    expect(memos.memoOn(YESTERDAY)?.text).toBe('Halaman kemarin.')
-    expect(localStorage.getItem(keyOf(YESTERDAY))).toContain('Draf kemarin')
+    // Autosave menyimpan ketikan saat pindah tanggal, jadi catatan review masuk SETELAH draf hari
+    // ini tersimpan dan ditambahkan di belakangnya. Tanggal lain tetap memakai tulisannya sendiri.
+    expect(memos.memoOn(TODAY)?.text).toBe(`Draf hari ini\n\n${REVIEW}`)
+    expect(memos.memoOn(YESTERDAY)?.text).toBe('Draf kemarin')
+    expect(localStorage.getItem(keyOf(YESTERDAY))).toBeNull()
   })
 })

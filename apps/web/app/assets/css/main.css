@@ -8,6 +8,11 @@
 
 html {
   background: var(--bg);
+  /* Stabilo di tulisan jurnal (editor & mode baca): tembus pandang supaya tinta kertas tetap terbaca. */
+  --memo-hl-kuning: rgb(255 214 64 / 0.55);
+  --memo-hl-hijau: rgb(124 214 120 / 0.45);
+  --memo-hl-pink: rgb(255 140 190 / 0.45);
+  --memo-hl-biru: rgb(110 180 255 / 0.45);
 }
 
 body {

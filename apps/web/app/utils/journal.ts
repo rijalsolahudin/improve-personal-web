@@ -1,5 +1,6 @@
-// Isian harian halaman Journal (design `dl`: afirmasi, refleksi, cerita perasaan,
-// daftar syukur/sedih/lebih baik). Fungsi murni; satu `JournalDay` per tanggal ISO.
+// Isian harian halaman Journal (design `dl`): afirmasi dan daftar syukur/sedih/lebih baik.
+// Cerita perasaan & refleksi bebas dilebur ke diary (task #143). Fungsi murni; satu `JournalDay`
+// per tanggal ISO.
 
 export const JOURNAL_NOTE_MAX = 2000
 export const JOURNAL_LIST_ITEM_MAX = 200
@@ -9,14 +10,8 @@ export const JOURNAL_LIST_MIN_ROWS = 3
 export const JOURNAL_LISTS = ['grat', 'sad', 'better'] as const
 export type JournalListKey = (typeof JOURNAL_LISTS)[number]
 
-export const JOURNAL_NOTES = ['affirm', 'reflect', 'feelingNote'] as const
-export type JournalNoteKey = (typeof JOURNAL_NOTES)[number]
-
 export interface JournalDay {
   affirm: string
-  reflect: string
-  /** Cerita singkat di kartu "Perasaan hari ini". */
-  feelingNote: string
   grat: string[]
   sad: string[]
   better: string[]
@@ -25,8 +20,6 @@ export interface JournalDay {
 export function emptyJournalDay(): JournalDay {
   return {
     affirm: '',
-    reflect: '',
-    feelingNote: '',
     grat: [],
     sad: [],
     better: [],

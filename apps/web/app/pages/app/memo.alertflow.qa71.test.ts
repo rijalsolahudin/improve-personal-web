@@ -16,6 +16,7 @@ import { loadMemoRecords } from '~/utils/memo/persistence'
 import { openLocalDataSession, type LocalDataSession } from '~/utils/storage/session'
 
 import MemoPage from './memo.vue'
+import { diaryValue, typeDiary } from '../../../tests/nuxt/memo-diary'
 
 /**
  * QA #71 - WIRING editor jurnal saat tulis gagal/berjalan, di atas sesi data lokal SUNGGUHAN
@@ -164,8 +165,6 @@ async function mountPage(): Promise<VueWrapper> {
 }
 
 const alertOf = (target: VueWrapper) => target.find('section.sheet [role="alert"]')
-const textareaOf = (target: VueWrapper) =>
-  target.find('section.sheet textarea.paper').element as HTMLTextAreaElement
 const buttonWith = (target: VueWrapper, label: string) =>
   target.findAll('button').find((button) => button.text() === label)
 
@@ -197,12 +196,10 @@ describe('QA #71 editor jurnal: kegagalan tulis terlihat & bisa diulang', () => 
     ensureMock.mockResolvedValue(gate.session)
 
     const page = await mountPage()
-    await page.find('section.sheet textarea.paper').setValue('Tulisan yang gagal disimpan.')
+    await typeDiary('Tulisan yang gagal disimpan.')
     expect(localStorage.getItem(DRAFT_KEY)).toContain('Tulisan yang gagal disimpan.')
 
-    const saveButton = buttonWith(page, 'Simpan ke jurnal')
-    if (!saveButton) throw new Error('tombol simpan tidak ada')
-    await saveButton.trigger('click')
+    await page.find('section.sheet').trigger('focusout')
 
     await vi.waitFor(() => {
       expect(alertOf(page).exists()).toBe(true)
@@ -213,7 +210,7 @@ describe('QA #71 editor jurnal: kegagalan tulis terlihat & bisa diulang', () => 
     expect(alert.text()).not.toContain('QuotaExceededError')
     expect(alert.find('button').text()).toBe('Coba lagi')
     // Teks & draf masih ada: satu-satunya salinan tulisan user.
-    expect(textareaOf(page).value).toBe('Tulisan yang gagal disimpan.')
+    expect(diaryValue()).toBe('Tulisan yang gagal disimpan.')
     expect(localStorage.getItem(DRAFT_KEY)).toContain('Tulisan yang gagal disimpan.')
     expect((await loadMemoRecords(session, PAPER)).entries).toHaveLength(0)
 
@@ -233,7 +230,7 @@ describe('QA #71 editor jurnal: kegagalan tulis terlihat & bisa diulang', () => 
       expect(alertOf(page).exists()).toBe(false)
     })
     expect(localStorage.getItem(DRAFT_KEY)).toBeNull()
-    expect(textareaOf(page).value).toBe('Tulisan yang gagal disimpan.')
+    expect(diaryValue()).toBe('Tulisan yang gagal disimpan.')
   })
 
   it('(b) banner hanya untuk tanggal yang gagal, bukan tanggal lain', async () => {
@@ -243,10 +240,8 @@ describe('QA #71 editor jurnal: kegagalan tulis terlihat & bisa diulang', () => 
     ensureMock.mockResolvedValue(gate.session)
 
     const page = await mountPage()
-    await page.find('section.sheet textarea.paper').setValue('Tulisan yang gagal.')
-    const saveButton = buttonWith(page, 'Simpan ke jurnal')
-    if (!saveButton) throw new Error('tombol simpan tidak ada')
-    await saveButton.trigger('click')
+    await typeDiary('Tulisan yang gagal.')
+    await page.find('section.sheet').trigger('focusout')
     await vi.waitFor(() => {
       expect(alertOf(page).exists()).toBe(true)
     })
@@ -261,33 +256,30 @@ describe('QA #71 editor jurnal: kegagalan tulis terlihat & bisa diulang', () => 
 })
 
 describe('QA #71 temuan QA: banner dibersihkan setelah entri dihapus', () => {
-  it('entri yang gagal ditulis lalu dihapus: banner hilang dan "Coba lagi" tidak tertinggal', async () => {
+  it('tulisan yang gagal lalu dikosongkan: banner hilang dan "Coba lagi" tidak tertinggal', async () => {
     const session = base
     if (session === null) throw new Error('sesi tidak siap')
     const gate = gated(session)
     ensureMock.mockResolvedValue(gate.session)
 
     const page = await mountPage()
-    await page.find('section.sheet textarea.paper').setValue('Tulisan yang gagal lalu dihapus.')
-    const saveButton = buttonWith(page, 'Simpan ke jurnal')
-    if (!saveButton) throw new Error('tombol simpan tidak ada')
-    await saveButton.trigger('click')
+    await typeDiary('Tulisan yang gagal lalu dihapus.')
+    await page.find('section.sheet').trigger('focusout')
     await vi.waitFor(() => {
       expect(alertOf(page).exists()).toBe(true)
     })
 
-    // Storage pulih, lalu user menghapus halaman itu (dua klik: "Hapus" -> "Yakin hapus?").
+    // Storage pulih, lalu user menghapus semua tulisannya (hari ini selalu mode edit; autosave
+    // mengosongkan halaman, record tetap ada supaya mood/sticker tidak ikut hilang).
     gate.allow()
-    const remove = buttonWith(page, 'Hapus')
-    if (!remove) throw new Error('tombol hapus tidak ada')
-    await remove.trigger('click')
-    const confirm = buttonWith(page, 'Yakin hapus?')
-    if (!confirm) throw new Error('konfirmasi hapus tidak ada')
-    await confirm.trigger('click')
+    await typeDiary('')
+    await page.find('section.sheet').trigger('focusout')
     await flushPromises()
 
     await vi.waitFor(async () => {
-      expect((await loadMemoRecords(session, PAPER)).entries).toHaveLength(0)
+      expect((await loadMemoRecords(session, PAPER)).entries.map((entry) => entry.text)).toEqual([
+        '',
+      ])
     })
 
     // BUG-71-02: tanda "belum tersimpan" ikut dibersihkan bersama halamannya. Banner & tombol yang
@@ -298,8 +290,7 @@ describe('QA #71 temuan QA: banner dibersihkan setelah entri dihapus', () => {
     expect(buttonWith(page, 'Coba lagi')).toBeUndefined()
     // Draf halaman yang dihapus ikut bersih: tidak ada salinan yang bisa "hidup lagi".
     expect(localStorage.getItem(DRAFT_KEY)).toBeNull()
-    expect(textareaOf(page).value).toBe('')
-    expect((await loadMemoRecords(session, PAPER)).entries).toHaveLength(0)
+    expect(diaryValue()).toBe('')
   })
 })
 
@@ -311,18 +302,18 @@ describe('QA #71 temuan QA: teks yang diketik selama menyimpan', () => {
     ensureMock.mockResolvedValue(gate.session)
 
     const page = await mountPage()
-    await page.find('section.sheet textarea.paper').setValue('Versi pertama.')
+    await typeDiary('Versi pertama.')
+    // Tulisan DITAHAN (bukan ditolak): buka gerbang dulu supaya hasilnya tidak bergantung pada
+    // seberapa cepat IndexedDB sampai ke `beforeWrite` sebelum `allow()` dipanggil.
+    gate.allow()
     const finish = gate.hold()
-    const saveButton = buttonWith(page, 'Simpan ke jurnal')
-    if (!saveButton) throw new Error('tombol simpan tidak ada')
-    await saveButton.trigger('click')
+    await page.find('section.sheet').trigger('focusout')
 
-    // Selama menunggu konfirmasi, tombol berbunyi "Menyimpan…" dan editor masih bisa diketik.
-    expect(buttonWith(page, 'Menyimpan…')).toBeDefined()
-    await page.find('section.sheet textarea.paper').setValue('Versi pertama. Tambahan penting.')
+    // Selama menunggu konfirmasi, status berbunyi "Menyimpan…" dan editor masih bisa diketik.
+    expect(page.find('.meta [role="status"]').text()).toBe('Menyimpan…')
+    await typeDiary('Versi pertama. Tambahan penting.')
     expect(localStorage.getItem(DRAFT_KEY)).toContain('Tambahan penting')
 
-    gate.allow()
     finish()
     await flushPromises()
     await flushPromises()
@@ -332,14 +323,12 @@ describe('QA #71 temuan QA: teks yang diketik selama menyimpan', () => {
     await vi.waitFor(async () => {
       expect((await loadMemoRecords(session, PAPER)).entries[0]?.text).toBe('Versi pertama.')
     })
-    expect(textareaOf(page).value).toBe('Versi pertama. Tambahan penting.')
+    expect(diaryValue()).toBe('Versi pertama. Tambahan penting.')
     expect(localStorage.getItem(DRAFT_KEY)).toContain('Tambahan penting')
     expect(alertOf(page).exists()).toBe(false)
 
     // Simpan lagi menuliskan ketikan yang tadi masuk, lalu draf baru dibuang.
-    const again = buttonWith(page, 'Simpan ke jurnal')
-    if (!again) throw new Error('tombol simpan tidak ada')
-    await again.trigger('click')
+    await page.find('section.sheet').trigger('focusout')
     await vi.waitFor(async () => {
       expect((await loadMemoRecords(session, PAPER)).entries[0]?.text).toBe(
         'Versi pertama. Tambahan penting.',

@@ -1,4 +1,4 @@
-import { createSystemClock } from '@improve-personal/core'
+import { createSystemClock, type JournalSticker } from '@improve-personal/core'
 import { MEMO_PAPER_NAMES, type MemoPaperName } from '@improve-personal/tokens'
 
 import {
@@ -198,8 +198,9 @@ function mergeMoods(
   return merged
 }
 
+/** Halaman yang punya tulisan: isi atau judul. Halaman berjudul tanpa isi tetap halaman jurnal. */
 function hasText(memo: Memo): boolean {
-  return memo.text.trim().length > 0
+  return memo.text.trim().length > 0 || memo.title.trim().length > 0
 }
 
 /**
@@ -239,6 +240,9 @@ export function useMemos(options: UseMemosOptions = {}) {
 
   /** UUIDv7: `journalEntrySchema.id` menolak versi lain (sama seperti task/habit/goal). */
   const newMemoId = createUuidV7Generator({ clock: createSystemClock() })
+
+  /** Dibaca langsung dari state `useJournalStickers` supaya widget jurnal tidak ikut memuat sticker. */
+  const stickers = useState<JournalSticker[]>('journal-stickers', () => [])
 
   /** Halaman yang punya tulisan. Record mood-saja tetap di `store.memos` untuk id-nya. */
   const memos = computed(() => store.value.memos.filter(hasText))
@@ -528,6 +532,19 @@ export function useMemos(options: UseMemosOptions = {}) {
       : new Date(fromIsoDate(day).setHours(PAST_ENTRY_HOUR)).getTime()
   }
 
+  /** Halaman tanpa tulisan (record mood/sticker saja). */
+  function blankEntry(day: string): Memo {
+    return {
+      id: newMemoId(),
+      date: day,
+      createdAt: createdAtFor(day),
+      title: '',
+      text: '',
+      feelings: [],
+      paper: paper.value,
+    }
+  }
+
   /**
    * Isi kosong biasanya berarti "tidak ada yang perlu disimpan", tetapi bisa juga halaman yang
    * sengaja dikosongkan (hapus dengan mood tetap) lalu tulisannya gagal. "Coba lagi" memanggil
@@ -580,6 +597,39 @@ export function useMemos(options: UseMemosOptions = {}) {
     store.value = { ...store.value, memos: [created, ...store.value.memos] }
     void persist(created, base)
     return created
+  }
+
+  /**
+   * Kosongkan isi tulisan tanggal `day` (user menghapus semua ketikan saat autosave). Judul &
+   * perasaan yang masih ada di editor ikut disimpan (`rest`), jadi "judul tanpa isi" tetap tersimpan.
+   * Beda dengan `remove`: record tetap ada supaya mood & sticker halaman itu tidak ikut hilang.
+   */
+  function clear(
+    day: string,
+    rest: Pick<MemoInput, 'title' | 'feelings'> = { title: '', feelings: [] },
+  ): Memo | null {
+    const title = rest.title.trim().slice(0, MEMO_TITLE_MAX)
+    const existing = entryOn(day)
+    const emptied: Memo = {
+      ...(existing ?? blankEntry(day)),
+      title,
+      text: '',
+      feelings: [...rest.feelings],
+    }
+
+    if (existing === null) {
+      if (title === '') return null
+      store.value = { ...store.value, memos: [emptied, ...store.value.memos] }
+      void persist(emptied, baseOn(day, null))
+      return emptied
+    }
+    if (!hasText(existing) && title === '') return null
+
+    replaceMemo(emptied)
+    // Pengosongan = keputusan eksplisit: jangan digabung dengan versi tersimpan, karena gabungan tiga
+    // arah membaca "isi kosong" sebagai "tidak diubah" lalu mengembalikan isi lama.
+    void persist(emptied, undefined)
+    return emptied
   }
 
   /**
@@ -657,21 +707,16 @@ export function useMemos(options: UseMemosOptions = {}) {
         store.value = { ...store.value, moods }
         return
       }
-      const created: Memo = {
-        id: newMemoId(),
-        date: day,
-        createdAt: createdAtFor(day),
-        title: '',
-        text: '',
-        feelings: [],
-        paper: paper.value,
-      }
+      const created = blankEntry(day)
       store.value = { memos: [created, ...store.value.memos], moods }
       void persist(created, baseOn(day, null))
       return
     }
 
-    const isEmpty = existing.text.trim() === '' && existing.title.trim() === ''
+    // Halaman yang masih ditempeli sticker tetap ada walau tanpa tulisan & mood: sticker menunjuk
+    // ke id record ini, jadi menghapusnya = sticker hilang dari halaman.
+    const hasStickers = (stickers.value ?? []).some((sticker) => sticker.entryId === existing.id)
+    const isEmpty = existing.text.trim() === '' && existing.title.trim() === '' && !hasStickers
     if (nextMood === null && isEmpty) {
       store.value = {
         memos: store.value.memos.filter((memo) => memo.id !== existing.id),
@@ -690,6 +735,20 @@ export function useMemos(options: UseMemosOptions = {}) {
       moods,
     }
     void persist(existing, baseOn(day, existing))
+  }
+
+  /**
+   * Id record halaman tanggal `day`; record kosong dibuat kalau belum ada. Dipakai sticker jurnal,
+   * yang menunjuk ke `entryId` dan boleh ditempel sebelum ada tulisan.
+   */
+  function ensureEntry(day: string): string {
+    const existing = entryOn(day)
+    if (existing !== null) return existing.id
+
+    const created = blankEntry(day)
+    store.value = { ...store.value, memos: [created, ...store.value.memos] }
+    void persist(created, baseOn(day, null))
+    return created.id
   }
 
   watch(
@@ -711,6 +770,9 @@ export function useMemos(options: UseMemosOptions = {}) {
     moodOn,
     /** Halaman jurnal tanggal `day`, `null` kalau belum ditulis. */
     memoOn: (day: string): Memo | null => memoOnList(memos.value, day),
+    /** Id record tanggal `day` termasuk record tanpa tulisan (mood/sticker saja); `null` kalau belum ada. */
+    entryIdOn: (day: string): string | null => entryOn(day)?.id ?? null,
+    ensureEntry,
     paper: readonly(paper),
     status: computed(() => status.value),
     error: computed(() => error.value),
@@ -720,6 +782,7 @@ export function useMemos(options: UseMemosOptions = {}) {
     hydrate,
     reload,
     save,
+    clear,
     /**
      * Tunggu tulisan halaman `id` benar-benar selesai. `false` = gagal; pemanggil wajib mempertahankan
      * draf dan menampilkan error (BUG-65-01), bukan menghapus draf seperti jalur lama.

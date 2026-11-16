@@ -3,6 +3,8 @@
 
 import type { MemoPaperName } from '@improve-personal/tokens'
 
+import { richToPlain } from './memo/richtext'
+
 export const MEMO_TEXT_MAX = 5000
 export const MEMO_TITLE_MAX = 120
 export const MOOD_COUNT = 5
@@ -41,26 +43,7 @@ const TRAILING_QUERY = /@([^\s@[]*)$/
 /** `#kata` yang sedang diketik di akhir teks (pemicu autocomplete goal/chapter). */
 const TRAILING_GOAL_QUERY = /#([^\s#[\]]*)$/
 
-export type MemoSegment =
-  | { kind: 'text'; text: string }
-  | { kind: 'mention'; scheduleId: string }
-  | { kind: 'goal-mention'; goalId: string }
-
-export function splitMentions(text: string): MemoSegment[] {
-  const segments: MemoSegment[] = []
-  let last = 0
-  for (const match of text.matchAll(MENTION_TOKEN)) {
-    const index = match.index ?? 0
-    if (index > last) segments.push({ kind: 'text', text: text.slice(last, index) })
-    if (match[1] === '#') segments.push({ kind: 'goal-mention', goalId: match[2] ?? '' })
-    else segments.push({ kind: 'mention', scheduleId: match[2] ?? '' })
-    last = index + match[0].length
-  }
-  if (last < text.length) segments.push({ kind: 'text', text: text.slice(last) })
-  return segments
-}
-
-/** Teks polos untuk pencarian & pratinjau: token mention diganti `@judul` / `#judul`. */
+/** Teks polos untuk pencarian & pratinjau: penanda format dibuang, mention jadi `@judul` / `#judul`. */
 export function plainText(
   text: string,
   titleOf: (id: string) => string | null,
@@ -68,7 +51,7 @@ export function plainText(
   goalTitleOf: (id: string) => string | null = () => null,
   deletedGoal = deleted,
 ): string {
-  return text.replace(MENTION_TOKEN, (_, sigil: string, id: string) =>
+  return richToPlain(text).replace(MENTION_TOKEN, (_, sigil: string, id: string) =>
     sigil === '#' ? `#${goalTitleOf(id) ?? deletedGoal}` : `@${titleOf(id) ?? deleted}`,
   )
 }
@@ -139,8 +122,10 @@ export function joinMemoText(lead: string, tail: string, max = MEMO_TEXT_MAX): s
   return `${left.slice(0, budget).trimEnd()}${separator}${right}`.slice(0, max)
 }
 
+/** Jumlah kata tulisan; penanda format (`**`, `==`, ...) tidak dihitung. */
 export function wordCount(text: string): number {
-  return text.trim() ? text.trim().split(/\s+/).length : 0
+  const plain = richToPlain(text).trim()
+  return plain ? plain.split(/\s+/).length : 0
 }
 
 export function isMood(value: unknown): value is number {

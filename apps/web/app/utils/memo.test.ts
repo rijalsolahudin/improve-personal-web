@@ -12,7 +12,6 @@ import {
   memosOn,
   mentionQuery,
   plainText,
-  splitMentions,
   wordCount,
   type Memo,
 } from './memo'
@@ -30,15 +29,11 @@ const memo = (overrides: Partial<Memo> = {}): Memo => ({
 const titleOf = (id: string): string | null => ({ aws: 'Kelas AWS' })[id] ?? null
 
 describe('mention jadwal', () => {
-  it('pecah teks jadi teks + mention', () => {
-    expect(splitMentions('Habis @[aws], lanjut @[old]!')).toEqual([
-      { kind: 'text', text: 'Habis ' },
-      { kind: 'mention', scheduleId: 'aws' },
-      { kind: 'text', text: ', lanjut ' },
-      { kind: 'mention', scheduleId: 'old' },
-      { kind: 'text', text: '!' },
-    ])
-    expect(splitMentions('tanpa mention')).toEqual([{ kind: 'text', text: 'tanpa mention' }])
+  it('teks polos membuang penanda format jurnal', () => {
+    expect(plainText('**Pagi** ==ke== @[aws]', titleOf, 'jadwal dihapus')).toBe(
+      'Pagi ke @Kelas AWS',
+    )
+    expect(wordCount('**dua** ==kata==')).toBe(2)
   })
 
   it('jadwal terhapus tidak error, jadi label pengganti', () => {
@@ -47,12 +42,7 @@ describe('mention jadwal', () => {
     )
   })
 
-  it('mention goal (#) jadi segmen sendiri & aman saat goal dihapus', () => {
-    expect(splitMentions('Progress #[goal-1] bagus')).toEqual([
-      { kind: 'text', text: 'Progress ' },
-      { kind: 'goal-mention', goalId: 'goal-1' },
-      { kind: 'text', text: ' bagus' },
-    ])
+  it('mention goal (#) aman saat goal dihapus', () => {
     const goalTitleOf = (id: string): string | null => (id === 'goal-1' ? 'Lari 10K' : null)
     expect(
       plainText('lihat #[goal-1] dan #[gone]', titleOf, 'jadwal', goalTitleOf, 'goal dihapus'),

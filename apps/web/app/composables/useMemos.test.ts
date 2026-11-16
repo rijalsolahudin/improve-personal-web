@@ -191,6 +191,44 @@ describe('useMemos', () => {
     })
   })
 
+  // Regresi: menghapus isi tapi menyisakan judul tidak pernah tersimpan (draf menggantung, setelah
+  // reload editor menampilkan isi lama).
+  it('isi dihapus tapi judul tersisa: judul tetap tersimpan & halaman tetap ada', async () => {
+    const session = memorySession()
+    const first = useMemos({ session: async () => session })
+    await first.hydrate()
+
+    first.save({ ...INPUT, date: DAY, title: 'Makan siang', text: 'Isi lama.' })
+    const cleared = first.clear(DAY, { title: '  Makan siang  ', feelings: ['tenang'] })
+    expect(cleared).toMatchObject({ title: 'Makan siang', text: '', feelings: ['tenang'] })
+    expect(first.memoOn(DAY)?.title).toBe('Makan siang')
+
+    await vi.waitFor(async () => {
+      const records = await loadMemoRecords(session, 'krem')
+      expect(records.entries.map(({ title, text }) => ({ title, text }))).toEqual([
+        { title: 'Makan siang', text: '' },
+      ])
+    })
+
+    clearNuxtState([...STATE_KEYS])
+    resetMemosHydrationForTest()
+    const afterReload = useMemos({ session: async () => session })
+    await afterReload.hydrate()
+    expect(afterReload.memoOn(DAY)).toMatchObject({ title: 'Makan siang', text: '' })
+  })
+
+  it('clear tanpa judul di tanggal yang belum punya halaman tidak membuat record', () => {
+    const { clear, memos } = useMemos()
+    expect(clear(DAY)).toBeNull()
+    expect(memos.value).toHaveLength(0)
+  })
+
+  it('judul saja di tanggal baru jadi halaman berjudul', () => {
+    const { clear, memoOn } = useMemos()
+    expect(clear(DAY, { title: 'Catatan singkat', feelings: [] })?.title).toBe('Catatan singkat')
+    expect(memoOn(DAY)?.text).toBe('')
+  })
+
   it('mood dan judul ikut bertahan setelah reload', async () => {
     const session = memorySession()
     const first = useMemos({ session: async () => session })

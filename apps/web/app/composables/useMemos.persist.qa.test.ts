@@ -18,6 +18,7 @@ import { openLocalDataSession, type LocalDataSession } from '~/utils/storage/ses
 import { fromIsoDate } from '~/utils/time'
 
 import MemoPage from '~/pages/app/memo.vue'
+import { hasDiary } from '../../tests/nuxt/memo-diary'
 
 /**
  * QA #65 - persistensi jurnal TERENKRIPSI, dibuktikan sendiri (bukan hanya percaya test developer).
@@ -577,9 +578,9 @@ describe('QA #65 mood tanpa tulisan di UI', () => {
     const wrapper = await mountSuspended(MemoPage)
     await flushPromises()
 
-    // Tidak ada kartu jurnal kosong; yang tampil hanya mood-nya.
+    // Tidak ada kartu jurnal kosong: hari tanpa tulisan langsung membuka editor, mood tetap tampil.
     expect(wrapper.findAll('.pages > .entry')).toHaveLength(0)
-    expect(wrapper.find('.pages > .empty').exists()).toBe(true)
+    expect(hasDiary(wrapper)).toBe(true)
     expect(wrapper.find('.moods .mood[aria-pressed="true"]').text()).toContain('🙂')
 
     wrapper.unmount()

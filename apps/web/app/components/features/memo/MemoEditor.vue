@@ -10,24 +10,30 @@ import {
   mentionQuery,
   wordCount,
 } from '~/utils/memo'
+import { JOURNAL_LISTS } from '~/utils/journal'
+import type { MentionKind, RichFormatTarget } from '~/utils/memo/richtext'
 import { SCHEDULE_COLORS, occurrencesOn } from '~/utils/schedule'
 import { addDays, fromIsoDate } from '~/utils/time'
 
 /** Halaman tulis jurnal untuk tanggal `day` (design: kertas bergaris + selotip). */
 const { day } = defineProps<{ day: string }>()
+/** `show-points`: user minta lompat ke tiga daftar refleksi di bawah kertas. */
+const emit = defineEmits<{ 'show-points': [] }>()
 
 /** Rentang jadwal yang ditawarkan saat mengetik `@` (design: ±2 hari dari tanggal memo). */
 const SUGGEST_RANGE_DAYS = 2
 const SUGGEST_LIMIT = 6
+/** Jeda setelah ketikan terakhir sebelum autosave (PRD F8: tulisan tersimpan otomatis). */
+const AUTOSAVE_DELAY_MS = 1200
 const PROMPT_KEYS = ['smile', 'mind', 'proud', 'tomorrow'] as const
 
 const { t } = useI18n()
 const memos = useMemos()
-const { schedules } = useSchedules()
-const { goals } = useGoals()
+const { schedules, findSchedule } = useSchedules()
+const { goals, findGoal } = useGoals()
 const { longDate, shortDate } = useDateFormat()
 
-const { draft, hold, load, prepareSave, release, showDay, unchangedSince } = useMemoDraft()
+const { draft, hold, isDirty, load, prepareSave, release, showDay, unchangedSince } = useMemoDraft()
 const paper = computed({
   get: () => memos.paper.value,
   set: (value) => memos.setPaper(value),
@@ -41,6 +47,33 @@ const paperStyle = computed(() => {
     '--memo-ink': stock.ink,
   }
 })
+
+const { isFocus, enter: enterFocus, exit: exitFocus } = useFocusMode()
+/** Kertas rich text (dimuat lazy); `null` sampai editornya siap, toolbar format menunggu itu. */
+const richPaper = useTemplateRef<RichFormatTarget>('richPaper')
+const formatTarget = computed(() => richPaper.value ?? null)
+
+function mentionLabel(kind: MentionKind, id: string): string {
+  return kind === 'goal'
+    ? (findGoal(id)?.title ?? t('memo.deletedGoal'))
+    : (findSchedule(id)?.title ?? t('memo.deletedSchedule'))
+}
+/** Bar atas mode fokus memudar selama mengetik; gerakan mouse memunculkannya lagi. */
+const isQuiet = ref(false)
+
+function openFocus(): void {
+  openTool.value = null
+  isQuiet.value = false
+  void enterFocus()
+}
+const journal = useJournalDay(() => day)
+/** Jumlah poin refleksi yang terisi, ditampilkan di chip toolbar supaya daftar tetap terjangkau. */
+const pointCount = computed(() =>
+  JOURNAL_LISTS.reduce(
+    (total, key) => total + journal.day.value[key].filter((item) => item.trim() !== '').length,
+    0,
+  ),
+)
 
 const words = computed(() => wordCount(draft.value.text))
 const query = computed(() => mentionQuery(draft.value.text))
@@ -92,13 +125,24 @@ function addPrompt(key: (typeof PROMPT_KEYS)[number]): void {
   draft.value.text = current ? `${current}\n\n${prompt}` : prompt
 }
 
+const saving = ref(false)
+/** Halaman tanggal ini sudah tersimpan otomatis setidaknya sekali sejak dibuka. */
+const hasSaved = ref(false)
+let timer: ReturnType<typeof setTimeout> | undefined
+
 /**
  * Satu halaman per tanggal (PRD F8): saat tanggal berganti, editor menampilkan isi halaman tanggal
  * itu supaya "simpan" = perbarui halaman yang sama, bukan menimpa tulisan lama dengan draf kosong.
  */
 watch(
   () => day,
-  (next) => showDay(next, memos.memoOn(next)),
+  (next, previous) => {
+    // Ketikan tanggal sebelumnya yang masih menunggu jeda autosave disimpan dulu, selagi draf di
+    // editor masih milik tanggal itu.
+    if (previous !== undefined) flush(previous)
+    hasSaved.value = false
+    showDay(next, memos.memoOn(next))
+  },
   { immediate: true },
 )
 
@@ -120,7 +164,6 @@ watch(
   },
 )
 
-const saving = ref(false)
 /** Tulisan tanggal ini pernah gagal: tampilkan "belum tersimpan" + tombol coba lagi. */
 const saveFailed = computed(() => memos.hasUnsaved(day))
 
@@ -129,18 +172,23 @@ const saveFailed = computed(() => memos.hasUnsaved(day))
  * penyimpanan gagal (quota penuh, IndexedDB diblokir, kunci hilang), teks user tetap ada di draf,
  * banner error muncul, dan tombol "coba lagi" memakai jalur yang sama.
  */
-async function save(): Promise<void> {
+async function save(target = day): Promise<void> {
+  clearTimeout(timer)
+  timer = undefined
+  // Tulisan sebelumnya masih berjalan: `finally` di bawah menjadwalkan ulang kalau draf masih kotor.
   if (saving.value) return
 
-  // Tanggal dikunci di awal: user boleh pindah tanggal selama tulisan berjalan.
-  const target = day
   // BUG-54-01: halaman ini juga ditulis penulis lain (kartu review goal). Ambil nilai yang sudah
   // digabung dengan halaman terkini supaya simpan tidak menghapus catatan yang masuk di sela-selanya.
   const values = prepareSave(target, memos.memoOn(target))
   hold(target)
   saving.value = true
   try {
-    const page = memos.save({ date: target, ...values, paper: paper.value })
+    // Isi dihapus = halaman dikosongkan; judul yang tersisa tetap disimpan (record, mood, dan
+    // sticker tetap ada).
+    const page = values.text.trim()
+      ? memos.save({ date: target, ...values, paper: paper.value })
+      : memos.clear(target, values)
     if (page === null) {
       release(target)
       return
@@ -154,124 +202,214 @@ async function save(): Promise<void> {
     // tahanan draf tidak menggantung; draf yang berbeda dari halaman tidak ikut dibuang.
     if (unchangedSince(target, values)) load(memos.memoOn(target) ?? page, target)
     release(target)
+    if (target === day) hasSaved.value = true
   } finally {
     saving.value = false
+    if (isDirty(day) && !memos.hasUnsaved(day)) schedule()
   }
 }
+
+function schedule(): void {
+  clearTimeout(timer)
+  timer = setTimeout(() => void save(), AUTOSAVE_DELAY_MS)
+}
+
+/** Fokus keluar dari kertas: simpan tanpa menunggu jeda supaya ketikan tidak menggantung. */
+function saveOnLeave(): void {
+  if (isDirty(day)) void save()
+}
+
+/** Simpan sekarang kalau ada ketikan yang masih menunggu jeda autosave. */
+function flush(target: string): void {
+  if (timer === undefined) return
+  void save(target)
+}
+
+watch(
+  draft,
+  () => {
+    if (isDirty(day)) schedule()
+  },
+  { deep: true },
+)
+
+onBeforeUnmount(() => flush(day))
+
+/** Panel di bawah kertas yang sedang terbuka; satu per waktu supaya kertas tetap lapang. */
+const openTool = ref<'prompts' | 'paper' | null>(null)
+function toggleTool(tool: 'prompts' | 'paper'): void {
+  openTool.value = openTool.value === tool ? null : tool
+}
+
+const saveStatus = computed(() => {
+  if (saving.value) return 'saving'
+  return hasSaved.value && !isDirty(day) ? 'saved' : 'idle'
+})
 </script>
 
 <template>
-  <section
-    class="sheet"
-    data-anchor="memo-editor"
-    data-anchor-kind="content"
-    aria-labelledby="memo-editor-title"
-  >
-    <Tape
-      :width="120"
-      :top="-15"
-      :left="'50%'"
-      :height="28"
-      :radius="4"
-      :rotate="-3"
-      translate="-50%"
-    />
-    <div class="pad">
-      <p class="eyebrow about">{{ $t('journal.about') }}</p>
-      <div class="top">
-        <h2 id="memo-editor-title" class="sheet-date">
-          {{ longDate(fromIsoDate(day).getTime()) }}
-        </h2>
-        <span v-if="draft.text.trim()" class="draft-note">{{ $t('memo.draftKept') }}</span>
+  <!-- Mode fokus memindah kertas ke `body` supaya lapisan penuh layar tidak terpotong layout. -->
+  <Teleport to="body" :disabled="!isFocus">
+    <section
+      class="sheet"
+      :class="{ focus: isFocus }"
+      data-anchor="memo-editor"
+      data-anchor-kind="content"
+      aria-labelledby="memo-editor-title"
+      @focusout="saveOnLeave"
+      @keydown="isQuiet = isFocus"
+      @mousemove="isQuiet = false"
+    >
+      <Tape
+        v-if="!isFocus"
+        :width="120"
+        :top="-15"
+        :left="'50%'"
+        :height="28"
+        :radius="4"
+        :rotate="-3"
+        translate="-50%"
+      />
+      <div v-if="!isFocus" class="pad">
+        <MemoSheetHead :day="day">
+          <p class="eyebrow about">{{ $t('journal.about') }}</p>
+          <h2 id="memo-editor-title" class="sheet-date">
+            {{ longDate(fromIsoDate(day).getTime()) }}
+          </h2>
+        </MemoSheetHead>
       </div>
-    </div>
-    <MemoPaperPicker v-model="paper" class="pad papers" />
-    <div class="divider" />
-    <Input
-      v-model="draft.title"
-      variant="bare"
-      class="title-input"
-      :style="paperStyle"
-      :maxlength="MEMO_TITLE_MAX"
-      :placeholder="$t('memo.titlePlaceholder')"
-      :aria-label="$t('memo.titleLabel')"
-    />
-    <MemoPaper
-      v-model="draft.text"
-      :paper="paper"
-      :placeholder="$t('memo.placeholder')"
-      :aria-label="$t('memo.textLabel')"
-      aria-describedby="memo-hint"
-      :maxlength="MEMO_TEXT_MAX"
-    />
-    <div
-      v-if="suggestions.length"
-      class="suggest"
-      role="listbox"
-      :aria-label="$t('memo.mentionTitle')"
-    >
-      <p class="eyebrow suggest-title">{{ $t('memo.mentionTitle') }}</p>
-      <button
-        v-for="item in suggestions"
-        :key="item.id"
-        type="button"
-        role="option"
-        class="suggest-item"
-        :aria-selected="false"
-        @click="draft.text = insertMention(draft.text, item.id)"
-      >
-        <span class="dot" :style="{ background: item.color }" aria-hidden="true" />
-        <span class="suggest-name">{{ item.title }}</span>
-        <span class="suggest-when">{{ item.when }}</span>
-      </button>
-    </div>
-    <div
-      v-if="goalSuggestions.length"
-      class="suggest"
-      role="listbox"
-      :aria-label="$t('memo.goalMentionTitle')"
-    >
-      <p class="eyebrow suggest-title">{{ $t('memo.goalMentionTitle') }}</p>
-      <button
-        v-for="(item, index) in goalSuggestions"
-        :key="`${item.id}-${index}`"
-        type="button"
-        role="option"
-        class="suggest-item"
-        :aria-selected="false"
-        @click="draft.text = insertGoalMention(draft.text, item.id)"
-      >
-        <span class="dot" aria-hidden="true" />
-        <span class="suggest-name">{{ item.title }}</span>
-        <span class="suggest-when">{{ item.detail }}</span>
-      </button>
-    </div>
-
-    <div class="prompts">
-      <span class="prompts-label">{{ $t('memo.promptsLabel') }}</span>
-      <button
-        v-for="key in PROMPT_KEYS"
-        :key="key"
-        type="button"
-        class="prompt"
-        @click="addPrompt(key)"
-      >
-        {{ $t(`memo.prompt.${key}`) }}
-      </button>
-    </div>
-    <div class="bottom">
-      <p v-if="saveFailed" class="save-error" role="alert">
-        <span>{{ $t('memo.saveFailed') }}</span>
-        <button type="button" class="retry" :disabled="saving" @click="save">
-          {{ $t('memo.retry') }}
+      <div v-if="!isFocus" class="divider" />
+      <div v-if="!isFocus" class="tools">
+        <MemoFormatBar :target="formatTarget" />
+        <button
+          type="button"
+          class="tool"
+          :aria-expanded="openTool === 'prompts'"
+          @click="toggleTool('prompts')"
+        >
+          {{ $t('memo.promptsLabel') }}
         </button>
-      </p>
-      <p id="memo-hint" class="hint">{{ $t('memo.wordsHint', { n: words }) }}</p>
-      <Button variant="primary" :disabled="!words || saving" @click="save">
-        {{ saving ? $t('memo.saving') : $t('memo.save') }}
-      </Button>
-    </div>
-  </section>
+        <button
+          type="button"
+          class="tool"
+          :aria-expanded="openTool === 'paper'"
+          @click="toggleTool('paper')"
+        >
+          {{ $t('memo.paperToggle') }}
+        </button>
+        <button type="button" class="tool" @click="emit('show-points')">
+          {{ $t('memo.points', { n: pointCount }) }}
+        </button>
+        <button type="button" class="tool" @click="openFocus">
+          {{ $t('memo.focus') }}
+        </button>
+        <p class="meta">
+          <span id="memo-hint">{{ $t('memo.wordsHint', { n: words }) }}</span>
+          ·
+          <span role="status">{{ $t(`memo.autosave.${saveStatus}`) }}</span>
+        </p>
+      </div>
+      <MemoPaperPicker v-if="!isFocus && openTool === 'paper'" v-model="paper" class="tool-panel" />
+      <div v-if="!isFocus && openTool === 'prompts'" class="tool-panel prompts">
+        <button
+          v-for="key in PROMPT_KEYS"
+          :key="key"
+          type="button"
+          class="prompt"
+          @click="addPrompt(key)"
+        >
+          {{ $t(`memo.prompt.${key}`) }}
+        </button>
+      </div>
+      <div class="page" :style="paperStyle">
+        <header v-if="isFocus" class="focus-bar" :class="{ quiet: isQuiet }">
+          <h2 id="memo-editor-title" class="focus-date">
+            {{ longDate(fromIsoDate(day).getTime()) }}
+          </h2>
+          <MemoFormatBar :target="formatTarget" />
+          <div class="focus-end">
+            <p class="meta">
+              <span id="memo-hint">{{ $t('memo.wordsHint', { n: words }) }}</span>
+              ·
+              <span role="status">{{ $t(`memo.autosave.${saveStatus}`) }}</span>
+            </p>
+            <button type="button" class="tool" @click="exitFocus">
+              {{ $t('memo.focusExit') }}
+            </button>
+          </div>
+        </header>
+        <Input
+          v-model="draft.title"
+          variant="bare"
+          class="title-input"
+          :maxlength="MEMO_TITLE_MAX"
+          :placeholder="$t('memo.titlePlaceholder')"
+          :aria-label="$t('memo.titleLabel')"
+        />
+        <LazyMemoRichPaper
+          ref="richPaper"
+          v-model="draft.text"
+          :paper="paper"
+          :placeholder="$t('memo.placeholder')"
+          :label="$t('memo.textLabel')"
+          described-by="memo-hint"
+          :maxlength="MEMO_TEXT_MAX"
+          :mention-label="mentionLabel"
+        />
+      </div>
+      <div
+        v-if="suggestions.length"
+        class="suggest"
+        role="listbox"
+        :aria-label="$t('memo.mentionTitle')"
+      >
+        <p class="eyebrow suggest-title">{{ $t('memo.mentionTitle') }}</p>
+        <button
+          v-for="item in suggestions"
+          :key="item.id"
+          type="button"
+          role="option"
+          class="suggest-item"
+          :aria-selected="false"
+          @click="draft.text = insertMention(draft.text, item.id)"
+        >
+          <span class="dot" :style="{ background: item.color }" aria-hidden="true" />
+          <span class="suggest-name">{{ item.title }}</span>
+          <span class="suggest-when">{{ item.when }}</span>
+        </button>
+      </div>
+      <div
+        v-if="goalSuggestions.length"
+        class="suggest"
+        role="listbox"
+        :aria-label="$t('memo.goalMentionTitle')"
+      >
+        <p class="eyebrow suggest-title">{{ $t('memo.goalMentionTitle') }}</p>
+        <button
+          v-for="(item, index) in goalSuggestions"
+          :key="`${item.id}-${index}`"
+          type="button"
+          role="option"
+          class="suggest-item"
+          :aria-selected="false"
+          @click="draft.text = insertGoalMention(draft.text, item.id)"
+        >
+          <span class="dot" aria-hidden="true" />
+          <span class="suggest-name">{{ item.title }}</span>
+          <span class="suggest-when">{{ item.detail }}</span>
+        </button>
+      </div>
+
+      <div v-if="saveFailed" class="bottom">
+        <p class="save-error" role="alert">
+          <span>{{ $t('memo.saveFailed') }}</span>
+          <button type="button" class="retry" :disabled="saving" @click="save()">
+            {{ $t('memo.retry') }}
+          </button>
+        </p>
+      </div>
+    </section>
+  </Teleport>
 </template>
 
 <style scoped>
@@ -292,14 +430,6 @@ async function save(): Promise<void> {
   padding: 0 var(--space-28);
 }
 
-.top {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--space-12);
-}
-
 .sheet-date {
   font-family: var(--font-hand);
   font-weight: 400;
@@ -307,19 +437,139 @@ async function save(): Promise<void> {
   line-height: 1.1;
 }
 
-.draft-note {
-  font-weight: var(--fw-strong);
-  font-size: var(--fs-12);
-  color: var(--mute-3);
-}
-
 .about {
   margin-bottom: 2px;
   color: var(--deep);
 }
 
-.papers {
-  padding-top: var(--space-14);
+/*
+ * Toolbar di antara kepala dan kertas, menempel di atas layar saat kertas di-scroll: sepanjang apa
+ * pun tulisannya, pancingan, poin refleksi, fokus, dan status simpan tetap terjangkau.
+ */
+.tools {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-8);
+  padding: var(--space-10) var(--space-28) var(--space-10) var(--space-64);
+  border-bottom: var(--border-thin) dashed var(--mline);
+  background: var(--paper-2);
+}
+
+.tool {
+  padding: var(--space-4) var(--space-12);
+  border: var(--border-thin) dashed var(--dash);
+  border-radius: var(--radius-pill);
+  background: none;
+  color: var(--mute-2);
+  font-weight: var(--fw-strong);
+  font-size: var(--fs-12);
+}
+
+.tool[aria-expanded='true'] {
+  border-style: solid;
+  border-color: var(--outline);
+  color: var(--ink);
+}
+
+.meta {
+  margin-left: auto;
+  font-weight: var(--fw-strong);
+  font-size: var(--fs-12);
+  color: var(--mute-3);
+}
+
+.tool-panel {
+  padding: var(--space-10) var(--space-28) var(--space-10) var(--space-64);
+}
+
+/* Lapisan fokus: latar redup + satu lembar kertas selebar 90% layar di tengah. */
+.focus {
+  position: fixed;
+  inset: 0;
+  z-index: 150;
+  margin: 0;
+  padding: var(--space-32);
+  overflow-y: auto;
+  border: none;
+  border-radius: 0;
+  background: color-mix(in srgb, var(--bg) 90%, var(--ink));
+}
+
+.focus .page {
+  width: 90vw;
+  max-width: 100%;
+  /* Kertas sampai dasar layar: tinggi viewport dikurangi jarak tepi lapisan. */
+  min-height: calc(100dvh - 2 * var(--space-32));
+  display: flex;
+  flex-direction: column;
+  margin: 0 auto;
+  /* `clip`, bukan `hidden`: `hidden` menjadikan kartu wadah scroll sehingga kepala kertas tidak bisa menempel. */
+  overflow: clip;
+  border: var(--border-thin) solid var(--line);
+  border-radius: calc(20px * var(--rk));
+  background: var(--memo-bg);
+  box-shadow: 0 24px 60px rgb(47 42 36 / 0.18);
+}
+
+.focus .title-input {
+  padding-top: var(--space-24);
+  font-size: var(--fs-hand-30);
+}
+
+.focus :deep(.paper) {
+  flex: 1;
+  border-bottom: none;
+  font-size: var(--fs-hand-22);
+}
+
+/*
+ * Kepala kertas di mode fokus: strip di atas lembar (bukan bar mengambang di latar redup), tanggal
+ * kiri - format tengah - status & keluar kanan. Menempel saat kertas di-scroll.
+ */
+.focus-bar {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: var(--space-16);
+  padding: var(--space-12) var(--space-24);
+  border-bottom: var(--border-thin) dashed var(--mline);
+  background: var(--memo-bg);
+  transition: opacity 0.3s;
+}
+
+.focus-bar.quiet {
+  opacity: 0.45;
+}
+
+.focus-bar:hover,
+.focus-bar:focus-within {
+  opacity: 1;
+}
+
+.focus-end {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-12);
+}
+
+.focus-date {
+  font-family: var(--font-hand);
+  /* Patrick Hand hanya punya weight 400; judul mewarisi weight tebal → faux-bold. */
+  font-weight: 400;
+  font-size: var(--fs-hand-22);
+  color: var(--ink-2);
+}
+
+.focus-bar .meta {
+  margin-left: 0;
 }
 
 .divider {
@@ -402,14 +652,6 @@ async function save(): Promise<void> {
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-6);
-  padding: var(--space-14) var(--space-28) 0 var(--space-64);
-}
-
-.prompts-label {
-  margin-right: 2px;
-  font-weight: var(--fw-strong);
-  font-size: var(--fs-12);
-  color: var(--mute-3);
 }
 
 .prompt {
@@ -435,12 +677,6 @@ async function save(): Promise<void> {
   justify-content: space-between;
   gap: var(--space-12);
   padding: var(--space-16) var(--space-28) 0;
-}
-
-.hint {
-  font-weight: var(--fw-strong);
-  font-size: var(--fs-13);
-  color: var(--mute);
 }
 
 .save-error {
@@ -478,7 +714,8 @@ async function save(): Promise<void> {
     padding-right: var(--space-16);
   }
 
-  .prompts,
+  .tools,
+  .tool-panel,
   .suggest {
     margin-left: 0;
     padding-left: var(--space-16);

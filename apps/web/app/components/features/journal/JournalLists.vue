@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { JOURNAL_LISTS, JOURNAL_LIST_ITEM_MAX, listRows } from '~/utils/journal'
 
-/** Tiga daftar bernomor (design `dl.lists`): bersyukur, sedih, bisa lebih baik. */
+/** Tiga daftar bernomor (design `dl.lists`): bersyukur, sedih, bisa lebih baik - di bawah kertas diary. */
 const { day } = defineProps<{ day: string }>()
 
 const journal = useJournalDay(() => day)
@@ -14,29 +14,38 @@ const lists = computed(() =>
 
 <template>
   <JournalCard :gap="20">
-    <div v-for="list in lists" :key="list.key" class="list">
-      <JournalHeading :title="$t(`journal.list.${list.key}`)" :dot="list.color" />
-      <ol class="rows">
-        <li v-for="(value, index) in list.rows" :key="index" class="row">
-          <span class="n" aria-hidden="true">{{ index + 1 }}</span>
-          <Input
-            :model-value="value"
-            variant="bare"
-            class="input"
-            :maxlength="JOURNAL_LIST_ITEM_MAX"
-            placeholder="…"
-            :aria-label="
-              $t('journal.listItem', { list: $t(`journal.list.${list.key}`), n: index + 1 })
-            "
-            @update:model-value="(text) => journal.setListItem(list.key, index, String(text))"
-          />
-        </li>
-      </ol>
+    <div class="grid">
+      <div v-for="list in lists" :key="list.key" class="list">
+        <JournalHeading :title="$t(`journal.list.${list.key}`)" :dot="list.color" />
+        <ol class="rows">
+          <li v-for="(value, index) in list.rows" :key="index" class="row">
+            <span class="n" aria-hidden="true">{{ index + 1 }}</span>
+            <Input
+              :model-value="value"
+              variant="bare"
+              class="input"
+              :maxlength="JOURNAL_LIST_ITEM_MAX"
+              placeholder="…"
+              :aria-label="
+                $t('journal.listItem', { list: $t(`journal.list.${list.key}`), n: index + 1 })
+              "
+              @update:model-value="(text) => journal.setListItem(list.key, index, String(text))"
+            />
+          </li>
+        </ol>
+      </div>
     </div>
   </JournalCard>
 </template>
 
 <style scoped>
+/* Di bawah kertas diary: tiga daftar berdampingan di layar lebar, bertumpuk di HP. */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  gap: var(--space-20);
+}
+
 .list {
   display: flex;
   flex-direction: column;

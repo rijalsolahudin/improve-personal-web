@@ -4,7 +4,6 @@ import {
   setListItem,
   type JournalDay,
   type JournalListKey,
-  type JournalNoteKey,
 } from '~/utils/journal'
 
 /**
@@ -25,8 +24,8 @@ export function useJournalDay(day: MaybeRefOrGetter<string>) {
 
   return {
     day: current,
-    setNote(key: JournalNoteKey, value: string): void {
-      update({ ...current.value, [key]: value.slice(0, JOURNAL_NOTE_MAX) })
+    setAffirm(value: string): void {
+      update({ ...current.value, affirm: value.slice(0, JOURNAL_NOTE_MAX) })
     },
     setListItem(key: JournalListKey, index: number, value: string): void {
       update({ ...current.value, [key]: setListItem(current.value[key], index, value) })

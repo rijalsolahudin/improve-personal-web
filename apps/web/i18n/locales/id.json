@@ -971,9 +971,7 @@
       "malam": "Malam"
     },
     "textLabel": "Isi memo hari ini",
-    "placeholder": "Dear diary, hari ini…",
-    "save": "Simpan ke jurnal",
-    "saving": "Menyimpan…",
+    "placeholder": "Dear diary, hari ini… (ketik {'@'} buat jadwal, {'#'} buat goal)",
     "saveFailed": "Belum tersimpan di perangkat. Tulisanmu masih ada di draf — coba lagi.",
     "retry": "Coba lagi",
     "status": {
@@ -987,7 +985,6 @@
     "today": "Hari ini",
     "noEntryPreview": "Belum ada memo",
     "noMatch": "Nggak ketemu halaman dengan kata itu.",
-    "draftKept": "✓ Draf tersimpan di perangkat ini",
     "feelingsLabel": "Perasaan hari ini",
     "titlePlaceholder": "Kasih judul halaman ini…",
     "titleLabel": "Judul halaman",
@@ -999,18 +996,49 @@
       "proud": "Aku bangga sama diriku karena…",
       "tomorrow": "Besok aku mau…"
     },
-    "wordsHint": "{n} kata · ketik {'@'} buat jadwal atau {'#'} buat goal",
+    "wordsHint": "{n} kata",
     "untitled": "Catatan kecil",
     "delete": "Hapus",
     "deleteConfirm": "Yakin hapus?",
-    "emptyDay": "Halaman ini masih kosong. Mulai nulis di atas, ya.",
     "openInCalendar": "Buka di kalender",
     "deletedSchedule": "jadwal dihapus",
     "deletedScheduleHint": "Jadwal ini sudah dihapus",
     "openGoal": "Buka goal",
     "deletedGoal": "goal dihapus",
     "deletedGoalHint": "Goal ini sudah dihapus",
-    "goalMentionTitle": "Sebut goal"
+    "goalMentionTitle": "Sebut goal",
+    "autosave": {
+      "saving": "Menyimpan…",
+      "saved": "✓ Tersimpan otomatis",
+      "idle": "Tersimpan otomatis saat kamu menulis"
+    },
+    "paperToggle": "Ganti kertas",
+    "feelingsAdd": "+ tambah perasaan",
+    "feelingsDone": "Selesai",
+    "feelingsShort": "Rasanya",
+    "feelingsEdit": "ubah",
+    "edit": "✎ Ubah",
+    "openDay": "Buka halaman →",
+    "doneEditing": "Selesai, lihat halaman",
+    "points": "Poin hari ini ({n})",
+    "focus": "⤢ Fokus",
+    "focusExit": "Keluar fokus (Esc)",
+    "format": {
+      "label": "Format tulisan",
+      "bold": "Tebal (Ctrl+B)",
+      "italic": "Miring (Ctrl+I)",
+      "strike": "Coret (Ctrl+Shift+S)",
+      "highlight": "Stabilo (Ctrl+Shift+H)",
+      "bulletList": "Daftar (Ctrl+Shift+8)",
+      "orderedList": "Daftar bernomor (Ctrl+Shift+7)",
+      "highlightColor": "Warna stabilo",
+      "colors": {
+        "kuning": "Kuning",
+        "hijau": "Hijau",
+        "pink": "Pink",
+        "biru": "Biru"
+      }
+    }
   },
   "landing": {
     "meta": {
@@ -1175,16 +1203,9 @@
     }
   },
   "journal": {
-    "feelingNote": "Cerita perasaan hari ini",
-    "feelingPlaceholder": "Ceritain sedikit kenapa rasanya begitu…",
     "affirm": {
       "title": "Afirmasi hari ini",
-      "placeholder": "Aku cukup. Aku bisa pelan-pelan."
-    },
-    "reflect": {
-      "title": "Refleksi diri",
-      "hint": "Apa yang aku pelajari dari diriku hari ini?",
-      "placeholder": "…"
+      "placeholder": "Tulis satu kalimat baik untuk dirimu hari ini…"
     },
     "list": {
       "grat": "Hari ini bersyukur karena…",

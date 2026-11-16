@@ -11,6 +11,7 @@ import type { Memo, MoodByDate } from '~/utils/memo'
 import type { Schedule } from '~/utils/schedule'
 
 import MemoPage from './memo.vue'
+import { diaryValue, hasDiary, typeDiary } from '../../../tests/nuxt/memo-diary'
 
 /**
  * QA T11 - halaman Journal (PRD F8): 4 bagian harian, chip `@jadwal` + jadwal terhapus, isi jurnal
@@ -56,8 +57,6 @@ const memo = (overrides: Partial<Memo> = {}): Memo => ({
 
 const DAY: JournalDay = {
   affirm: 'Aku cukup. Aku bisa pelan-pelan.',
-  reflect: 'Belajar sabar sama proses.',
-  feelingNote: 'Capek tapi lega.',
   grat: ['Kopi pagi'],
   sad: ['Rapat molor'],
   better: ['Tidur lebih awal'],
@@ -89,9 +88,12 @@ async function mountPage(): Promise<VueWrapper> {
 }
 
 const entries = (wrapper: VueWrapper) => wrapper.findAll('.pages > .entry')
+
+/** Hari lain yang sudah berisi dibuka di mode baca (kartu), bukan editor. */
+function selectDay(day: string): void {
+  useState<string>('memo-selected').value = day
+}
 const dateButtons = (wrapper: VueWrapper) => wrapper.findAll('.strip .date')
-const button = (wrapper: VueWrapper, label: string) =>
-  wrapper.findAll('button').find((item) => item.text() === label)
 
 beforeEach(() => {
   resetSchedulesHydrationForTest()
@@ -105,27 +107,20 @@ afterEach(async () => {
 })
 
 describe('T11 4 bagian harian', () => {
-  it('perasaan + mood, afirmasi, refleksi (3 daftar), dan diary tampil terisi', async () => {
+  it('mood + perasaan, afirmasi, 3 daftar refleksi, dan diary tampil terisi', async () => {
     seed([memo({ text: 'Hari ini belajar IAM.' })], { [TODAY]: 4 }, { [TODAY]: DAY })
     mounted = await mountPage()
 
-    // 1. Perasaan: mood 5 skala + cerita.
-    expect(mounted.find('[data-anchor="journal-feeling"]').exists()).toBe(true)
+    // Kepala kertas diary: mood 5 skala + afirmasi satu baris (cerita perasaan ikut diary).
+    expect(mounted.find('section.sheet [data-anchor="journal-feeling"]').exists()).toBe(true)
     expect(mounted.findAll('.moods .mood')).toHaveLength(5)
     expect(mounted.find('.moods .mood[aria-pressed="true"]').text()).toContain('😄')
-    expect((mounted.find('textarea.note').element as HTMLTextAreaElement).value).toBe(
-      'Capek tapi lega.',
-    )
+    expect(mounted.find('textarea.note').exists()).toBe(false)
+    expect(mounted.find('section.sheet [data-anchor="journal-affirm"]').exists()).toBe(true)
+    expect((mounted.find('input.affirm-input').element as HTMLInputElement).value).toBe(DAY.affirm)
 
-    // 3. Afirmasi.
-    expect(mounted.find('[data-anchor="journal-affirm"]').exists()).toBe(true)
-    expect((mounted.find('textarea.affirm').element as HTMLTextAreaElement).value).toBe(DAY.affirm)
-
-    // 4. Refleksi: teks + tiga daftar (syukur / sedih / bisa lebih baik).
-    expect(mounted.find('[data-anchor="journal-reflect"]').exists()).toBe(true)
-    expect((mounted.find('textarea.reflect').element as HTMLTextAreaElement).value).toBe(
-      DAY.reflect,
-    )
+    // Refleksi: tiga daftar (syukur / sedih / bisa lebih baik), tanpa teks refleksi bebas.
+    expect(mounted.find('[data-anchor="journal-reflect"]').exists()).toBe(false)
     expect(mounted.find('[data-anchor="journal-lists"]').exists()).toBe(true)
     const listTitles = mounted
       .findAll('[data-anchor="journal-lists"] h3.head')
@@ -141,11 +136,10 @@ describe('T11 4 bagian harian', () => {
       .filter(Boolean)
     expect(rowValues).toEqual(['Kopi pagi', 'Rapat molor', 'Tidur lebih awal'])
 
-    // 5. Diary (editor bebas + entri tersimpan).
+    // Diary hari ini: editor berisi halaman tersimpan, tanpa kartu dobel di bawahnya.
     expect(mounted.find('[data-anchor="memo-editor"]').exists()).toBe(true)
-    expect(mounted.find('section.sheet textarea.paper').exists()).toBe(true)
-    expect(entries(mounted)).toHaveLength(1)
-    expect(mounted.find('.entry .body').text()).toContain('Hari ini belajar IAM.')
+    expect(diaryValue()).toBe('Hari ini belajar IAM.')
+    expect(entries(mounted)).toHaveLength(0)
   })
 
   it('mood satu per tanggal: klik mood menyimpan untuk tanggal itu saja', async () => {
@@ -164,7 +158,8 @@ describe('T11 4 bagian harian', () => {
 
 describe('T11 mention @jadwal', () => {
   it('mention tampil sebagai chip dan klik membuka kalender di tanggal jurnal', async () => {
-    seed([memo({ text: 'Pagi ikut @[sched-kelas] seru.' })], {}, {})
+    seed([memo({ date: YESTERDAY, text: 'Pagi ikut @[sched-kelas] seru.' })], {}, {})
+    selectDay(YESTERDAY)
     mounted = await mountPage()
 
     const chip = mounted.find('.entry .body button.mention')
@@ -176,6 +171,7 @@ describe('T11 mention @jadwal', () => {
 
     expect(navigateToMock).toHaveBeenCalledTimes(1)
     expect(navigateToMock).toHaveBeenCalledWith('/app/kalender')
+    // Jadwal baru mulai hari ini (setelah tanggal jurnal), jadi kalender dibuka di tanggal mulainya.
     expect(useState<string>('calendar-selected').value).toBe(TODAY)
     expect(useState<string>('calendar-anchor').value).toBe(TODAY)
   })
@@ -184,9 +180,7 @@ describe('T11 mention @jadwal', () => {
     seed([], {}, {})
     mounted = await mountPage()
 
-    const paper = mounted.find('section.sheet textarea.paper')
-    await paper.setValue('Pagi ikut @kel')
-    await flushPromises()
+    await typeDiary('Pagi ikut @kel')
 
     const option = mounted.find('.suggest-item')
     expect(option.exists()).toBe(true)
@@ -194,13 +188,15 @@ describe('T11 mention @jadwal', () => {
 
     await option.trigger('click')
     await flushPromises()
-    expect((paper.element as HTMLTextAreaElement).value).toBe('Pagi ikut @[sched-kelas] ')
+    expect(diaryValue()).toBe('Pagi ikut @[sched-kelas] ')
 
-    const save = button(mounted, 'Simpan ke jurnal')
-    if (!save) throw new Error('tombol simpan tidak ada')
-    await save.trigger('click')
+    await mounted.find('section.sheet').trigger('focusout')
     await flushPromises()
 
+    // Token yang tersimpan dirender sebagai chip di kartu hasil cari.
+    expect(useState<MemoStore>('memos').value.memos[0]?.text).toBe('Pagi ikut @[sched-kelas]')
+    await mounted.find('input.search').setValue('kelas')
+    await flushPromises()
     const chip = mounted.find('.entry .body button.mention')
     expect(chip.exists()).toBe(true)
     expect(chip.text()).toBe('@Kelas AWS')
@@ -209,12 +205,13 @@ describe('T11 mention @jadwal', () => {
   it('jadwal yang sudah dihapus jadi teks "jadwal dihapus" tanpa error & tanpa navigasi', async () => {
     seed(
       [
-        memo({ text: 'Ketemu di @[sched-hilang] ternyata batal.' }),
-        memo({ id: 'lain', text: '@[sched-kelas]' }),
+        memo({ date: YESTERDAY, text: 'Ketemu di @[sched-hilang] ternyata batal.' }),
+        memo({ id: 'lain', date: LAST_WEEK, text: 'Batal @[sched-kelas]' }),
       ],
       {},
       {},
     )
+    selectDay(YESTERDAY)
     mounted = await mountPage()
 
     const deleted = mounted.find('.entry .body .mention.deleted')
@@ -227,6 +224,8 @@ describe('T11 mention @jadwal', () => {
     expect(navigateToMock).not.toHaveBeenCalled()
 
     // Entri lain tetap tampil normal: satu mention yatim tidak mematikan halaman.
+    await mounted.find('input.search').setValue('batal')
+    await flushPromises()
     expect(entries(mounted)).toHaveLength(2)
     expect(mounted.find('.entry .body button.mention').text()).toBe('@Kelas AWS')
   })
@@ -238,6 +237,7 @@ describe('T11 keamanan render isi jurnal', () => {
       [
         memo({
           id: 'xss',
+          date: YESTERDAY,
           title: '<img src=x onerror="window.__pwned=1">',
           text: '<script>window.__pwned=2</script> <b>tebal</b> @[sched-kelas]',
         }),
@@ -245,6 +245,7 @@ describe('T11 keamanan render isi jurnal', () => {
       {},
       {},
     )
+    selectDay(YESTERDAY)
     mounted = await mountPage()
 
     const entry = mounted.find('.entry')
@@ -280,7 +281,7 @@ describe('T11 satu isian per tanggal', () => {
     seed([], { [YESTERDAY]: 2 }, {})
     mounted = await mountPage()
 
-    const note = mounted.find('textarea.affirm')
+    const note = mounted.find('input.affirm-input')
     await note.setValue('Cukup')
     await flushPromises()
     await note.setValue('Cukup hari ini')
@@ -295,7 +296,7 @@ describe('T11 satu isian per tanggal', () => {
     if (!other) throw new Error('tombol tanggal kedua tidak ada')
     await other.trigger('click')
     await flushPromises()
-    await mounted.find('textarea.affirm').setValue('Hari lain')
+    await mounted.find('input.affirm-input').setValue('Hari lain')
     await flushPromises()
     expect(Object.keys(useState<Record<string, JournalDay>>('journal-days').value).sort()).toEqual(
       [TODAY, YESTERDAY].sort(),
@@ -306,7 +307,7 @@ describe('T11 satu isian per tanggal', () => {
     if (!back) throw new Error('tombol tanggal pertama tidak ada')
     await back.trigger('click')
     await flushPromises()
-    expect((mounted.find('textarea.affirm').element as HTMLTextAreaElement).value).toBe(
+    expect((mounted.find('input.affirm-input').element as HTMLInputElement).value).toBe(
       'Cukup hari ini',
     )
   })
@@ -315,15 +316,14 @@ describe('T11 satu isian per tanggal', () => {
     seed([], {}, {})
     mounted = await mountPage()
 
-    await mounted.find('section.sheet textarea.paper').setValue('Hari ini tenang.')
+    await typeDiary('Hari ini tenang.')
     await flushPromises()
-    const save = button(mounted, 'Simpan ke jurnal')
-    if (!save) throw new Error('tombol simpan tidak ada')
-    await save.trigger('click')
+    await mounted.find('section.sheet').trigger('focusout')
     await flushPromises()
 
-    expect(entries(mounted)).toHaveLength(1)
-    expect(mounted.find('.entry .body').text()).toContain('Hari ini tenang.')
+    const saved = useState<MemoStore>('memos').value.memos
+    expect(saved).toHaveLength(1)
+    expect(saved[0]?.text).toBe('Hari ini tenang.')
   })
 
   // BUG T11-01 (PRD F8 "satu jurnal per tanggal, bukan banyak entri"): menyimpan diary dua kali
@@ -332,19 +332,19 @@ describe('T11 satu isian per tanggal', () => {
     seed([], {}, {})
     mounted = await mountPage()
 
-    await mounted.find('section.sheet textarea.paper').setValue('Draf pertama.')
+    await typeDiary('Draf pertama.')
     await flushPromises()
-    const save = button(mounted, 'Simpan ke jurnal')
-    if (!save) throw new Error('tombol simpan tidak ada')
-    await save.trigger('click')
+    await mounted.find('section.sheet').trigger('focusout')
     await flushPromises()
 
-    await mounted.find('section.sheet textarea.paper').setValue('Draf kedua, setelah diedit.')
+    await typeDiary('Draf kedua, setelah diedit.')
     await flushPromises()
-    await save.trigger('click')
+    await mounted.find('section.sheet').trigger('focusout')
     await flushPromises()
 
-    expect(entries(mounted)).toHaveLength(1)
+    const saved = useState<MemoStore>('memos').value.memos
+    expect(saved).toHaveLength(1)
+    expect(saved[0]?.text).toBe('Draf kedua, setelah diedit.')
   })
 })
 
@@ -382,7 +382,13 @@ describe('T11 Diary Book & pencarian lokal', () => {
           text: 'Pagi ikut @[sched-kelas]',
           feelings: ['capek'],
         }),
-        memo({ id: 'b', title: 'Review', text: 'Baca buku', feelings: ['semangat'] }),
+        memo({
+          id: 'b',
+          date: YESTERDAY,
+          title: 'Review',
+          text: 'Baca buku',
+          feelings: ['semangat'],
+        }),
       ],
       {},
       {},
@@ -413,10 +419,19 @@ describe('T11 Diary Book & pencarian lokal', () => {
     expect(entries(mounted)).toHaveLength(0)
     expect(mounted.find('.strip').text()).toContain('Nggak ketemu halaman dengan kata itu.')
 
-    // Hapus kata kunci: semua kembali.
+    // Pencarian dua kata yang cocok di dua tanggal: hasil lintas tanggal, terbaru dulu.
+    await mounted.find('input.search').setValue('a')
+    await flushPromises()
+    expect(entries(mounted).map((item) => item.find('.title').text())).toEqual([
+      'Minggu santai',
+      'Review',
+    ])
+
+    // Hapus kata kunci: kembali ke editor hari ini, tanpa daftar kartu.
     await mounted.find('input.search').setValue('')
     await flushPromises()
-    expect(entries(mounted)).toHaveLength(2)
+    expect(entries(mounted)).toHaveLength(0)
+    expect(hasDiary(mounted)).toBe(true)
   })
 
   it('fitur jurnal tidak memanggil jaringan (pencarian & daftar sepenuhnya lokal)', () => {
