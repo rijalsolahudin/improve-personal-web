@@ -2,7 +2,7 @@ import { mountSuspended } from '@nuxt/test-utils/runtime'
 import { flushPromises, type VueWrapper } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
-import LoginPage from './login.vue'
+import LoginPage from '~/pages/login.vue'
 
 let mounted: VueWrapper | null = null
 

@@ -18,8 +18,7 @@ import { toTask } from '~/utils/tasks/persistence'
 import type { Task } from '~/utils/tasks'
 import { DEFAULT_POMODORO_CONFIG, createPomodoro } from '~/utils/pomodoro'
 import { addDays, toIsoDate } from '~/utils/time'
-
-import OverviewPage from './overview.vue'
+import OverviewPage from '~/pages/app/overview.vue'
 
 /**
  * QA T13 — Halaman Overview (F11) dengan 5 rentang.

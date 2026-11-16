@@ -19,7 +19,7 @@ describe('safeRedirectPath (cegah open redirect)', () => {
   it.each([
     ['/app', '/app'],
     ['/app/goals', '/app/goals'],
-    ['/app/memo?tanggal=2026-10-09#baru', '/app/memo?tanggal=2026-10-09#baru'],
+    ['/app/journal?tanggal=2026-10-09#baru', '/app/journal?tanggal=2026-10-09#baru'],
   ])('mengizinkan path internal %s', (input, expected) => {
     expect(safeRedirectPath(input)).toBe(expected)
   })

@@ -2,7 +2,7 @@ import { mountSuspended } from '@nuxt/test-utils/runtime'
 import type { VueWrapper } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
-import IndexPage from './index.vue'
+import IndexPage from '~/pages/app/index.vue'
 
 /**
  * Regresi Ergonio #135: panel Prioritas kembali jadi kartu pertama kolom kiri Daily

@@ -6,8 +6,7 @@ import { resetLocalDataSessionForTest } from '~/composables/useLocalData'
 import { resetSchedulesHydrationForTest } from '~/composables/useSchedules'
 import { resetTasksHydrationForTest } from '~/composables/useTasks'
 import type { Schedule } from '~/utils/schedule'
-
-import KalenderPage from './kalender.vue'
+import KalenderPage from '~/pages/app/kalender.vue'
 
 /**
  * Regresi B2 (QA T9): tombol ‹/› harus memindahkan `anchor` DAN tanggal terpilih, supaya papan

@@ -8,7 +8,7 @@ import { DECO_STORAGE_KEY, useDeco } from '~/composables/useDeco'
 import type { DecoItem } from '~/utils/deco'
 
 /**
- * AC T24 di level komponen (halaman jurnal = route `/app/memo`, anchor kartu jurnal):
+ * AC T24 di level komponen (halaman jurnal = route `/app/journal`, anchor kartu jurnal):
  * - set hiasan per ukuran layar (desktop vs HP) yang dirender memang berbeda,
  * - tempel / ganti / hapus sticker,
  * - 100 sticker ter-render & cuma satu listener scroll (tidak ada kerja per sticker),
@@ -143,7 +143,7 @@ async function settle(): Promise<void> {
   await flushPromises()
 }
 
-async function mountLayer(route = '/app/memo'): Promise<VueWrapper> {
+async function mountLayer(route = '/app/journal'): Promise<VueWrapper> {
   mounted = await mountSuspended(Harness, { route })
   await settle()
   // `elementsFromPoint` tidak ada di happy-dom; anggap kursor selalu di atas kartu jurnal.

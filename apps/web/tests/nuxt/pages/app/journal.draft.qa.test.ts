@@ -7,10 +7,10 @@ import { resetSchedulesHydrationForTest } from '~/composables/useSchedules'
 import type { JournalDay } from '~/utils/journal'
 import type { Memo, MoodByDate } from '~/utils/memo'
 import type { Schedule } from '~/utils/schedule'
+import MemoPage from '~/pages/app/journal.vue'
 
-import { createMemoryLocalSession } from '../../../tests/nuxt/memo-session'
-import MemoPage from './memo.vue'
-import { diaryValue, typeDiary } from '../../../tests/nuxt/memo-diary'
+import { createMemoryLocalSession } from '../../memo-session'
+import { diaryValue, typeDiary } from '../../memo-diary'
 
 /**
  * Sesi data lokal sungguhan (in-memory) supaya autosave benar-benar menulis. Tanpa sesi,
@@ -99,10 +99,15 @@ async function mountPage(): Promise<VueWrapper> {
  * yang diuji di sini adalah perilaku DRAF - bukan persistensi halaman (itu `useMemos.test.ts`).
  */
 async function reloadPage(): Promise<VueWrapper> {
+  // Reload sungguhan mematikan halaman tanpa sempat autosave: localStorage dikembalikan ke isi saat
+  // halaman "mati", karena unmount di harness ini menyimpan dan membuang draf yang mau diuji.
+  const snapshot = Object.entries(localStorage)
   mounted?.unmount()
   mounted = null
-  clearNuxtState(['memos', ...DRAFT_STATES])
   await flushPromises()
+  clearNuxtState(['memos', ...DRAFT_STATES])
+  localStorage.clear()
+  for (const [key, value] of snapshot) localStorage.setItem(key, value)
   return mountPage()
 }
 

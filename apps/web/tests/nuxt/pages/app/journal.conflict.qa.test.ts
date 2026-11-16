@@ -8,10 +8,10 @@ import { resetSchedulesHydrationForTest } from '~/composables/useSchedules'
 import type { JournalDay } from '~/utils/journal'
 import type { Memo, MoodByDate } from '~/utils/memo'
 import type { Schedule } from '~/utils/schedule'
+import MemoPage from '~/pages/app/journal.vue'
 
-import { createMemoryLocalSession } from '../../../tests/nuxt/memo-session'
-import MemoPage from './memo.vue'
-import { diaryValue, typeDiary } from '../../../tests/nuxt/memo-diary'
+import { createMemoryLocalSession } from '../../memo-session'
+import { diaryValue, typeDiary } from '../../memo-diary'
 
 /**
  * Sesi data lokal sungguhan (in-memory) supaya autosave benar-benar menulis - kegagalan
@@ -99,7 +99,7 @@ async function mountPage(): Promise<VueWrapper> {
 }
 
 /**
- * Navigasi SPA: pergi ke Home lalu kembali ke `/app/memo`. Komponen editor di-mount ulang,
+ * Navigasi SPA: pergi ke Home lalu kembali ke `/app/journal`. Komponen editor di-mount ulang,
  * sementara state Nuxt (jurnal + draf) tetap - persis alur reproduksi BUG-54-01.
  */
 async function remountPage(): Promise<VueWrapper> {
@@ -173,7 +173,7 @@ describe('BUG-54-01 draf editor vs penulis eksternal (review goal)', () => {
     memos.append(TODAY, REVIEW)
     expect(memos.memoOn(TODAY)?.text).toBe(REVIEW)
 
-    // Kembali ke /app/memo: draf masih terbuka, dan catatan review ikut terlihat (tidak hilang).
+    // Kembali ke /app/journal: draf masih terbuka, dan catatan review ikut terlihat (tidak hilang).
     wrapper = await remountPage()
     expect(diaryValue()).toBe(`${REVIEW}\n\nDraf saya yang belum disimpan`)
 

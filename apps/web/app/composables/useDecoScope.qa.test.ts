@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { useDecoScope } from './useDecoScope'
 
-const routeState = vi.hoisted(() => ({ path: '/app/memo' }))
+const routeState = vi.hoisted(() => ({ path: '/app/journal' }))
 mockNuxtImport('useRoute', () => () => ({ path: routeState.path }))
 
 /**
@@ -121,7 +121,7 @@ describe('QA T24 · resize lintas batas mengganti set hiasan', () => {
     expect(removeSpy).toHaveBeenCalledTimes(2)
   })
 
-  it('halaman diambil dari path (bukan selalu "home"): /app/memo → memo', async () => {
+  it('halaman diambil dari path (bukan selalu "home"): /app/journal → memo', async () => {
     mounted = await mountSuspended(Harness)
     await flushPromises()
     expect(scopeText(mounted)).toBe('memo|desktop')

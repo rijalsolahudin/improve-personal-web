@@ -58,10 +58,11 @@ const feature = (
   icon: IconName,
   color: string,
   group: FeatureGroup,
+  slug: string = id,
 ): Feature => ({
   id,
   code,
-  path: id === 'home' ? APP_HOME_PATH : `${APP_HOME_PATH}/${id}`,
+  path: id === 'home' ? APP_HOME_PATH : `${APP_HOME_PATH}/${slug}`,
   glyph,
   icon,
   color,
@@ -79,7 +80,8 @@ export const FEATURES: readonly Feature[] = [
   feature('eisenhower', 'F3', '⊞', 'layout-grid', '--icon-countdown', 'rencana'),
   feature('pomodoro', 'F4', '25', 'timer', '--icon-pomodoro', 'fokus'),
   feature('habit', 'F7', '★', 'flame', '--icon-habit', 'fokus'),
-  feature('memo', 'F8', '✎', 'notebook-pen', '--icon-more', 'fokus'),
+  // URL-nya `/app/journal`, tapi id tetap `memo`: id itu kunci data hias yang sudah tersimpan.
+  feature('memo', 'F8', '✎', 'notebook-pen', '--icon-more', 'fokus', 'journal'),
   feature('overview', 'F11', '▤', 'chart-column', '--icon-overview', 'fokus'),
   feature('jadwal', 'F1', '▦', 'clock', '--cat-trip', 'lainnya'),
   feature('panduan', 'F9', '?', 'circle-help', '--cat-diri', 'lainnya'),
@@ -112,10 +114,12 @@ export function getFeature(id: FeatureId): Feature {
   return found
 }
 
-/** Fitur dari path halaman (`/app` → home, `/app/<id>` → id); path lain → home. */
+/** Fitur dari path halaman (`/app` → home, `/app/<slug>` → fitur pemilik slug); path lain → home. */
 export function featureIdFromPath(path: string): FeatureId {
   const [, root, segment] = path.split('/')
-  return root === APP_HOME_PATH.slice(1) && isFeatureId(segment) ? segment : 'home'
+  if (root !== APP_HOME_PATH.slice(1) || !segment) return 'home'
+  const base = `${APP_HOME_PATH}/${segment}`
+  return FEATURES.find((item) => item.path === base)?.id ?? 'home'
 }
 
 export function featuresInGroup(group: FeatureGroup): Feature[] {

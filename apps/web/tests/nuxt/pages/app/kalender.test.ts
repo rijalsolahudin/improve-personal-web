@@ -8,8 +8,7 @@ import { resetTasksHydrationForTest } from '~/composables/useTasks'
 import type { Memo } from '~/utils/memo'
 import type { Schedule } from '~/utils/schedule'
 import type { Task } from '~/utils/tasks'
-
-import KalenderPage from './kalender.vue'
+import KalenderPage from '~/pages/app/kalender.vue'
 
 /**
  * QA T9 - halaman Kalender (PRD F6): recurring tampil benar di tiga view, klik tanggal mengisi panel

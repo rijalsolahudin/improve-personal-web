@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import type { ComponentPublicInstance } from 'vue'
-
 import { journalDates, matchesQuery, plainText } from '~/utils/memo'
 import { toIsoDate } from '~/utils/time'
 
@@ -62,16 +60,6 @@ const canFinishEditing = computed(
 )
 watch(selected, () => (editingDay.value = null))
 
-const lists = useTemplateRef<ComponentPublicInstance>('lists')
-
-/** Chip "Poin hari ini": lompat ke tiga daftar di bawah kertas dan fokus ke baris pertama. */
-function showPoints(): void {
-  const element = lists.value?.$el
-  if (!(element instanceof HTMLElement)) return
-  element.scrollIntoView({ behavior: 'smooth', block: 'start' })
-  element.querySelector('input')?.focus({ preventScroll: true })
-}
-
 function openDay(day: string): void {
   selected.value = day
   query.value = ''
@@ -131,13 +119,15 @@ function removePage(id: string): void {
             {{ $t('memo.doneEditing') }}
           </Button>
         </div>
-        <MemoEditor :day="selected" @show-points="showPoints" />
-        <JournalLists
-          ref="lists"
-          :day="selected"
-          data-anchor="journal-lists"
-          data-anchor-kind="content"
-        />
+        <div class="workspace">
+          <MemoEditor :day="selected" />
+          <JournalLists
+            class="points"
+            :day="selected"
+            data-anchor="journal-lists"
+            data-anchor-kind="content"
+          />
+        </div>
       </template>
       <MemoEntry
         v-else-if="page"
@@ -199,6 +189,30 @@ function removePage(id: string): void {
   display: flex;
   justify-content: flex-end;
   margin-bottom: calc(-1 * var(--space-12));
+}
+
+/*
+ * Kertas tetap yang utama; poin refleksi jadi kolom sempit di sampingnya dan menempel saat tulisan
+ * di-scroll. Di layar sempit kolom itu turun ke bawah kertas.
+ */
+.workspace {
+  display: grid;
+  gap: var(--space-28);
+}
+
+@media (min-width: 1100px) {
+  .workspace {
+    grid-template-columns: minmax(0, 7fr) minmax(320px, 3fr);
+    gap: var(--space-20);
+    align-items: start;
+  }
+
+  .points {
+    position: sticky;
+    top: var(--space-16);
+    /* Sejajar dengan kartu kertas yang turun sedikit untuk memberi ruang selotip. */
+    margin-top: var(--space-10);
+  }
 }
 
 .empty {

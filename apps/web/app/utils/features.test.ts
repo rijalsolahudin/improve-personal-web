@@ -58,6 +58,8 @@ describe('featureIdFromPath', () => {
     expect(featureIdFromPath('/app')).toBe('home')
     expect(featureIdFromPath('/app/goals')).toBe('goals')
     expect(featureIdFromPath('/app/kalender/')).toBe('kalender')
+    expect(featureIdFromPath('/app/journal')).toBe('memo')
+    expect(featureIdFromPath('/app/memo')).toBe('home')
     expect(featureIdFromPath('/app/bukan-fitur')).toBe('home')
     expect(featureIdFromPath('/login')).toBe('home')
   })

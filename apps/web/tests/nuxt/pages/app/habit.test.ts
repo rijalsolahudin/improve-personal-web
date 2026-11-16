@@ -4,8 +4,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
 import { resetHabitsHydrationForTest } from '~/composables/useHabits'
 import type { Habit } from '~/utils/habits'
-
-import HabitPage from './habit.vue'
+import HabitPage from '~/pages/app/habit.vue'
 
 /**
  * Halaman Habit: habit terarsip harus hilang dari grid (dan dari ringkasan hari ini), tapi tetap bisa

@@ -17,7 +17,7 @@ import type { Schedule } from '~/utils/schedule'
 import { openLocalDataSession, type LocalDataSession } from '~/utils/storage/session'
 import { fromIsoDate } from '~/utils/time'
 
-import MemoPage from '~/pages/app/memo.vue'
+import MemoPage from '~/pages/app/journal.vue'
 import { hasDiary } from '../../tests/nuxt/memo-diary'
 
 /**

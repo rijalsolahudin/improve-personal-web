@@ -8,10 +8,10 @@ import type { JournalDay } from '~/utils/journal'
 import type { Memo, MoodByDate } from '~/utils/memo'
 import { loadMemoRecords } from '~/utils/memo/persistence'
 import type { Schedule } from '~/utils/schedule'
+import MemoPage from '~/pages/app/journal.vue'
 
-import { createMemoryLocalSession } from '../../../tests/nuxt/memo-session'
-import MemoPage from './memo.vue'
-import { diaryValue } from '../../../tests/nuxt/memo-diary'
+import { createMemoryLocalSession } from '../../memo-session'
+import { diaryValue } from '../../memo-diary'
 
 /**
  * QA #71 / BUG-65-01 - kegagalan tulis harus TERLIHAT di editor.

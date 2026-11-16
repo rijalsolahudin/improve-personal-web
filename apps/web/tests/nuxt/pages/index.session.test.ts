@@ -2,7 +2,7 @@ import { mockNuxtImport, mountSuspended } from '@nuxt/test-utils/runtime'
 import { flushPromises } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import LandingPage from './index.vue'
+import LandingPage from '~/pages/index.vue'
 
 /**
  * Regresi landing: rute publik `/` TIDAK boleh meminta sesi ke server.

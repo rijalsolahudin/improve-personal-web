@@ -69,6 +69,7 @@ apps/web/
 ## Testing (Vitest)
 
 - Unit: Vitest + `@nuxt/test-utils` (env `nuxt`) + `@vue/test-utils`. File `*.test.ts` sejajar dengan sumber atau di `tests/`.
+- Test halaman (`app/pages/**`) di `tests/nuxt/pages/` dengan struktur yang sama; folder `pages/` hanya berisi route.
 - WAJIB test untuk: composable dengan logika, `utils/`, `server/services/` (prinsip umum di `.claude/rules/shared-code-quality.md`).
 - Coverage 80% lines berlaku untuk `composables/`, `utils/`, `server/services/`; komponen murni-presentasi boleh tanpa test.
 - Mock jaringan di batas pakai `registerEndpoint` / MSW.

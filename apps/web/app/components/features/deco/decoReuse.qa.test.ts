@@ -91,14 +91,14 @@ describe('QA T24 · layer hias dipakai ulang di semua halaman dashboard', () => 
   })
 
   it('Overview, Daily, Goals, jurnal semuanya memakai layout dashboard', () => {
-    for (const page of ['index', 'overview', 'goals', 'memo']) {
+    for (const page of ['index', 'overview', 'goals', 'journal']) {
       const text = source(`../../../pages/app/${page}.vue`)
       expect(text, page).toContain("layout: 'dashboard'")
     }
   })
 
   it('halaman punya anchor tempelan', () => {
-    for (const page of ['index', 'overview', 'goals', 'memo']) {
+    for (const page of ['index', 'overview', 'goals', 'journal']) {
       expect(source(`../../../pages/app/${page}.vue`), page).toContain('data-anchor=')
     }
   })
@@ -109,7 +109,7 @@ describe('QA T24 · layer hias dipakai ulang di semua halaman dashboard', () => 
       '../habit/HabitForm.vue',
       '../countdown/CountdownForm.vue',
       '../../../pages/app/goals.vue',
-      '../../../pages/app/memo.vue',
+      '../../../pages/app/journal.vue',
     ]) {
       const text = source(file)
       expect(text, file).not.toMatch(/import\s+Deco(Layer|Picker)\s+from/)
@@ -146,7 +146,7 @@ describe('QA T24 · aset sticker offline (precache service worker)', () => {
       '../../../pages/app/index.vue',
       '../../../pages/app/overview.vue',
       '../../../pages/app/goals.vue',
-      '../../../pages/app/memo.vue',
+      '../../../pages/app/journal.vue',
     ]) {
       const text = source(file)
       expect(text, file).not.toContain('utils/stickerCatalog')

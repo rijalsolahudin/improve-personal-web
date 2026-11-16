@@ -186,6 +186,8 @@ export default defineNuxtConfig({
     // `/app/**` sengaja TANPA cache (bukan `swr`/`isr`): isinya data per akun. `ssr: false` bikin
     // HTML-nya cuma kerangka SPA (lihat catatan `pwa.workbox.runtimeCaching` di bawah).
     '/app/**': { ssr: false },
+    // Halaman jurnal pindah dari `/app/memo`; bookmark lama tetap sampai.
+    '/app/memo': { redirect: { to: '/app/journal', statusCode: 301 } },
     // `/v1/**` tidak pernah di-prerender dan tidak boleh masuk cache mana pun: responsnya berisi data
     // per akun (cache/`swr`/`isr` untuk data per-user dilarang - performance.md §2, security.md §2).
     '/v1/**': {

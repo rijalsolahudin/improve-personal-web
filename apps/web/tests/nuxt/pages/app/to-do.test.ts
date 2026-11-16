@@ -8,8 +8,7 @@ import { resetTasksHydrationForTest } from '~/composables/useTasks'
 import type { Schedule } from '~/utils/schedule'
 import type { Task, TaskFilter, TaskSort } from '~/utils/tasks'
 import { DEFAULT_POMODORO_CONFIG, createPomodoro } from '~/utils/pomodoro'
-
-import ToDoPage from './to-do.vue'
+import ToDoPage from '~/pages/app/to-do.vue'
 
 /**
  * Halaman To-do (PRD F2, design Desktop.dc.html `isTodo`): daftar task dengan chip, aksi per baris,

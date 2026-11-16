@@ -9,9 +9,9 @@ import { resetSchedulesHydrationForTest } from '~/composables/useSchedules'
 import type { JournalDay } from '~/utils/journal'
 import type { Memo, MoodByDate } from '~/utils/memo'
 import type { Schedule } from '~/utils/schedule'
+import MemoPage from '~/pages/app/journal.vue'
 
-import MemoPage from './memo.vue'
-import { diaryValue, hasDiary, typeDiary } from '../../../tests/nuxt/memo-diary'
+import { diaryValue, hasDiary, typeDiary } from '../../memo-diary'
 
 /**
  * QA T11 - halaman Journal (PRD F8): 4 bagian harian, chip `@jadwal` + jadwal terhapus, isi jurnal
@@ -261,7 +261,7 @@ describe('T11 keamanan render isi jurnal', () => {
 
   it('komponen jurnal & memo tidak memakai v-html/innerHTML/eval untuk data user', () => {
     const directories = ['app/components/features/journal', 'app/components/features/memo']
-    const files: string[] = [join(process.cwd(), 'app/pages/app/memo.vue')]
+    const files: string[] = [join(process.cwd(), 'app/pages/app/journal.vue')]
     for (const directory of directories) {
       const absolute = join(process.cwd(), directory)
       for (const name of readdirSync(absolute)) {
@@ -436,7 +436,7 @@ describe('T11 Diary Book & pencarian lokal', () => {
 
   it('fitur jurnal tidak memanggil jaringan (pencarian & daftar sepenuhnya lokal)', () => {
     const files = [
-      'app/pages/app/memo.vue',
+      'app/pages/app/journal.vue',
       'app/composables/useMemos.ts',
       'app/composables/useMemoDraft.ts',
       'app/composables/useJournalDay.ts',

@@ -14,9 +14,9 @@ import type { Memo, MoodByDate } from '~/utils/memo'
 import type { Schedule } from '~/utils/schedule'
 import { loadMemoRecords } from '~/utils/memo/persistence'
 import { openLocalDataSession, type LocalDataSession } from '~/utils/storage/session'
+import MemoPage from '~/pages/app/journal.vue'
 
-import MemoPage from './memo.vue'
-import { diaryValue, typeDiary } from '../../../tests/nuxt/memo-diary'
+import { diaryValue, typeDiary } from '../../memo-diary'
 
 /**
  * QA #71 - WIRING editor jurnal saat tulis gagal/berjalan, di atas sesi data lokal SUNGGUHAN

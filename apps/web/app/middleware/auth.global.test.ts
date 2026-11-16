@@ -55,7 +55,7 @@ describe('middleware auth.global', () => {
   it('redirect hanya boleh path internal: tujuan di luar /app jatuh ke /app', async () => {
     sessionMissing()
 
-    await authGuard(routeAt('/app/memo', 'https://evil.example/app'), routeAt('/'))
+    await authGuard(routeAt('/app/journal', 'https://evil.example/app'), routeAt('/'))
 
     expect(navigateToMock).toHaveBeenCalledWith({
       path: '/login',
