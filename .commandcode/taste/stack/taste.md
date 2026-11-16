@@ -6,10 +6,15 @@
 - Target platforms are desktop web, native mobile (APK + iOS) and a PWA — multi-device is a hard requirement, including multi-device account/data sync. Confidence: 0.85
 - Design-system components should exist for both desktop and mobile ("ui kit desktop sama mobile"). Confidence: 0.7
 
+## Data & sync behavior
+- Cross-device consistency is expected at the *view* level, not just the stored-data level: if a task shows up on the To-do page it must also show up in derived views like Daily's "Todo hari ini" on every device, and he assumes similar holes may exist elsewhere ("mungkin yg lain"). Treats a view whose contents are gated by device-local state (localStorage-only markers such as `addedTaskIds`) as a real defect and expects the rule re-grounded on a synced field (e.g. `createdAt`) so it behaves identically on all devices. Confidence: 0.55
+
 ## Auth & privacy
 - No passwords at all: login is email OTP + Google SSO, with the passkey/biometric-style layered unlock as the second factor. Confidence: 0.8
 - Demo/dev affordance: outside production the OTP defaults to 777777 so the flow is testable without a backend. Confidence: 0.8
 - Strongly values user trust in data safety — wants an end-to-end-encryption story where data stays safe even if a password/key is lost, and key backups in several places, never a single copy. Confidence: 0.75
+- Ranks data durability/recoverability above zero-knowledge privacy: explicitly traded away E2E encryption for server-side at-rest encryption (data still ciphertext in the DB, but the key lives on the server) because guaranteeing the data never gets lost with E2E was too hard — he accepts that the server can read the data, as long as it is still encrypted at rest. Confidence: 0.7
+- Server-held secrets belong in env vars (`.env` / runtime config), not in the database. Confidence: 0.6
 
 ## Naming & UI
 - Follows the supplied design reference closely; UI is expected to be a close copy of the design folder ("niru semirip mungkin") — when a reference design exists, just implement it rather than presenting alternative layouts to choose from. Confidence: 0.85
