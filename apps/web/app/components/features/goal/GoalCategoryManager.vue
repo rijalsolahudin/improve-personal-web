@@ -166,7 +166,7 @@ function deleteCategory(key: string): void {
 .manager {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--space-12);
 }
 
 .rows {
@@ -178,7 +178,7 @@ function deleteCategory(key: string): void {
 .add-row {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-10);
 }
 
 .draft {
@@ -188,16 +188,16 @@ function deleteCategory(key: string): void {
 .note,
 .hint {
   font-weight: var(--fw-body);
-  font-size: 13px;
+  font-size: var(--fs-13);
   color: var(--mute);
 }
 
 .error {
-  padding: 10px 14px;
+  padding: var(--space-10) var(--space-14);
   border-radius: calc(14px * var(--rk));
   background: #ffe1da;
   color: #9a2a14;
   font-weight: var(--fw-strong);
-  font-size: 14px;
+  font-size: var(--fs-14);
 }
 </style>

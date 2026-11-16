@@ -42,6 +42,34 @@ describe('toCssVariables', () => {
     expect(kertas).toContain('--nav-icon-bg: transparent;')
   })
 
+  it('ukuran font & spasi dikali pengali gaya, dengan pengali 1 di gaya default', () => {
+    const root = css.slice(css.indexOf(':root'), css.indexOf('}'))
+    expect(root).toContain('--fs-13: calc(13px * var(--fk));')
+    expect(root).toContain('--fs-display-30: calc(30px * var(--fk-display));')
+    expect(root).toContain('--fs-hand-19: calc(19px * var(--fk-hand));')
+    expect(root).toContain('--space-12: calc(12px * var(--dk));')
+    expect(root).toContain('--fs-h1: var(--fs-display-30);')
+    for (const name of ['fk', 'fk-display', 'fk-hand', 'dk'])
+      expect(root).toContain(`--${name}: 1;`)
+    expect(root).toContain('--radius-pill: var(--pill);')
+    expect(root).toContain('--pill: 999px;')
+    expect(root).toContain('--fsa: 0.51;')
+  })
+
+  it('tiap gaya non-default menyetel pengali ukuran & radius pill-nya sendiri', () => {
+    for (const name of STYLE_NAMES.filter((style) => style !== 'cute')) {
+      const block = css.slice(css.indexOf(`[data-style='${name}'] {`))
+      const body = block.slice(0, block.indexOf('}'))
+      const { typeScale, density, pillRadius, fontSizeAdjust } = uiStyles[name]
+      expect(body).toContain(`--fk: ${typeScale.ui};`)
+      expect(body).toContain(`--fk-display: ${typeScale.display};`)
+      expect(body).toContain(`--fk-hand: ${typeScale.hand};`)
+      expect(body).toContain(`--dk: ${density};`)
+      expect(body).toContain(`--pill: ${pillRadius};`)
+      expect(body).toContain(`--fsa: ${fontSizeAdjust};`)
+    }
+  })
+
   it('membuat blok override untuk tiap tema non-default', () => {
     for (const name of THEME_NAMES.filter((theme) => theme !== 'kuning')) {
       expect(css).toContain(`[data-theme='${name}'] {`)

@@ -138,13 +138,13 @@ function onDelete(): void {
 .form {
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: var(--space-18);
 }
 
 .cats {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: var(--space-8);
 }
 
 .dot {
@@ -156,7 +156,7 @@ function onDelete(): void {
 .dates {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: 12px;
+  gap: var(--space-12);
 }
 
 .seg-fit {
@@ -164,19 +164,19 @@ function onDelete(): void {
 }
 
 .error {
-  padding: 10px 14px;
+  padding: var(--space-10) var(--space-14);
   border-radius: calc(14px * var(--rk));
   background: #ffe1da;
   color: #9a2a14;
   font-weight: var(--fw-strong);
-  font-size: 14px;
+  font-size: var(--fs-14);
 }
 
 .actions {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-10);
 }
 
 .spacer {

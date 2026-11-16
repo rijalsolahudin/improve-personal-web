@@ -274,33 +274,33 @@ async function onArchive(): Promise<void> {
 .form {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: var(--space-16);
 }
 
 .icons {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: var(--space-6);
 }
 
 .colors {
-  margin-top: 10px;
+  margin-top: var(--space-10);
 }
 
 .pills {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: var(--space-6);
 }
 
 .pills.days {
-  margin-top: 10px;
+  margin-top: var(--space-10);
 }
 
 .stepper {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-10);
 }
 
 .target {
@@ -308,23 +308,23 @@ async function onArchive(): Promise<void> {
   text-align: center;
   font-family: var(--font-display);
   font-weight: var(--fw-display);
-  font-size: 22px;
+  font-size: var(--fs-display-22);
 }
 
 .error {
-  padding: 10px 14px;
+  padding: var(--space-10) var(--space-14);
   border-radius: calc(14px * var(--rk));
   background: #ffe1da;
   color: #9a2a14;
   font-weight: var(--fw-strong);
-  font-size: 14px;
+  font-size: var(--fs-14);
 }
 
 .actions {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-10);
 }
 
 .spacer {

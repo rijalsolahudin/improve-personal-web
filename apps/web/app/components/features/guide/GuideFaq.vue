@@ -26,7 +26,7 @@ const titleId = `${anchor}-title`
 .faq {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--space-12);
   padding: clamp(18px, 3vw, 26px);
   border: var(--border-thin) solid var(--line);
   border-radius: var(--radius-card);
@@ -42,7 +42,7 @@ const titleId = `${anchor}-title`
 .title {
   font-family: var(--font-display);
   font-weight: var(--fw-display);
-  font-size: clamp(22px, 3.5vw, 28px);
+  font-size: calc(clamp(22px, 3.5vw, 28px) * var(--fk-display));
   line-height: var(--lh-title);
 }
 
@@ -56,7 +56,7 @@ const titleId = `${anchor}-title`
 .items {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-8);
 }
 
 .item {
@@ -72,9 +72,9 @@ const titleId = `${anchor}-title`
 
 .question {
   display: flex;
-  gap: 10px;
+  gap: var(--space-10);
   align-items: baseline;
-  padding: 12px 14px;
+  padding: var(--space-12) var(--space-14);
   cursor: pointer;
   font-size: var(--fs-body-sm);
   font-weight: var(--fw-strong);
@@ -106,7 +106,7 @@ const titleId = `${anchor}-title`
 }
 
 .answer {
-  padding: 0 14px 14px 44px;
+  padding: 0 var(--space-14) var(--space-14) var(--space-44);
   color: var(--mute-2);
   font-size: var(--fs-caption);
   line-height: 1.65;
@@ -114,7 +114,7 @@ const titleId = `${anchor}-title`
 
 @media (max-width: 599px) {
   .answer {
-    padding-left: 14px;
+    padding-left: var(--space-14);
   }
 }
 </style>

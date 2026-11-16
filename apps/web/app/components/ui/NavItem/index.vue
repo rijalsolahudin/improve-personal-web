@@ -61,15 +61,15 @@ const emit = defineEmits<{ click: [event: MouseEvent] }>()
 
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 10px 14px;
+  gap: var(--space-12);
+  padding: var(--space-10) var(--space-14);
   border: none;
   background: none;
   border-radius: calc(14px * var(--rk)) calc(14px * var(--rk)) calc(14px * var(--rk))
     calc(5px * var(--rk));
   color: var(--ink);
   font-weight: var(--fw-strong);
-  font-size: 16px;
+  font-size: var(--fs-16);
   white-space: nowrap;
   /*
    * Aturan global hanya menargetkan `button`/`.btn`/`[role=button]`, jadi link sidebar tidak dapat
@@ -104,7 +104,7 @@ const emit = defineEmits<{ click: [event: MouseEvent] }>()
 
 .nav-item.collapsed {
   justify-content: center;
-  padding: 8px 0;
+  padding: var(--space-8) 0;
   gap: 0;
 }
 

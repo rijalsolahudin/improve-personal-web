@@ -92,8 +92,8 @@ const next = computed(() => {
 .daily {
   display: flex;
   flex-direction: column;
-  gap: 26px;
-  padding-bottom: 80px;
+  gap: var(--space-28);
+  padding-bottom: var(--space-80);
 }
 
 /* PRD F12: desktop = kolom widget + kalender hari ini di kolom lebar. */
@@ -101,7 +101,7 @@ const next = computed(() => {
   display: grid;
   grid-template-columns: minmax(340px, 1fr) minmax(0, 1.35fr);
   align-items: start;
-  gap: 32px;
+  gap: var(--space-32);
 }
 
 .side {
@@ -112,7 +112,7 @@ const next = computed(() => {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 28px;
+  gap: var(--space-28);
 }
 
 @media (max-width: 1099px) {

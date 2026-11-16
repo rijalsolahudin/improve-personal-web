@@ -141,7 +141,7 @@ function trapFocus(event: KeyboardEvent): void {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: var(--space-8);
+  padding: var(--space-16);
   background: var(--scrim);
   overflow-y: auto;
   /* Scroll di dalam dialog tidak boleh "tembus" ke halaman di belakang saat sudah mentok. */
@@ -153,7 +153,7 @@ function trapFocus(event: KeyboardEvent): void {
 /* Form panjang: dialog menempel ke atas dengan jarak lega; yang di-scroll adalah latarnya. */
 .backdrop.align-top {
   align-items: flex-start;
-  padding: 40px 20px;
+  padding: var(--space-40) var(--space-20);
 }
 
 .align-top .dialog {
@@ -164,12 +164,12 @@ function trapFocus(event: KeyboardEvent): void {
 .dialog {
   display: flex;
   flex-direction: column;
-  gap: var(--space-8);
+  gap: var(--space-16);
   width: min(var(--modal-width, 34rem), 100%);
   max-height: 90vh;
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding: var(--space-12);
+  padding: var(--space-32);
   background: var(--paper);
   border: var(--border-thick) solid var(--outline);
   border-radius: var(--radius-panel);
@@ -202,7 +202,7 @@ function trapFocus(event: KeyboardEvent): void {
   gap: 0;
   padding: 0;
   overflow: hidden;
-  max-height: calc(100vh - 2 * var(--space-8));
+  max-height: calc(100vh - 2 * var(--space-16));
 }
 
 .head {
@@ -214,16 +214,16 @@ function trapFocus(event: KeyboardEvent): void {
 .title {
   font-family: var(--font-display);
   font-weight: var(--fw-display);
-  font-size: 26px;
+  font-size: var(--fs-display-26);
 }
 
 @media (max-width: 480px) {
   .backdrop.align-top {
-    padding: 16px 10px;
+    padding: var(--space-16) var(--space-10);
   }
 
   .dialog {
-    padding: var(--space-11) var(--space-10) var(--space-10);
+    padding: var(--space-28) var(--space-22) var(--space-22);
   }
 }
 

@@ -19,15 +19,15 @@ const { eyebrow, title } = defineProps<{ eyebrow: string; title: string }>()
 }
 
 .title {
-  margin-top: 4px;
+  margin-top: var(--space-4);
   font-family: var(--font-display);
   font-weight: var(--fw-display);
-  font-size: 32px;
+  font-size: var(--fs-display-32);
   line-height: 1.1;
 }
 
 .sub {
-  margin-top: 6px;
+  margin-top: var(--space-6);
   font-weight: var(--fw-medium);
   font-size: var(--fs-body);
   color: #6b5e4b;

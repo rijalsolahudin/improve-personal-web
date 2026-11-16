@@ -66,8 +66,8 @@ function href(item: { id: string }): string {
   top: var(--gap-desktop);
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  padding: 16px 14px;
+  gap: var(--space-14);
+  padding: var(--space-16) var(--space-14);
   border: var(--border-thin) solid var(--line);
   border-radius: var(--radius-card);
   background: var(--paper);
@@ -84,17 +84,17 @@ function href(item: { id: string }): string {
 .groups {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--space-12);
 }
 
 .group {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--space-4);
 }
 
 .group-title {
-  padding: 0 8px;
+  padding: 0 var(--space-8);
   font-weight: var(--fw-strong);
   font-size: var(--fs-eyebrow);
   letter-spacing: var(--tracking-eyebrow);
@@ -113,9 +113,9 @@ function href(item: { id: string }): string {
 
 .link {
   display: flex;
-  gap: 8px;
+  gap: var(--space-8);
   align-items: baseline;
-  padding: 4px 8px;
+  padding: var(--space-4) var(--space-8);
   border-radius: var(--radius-inner);
   color: var(--ink);
   font-size: var(--fs-caption);
@@ -137,7 +137,7 @@ function href(item: { id: string }): string {
 }
 
 .top {
-  padding-top: 10px;
+  padding-top: var(--space-10);
   border-top: var(--border-thin) dashed var(--dash);
   font-size: var(--fs-meta);
   font-weight: var(--fw-strong);
@@ -147,14 +147,14 @@ function href(item: { id: string }): string {
 @media (max-width: 899px) {
   .toc {
     position: static;
-    gap: 8px;
-    padding: 12px;
+    gap: var(--space-8);
+    padding: var(--space-12);
   }
 
   .groups {
     flex-direction: row;
     flex-wrap: wrap;
-    gap: 8px;
+    gap: var(--space-8);
   }
 
   .group {
@@ -169,11 +169,11 @@ function href(item: { id: string }): string {
   .list {
     flex-direction: row;
     flex-wrap: wrap;
-    gap: 6px;
+    gap: var(--space-6);
   }
 
   .link {
-    padding: 6px 12px;
+    padding: var(--space-6) var(--space-12);
     border: var(--border-thin) solid var(--line);
     border-radius: var(--radius-pill);
   }

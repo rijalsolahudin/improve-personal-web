@@ -54,7 +54,7 @@ const isVisible = ref(false)
 
 .input {
   width: 100%;
-  padding: var(--space-5) calc(var(--space-6) + 36px) var(--space-5) var(--space-6);
+  padding: var(--space-10) calc(var(--space-12) + 36px) var(--space-10) var(--space-12);
   border: var(--border-thin) solid var(--line);
   border-radius: var(--radius-inner);
   background: var(--paper-2);
@@ -68,7 +68,7 @@ const isVisible = ref(false)
 .toggle {
   position: absolute;
   top: 50%;
-  right: var(--space-3);
+  right: var(--space-6);
   display: grid;
   place-items: center;
   width: 36px;

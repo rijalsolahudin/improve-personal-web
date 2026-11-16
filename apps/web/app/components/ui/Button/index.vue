@@ -54,7 +54,7 @@ const {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: var(--space-8);
   box-sizing: border-box;
   border: none;
   border-radius: var(--radius-pill);
@@ -70,26 +70,26 @@ const {
 
 .btn-xs {
   min-height: 26px;
-  padding: 0 10px;
-  font-size: 12px;
+  padding: 0 var(--space-10);
+  font-size: var(--fs-12);
 }
 
 .btn-sm {
   min-height: 36px;
-  padding: 0 14px;
-  font-size: 13px;
+  padding: 0 var(--space-14);
+  font-size: var(--fs-13);
 }
 
 .btn-md {
   min-height: 44px;
-  padding: 0 20px;
-  font-size: 15px;
+  padding: 0 var(--space-20);
+  font-size: var(--fs-15);
 }
 
 .btn-lg {
   min-height: 56px;
-  padding: 0 28px;
-  font-size: 18px;
+  padding: 0 var(--space-28);
+  font-size: var(--fs-18);
 }
 
 .btn-primary {
@@ -150,7 +150,7 @@ const {
   padding: 0;
   background: none;
   color: var(--btn-ink, var(--accent));
-  font-size: 13px;
+  font-size: var(--fs-13);
 }
 
 .btn.btn-link-danger {

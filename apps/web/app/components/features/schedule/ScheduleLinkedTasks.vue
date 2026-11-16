@@ -73,8 +73,8 @@ function removePending(index: number): void {
 .list {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  margin: 0 0 8px;
+  gap: var(--space-6);
+  margin: 0 0 var(--space-8);
   padding: 0;
   list-style: none;
 }
@@ -82,9 +82,9 @@ function removePending(index: number): void {
 .item {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-8);
   font-weight: var(--fw-strong);
-  font-size: 14px;
+  font-size: var(--fs-14);
 }
 
 .name {
@@ -105,10 +105,10 @@ function removePending(index: number): void {
 }
 
 .remove {
-  padding: 0 6px;
+  padding: 0 var(--space-6);
   border: none;
   background: none;
-  font-size: 18px;
+  font-size: var(--fs-18);
   line-height: 1;
   color: var(--mute);
 }
@@ -119,7 +119,7 @@ function removePending(index: number): void {
 
 .add {
   display: flex;
-  gap: 8px;
+  gap: var(--space-8);
 }
 
 .add-input {

@@ -118,8 +118,8 @@ async function onChange(event: Event): Promise<void> {
 .import-card {
   display: flex;
   flex-direction: column;
-  gap: var(--space-5);
-  padding: var(--space-8);
+  gap: var(--space-10);
+  padding: var(--space-16);
 }
 
 .card-title {
@@ -144,15 +144,15 @@ async function onChange(event: Event): Promise<void> {
 .preview {
   display: flex;
   flex-direction: column;
-  gap: var(--space-5);
-  padding: var(--space-6);
+  gap: var(--space-10);
+  padding: var(--space-12);
   border: var(--border-thin) solid var(--line);
   border-radius: var(--radius-inner);
 }
 
 .rows {
   display: grid;
-  gap: var(--space-2);
+  gap: var(--space-4);
   margin: 0;
   padding: 0;
   list-style: none;
@@ -162,7 +162,7 @@ async function onChange(event: Event): Promise<void> {
 .row {
   display: flex;
   justify-content: space-between;
-  gap: var(--space-4);
+  gap: var(--space-8);
 }
 
 .count {
@@ -170,7 +170,7 @@ async function onChange(event: Event): Promise<void> {
 }
 
 .warning {
-  padding: var(--space-5) var(--space-8);
+  padding: var(--space-10) var(--space-16);
   border-radius: var(--radius-inner);
   background: var(--prio-urgent-bg);
   color: var(--prio-urgent-fg);
@@ -181,13 +181,13 @@ async function onChange(event: Event): Promise<void> {
 .confirm {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: var(--space-8);
 }
 
 .confirm-row {
   display: flex;
   align-items: flex-start;
-  gap: var(--space-4);
+  gap: var(--space-8);
   font-size: var(--fs-caption);
   line-height: var(--lh-body);
 }

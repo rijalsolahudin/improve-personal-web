@@ -58,8 +58,8 @@ const toggleLabel = computed(() => t(isCollapsed.value ? 'shell.expand' : 'shell
   z-index: 70;
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 20px 14px;
+  gap: var(--space-6);
+  padding: var(--space-20) var(--space-14);
   background: var(--paper);
   border: var(--border-thick) solid var(--outline);
   border-radius: var(--radius-panel);
@@ -69,14 +69,14 @@ const toggleLabel = computed(() => t(isCollapsed.value ? 'shell.expand' : 'shell
 
 .sidebar.collapsed {
   width: 88px;
-  padding: 20px 12px;
+  padding: var(--space-20) var(--space-12);
 }
 
 .brand-row {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 4px 8px 14px;
+  gap: var(--space-10);
+  padding: var(--space-4) var(--space-8) var(--space-14);
   flex-shrink: 0;
   border-bottom: var(--border-thin) dashed var(--dash);
 }
@@ -88,13 +88,13 @@ const toggleLabel = computed(() => t(isCollapsed.value ? 'shell.expand' : 'shell
 
 /*
  * Wordmark "Improve Personal" (BrandMark) menyusut + memudar saat collapse, bukan hilang mendadak.
- * Lebar/tinggi alami tidak bisa dianimasikan, jadi dibatasi (2 baris × line-height 1 × 20px) lalu
- * diturunkan ke 0; `overflow: hidden` yang memotong teksnya.
+ * Lebar/tinggi alami tidak bisa dianimasikan, jadi dibatasi (2 baris × line-height 1 × ukuran font
+ * wordmark, yang ikut pengali gaya) lalu diturunkan ke 0; `overflow: hidden` yang memotong teksnya.
  */
 .brand-row :deep(.wordmark) {
   overflow: hidden;
   max-inline-size: 160px;
-  max-block-size: 40px;
+  max-block-size: calc(2 * var(--fs-display-20));
   transition:
     opacity var(--dur) var(--ease),
     max-inline-size var(--dur) var(--ease),
@@ -117,11 +117,11 @@ const toggleLabel = computed(() => t(isCollapsed.value ? 'shell.expand' : 'shell
 .collapsed .brand-row {
   flex-direction: column;
   gap: 0;
-  padding: 4px 0 14px;
+  padding: var(--space-4) 0 var(--space-14);
 }
 
 .collapsed .brand-row > :first-child {
-  margin-block-end: 10px;
+  margin-block-end: var(--space-10);
 }
 
 .collapsed .brand-row :deep(.wordmark) {
@@ -134,8 +134,8 @@ const toggleLabel = computed(() => t(isCollapsed.value ? 'shell.expand' : 'shell
   flex: 1;
   min-height: 0;
   overflow: hidden auto;
-  margin: 0 -8px;
-  padding: 10px 8px 8px;
+  margin: 0 calc(-1 * var(--space-8));
+  padding: var(--space-10) var(--space-8) var(--space-8);
   display: flex;
   flex-direction: column;
 }
@@ -152,7 +152,7 @@ const toggleLabel = computed(() => t(isCollapsed.value ? 'shell.expand' : 'shell
 }
 
 .group + .group {
-  padding-top: 14px;
+  padding-top: var(--space-14);
 }
 
 /*
@@ -160,7 +160,7 @@ const toggleLabel = computed(() => t(isCollapsed.value ? 'shell.expand' : 'shell
  * pemisah antar grup (design sidebar sempit). Satu elemen supaya jarak antar grup tidak bergeser.
  */
 .group-title {
-  padding: 0 14px 4px;
+  padding: 0 var(--space-14) var(--space-4);
   font-weight: var(--fw-strong);
   font-size: var(--fs-eyebrow);
   letter-spacing: var(--tracking-group);
@@ -180,7 +180,7 @@ const toggleLabel = computed(() => t(isCollapsed.value ? 'shell.expand' : 'shell
 
 .collapsed .group-title {
   max-block-size: 2px;
-  margin: 2px 14px 8px;
+  margin: 2px var(--space-14) var(--space-8);
   padding: 0;
   border-radius: calc(2px * var(--rk));
   background: var(--line);

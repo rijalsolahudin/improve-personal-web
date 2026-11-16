@@ -66,8 +66,8 @@ const timeLeft = computed(() => (task.done ? t('time.done') : formatTimeLeft(tas
 .card {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px 12px 10px 6px;
+  gap: var(--space-10);
+  padding: var(--space-10) var(--space-12) var(--space-10) var(--space-6);
   border: var(--border) solid var(--outline);
   border-radius: calc(16px * var(--rk)) calc(16px * var(--rk)) calc(16px * var(--rk))
     calc(6px * var(--rk));
@@ -85,7 +85,7 @@ const timeLeft = computed(() => (task.done ? t('time.done') : formatTimeLeft(tas
 }
 
 .grip {
-  padding: 4px 2px;
+  padding: var(--space-4) 2px;
   color: var(--mute-3);
   font-weight: var(--fw-strong);
   cursor: grab;
@@ -101,7 +101,7 @@ const timeLeft = computed(() => (task.done ? t('time.done') : formatTimeLeft(tas
 
 .title {
   font-weight: var(--fw-strong);
-  font-size: 14px;
+  font-size: var(--fs-14);
 }
 
 .done .title {
@@ -112,7 +112,7 @@ const timeLeft = computed(() => (task.done ? t('time.done') : formatTimeLeft(tas
 
 .left {
   font-weight: var(--fw-body);
-  font-size: 12px;
+  font-size: var(--fs-12);
   color: var(--mute);
 }
 
@@ -131,14 +131,14 @@ const timeLeft = computed(() => (task.done ? t('time.done') : formatTimeLeft(tas
    segitu; dikunci di sini supaya tidak ikut mengecil kalau primitif berubah. */
 .card > .focus {
   min-height: 26px;
-  padding: 0 10px;
-  font-size: 12px;
+  padding: 0 var(--space-10);
+  font-size: var(--fs-12);
 }
 
 /* Design: "×" 26px dengan glyph 14px (IconButton menurunkan font dari ukuran tombol → 11px)
    dan tinta redup, bukan aksen tema. */
 .card > .remove {
   color: var(--mute-2);
-  font-size: 14px;
+  font-size: var(--fs-14);
 }
 </style>

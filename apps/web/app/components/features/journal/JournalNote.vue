@@ -95,23 +95,23 @@ function insertGoal(goalId: string): void {
 }
 
 .hint {
-  margin-top: -4px;
+  margin-top: calc(-1 * var(--space-4));
   font-weight: var(--fw-body);
-  font-size: 13px;
+  font-size: var(--fs-13);
   color: var(--mute);
 }
 
 .quote {
   display: flex;
   align-items: flex-start;
-  gap: 6px;
+  gap: var(--space-6);
 }
 
 .mark {
   flex-shrink: 0;
   font-family: var(--font-display);
   font-weight: var(--fw-display);
-  font-size: 44px;
+  font-size: var(--fs-display-44);
   line-height: 0.8;
   color: var(--deep);
 }
@@ -119,13 +119,13 @@ function insertGoal(goalId: string): void {
 .affirm {
   flex: 1;
   min-width: 0;
-  padding: 4px 0 0;
+  padding: var(--space-4) 0 0;
   border: none;
   background: transparent;
   font-family: var(--font-hand);
   /* Patrick Hand hanya punya weight 400; textarea mewarisi `--fw-body` (700) → faux-bold. */
   font-weight: 400;
-  font-size: 24px;
+  font-size: var(--fs-hand-24);
   line-height: 32px;
   resize: none;
   outline: none;
@@ -134,30 +134,30 @@ function insertGoal(goalId: string): void {
 .reflect {
   --line-h: 33px;
 
-  font-size: 19px;
+  font-size: var(--fs-19);
 }
 
 .mentions {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
-  font-size: 14px;
+  gap: var(--space-4);
+  font-size: var(--fs-14);
 }
 
 .suggest {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: var(--space-6);
 }
 
 .suggest-item {
-  padding: 4px 10px;
+  padding: var(--space-4) var(--space-10);
   border: var(--border-thin) dashed var(--line);
   border-radius: var(--radius-pill);
   background: var(--paper);
   color: var(--mute);
   font: inherit;
-  font-size: 13px;
+  font-size: var(--fs-13);
   cursor: pointer;
 }
 </style>

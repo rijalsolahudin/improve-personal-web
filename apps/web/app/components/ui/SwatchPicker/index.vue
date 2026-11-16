@@ -37,7 +37,7 @@ const model = defineModel<T>({ required: true })
 .swatches {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: var(--space-8);
 }
 
 .swatch {

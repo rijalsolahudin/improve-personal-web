@@ -95,8 +95,8 @@ function add(id: string): void {
   min-height: 260px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 18px;
+  gap: var(--space-10);
+  padding: var(--space-18);
   border: var(--border-thick) dashed transparent;
   border-radius: calc(28px * var(--rk));
   background: var(--q-bg);
@@ -109,7 +109,7 @@ function add(id: string): void {
 .head {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--space-12);
 }
 
 /* Titik warna kuadran (design v2): 12px bulat, warna solid kuadran. */
@@ -131,13 +131,13 @@ function add(id: string): void {
 .title {
   font-family: var(--font-display);
   font-weight: var(--fw-display);
-  font-size: 20px;
+  font-size: var(--fs-display-20);
   line-height: 1.1;
 }
 
 .sub {
   font-weight: var(--fw-strong);
-  font-size: 12px;
+  font-size: var(--fs-12);
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--q-text);
@@ -146,7 +146,7 @@ function add(id: string): void {
 .count {
   font-family: var(--font-display);
   font-weight: var(--fw-display);
-  font-size: 22px;
+  font-size: var(--fs-display-22);
   color: var(--q-text);
 }
 
@@ -154,25 +154,25 @@ function add(id: string): void {
 .picker {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: var(--space-10);
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
 .add {
-  padding: 10px;
+  padding: var(--space-10);
   border: var(--border) dashed color-mix(in srgb, var(--q-text) 33%, transparent);
   border-radius: var(--radius-btn-sq);
   background: none;
   color: var(--q-text);
   font-weight: var(--fw-strong);
-  font-size: 14px;
+  font-size: var(--fs-14);
 }
 
 .picker {
   gap: 2px;
-  padding: 8px;
+  padding: var(--space-8);
   border: var(--border) solid var(--outline);
   border-radius: var(--radius-row);
   background: var(--paper);
@@ -182,13 +182,13 @@ function add(id: string): void {
   width: 100%;
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 10px;
+  gap: var(--space-8);
+  padding: var(--space-8) var(--space-10);
   border: none;
   border-radius: var(--radius-inner);
   background: none;
   font-weight: var(--fw-strong);
-  font-size: 14px;
+  font-size: var(--fs-14);
   text-align: left;
 }
 
@@ -210,14 +210,14 @@ function add(id: string): void {
 
 .pick-left {
   font-weight: var(--fw-body);
-  font-size: 12px;
+  font-size: var(--fs-12);
   color: var(--mute);
 }
 
 .pick-empty {
-  padding: 8px 10px;
+  padding: var(--space-8) var(--space-10);
   font-weight: var(--fw-body);
-  font-size: 13px;
+  font-size: var(--fs-13);
   color: var(--mute);
 }
 </style>

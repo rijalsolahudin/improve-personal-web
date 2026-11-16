@@ -104,8 +104,8 @@ const summary = computed(() =>
 .todo {
   display: flex;
   flex-direction: column;
-  gap: 20px;
-  padding-bottom: 80px;
+  gap: var(--space-20);
+  padding-bottom: var(--space-80);
 }
 
 .header {
@@ -113,25 +113,25 @@ const summary = computed(() =>
   flex-wrap: wrap;
   align-items: flex-end;
   justify-content: space-between;
-  gap: 16px;
+  gap: var(--space-16);
 }
 
 .title {
   font-family: var(--font-display);
   font-weight: var(--fw-display);
-  font-size: 36px;
+  font-size: var(--fs-display-36);
   line-height: 1.1;
 }
 
 .summary {
-  margin-top: 4px;
+  margin-top: var(--space-4);
   font-weight: var(--fw-body);
-  font-size: 16px;
+  font-size: var(--fs-16);
   color: var(--mute);
 }
 
 .list {
-  padding: 8px 18px;
+  padding: var(--space-8) var(--space-18);
   border: var(--border-thin) solid var(--line);
   border-radius: calc(28px * var(--rk));
   background: var(--paper);
@@ -144,11 +144,11 @@ const summary = computed(() =>
 }
 
 .more {
-  margin: 10px 0;
+  margin: var(--space-10) 0;
 }
 
 .empty {
-  padding: 28px;
+  padding: var(--space-28);
   text-align: center;
   font-weight: var(--fw-body);
   color: var(--mute);
@@ -156,11 +156,11 @@ const summary = computed(() =>
 
 @media (max-width: 599px) {
   .title {
-    font-size: 28px;
+    font-size: var(--fs-display-28);
   }
 
   .list {
-    padding: 4px 14px;
+    padding: var(--space-4) var(--space-14);
   }
 }
 </style>

@@ -28,8 +28,8 @@ const emit = defineEmits<{ toggle: [id: string]; focus: [title: string] }>()
   flex-shrink: 1;
   min-height: 0;
   overflow: hidden;
-  margin: 2px 30px 6px 8px;
-  padding: 3px 10px;
+  margin: 2px var(--space-32) var(--space-6) var(--space-8);
+  padding: 3px var(--space-10);
   border-radius: calc(8px * var(--rk));
   background: var(--paper);
   list-style: none;

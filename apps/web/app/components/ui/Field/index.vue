@@ -46,13 +46,13 @@ if (!isGroup) provide(FIELD_ID_KEY, id)
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
-  margin-bottom: 6px;
+  gap: var(--space-8);
+  margin-bottom: var(--space-6);
 }
 
 .label {
   font-weight: var(--fw-strong);
-  font-size: 13px;
+  font-size: var(--fs-13);
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--mute-2);

@@ -97,7 +97,7 @@ onMounted(() => {
   position: relative;
   min-height: 100vh;
   display: flex;
-  gap: 32px;
+  gap: var(--space-32);
   padding: var(--gap-desktop);
 }
 
@@ -120,21 +120,21 @@ onMounted(() => {
   flex-wrap: wrap-reverse;
   justify-content: flex-end;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-10);
 }
 
 .fab {
   height: 52px;
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 0 20px;
+  gap: var(--space-8);
+  padding: 0 var(--space-20);
   border: var(--border-thick) solid var(--outline);
   border-radius: var(--radius-pill);
   background: var(--paper);
   color: var(--ink);
   font-weight: var(--fw-strong);
-  font-size: 15px;
+  font-size: var(--fs-15);
   white-space: nowrap;
   box-shadow: calc(5px * var(--sx)) calc(5px * var(--sy)) calc(5px * var(--sbl))
     var(--shadow-color, rgb(47 42 36 / 0.15));
@@ -152,7 +152,7 @@ onMounted(() => {
 
 @media (max-width: 599px) {
   .shell {
-    padding: 16px 14px 112px;
+    padding: var(--space-16) var(--space-14) var(--space-112);
   }
 
   .shell > .desktop-only {
@@ -171,7 +171,7 @@ onMounted(() => {
 
   .fab {
     height: 42px;
-    padding: 0 14px;
+    padding: 0 var(--space-14);
   }
 }
 </style>

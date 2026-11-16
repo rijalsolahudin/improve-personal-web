@@ -103,8 +103,8 @@ const nextIn = computed(() => {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
   align-items: center;
-  gap: 14px;
-  padding: 18px 20px;
+  gap: var(--space-14);
+  padding: var(--space-18) var(--space-20);
   border: var(--border-thick) solid var(--outline);
   border-radius: calc(28px * var(--rk));
   background-color: var(--primary);
@@ -122,7 +122,7 @@ const nextIn = computed(() => {
   min-width: 0;
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: var(--space-14);
 }
 
 .now-text {
@@ -136,7 +136,7 @@ const nextIn = computed(() => {
 .now-title {
   font-family: var(--font-display);
   font-weight: var(--fw-display);
-  font-size: 22px;
+  font-size: var(--fs-display-22);
   line-height: 1.1;
   /* Design: "Sekarang: …" satu baris; judul blok tidak boleh membungkus. */
   overflow: hidden;
@@ -146,7 +146,7 @@ const nextIn = computed(() => {
 
 .now-meta {
   font-weight: var(--fw-strong);
-  font-size: 12.5px;
+  font-size: var(--fs-13);
   color: var(--deeper);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
@@ -156,7 +156,7 @@ const nextIn = computed(() => {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-8);
   margin-top: 2px;
 }
 
@@ -166,8 +166,8 @@ const nextIn = computed(() => {
   max-width: 100%;
   display: flex;
   align-items: center;
-  gap: 7px;
-  padding: 3px 11px 3px 6px;
+  gap: var(--space-8);
+  padding: 3px var(--space-12) 3px var(--space-6);
   border: calc(1.5px * var(--bk)) solid var(--outline);
   border-radius: var(--radius-pill);
   background: var(--paper-2);
@@ -212,8 +212,8 @@ const nextIn = computed(() => {
   min-width: 0;
   display: flex;
   align-items: center;
-  gap: 14px;
-  padding: 10px 16px;
+  gap: var(--space-14);
+  padding: var(--space-10) var(--space-16);
   border: var(--border) solid var(--outline);
   border-radius: calc(20px * var(--rk)) calc(20px * var(--rk)) calc(20px * var(--rk))
     calc(7px * var(--rk));
@@ -240,14 +240,14 @@ const nextIn = computed(() => {
 }
 
 .next-label {
-  font-size: 9.5px;
+  font-size: var(--fs-10);
   color: var(--deep);
 }
 
 .next-clock {
   font-family: var(--font-display);
   font-weight: var(--fw-display);
-  font-size: 18px;
+  font-size: var(--fs-display-18);
   line-height: 1;
   font-variant-numeric: tabular-nums;
 }
@@ -265,13 +265,13 @@ const nextIn = computed(() => {
   text-overflow: ellipsis;
   white-space: nowrap;
   font-weight: var(--fw-strong);
-  font-size: 15px;
+  font-size: var(--fs-15);
   line-height: 1.2;
 }
 
 .next-in {
   font-weight: var(--fw-body);
-  font-size: 12.5px;
+  font-size: var(--fs-13);
   color: var(--mute);
 }
 

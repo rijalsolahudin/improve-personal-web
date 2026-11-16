@@ -39,7 +39,7 @@ useSeoMeta({
   flex-direction: column;
   align-items: center;
   gap: clamp(56px, 8vw, 96px);
-  padding: 24px clamp(16px, 4vw, 48px) 40px;
+  padding: var(--space-24) clamp(16px, 4vw, 48px) var(--space-40);
   background-size: var(--grid-desktop) var(--grid-desktop);
 }
 </style>

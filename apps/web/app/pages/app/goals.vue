@@ -156,8 +156,8 @@ function onCoverCleared(): void {
 .goals {
   display: flex;
   flex-direction: column;
-  gap: 24px;
-  padding-bottom: 80px;
+  gap: var(--space-24);
+  padding-bottom: var(--space-80);
 }
 
 .header {
@@ -165,28 +165,28 @@ function onCoverCleared(): void {
   flex-wrap: wrap;
   align-items: flex-end;
   justify-content: space-between;
-  gap: 20px;
+  gap: var(--space-20);
 }
 
 .title {
   font-family: var(--font-display);
   font-weight: var(--fw-display);
-  font-size: 36px;
+  font-size: var(--fs-display-36);
   line-height: 1.1;
 }
 
 .summary {
-  margin-top: 4px;
+  margin-top: var(--space-4);
   font-weight: var(--fw-body);
-  font-size: 16px;
+  font-size: var(--fs-16);
   color: var(--mute);
 }
 
 /* CTA header design: 16px/800, padding 14px 24px (Button md = 44px / 15px / 20px). */
 .header :deep(.btn.new-goal) {
   min-height: 46px;
-  padding: 14px 24px;
-  font-size: 16px;
+  padding: var(--space-14) var(--space-24);
+  font-size: var(--fs-16);
 }
 
 .layout {
@@ -194,7 +194,7 @@ function onCoverCleared(): void {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-start;
-  gap: 24px;
+  gap: var(--space-24);
 }
 
 .rail {
@@ -206,7 +206,7 @@ function onCoverCleared(): void {
 .list {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--space-12);
 }
 
 /*
@@ -225,15 +225,15 @@ function onCoverCleared(): void {
 
   .list {
     max-height: calc(100vh - 2 * var(--gap-desktop) + 12px);
-    margin: -6px;
-    padding: 6px;
+    margin: calc(-1 * var(--space-6));
+    padding: var(--space-6);
     overflow-y: auto;
     overscroll-behavior: contain;
   }
 }
 
 .empty {
-  padding: 24px;
+  padding: var(--space-24);
   border: var(--border) dashed var(--dash-2);
   border-radius: var(--radius-sticker);
   text-align: center;
@@ -243,11 +243,11 @@ function onCoverCleared(): void {
 
 @media (max-width: 599px) {
   .goals {
-    gap: 18px;
+    gap: var(--space-18);
   }
 
   .title {
-    font-size: 28px;
+    font-size: var(--fs-display-28);
   }
 
   .rail {

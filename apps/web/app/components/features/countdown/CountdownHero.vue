@@ -73,10 +73,10 @@ const tiles = computed(() => {
 .hero {
   display: flex;
   align-items: center;
-  gap: 28px;
+  gap: var(--space-28);
   flex-wrap: wrap;
-  margin-top: 6px;
-  padding: 26px 28px;
+  margin-top: var(--space-6);
+  padding: var(--space-28) var(--space-28);
   border: none;
   border-radius: var(--radius-panel);
   background-color: var(--cd-soft);
@@ -103,7 +103,7 @@ const tiles = computed(() => {
   border-radius: calc(32px * var(--rk)) calc(32px * var(--rk)) calc(32px * var(--rk))
     calc(10px * var(--rk));
   background: var(--paper);
-  font-size: 56px;
+  font-size: var(--fs-56);
   transform: rotate(calc(-6deg * var(--bev)));
   box-shadow: var(--shadow-drop);
 }
@@ -122,32 +122,32 @@ const tiles = computed(() => {
 
 /* Eyebrow judul momen 12px; label "Tinggal" tetap 11px (design baris 1907 vs 1913). */
 .info .eyebrow {
-  font-size: 12px;
+  font-size: var(--fs-12);
 }
 
 .title {
   font-family: var(--font-display);
   font-weight: var(--fw-display);
-  font-size: 34px;
+  font-size: var(--fs-display-34);
   line-height: 1.1;
 }
 
 .meta {
   margin-top: 2px;
   font-weight: var(--fw-body);
-  font-size: 15px;
+  font-size: var(--fs-15);
   color: var(--ink-2);
 }
 
 .left {
   width: fit-content;
-  margin-top: 10px;
-  padding: 5px 14px;
+  margin-top: var(--space-10);
+  padding: var(--space-6) var(--space-14);
   border-radius: var(--radius-pill);
   background: var(--paper);
   font-family: var(--font-display);
   font-weight: var(--fw-display);
-  font-size: 17px;
+  font-size: var(--fs-display-17);
   color: var(--cd-deep);
 }
 
@@ -155,12 +155,12 @@ const tiles = computed(() => {
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-8);
 }
 
 .tiles {
   display: flex;
-  gap: 8px;
+  gap: var(--space-8);
 }
 
 .cell {
@@ -168,7 +168,7 @@ const tiles = computed(() => {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 12px 0 10px;
+  padding: var(--space-12) 0 var(--space-10);
   border: var(--border-thick) solid var(--outline);
   border-radius: calc(20px * var(--rk)) calc(20px * var(--rk)) calc(20px * var(--rk))
     calc(8px * var(--rk));
@@ -181,16 +181,16 @@ const tiles = computed(() => {
 .v {
   font-family: var(--font-display);
   font-weight: var(--fw-display);
-  font-size: 42px;
+  font-size: var(--fs-display-42);
   line-height: 1;
   font-variant-numeric: tabular-nums;
   color: var(--cd-deep);
 }
 
 .l {
-  margin-top: 6px;
+  margin-top: var(--space-6);
   font-weight: var(--fw-strong);
-  font-size: 12px;
+  font-size: var(--fs-12);
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--ink);
@@ -198,14 +198,14 @@ const tiles = computed(() => {
 
 @media (max-width: 599px) {
   .hero {
-    gap: 16px;
-    padding: 20px 18px;
+    gap: var(--space-16);
+    padding: var(--space-20) var(--space-18);
   }
 
   .tile {
     width: 72px;
     height: 72px;
-    font-size: 40px;
+    font-size: var(--fs-40);
   }
 
   /* Ukuran sticker inline (72px) → muat di tile 72px. */
@@ -214,7 +214,7 @@ const tiles = computed(() => {
   }
 
   .title {
-    font-size: 26px;
+    font-size: var(--fs-display-26);
   }
 
   .countdown-box {
@@ -231,7 +231,7 @@ const tiles = computed(() => {
   }
 
   .v {
-    font-size: 26px;
+    font-size: var(--fs-display-26);
   }
 }
 </style>

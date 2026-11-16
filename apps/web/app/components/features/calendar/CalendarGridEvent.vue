@@ -170,7 +170,7 @@ const focusStyle = computed(() => focusPillStyle(item.size === 'tiny'))
   display: flex;
   flex-direction: column;
   gap: 3px;
-  padding: 3px 30px 3px 8px;
+  padding: 3px var(--space-32) 3px var(--space-8);
   border: 0;
   background: none;
   color: var(--ink);
@@ -185,14 +185,14 @@ const focusStyle = computed(() => focusPillStyle(item.size === 'tiny'))
 }
 
 .compact .body {
-  padding-right: 16px;
+  padding-right: var(--space-16);
 }
 
 /* Kolom pekan lebih sempit: kurangi margin/padding daftar to-do supaya judulnya masih terbaca.
    Kiri-kanan disamakan - tombol centang ada di kepala kartu, bukan di baris to-do. */
 .compact :deep(.todos) {
-  margin: 0 8px 4px;
-  padding: 2px 6px;
+  margin: 0 var(--space-8) var(--space-4);
+  padding: 2px var(--space-6);
 }
 
 /* Di kolom pekan, tombol Fokus dan badge prioritas menghabiskan hampir seluruh lebar baris -
@@ -207,7 +207,7 @@ const focusStyle = computed(() => focusPillStyle(item.size === 'tiny'))
   min-width: 0;
   display: flex;
   align-items: center;
-  gap: 6px 8px;
+  gap: var(--space-6) var(--space-8);
 }
 
 .line {
@@ -258,7 +258,7 @@ const focusStyle = computed(() => focusPillStyle(item.size === 'tiny'))
   border-radius: calc(5px * var(--rk));
   background: var(--paper);
   font-weight: var(--fw-strong);
-  font-size: 8px;
+  font-size: var(--fs-8);
   transform: rotate(calc(-6deg * var(--bev)));
 }
 
@@ -278,12 +278,12 @@ const focusStyle = computed(() => focusPillStyle(item.size === 'tiny'))
   text-overflow: ellipsis;
   white-space: nowrap;
   font-weight: var(--fw-strong);
-  font-size: 12.5px;
+  font-size: var(--fs-13);
   line-height: 1.15;
 }
 
 .size-tiny .title {
-  font-size: 10.5px;
+  font-size: var(--fs-11);
   line-height: 1;
 }
 
@@ -292,7 +292,7 @@ const focusStyle = computed(() => focusPillStyle(item.size === 'tiny'))
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow-wrap: anywhere;
-  font-size: 13px;
+  font-size: var(--fs-13);
 }
 
 .event:not(.compact) .title.clamp {
@@ -304,23 +304,23 @@ const focusStyle = computed(() => focusPillStyle(item.size === 'tiny'))
   text-overflow: ellipsis;
   white-space: nowrap;
   font-weight: var(--fw-body);
-  font-size: 11px;
+  font-size: var(--fs-11);
   color: var(--mute);
   font-variant-numeric: tabular-nums;
 }
 
 .size-tiny .time {
-  font-size: 10px;
+  font-size: var(--fs-10);
 }
 
 .more {
   flex-shrink: 0;
-  padding: 2px 7px;
+  padding: 2px var(--space-8);
   border-radius: var(--radius-pill);
   background: var(--paper);
   color: var(--ink-2);
   font-weight: var(--fw-strong);
-  font-size: 10px;
+  font-size: var(--fs-10);
   white-space: nowrap;
 }
 
@@ -340,7 +340,7 @@ const focusStyle = computed(() => focusPillStyle(item.size === 'tiny'))
   background: var(--paper);
   color: var(--paper);
   font-weight: var(--fw-strong);
-  font-size: 10px;
+  font-size: var(--fs-10);
   line-height: 1;
 }
 
@@ -373,8 +373,8 @@ const focusStyle = computed(() => focusPillStyle(item.size === 'tiny'))
 
 /* Lebih kecil dari pill "▶ Fokus" standar: harus muat di blok jadwal yang pendek. */
 .event .focus {
-  padding: 0 8px;
-  font-size: 10.5px;
+  padding: 0 var(--space-8);
+  font-size: var(--fs-11);
 }
 
 .handle {

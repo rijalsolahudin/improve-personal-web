@@ -24,6 +24,23 @@ export interface StyleDefinition {
   readonly fonts: Readonly<{ display: string; body: string; hand: string }>
   /** Bobot font: display = judul Baloo-equivalent, strong/body/medium = 800/700/600 di gaya Cute. */
   readonly weights: Readonly<{ display: string; strong: string; body: string; medium: string }>
+  /**
+   * Pengali ukuran font per peran (`--fk`, `--fk-display`, `--fk-hand`). Ukuran desain dibuat untuk
+   * keluarga font Cute; keluarga lain punya x-height & lebar huruf berbeda, jadi tiap peran disetel
+   * terpisah supaya hierarki teks tetap terasa sama.
+   */
+  readonly typeScale: Readonly<{ ui: number; display: number; hand: number }>
+  /**
+   * `font-size-adjust` (`--fsa`). Hanya gaya Cute yang memakainya: di keluarga font lain metrik
+   * x-height bawaan font bisa meleset jauh (Special Elite diperbesar ~2×, Cormorant ~1,3×), sementara
+   * line-height tetap dihitung dari ukuran sebelum diperbesar, jadi glyph meluber ke baris tetangga.
+   * Gaya lain memakai `none` dan menaruh koreksi ukurannya di `typeScale`.
+   */
+  readonly fontSizeAdjust: string
+  /** Pengali spasi (`--dk`): >1 lebih lapang, <1 lebih rapat. */
+  readonly density: number
+  /** Radius kontrol berbentuk pill (input, chip); gaya bersudut tajam memakai radius kecil. */
+  readonly pillRadius: string
   /** Pengali radius (`--rk`) dan ketebalan border (`--bk`). */
   readonly radiusScale: number
   readonly borderScale: number
@@ -49,6 +66,9 @@ const CUTE_FONTS = {
   hand: "'Patrick Hand', cursive",
 } as const
 const CUTE_WEIGHTS = { display: '800', strong: '800', body: '700', medium: '600' } as const
+const CUTE_TYPE = { ui: 1, display: 1, hand: 1 } as const
+const CUTE_FONT_ADJUST = '0.51'
+const FULL_PILL = '999px'
 const HARD_SHADOW = { x: 0, y: 1, blur: 0, color: null } as const
 const NO_SHADOW = { x: 0, y: 0, blur: 0, color: 'transparent' } as const
 
@@ -95,6 +115,10 @@ export const uiStyles = {
   cute: {
     fonts: CUTE_FONTS,
     weights: CUTE_WEIGHTS,
+    typeScale: CUTE_TYPE,
+    fontSizeAdjust: CUTE_FONT_ADJUST,
+    density: 1,
+    pillRadius: FULL_PILL,
     radiusScale: 1,
     borderScale: 1,
     outline: null,
@@ -107,6 +131,10 @@ export const uiStyles = {
   'cute-pure': {
     fonts: CUTE_FONTS,
     weights: CUTE_WEIGHTS,
+    typeScale: CUTE_TYPE,
+    fontSizeAdjust: CUTE_FONT_ADJUST,
+    density: 1,
+    pillRadius: FULL_PILL,
     radiusScale: 1,
     borderScale: 1,
     outline: null,
@@ -140,6 +168,10 @@ export const uiStyles = {
       hand: "'DM Serif Display', serif",
     },
     weights: { display: '400', strong: '600', body: '500', medium: '500' },
+    typeScale: { ui: 1.02, display: 1.06, hand: 0.95 },
+    fontSizeAdjust: 'none',
+    density: 1.05,
+    pillRadius: FULL_PILL,
     radiusScale: 0.55,
     borderScale: 0.6,
     outline: '#1E1E1E',
@@ -243,6 +275,10 @@ export const uiStyles = {
       hand: "'DM Sans', sans-serif",
     },
     weights: { display: '600', strong: '600', body: '700', medium: '600' },
+    typeScale: { ui: 1, display: 1, hand: 0.85 },
+    fontSizeAdjust: 'none',
+    density: 1,
+    pillRadius: FULL_PILL,
     radiusScale: 0.6,
     borderScale: 0,
     outline: 'transparent',
@@ -277,6 +313,10 @@ export const uiStyles = {
       hand: "'Cormorant Garamond', serif",
     },
     weights: { display: '600', strong: '500', body: '500', medium: '400' },
+    typeScale: { ui: 1.1, display: 1.35, hand: 1.12 },
+    fontSizeAdjust: 'none',
+    density: 1.1,
+    pillRadius: '4px',
     radiusScale: 0.12,
     borderScale: 0.35,
     outline: 'rgba(43,38,34,.22)',
@@ -336,6 +376,10 @@ export const uiStyles = {
       hand: "'Special Elite', monospace",
     },
     weights: { display: '700', strong: '800', body: '700', medium: '600' },
+    typeScale: { ui: 0.97, display: 1, hand: 0.9 },
+    fontSizeAdjust: 'none',
+    density: 1.05,
+    pillRadius: '6px',
     radiusScale: 0.18,
     borderScale: 0.55,
     outline: '#5A4330',
@@ -395,6 +439,10 @@ export const uiStyles = {
       hand: "'JetBrains Mono', monospace",
     },
     weights: { display: '700', strong: '800', body: '700', medium: '600' },
+    typeScale: { ui: 1.05, display: 1.05, hand: 0.83 },
+    fontSizeAdjust: 'none',
+    density: 0.95,
+    pillRadius: '0px',
     radiusScale: 0,
     borderScale: 0.8,
     outline: null,

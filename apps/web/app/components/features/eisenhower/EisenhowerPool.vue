@@ -56,7 +56,7 @@ const formatTimeLeft = useTimeLeft()
   flex: 1 1 260px;
   min-width: 240px;
   max-width: 340px;
-  padding: 18px;
+  padding: var(--space-18);
   border: var(--border-thin) solid var(--line);
   border-radius: calc(28px * var(--rk));
   background: var(--paper);
@@ -69,20 +69,20 @@ const formatTimeLeft = useTimeLeft()
 .title {
   font-family: var(--font-display);
   font-weight: var(--fw-display);
-  font-size: 19px;
+  font-size: var(--fs-display-19);
 }
 
 .hint {
-  margin-bottom: 10px;
+  margin-bottom: var(--space-10);
   font-weight: var(--fw-body);
-  font-size: 13px;
+  font-size: var(--fs-13);
   color: var(--mute);
 }
 
 .items {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-8);
   margin: 0;
   padding: 0;
   list-style: none;
@@ -91,8 +91,8 @@ const formatTimeLeft = useTimeLeft()
 .item {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
+  gap: var(--space-10);
+  padding: var(--space-10) var(--space-12);
   border-radius: calc(14px * var(--rk));
   background: var(--alt);
   cursor: grab;
@@ -120,12 +120,12 @@ const formatTimeLeft = useTimeLeft()
 
 .item-title {
   font-weight: var(--fw-strong);
-  font-size: 14px;
+  font-size: var(--fs-14);
 }
 
 .left {
   font-weight: var(--fw-body);
-  font-size: 12px;
+  font-size: var(--fs-12);
   color: var(--mute);
 }
 
@@ -134,7 +134,7 @@ const formatTimeLeft = useTimeLeft()
 }
 
 .grip {
-  padding: 4px 2px;
+  padding: var(--space-4) 2px;
   color: var(--mute-3);
   font-weight: var(--fw-strong);
   cursor: grab;
@@ -143,7 +143,7 @@ const formatTimeLeft = useTimeLeft()
 
 .empty {
   font-weight: var(--fw-body);
-  font-size: 14px;
+  font-size: var(--fs-14);
   color: var(--mute);
 }
 

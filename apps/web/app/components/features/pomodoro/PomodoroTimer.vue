@@ -93,8 +93,8 @@ const dots = computed(() =>
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 20px;
-  padding: 26px;
+  gap: var(--space-20);
+  padding: var(--space-28);
   border-radius: var(--radius-panel);
   background-color: var(--ph-bg);
   background-size: 22px 22px;
@@ -128,7 +128,7 @@ const dots = computed(() =>
 
 /* Opsi pill fase: padding 8px 16px (default Segmented 8px 14px) - sama dengan bar filter Goal. */
 .phases :deep(.option) {
-  padding: 8px 16px;
+  padding: var(--space-8) var(--space-16);
 }
 
 .ring {
@@ -156,7 +156,7 @@ const dots = computed(() =>
 
 .phase-label {
   /* Design: 13px (eyebrow global 11px). */
-  font-size: 13px;
+  font-size: var(--fs-13);
   letter-spacing: 0.14em;
   color: var(--ph-deep);
 }
@@ -164,15 +164,15 @@ const dots = computed(() =>
 .time {
   font-family: var(--font-display);
   font-weight: var(--fw-display);
-  font-size: clamp(48px, 14vw, 72px);
+  font-size: calc(clamp(48px, 14vw, 72px) * var(--fk-display));
   line-height: 1;
   font-variant-numeric: tabular-nums;
 }
 
 .dots {
   display: flex;
-  gap: 6px;
-  margin-top: 10px;
+  gap: var(--space-6);
+  margin-top: var(--space-10);
 }
 
 .dot {
@@ -197,14 +197,14 @@ const dots = computed(() =>
   width: 100%;
   max-width: 420px;
   display: flex;
-  gap: 10px;
+  gap: var(--space-10);
 }
 
 /* Lebih tinggi dari Button md: kontrol utama timer. */
 .controls .ctrl {
   flex: 1;
   min-height: 52px;
-  font-size: 16px;
+  font-size: var(--fs-16);
 }
 
 .controls .main {
@@ -213,7 +213,7 @@ const dots = computed(() =>
 
 @media (max-width: 599px) {
   .timer {
-    padding: 20px 14px;
+    padding: var(--space-20) var(--space-14);
   }
 }
 </style>

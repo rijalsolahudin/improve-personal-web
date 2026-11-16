@@ -185,9 +185,9 @@ watch(
 
 .label {
   display: block;
-  margin-bottom: 6px;
+  margin-bottom: var(--space-6);
   font-weight: var(--fw-strong);
-  font-size: 13px;
+  font-size: var(--fs-13);
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--mute-2);
@@ -198,23 +198,23 @@ watch(
 }
 
 .month-mode {
-  margin-top: 10px;
+  margin-top: var(--space-10);
 }
 
 .line {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 6px;
-  margin-top: 10px;
+  gap: var(--space-6);
+  margin-top: var(--space-10);
   font-weight: var(--fw-strong);
   color: var(--mute-2);
 }
 
 .note {
-  margin-top: 10px;
+  margin-top: var(--space-10);
   font-weight: var(--fw-body);
-  font-size: 14px;
+  font-size: var(--fs-14);
   color: var(--mute-2);
 }
 
@@ -222,9 +222,9 @@ watch(
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
-  margin-top: 14px;
-  padding-top: 14px;
+  gap: var(--space-8);
+  margin-top: var(--space-14);
+  padding-top: var(--space-14);
   border-top: var(--border-thin) dashed var(--line-2);
 }
 
@@ -239,7 +239,7 @@ watch(
 .count {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-8);
   font-weight: var(--fw-strong);
   color: var(--mute-2);
 }

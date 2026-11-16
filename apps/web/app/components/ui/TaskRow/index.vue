@@ -48,12 +48,12 @@ const checkLabel = computed(() => label ?? t('common.toggleDone', { title }))
 .row {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: var(--space-14);
   cursor: pointer;
 }
 
 .row-inset {
-  padding: 12px 14px;
+  padding: var(--space-12) var(--space-14);
   border-radius: var(--radius-row);
   background: var(--alt);
 }
@@ -63,7 +63,7 @@ const checkLabel = computed(() => label ?? t('common.toggleDone', { title }))
 }
 
 .row-card {
-  padding: 8px 12px;
+  padding: var(--space-8) var(--space-12);
   border: var(--border-thin) solid var(--line);
   border-radius: var(--radius-row);
   background: var(--paper);
@@ -75,7 +75,7 @@ const checkLabel = computed(() => label ?? t('common.toggleDone', { title }))
   min-width: 0;
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: var(--space-14);
 }
 
 .title {
@@ -94,7 +94,7 @@ const checkLabel = computed(() => label ?? t('common.toggleDone', { title }))
 .meta {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: var(--space-14);
 }
 
 .left {
@@ -112,11 +112,11 @@ const checkLabel = computed(() => label ?? t('common.toggleDone', { title }))
 @media (max-width: 599px) {
   .row {
     min-height: 52px;
-    gap: 12px;
+    gap: var(--space-12);
   }
 
   .row-inset {
-    padding: 6px 12px;
+    padding: var(--space-6) var(--space-12);
     border-radius: var(--radius-btn-sq);
   }
 
@@ -135,7 +135,7 @@ const checkLabel = computed(() => label ?? t('common.toggleDone', { title }))
   }
 
   .meta {
-    gap: 6px;
+    gap: var(--space-6);
   }
 
   .left {

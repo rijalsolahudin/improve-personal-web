@@ -61,14 +61,14 @@ const featureCount = GUIDE_GROUPS.reduce(
 .guide {
   display: flex;
   flex-direction: column;
-  gap: 24px;
-  padding-bottom: 80px;
+  gap: var(--space-24);
+  padding-bottom: var(--space-80);
 }
 
 .hero {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-8);
   max-width: 780px;
   padding: clamp(20px, 3vw, 32px);
   border: var(--border-thick) solid var(--outline);
@@ -88,7 +88,7 @@ const featureCount = GUIDE_GROUPS.reduce(
 .title {
   font-family: var(--font-display);
   font-weight: var(--fw-display);
-  font-size: clamp(32px, 5vw, 46px);
+  font-size: calc(clamp(32px, 5vw, 46px) * var(--fk-display));
   line-height: var(--lh-title);
 }
 
@@ -109,14 +109,14 @@ const featureCount = GUIDE_GROUPS.reduce(
 .meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-  margin: 6px 0 0;
+  gap: var(--space-6);
+  margin: var(--space-6) 0 0;
   padding: 0;
   list-style: none;
 }
 
 .meta li {
-  padding: 4px 10px;
+  padding: var(--space-4) var(--space-10);
   border-radius: var(--radius-pill);
   background: var(--alt);
   color: var(--mute-2);
@@ -134,38 +134,38 @@ const featureCount = GUIDE_GROUPS.reduce(
 .content {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: var(--space-24);
   min-width: 0;
 }
 
 .group {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: var(--space-10);
 }
 
 .group-title {
   font-family: var(--font-display);
   font-weight: var(--fw-display);
-  font-size: clamp(22px, 3.5vw, 28px);
+  font-size: calc(clamp(22px, 3.5vw, 28px) * var(--fk-display));
   line-height: var(--lh-title);
 }
 
 .cards {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: var(--space-10);
 }
 
 @media (max-width: 899px) {
   .layout {
     grid-template-columns: minmax(0, 1fr);
-    gap: 18px;
+    gap: var(--space-18);
   }
 
   .guide {
-    gap: 18px;
-    padding-bottom: 112px;
+    gap: var(--space-18);
+    padding-bottom: var(--space-112);
   }
 }
 </style>

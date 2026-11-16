@@ -36,14 +36,14 @@ const emit = defineEmits<{ action: [] }>()
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: 10px;
-  margin-bottom: 10px;
+  gap: var(--space-10);
+  margin-bottom: var(--space-10);
 }
 
 .eyebrow {
   display: block;
   font-weight: var(--fw-strong);
-  font-size: 12px;
+  font-size: var(--fs-12);
   letter-spacing: 0.1em;
   color: var(--deep);
 }
@@ -51,7 +51,7 @@ const emit = defineEmits<{ action: [] }>()
 .title {
   font-family: var(--font-display);
   font-weight: var(--fw-display);
-  font-size: 20px;
+  font-size: var(--fs-display-20);
   line-height: 1.15;
 }
 
@@ -61,7 +61,7 @@ const emit = defineEmits<{ action: [] }>()
   background: none;
   color: var(--accent);
   font-weight: var(--fw-strong);
-  font-size: 13px;
+  font-size: var(--fs-13);
   white-space: nowrap;
 }
 

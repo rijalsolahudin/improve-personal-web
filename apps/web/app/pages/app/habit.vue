@@ -107,7 +107,7 @@ const summary = computed(() => {
   min-height: calc(100vh - 2 * var(--gap-desktop));
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: var(--space-20);
 }
 
 .header {
@@ -115,20 +115,20 @@ const summary = computed(() => {
   flex-wrap: wrap;
   align-items: flex-end;
   justify-content: space-between;
-  gap: 16px;
+  gap: var(--space-16);
 }
 
 .title {
   font-family: var(--font-display);
   font-weight: var(--fw-display);
-  font-size: 36px;
+  font-size: var(--fs-display-36);
   line-height: 1.1;
 }
 
 .summary {
-  margin-top: 4px;
+  margin-top: var(--space-4);
   font-weight: var(--fw-body);
-  font-size: 16px;
+  font-size: var(--fs-16);
   color: var(--mute);
 }
 
@@ -137,7 +137,7 @@ const summary = computed(() => {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  padding: 18px 0 14px;
+  padding: var(--space-18) 0 var(--space-14);
   border: var(--border-thin) solid var(--line);
   border-radius: calc(28px * var(--rk));
   background: var(--paper);
@@ -148,19 +148,19 @@ const summary = computed(() => {
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  padding: 0 20px 14px;
+  gap: var(--space-12);
+  padding: 0 var(--space-20) var(--space-14);
 }
 
 .month-nav {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-8);
 }
 
 /* Design: panah 18px (tombol 40) dan tombol "bulan berikutnya" memudar 0.35, bukan 0.45. */
 .month-nav :deep(.icon-btn) {
-  font-size: 18px;
+  font-size: var(--fs-18);
 }
 
 .month-nav :deep(.icon-btn:disabled) {
@@ -176,23 +176,23 @@ const summary = computed(() => {
   text-align: center;
   font-family: var(--font-display);
   font-weight: var(--fw-display);
-  font-size: 22px;
+  font-size: var(--fs-display-22);
 }
 
 .legend {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 14px;
+  gap: var(--space-14);
   font-weight: var(--fw-strong);
-  font-size: 12px;
+  font-size: var(--fs-12);
   color: var(--mute);
 }
 
 .legend > span {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-6);
 }
 
 .key {
@@ -224,19 +224,19 @@ const summary = computed(() => {
 
 .empty,
 .hint {
-  padding: 14px 20px 0;
+  padding: var(--space-14) var(--space-20) 0;
   font-weight: var(--fw-body);
-  font-size: 12px;
+  font-size: var(--fs-12);
   color: var(--mute);
 }
 
 .error {
-  padding: 10px 16px;
+  padding: var(--space-10) var(--space-16);
   border-radius: calc(14px * var(--rk));
   background: #ffe1da;
   color: #9a2a14;
   font-weight: var(--fw-strong);
-  font-size: 14px;
+  font-size: var(--fs-14);
 }
 
 @media (max-width: 599px) {
@@ -245,12 +245,12 @@ const summary = computed(() => {
   }
 
   .title {
-    font-size: 28px;
+    font-size: var(--fs-display-28);
   }
 
   .month {
     min-width: 120px;
-    font-size: 18px;
+    font-size: var(--fs-display-18);
   }
 }
 </style>

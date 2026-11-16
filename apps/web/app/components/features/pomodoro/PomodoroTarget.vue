@@ -117,14 +117,14 @@ function onFreeInput(value: string | number): void {
   max-width: 520px;
   display: flex;
   flex-direction: column;
-  padding: 14px 16px;
+  padding: var(--space-14) var(--space-16);
   border-radius: var(--radius-card);
   background: rgb(255 255 255 / 0.7);
 }
 
 .label {
   /* Design: 12px / nowrap (eyebrow global 11px). */
-  font-size: 12px;
+  font-size: var(--fs-12);
   white-space: nowrap;
   color: var(--ph-deep);
 }
@@ -133,15 +133,15 @@ function onFreeInput(value: string | number): void {
   --seg-bg: var(--paper);
   --seg-active: var(--ph-deep);
 
-  margin-top: 8px;
+  margin-top: var(--space-8);
 }
 
 .current {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-top: 10px;
-  padding: 8px 12px;
+  gap: var(--space-8);
+  margin-top: var(--space-10);
+  padding: var(--space-8) var(--space-12);
   border: var(--border-thin) solid var(--outline);
   border-radius: calc(14px * var(--rk));
   background: var(--paper);
@@ -150,7 +150,7 @@ function onFreeInput(value: string | number): void {
 .kind {
   flex-shrink: 0;
   font-weight: var(--fw-strong);
-  font-size: 12px;
+  font-size: var(--fs-12);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--ph-deep);
@@ -162,7 +162,7 @@ function onFreeInput(value: string | number): void {
   min-width: 0;
   overflow: hidden;
   font-weight: var(--fw-strong);
-  font-size: 14px;
+  font-size: var(--fs-14);
   white-space: nowrap;
   text-overflow: ellipsis;
 }
@@ -170,10 +170,10 @@ function onFreeInput(value: string | number): void {
 .locked {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-top: 8px;
+  gap: var(--space-8);
+  margin-top: var(--space-8);
   font-weight: var(--fw-body);
-  font-size: 13px;
+  font-size: var(--fs-13);
   color: var(--mute);
 }
 
@@ -187,7 +187,7 @@ function onFreeInput(value: string | number): void {
 }
 
 .search {
-  margin-top: 10px;
+  margin-top: var(--space-10);
 }
 
 .options {
@@ -195,7 +195,7 @@ function onFreeInput(value: string | number): void {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  margin: 8px 0 0;
+  margin: var(--space-8) 0 0;
   padding: 0 2px 0 0;
   overflow-y: auto;
   list-style: none;
@@ -205,8 +205,8 @@ function onFreeInput(value: string | number): void {
   width: 100%;
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px 10px;
+  gap: var(--space-10);
+  padding: var(--space-8) var(--space-10);
   border: none;
   border-radius: calc(12px * var(--rk));
   /* Design: baris belum dipilih = putih transparan di atas panel wash, bukan transparan penuh. */
@@ -230,7 +230,7 @@ function onFreeInput(value: string | number): void {
 .meta {
   flex-shrink: 0;
   font-weight: var(--fw-body);
-  font-size: 12px;
+  font-size: var(--fs-12);
   color: var(--mute);
   white-space: nowrap;
 }
@@ -245,7 +245,7 @@ function onFreeInput(value: string | number): void {
   border-radius: 50%;
   color: transparent;
   font-weight: var(--fw-strong);
-  font-size: 12px;
+  font-size: var(--fs-12);
 }
 
 .option[aria-pressed='true'] .check {
@@ -254,22 +254,22 @@ function onFreeInput(value: string | number): void {
 }
 
 .empty {
-  padding: 14px 10px;
+  padding: var(--space-14) var(--space-10);
   text-align: center;
   font-weight: var(--fw-body);
-  font-size: 13px;
+  font-size: var(--fs-13);
   color: var(--mute);
 }
 
 .free {
   width: 100%;
-  margin-top: 10px;
-  padding: 11px 14px;
+  margin-top: var(--space-10);
+  padding: var(--space-12) var(--space-14);
   border: var(--border) solid var(--outline);
   border-radius: var(--radius-btn-sq);
   background: var(--paper);
   font-weight: var(--fw-body);
-  font-size: 15px;
+  font-size: var(--fs-15);
   outline: none;
 }
 </style>

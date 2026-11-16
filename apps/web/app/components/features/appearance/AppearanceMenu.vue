@@ -81,13 +81,13 @@ const styleOptions = computed(() =>
   height: 36px;
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 0 14px 0 10px;
+  gap: var(--space-10);
+  padding: 0 var(--space-14) 0 var(--space-10);
   border: var(--border) solid var(--outline);
   border-radius: var(--radius-pill);
   background: var(--paper);
   font-weight: var(--fw-strong);
-  font-size: 13px;
+  font-size: var(--fs-13);
   white-space: nowrap;
 }
 
@@ -116,8 +116,8 @@ const styleOptions = computed(() =>
   max-width: calc(100vw - 32px);
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  padding: 16px;
+  gap: var(--space-14);
+  padding: var(--space-16);
   border: var(--border) solid var(--outline);
   border-radius: var(--radius-card);
   background: var(--paper);
@@ -127,14 +127,14 @@ const styleOptions = computed(() =>
 .group {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-8);
   margin: 0;
   padding: 0;
   border: 0;
 }
 
 .legend {
-  padding: 0 0 8px;
+  padding: 0 0 var(--space-8);
   color: var(--mute-2);
 }
 
@@ -145,14 +145,14 @@ const styleOptions = computed(() =>
 .styles {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 8px;
+  gap: var(--space-8);
 }
 
 .style {
   display: flex;
   flex-direction: column;
   gap: 3px;
-  padding: 10px 12px;
+  padding: var(--space-10) var(--space-12);
   border: calc(1.5px * var(--bk)) solid var(--line);
   border-radius: calc(14px * var(--rk));
   background: transparent;
@@ -168,13 +168,13 @@ const styleOptions = computed(() =>
 
 .style-name {
   font-weight: var(--fw-body);
-  font-size: 16px;
+  font-size: var(--fs-16);
   line-height: 1.1;
 }
 
 .style-desc {
   font-weight: var(--fw-medium);
-  font-size: 11.5px;
+  font-size: var(--fs-12);
   line-height: 1.3;
   /* `--mute-2` >= 6,97:1 di `--paper`, >= 5,33:1 di `--soft` (gaya terpilih) - naik dari
      opacity 0.8 (4,07:1 di `--soft`) tanpa menurunkan kontras di `--paper` (QA #62). */

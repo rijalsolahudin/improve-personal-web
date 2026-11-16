@@ -75,8 +75,8 @@ const toggleLabel = computed(() =>
   max-width: 100%;
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 0 5px 0 14px;
+  gap: var(--space-6);
+  padding: 0 var(--space-6) 0 var(--space-14);
   border: var(--border-thick) solid var(--outline);
   border-radius: var(--radius-pill);
   background: var(--paper);
@@ -94,7 +94,7 @@ const toggleLabel = computed(() =>
   min-width: 0;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-10);
   color: inherit;
   text-decoration: none;
 }
@@ -121,7 +121,7 @@ const toggleLabel = computed(() =>
 
 .label {
   font-weight: var(--fw-strong);
-  font-size: 10.5px;
+  font-size: var(--fs-11);
   letter-spacing: 0.1em;
   text-transform: uppercase;
   white-space: nowrap;
@@ -131,16 +131,16 @@ const toggleLabel = computed(() =>
   max-width: 180px;
   overflow: hidden;
   font-weight: var(--fw-body);
-  font-size: 12.5px;
+  font-size: var(--fs-13);
   white-space: nowrap;
   text-overflow: ellipsis;
 }
 
 .time {
-  padding: 0 4px;
+  padding: 0 var(--space-4);
   font-family: var(--font-display);
   font-weight: var(--fw-display);
-  font-size: 22px;
+  font-size: var(--fs-display-22);
   line-height: 1;
   font-variant-numeric: tabular-nums;
 }
@@ -157,7 +157,7 @@ const toggleLabel = computed(() =>
   background: var(--pill-color);
   color: var(--paper);
   font-weight: var(--fw-strong);
-  font-size: 13px;
+  font-size: var(--fs-13);
 }
 
 .running .toggle {

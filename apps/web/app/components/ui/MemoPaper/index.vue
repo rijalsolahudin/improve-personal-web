@@ -41,10 +41,10 @@ const style = computed(() => {
   font-family: var(--font-hand);
   /* Patrick Hand hanya punya weight 400; textarea mewarisi `--fw-body` (700) → faux-bold. */
   font-weight: 400;
-  font-size: 21px;
+  font-size: var(--fs-hand-21);
   line-height: 34px;
   resize: vertical;
-  padding: 6px 28px 0 66px;
+  padding: var(--space-6) var(--space-28) 0 var(--space-64);
   background-color: var(--memo-bg);
   background-image:
     linear-gradient(
@@ -66,8 +66,8 @@ const style = computed(() => {
 
 @media (max-width: 599px) {
   .paper {
-    padding-left: 56px;
-    padding-right: 16px;
+    padding-left: var(--space-56);
+    padding-right: var(--space-16);
   }
 }
 </style>

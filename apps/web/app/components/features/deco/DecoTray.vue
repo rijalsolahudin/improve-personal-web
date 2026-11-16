@@ -96,8 +96,8 @@ function onReset(): void {
   max-width: 720px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 14px 18px;
+  gap: var(--space-10);
+  padding: var(--space-14) var(--space-18);
   border: var(--border-thick) solid var(--outline);
   border-radius: calc(28px * var(--rk));
   background: var(--paper);
@@ -110,7 +110,7 @@ function onReset(): void {
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--space-12);
 }
 
 .intro {
@@ -120,35 +120,35 @@ function onReset(): void {
 .title {
   font-family: var(--font-display);
   font-weight: var(--fw-display);
-  font-size: 19px;
+  font-size: var(--fs-display-19);
   line-height: 1.15;
 }
 
 .sub,
 .hint {
   font-weight: var(--fw-body);
-  font-size: 12px;
+  font-size: var(--fs-12);
   color: var(--mute);
 }
 
 .warn {
   font-weight: var(--fw-body);
-  font-size: 12px;
+  font-size: var(--fs-12);
   color: #a8573f;
 }
 
 .actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: var(--space-8);
 }
 
 .offer {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
-  padding: 10px 14px;
+  gap: var(--space-8);
+  padding: var(--space-10) var(--space-14);
   border-radius: var(--radius-row);
   background: var(--soft);
 }
@@ -156,7 +156,7 @@ function onReset(): void {
 .offer-text {
   flex: 1 1 200px;
   font-weight: var(--fw-strong);
-  font-size: 14px;
+  font-size: var(--fs-14);
 }
 
 @media (max-width: 599px) {

@@ -39,7 +39,7 @@ const {
   display: flex;
   flex-direction: column;
   gap: var(--card-gap, 10px);
-  padding: 18px 20px 16px;
+  padding: var(--space-18) var(--space-20) var(--space-16);
   border: var(--border-thin) solid var(--line);
   border-radius: calc(26px * var(--rk));
   background: var(--paper-2);

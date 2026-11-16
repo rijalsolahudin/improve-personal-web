@@ -32,15 +32,15 @@ const moods = MOOD_EMOJI.map((emoji, index) => ({ emoji, index, tint: moodTints[
 .moods {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 6px;
+  gap: var(--space-6);
 }
 
 .mood {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
-  padding: 8px 2px 6px;
+  gap: var(--space-4);
+  padding: var(--space-8) 2px var(--space-6);
   border: var(--border) solid var(--line);
   border-radius: calc(20px * var(--rk)) calc(20px * var(--rk)) calc(20px * var(--rk))
     calc(8px * var(--rk));
@@ -60,12 +60,12 @@ const moods = MOOD_EMOJI.map((emoji, index) => ({ emoji, index, tint: moodTints[
 }
 
 .emoji {
-  font-size: 30px;
+  font-size: var(--fs-30);
   line-height: 1;
 }
 
 .mood[aria-pressed='true'] .emoji {
-  font-size: 36px;
+  font-size: var(--fs-36);
 }
 
 .label {

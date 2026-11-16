@@ -45,7 +45,7 @@ const features = SHOWCASE.map(getFeature)
   max-width: 1200px;
   display: flex;
   flex-direction: column;
-  gap: 32px;
+  gap: var(--space-32);
   scroll-margin-top: 110px;
 }
 
@@ -54,7 +54,7 @@ const features = SHOWCASE.map(getFeature)
   flex-wrap: wrap;
   align-items: flex-end;
   justify-content: space-between;
-  gap: 24px;
+  gap: var(--space-24);
 }
 
 .kicker {
@@ -65,10 +65,10 @@ const features = SHOWCASE.map(getFeature)
 }
 
 .heading {
-  margin-top: 6px;
+  margin-top: var(--space-6);
   font-family: var(--font-display);
   font-weight: var(--fw-display);
-  font-size: clamp(34px, 4.5vw, 52px);
+  font-size: calc(clamp(34px, 4.5vw, 52px) * var(--fk-display));
   line-height: var(--lh-tight);
   text-wrap: balance;
 }
@@ -76,7 +76,7 @@ const features = SHOWCASE.map(getFeature)
 .lead {
   max-width: 26em;
   font-weight: var(--fw-medium);
-  font-size: 17px;
+  font-size: var(--fs-17);
   line-height: 1.55;
   color: #6e604e;
   text-wrap: pretty;
@@ -85,7 +85,7 @@ const features = SHOWCASE.map(getFeature)
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr));
-  gap: 18px;
+  gap: var(--space-18);
   margin: 0;
   padding: 0;
   list-style: none;
@@ -94,8 +94,8 @@ const features = SHOWCASE.map(getFeature)
 .card {
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  padding: 22px;
+  gap: var(--space-14);
+  padding: var(--space-22);
   background: #fffbf4;
   border: var(--border-thick) solid var(--outline);
   border-radius: calc(28px * var(--rk));
@@ -110,12 +110,12 @@ const features = SHOWCASE.map(getFeature)
 .name {
   font-family: var(--font-display);
   font-weight: var(--fw-display);
-  font-size: 24px;
+  font-size: var(--fs-display-24);
   line-height: 1.1;
 }
 
 .desc {
-  margin-top: 4px;
+  margin-top: var(--space-4);
   font-weight: var(--fw-medium);
   font-size: var(--fs-body);
   line-height: 1.5;

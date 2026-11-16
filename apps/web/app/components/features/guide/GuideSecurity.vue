@@ -48,7 +48,7 @@ const titleId = `${anchor}-title`
 .security {
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: var(--space-18);
   padding: clamp(18px, 3vw, 28px);
   border: var(--border-thick) solid var(--outline);
   border-radius: var(--radius-hero);
@@ -64,7 +64,7 @@ const titleId = `${anchor}-title`
 
 .head {
   display: flex;
-  gap: 14px;
+  gap: var(--space-14);
   align-items: flex-start;
 }
 
@@ -77,19 +77,19 @@ const titleId = `${anchor}-title`
   border: var(--border) solid var(--outline);
   border-radius: var(--radius-leaf);
   background: var(--soft);
-  font-size: 20px;
+  font-size: var(--fs-20);
 }
 
 .title {
   font-family: var(--font-display);
   font-weight: var(--fw-display);
-  font-size: clamp(24px, 4vw, 32px);
+  font-size: calc(clamp(24px, 4vw, 32px) * var(--fk-display));
   line-height: var(--lh-title);
 }
 
 .lead {
   max-width: 70ch;
-  margin-top: 6px;
+  margin-top: var(--space-6);
   color: var(--mute-2);
   font-size: var(--fs-body);
   line-height: 1.65;
@@ -104,12 +104,12 @@ const titleId = `${anchor}-title`
 .columns {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
-  gap: 12px;
+  gap: var(--space-12);
 }
 
 .knows,
 .not-knows {
-  padding: 14px;
+  padding: var(--space-14);
   border-radius: var(--radius-inner);
 }
 
@@ -125,32 +125,32 @@ const titleId = `${anchor}-title`
 .list {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  margin: 8px 0 0;
-  padding-left: 18px;
+  gap: var(--space-6);
+  margin: var(--space-8) 0 0;
+  padding-left: var(--space-18);
   font-size: var(--fs-caption);
   line-height: 1.55;
 }
 
 .recovery {
-  padding-top: 16px;
+  padding-top: var(--space-16);
   border-top: var(--border-thin) dashed var(--dash);
 }
 
 .steps {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  margin: 10px 0 0;
-  padding-left: 20px;
+  gap: var(--space-8);
+  margin: var(--space-10) 0 0;
+  padding-left: var(--space-20);
   font-size: var(--fs-body-sm);
   line-height: 1.6;
 }
 
 .lost,
 .soon {
-  margin-top: 14px;
-  padding: 12px 14px;
+  margin-top: var(--space-14);
+  padding: var(--space-12) var(--space-14);
   border-radius: var(--radius-inner);
   font-size: var(--fs-caption);
   line-height: 1.55;
@@ -168,13 +168,13 @@ const titleId = `${anchor}-title`
 
 @media (max-width: 599px) {
   .head {
-    gap: 10px;
+    gap: var(--space-10);
   }
 
   .shield {
     width: 36px;
     height: 36px;
-    font-size: 17px;
+    font-size: var(--fs-17);
   }
 }
 </style>

@@ -248,11 +248,11 @@ function timeLabel(occurrence: Occurrence): string {
   max-width: 380px;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: var(--space-14);
 }
 
 .summary {
-  padding: 20px 22px;
+  padding: var(--space-20) var(--space-22);
   border-radius: calc(28px * var(--rk));
   background-color: var(--primary);
   background-size: 20px 20px;
@@ -261,7 +261,7 @@ function timeLabel(occurrence: Occurrence): string {
 .dow {
   /* Design: 12px, letter-spacing .12em (eyebrow global 11px/.1em).
      Eyebrow di atas `--primary`: `--deep` 3,98:1 (cute/hijau), `--deeper` 5,09:1 (QA #67). */
-  font-size: 12px;
+  font-size: var(--fs-12);
   letter-spacing: 0.12em;
   color: var(--deeper);
 }
@@ -269,27 +269,27 @@ function timeLabel(occurrence: Occurrence): string {
 .date {
   font-family: var(--font-display);
   font-weight: var(--fw-display);
-  font-size: 28px;
+  font-size: var(--fs-display-28);
   line-height: 1.1;
 }
 
 .counts {
   margin-top: 2px;
   font-weight: var(--fw-body);
-  font-size: 14px;
+  font-size: var(--fs-14);
   color: var(--deeper);
 }
 
 .marker {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-top: 8px;
-  padding: 8px 10px;
+  gap: var(--space-8);
+  margin-top: var(--space-8);
+  padding: var(--space-8) var(--space-10);
   border-radius: calc(14px * var(--rk));
   background: rgb(255 255 255 / 0.55);
   font-weight: var(--fw-strong);
-  font-size: 13px;
+  font-size: var(--fs-13);
 }
 
 .marker-tile {
@@ -301,11 +301,11 @@ function timeLabel(occurrence: Occurrence): string {
   justify-content: center;
   border-radius: calc(7px * var(--rk));
   color: var(--paper);
-  font-size: 11px;
+  font-size: var(--fs-11);
 }
 
 .card {
-  padding: 16px 18px;
+  padding: var(--space-16) var(--space-18);
   border: var(--border-thin) solid var(--line);
   border-radius: var(--radius-hero);
   background: var(--paper);
@@ -315,20 +315,20 @@ function timeLabel(occurrence: Occurrence): string {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  margin-bottom: 6px;
+  margin-bottom: var(--space-6);
 }
 
 .card-title {
   font-family: var(--font-display);
   font-weight: var(--fw-display);
-  font-size: 18px;
+  font-size: var(--fs-display-18);
 }
 
 /* Tautan "+ Tambah" di rail (design): 13px, bobot 800, warna accent - termasuk NuxtLink yang
    tidak memakai komponen Button. */
 .link {
   font-weight: var(--fw-strong);
-  font-size: 13px;
+  font-size: var(--fs-13);
   color: var(--accent);
 }
 
@@ -342,8 +342,8 @@ function timeLabel(occurrence: Occurrence): string {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 10px;
-  padding: 9px 0;
+  gap: var(--space-10);
+  padding: var(--space-10) 0;
   border-top: var(--border-thin) dashed var(--line-2);
 }
 
@@ -352,8 +352,8 @@ function timeLabel(occurrence: Occurrence): string {
 .row.event {
   display: grid;
   grid-template-columns: 12px minmax(0, 1fr) auto;
-  column-gap: 10px;
-  row-gap: 8px;
+  column-gap: var(--space-10);
+  row-gap: var(--space-8);
   align-items: start;
 }
 
@@ -374,12 +374,12 @@ function timeLabel(occurrence: Occurrence): string {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 6px;
+  gap: var(--space-6);
 }
 
 .row.empty {
   font-weight: var(--fw-body);
-  font-size: 14px;
+  font-size: var(--fs-14);
   color: var(--mute);
 }
 
@@ -396,7 +396,7 @@ function timeLabel(occurrence: Occurrence): string {
 .row-title,
 .task-title {
   font-weight: var(--fw-strong);
-  font-size: 14px;
+  font-size: var(--fs-14);
 }
 
 .row-main:hover .row-title {
@@ -405,13 +405,13 @@ function timeLabel(occurrence: Occurrence): string {
 
 .edit-hint {
   font-weight: var(--fw-body);
-  font-size: 12px;
+  font-size: var(--fs-12);
   color: var(--mute-3);
 }
 
 .row-meta {
   font-weight: var(--fw-body);
-  font-size: 12px;
+  font-size: var(--fs-12);
   color: var(--mute);
 }
 
@@ -419,15 +419,15 @@ function timeLabel(occurrence: Occurrence): string {
    `.panel` menaikkan spesifisitas di atas `.btn-xs` milik komponen Button. */
 .panel .focus {
   min-height: 30px;
-  padding: 0 12px;
-  font-size: 12.5px;
+  padding: 0 var(--space-12);
+  font-size: var(--fs-13);
 }
 
 .linked-list {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  margin: 0 0 4px;
+  gap: var(--space-4);
+  margin: 0 0 var(--space-4);
   padding: 0;
   list-style: none;
 }
@@ -435,7 +435,7 @@ function timeLabel(occurrence: Occurrence): string {
 .linked-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-8);
 }
 
 .linked-name {
@@ -445,7 +445,7 @@ function timeLabel(occurrence: Occurrence): string {
   background: none;
   text-align: left;
   font-weight: var(--fw-strong);
-  font-size: 13px;
+  font-size: var(--fs-13);
   color: var(--ink-2);
 }
 
@@ -465,7 +465,7 @@ function timeLabel(occurrence: Occurrence): string {
 }
 
 .memo {
-  padding: 16px 18px;
+  padding: var(--space-16) var(--space-18);
   border-radius: var(--radius-hero);
   background: #c7e3ee;
 }
@@ -473,7 +473,7 @@ function timeLabel(occurrence: Occurrence): string {
 .memo-title {
   display: flex;
   align-items: baseline;
-  gap: 10px;
+  gap: var(--space-10);
   color: #143f52;
 }
 
@@ -482,9 +482,9 @@ function timeLabel(occurrence: Occurrence): string {
 }
 
 .memo-text {
-  margin-top: 4px;
+  margin-top: var(--space-4);
   font-weight: var(--fw-body);
-  font-size: 14px;
+  font-size: var(--fs-14);
   color: #1e5d78;
   text-wrap: pretty;
 }
@@ -496,7 +496,7 @@ function timeLabel(occurrence: Occurrence): string {
 }
 
 .undated-title {
-  margin-top: 10px;
+  margin-top: var(--space-10);
   letter-spacing: 0.08em;
   color: var(--mute-3);
 }
@@ -504,7 +504,7 @@ function timeLabel(occurrence: Occurrence): string {
 /* Baris "Tanpa deadline" (design): lebih rapat dari baris ber-deadline, garis bawah tipis
    menggantikan garis putus-putus di atas, judul 600 (bukan 800). */
 .row.undated {
-  padding: 6px 0;
+  padding: var(--space-6) 0;
   border-top: 0;
   border-bottom: calc(1.5px * var(--bk)) solid var(--line-2);
 }

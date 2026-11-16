@@ -58,7 +58,7 @@ function open(occurrence: Occurrence): void {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--space-12);
 }
 
 .head {
@@ -66,14 +66,14 @@ function open(occurrence: Occurrence): void {
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: var(--space-10);
   padding: 0 2px;
 }
 
 .title-row {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-10);
 }
 
 .title {
@@ -86,12 +86,12 @@ function open(occurrence: Occurrence): void {
 .summary {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-10);
 }
 
 .meta {
   font-weight: var(--fw-strong);
-  font-size: 12.5px;
+  font-size: var(--fs-13);
   color: var(--mute);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
@@ -99,14 +99,14 @@ function open(occurrence: Occurrence): void {
 
 .link {
   font-weight: var(--fw-strong);
-  font-size: 12.5px;
+  font-size: var(--fs-13);
   white-space: nowrap;
 }
 
 .board {
   /* Design `data-dl-sched`: timeline-nya sendiri yang menggulir, lebih tinggi dari layar. */
   --grid-max-h: max(320px, calc(100vh - 230px));
-  padding: 6px 6px 6px 0;
+  padding: var(--space-6) var(--space-6) var(--space-6) 0;
   overflow: hidden;
   border: var(--border) solid var(--outline);
   border-radius: var(--radius-card);
@@ -116,6 +116,6 @@ function open(occurrence: Occurrence): void {
 
 /* Design: bingkai kertas 6px, isi timeline punya jarak sendiri 10px di dalamnya. */
 .board :deep(.time-grid) {
-  padding: 10px 10px 10px 0;
+  padding: var(--space-10) var(--space-10) var(--space-10) 0;
 }
 </style>

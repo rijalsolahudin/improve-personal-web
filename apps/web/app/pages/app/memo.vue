@@ -112,8 +112,8 @@ const entries = computed(() => memosOn(matching.value, selected.value))
 .memo-page {
   display: flex;
   flex-direction: column;
-  gap: 20px;
-  padding-bottom: 80px;
+  gap: var(--space-20);
+  padding-bottom: var(--space-80);
 }
 
 .header {
@@ -121,20 +121,20 @@ const entries = computed(() => memosOn(matching.value, selected.value))
   flex-wrap: wrap;
   align-items: flex-end;
   justify-content: space-between;
-  gap: 16px;
+  gap: var(--space-16);
 }
 
 .title {
   font-family: var(--font-display);
   font-weight: var(--fw-display);
-  font-size: 36px;
+  font-size: var(--fs-display-36);
   line-height: 1.1;
 }
 
 .summary {
-  margin-top: 4px;
+  margin-top: var(--space-4);
   font-weight: var(--fw-body);
-  font-size: 16px;
+  font-size: var(--fs-16);
   color: var(--mute);
 }
 
@@ -146,7 +146,7 @@ const entries = computed(() => memosOn(matching.value, selected.value))
 .pages {
   display: flex;
   flex-direction: column;
-  gap: 28px;
+  gap: var(--space-28);
   min-width: 0;
 }
 
@@ -155,7 +155,7 @@ const entries = computed(() => memosOn(matching.value, selected.value))
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 360px), 1fr));
   align-items: start;
-  gap: 24px;
+  gap: var(--space-24);
 }
 
 .col {
@@ -166,22 +166,22 @@ const entries = computed(() => memosOn(matching.value, selected.value))
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: var(--space-20);
 }
 
 .empty {
-  padding: 10px;
+  padding: var(--space-10);
   text-align: center;
   font-family: var(--font-hand);
   /* Patrick Hand hanya punya weight 400; paragraf mewarisi `--fw-body` (700) → faux-bold. */
   font-weight: 400;
-  font-size: 19px;
+  font-size: var(--fs-hand-19);
   color: var(--mute);
 }
 
 @media (max-width: 599px) {
   .title {
-    font-size: 28px;
+    font-size: var(--fs-display-28);
   }
 
   .search {

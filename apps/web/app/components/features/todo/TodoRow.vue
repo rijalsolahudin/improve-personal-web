@@ -76,8 +76,8 @@ const deadlineLabel = computed(() =>
 .row {
   display: flex;
   align-items: center;
-  gap: 14px;
-  padding: 14px 4px;
+  gap: var(--space-14);
+  padding: var(--space-14) var(--space-4);
 }
 
 .row + .row {
@@ -97,7 +97,7 @@ const deadlineLabel = computed(() =>
 
 .title {
   font-weight: var(--fw-strong);
-  font-size: 16px;
+  font-size: var(--fs-16);
 }
 
 .done .title {
@@ -110,34 +110,34 @@ const deadlineLabel = computed(() =>
 .chips {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 6px;
+  gap: var(--space-6);
+  margin-top: var(--space-6);
 }
 
 .chip {
   display: flex;
   align-items: center;
-  gap: 5px;
-  padding: 3px 10px;
+  gap: var(--space-6);
+  padding: 3px var(--space-10);
   border-radius: var(--radius-pill);
   background: var(--alt);
   color: var(--ink-2);
   font-weight: var(--fw-strong);
-  font-size: 12px;
+  font-size: var(--fs-12);
 }
 
 /* Design: chip prioritas seukuran chip jadwal/kuadran di baris ini (12px, 3x10). */
 .row .main :deep(.badge) {
-  padding: 3px 10px;
-  font-size: 12px;
+  padding: 3px var(--space-10);
+  font-size: var(--fs-12);
 }
 
 /* Design baris To-do: pill "▶ Fokus" 30px yang muncul saat hover (desktop) / selalu di layar sentuh. */
 .row .focus {
   flex-shrink: 0;
   min-height: 30px;
-  padding: 0 12px;
-  font-size: 12.5px;
+  padding: 0 var(--space-12);
+  font-size: var(--fs-13);
 }
 
 .dot {
@@ -156,7 +156,7 @@ const deadlineLabel = computed(() =>
 
 .left {
   font-weight: var(--fw-strong);
-  font-size: 14px;
+  font-size: var(--fs-14);
   /* Design memakai #8A7B68 (di bawah 4,5:1 di atas --paper), jadi tetap token teks `--mute`
      yang lolos AA - sama seperti keputusan QA #62 untuk state selesai. */
   color: var(--mute);
@@ -168,21 +168,21 @@ const deadlineLabel = computed(() =>
 
 .deadline {
   font-weight: var(--fw-body);
-  font-size: 12px;
+  font-size: var(--fs-12);
   color: var(--mute-3);
 }
 
 @media (max-width: 599px) {
   .row {
     flex-wrap: wrap;
-    gap: 10px 12px;
+    gap: var(--space-10) var(--space-12);
   }
 
   .when {
     width: 100%;
     flex-direction: row;
     justify-content: space-between;
-    padding-left: 38px;
+    padding-left: var(--space-40);
   }
 }
 </style>

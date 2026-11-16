@@ -95,15 +95,15 @@ function requestRemove(): void {
 .category {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 12px 0;
+  gap: var(--space-8);
+  padding: var(--space-12) 0;
   border-top: var(--border-thin) dashed var(--line-2);
 }
 
 .row {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-10);
 }
 
 .dot {
@@ -116,25 +116,25 @@ function requestRemove(): void {
 .name {
   flex: 1;
   font-weight: var(--fw-strong);
-  font-size: 16px;
+  font-size: var(--fs-16);
 }
 
 .usage {
   flex-shrink: 0;
   font-weight: var(--fw-body);
-  font-size: 12.5px;
+  font-size: var(--fs-13);
   color: var(--mute);
   white-space: nowrap;
 }
 
 .badge {
   flex-shrink: 0;
-  padding: 2px 9px;
+  padding: 2px var(--space-10);
   border-radius: var(--radius-pill);
   background: var(--chip);
   color: var(--ink-2);
   font-weight: var(--fw-strong);
-  font-size: 12px;
+  font-size: var(--fs-12);
   white-space: nowrap;
 }
 
@@ -142,8 +142,8 @@ function requestRemove(): void {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
+  gap: var(--space-10);
+  padding: var(--space-10) var(--space-12);
   border-radius: calc(14px * var(--rk));
   background: #ffe9e3;
 }
@@ -151,11 +151,11 @@ function requestRemove(): void {
 .warning {
   flex: 1 1 200px;
   font-weight: var(--fw-strong);
-  font-size: 13.5px;
+  font-size: var(--fs-14);
   color: #9a2a14;
 }
 
 .swatches {
-  padding-left: 24px;
+  padding-left: var(--space-24);
 }
 </style>

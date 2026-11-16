@@ -6,7 +6,17 @@ import {
   themes,
   type ThemeName,
 } from './colors.ts'
-import { border, fontFamily, motion, radius, shadow, space, typography } from './scale.ts'
+import {
+  FONT_SIZES,
+  SPACE_STEPS,
+  border,
+  fontFamily,
+  motion,
+  radius,
+  shadow,
+  space,
+  typography,
+} from './scale.ts'
 import { DEFAULT_STYLE, STYLE_NAMES, uiStyles, type StyleName } from './styles.ts'
 
 type TokenGroup = Readonly<Record<string, string>>
@@ -45,6 +55,23 @@ const scaleShadows = (group: TokenGroup): TokenGroup =>
     }),
   )
 
+/** Peran keluarga font → awalan token ukuran dan pengali gayanya. */
+const FONT_ROLES = [
+  { prefix: 'fs-', multiplier: '--fk' },
+  { prefix: 'fs-display-', multiplier: '--fk-display' },
+  { prefix: 'fs-hand-', multiplier: '--fk-hand' },
+] as const
+
+const fontSizes: TokenGroup = Object.fromEntries(
+  FONT_ROLES.flatMap(({ prefix, multiplier }) =>
+    FONT_SIZES.map((px) => [`${prefix}${px}`, `calc(${px}px * var(${multiplier}))`]),
+  ),
+)
+
+const spaces: TokenGroup = Object.fromEntries(
+  SPACE_STEPS.map((px) => [`space-${px}`, `calc(${px}px * var(--dk))`]),
+)
+
 const DOT_PATTERN = 'radial-gradient(rgba(255,255,255,.35) 1.2px, transparent 1.2px)'
 
 /** Gaya tanpa dekorasi: ikon nav polos tanpa tile warna (Desktop.dc.html `navbg/navin/navbd`). */
@@ -72,6 +99,12 @@ function styleVariables(name: StyleName): TokenGroup {
     'fw-strong': style.weights.strong,
     'fw-body': style.weights.body,
     'fw-medium': style.weights.medium,
+    fk: String(style.typeScale.ui),
+    'fk-display': String(style.typeScale.display),
+    'fk-hand': String(style.typeScale.hand),
+    fsa: style.fontSizeAdjust,
+    dk: String(style.density),
+    pill: style.pillRadius,
     rk: String(style.radiusScale),
     bk: String(style.borderScale),
     sx: String(style.shadow.x),
@@ -127,10 +160,14 @@ export function toCssVariables(): string {
     ...typography,
     ...styleVariables(DEFAULT_STYLE),
     ...scaleBy('--rk', radius),
+    // Pill tidak ikut `--rk`: 999px × pengali kecil masih tetap pill, jadi tiap gaya memilih radiusnya.
+    'radius-pill': 'var(--pill)',
     ...scaleBy('--bk', border),
     ...scaleShadows(shadow),
     ...motion,
     ...space,
+    ...spaces,
+    ...fontSizes,
     ...aliases(semanticColors),
   })
 

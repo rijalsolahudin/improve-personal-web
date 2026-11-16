@@ -35,21 +35,21 @@
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 440px), 1fr));
   align-items: center;
-  gap: 48px;
+  gap: var(--space-48);
 }
 
 .copy {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 22px;
+  gap: var(--space-22);
 }
 
 .badge {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 14px 6px 8px;
+  gap: var(--space-8);
+  padding: var(--space-6) var(--space-14) var(--space-6) var(--space-8);
   background: #fffbf4;
   border: var(--border) solid var(--outline);
   border-radius: var(--radius-pill);
@@ -70,14 +70,14 @@
 .title {
   font-family: var(--font-display);
   font-weight: var(--fw-display);
-  font-size: clamp(44px, 6vw, 72px);
+  font-size: calc(clamp(44px, 6vw, 72px) * var(--fk-display));
   line-height: 1.12;
   letter-spacing: -0.01em;
   text-wrap: balance;
 }
 
 .highlight {
-  padding: 0 6px;
+  padding: 0 var(--space-6);
   border-radius: calc(10px * var(--rk));
   background: linear-gradient(
     transparent 22%,
@@ -92,7 +92,7 @@
 .lead {
   max-width: 30em;
   font-weight: var(--fw-medium);
-  font-size: 19px;
+  font-size: var(--fs-19);
   line-height: 1.55;
   color: #6e604e;
   text-wrap: pretty;
@@ -102,15 +102,15 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 12px;
+  gap: var(--space-12);
 }
 
 .btn {
-  padding: 16px 28px;
+  padding: var(--space-16) var(--space-28);
   border: var(--border-thick) solid var(--outline);
   border-radius: var(--radius-pill);
   font-weight: var(--fw-strong);
-  font-size: 17px;
+  font-size: var(--fs-17);
 }
 
 .btn-primary {
@@ -127,7 +127,7 @@
 }
 
 .btn-outline {
-  padding: 16px 24px;
+  padding: var(--space-16) var(--space-24);
   background: #fffbf4;
   color: var(--ink);
 }
@@ -141,7 +141,7 @@
   font-family: var(--font-hand);
   /* Patrick Hand hanya punya weight 400; paragraf mewarisi `--fw-body` (700) → faux-bold. */
   font-weight: 400;
-  font-size: 20px;
+  font-size: var(--fs-hand-20);
   color: var(--deep);
   transform: rotate(calc(-2deg * var(--bev)));
 }

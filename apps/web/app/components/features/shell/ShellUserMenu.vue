@@ -100,8 +100,8 @@ function onLink(key: (typeof linkItems)[number]['key']): void {
 .user {
   position: relative;
   flex-shrink: 0;
-  margin-top: 4px;
-  padding-top: 10px;
+  margin-top: var(--space-4);
+  padding-top: var(--space-10);
   border-top: var(--border-thin) dashed var(--dash);
 }
 
@@ -109,8 +109,8 @@ function onLink(key: (typeof linkItems)[number]['key']): void {
   width: 100%;
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 6px;
+  gap: var(--space-10);
+  padding: var(--space-6);
   border: 0;
   border-radius: var(--radius-btn-sq);
   background: transparent;
@@ -144,19 +144,19 @@ function onLink(key: (typeof linkItems)[number]['key']): void {
 
 .name {
   font-weight: var(--fw-strong);
-  font-size: 14px;
+  font-size: var(--fs-14);
 }
 
 .sub {
   font-weight: var(--fw-body);
-  font-size: 12px;
+  font-size: var(--fs-12);
   color: var(--mute);
 }
 
 .caret {
   flex-shrink: 0;
   font-weight: var(--fw-strong);
-  font-size: 12px;
+  font-size: var(--fs-12);
   color: var(--mute-3);
 }
 
@@ -170,7 +170,7 @@ function onLink(key: (typeof linkItems)[number]['key']): void {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  padding: 6px;
+  padding: var(--space-6);
   border: var(--border) solid var(--outline);
   border-radius: var(--radius-row);
   background: var(--paper);
@@ -190,12 +190,12 @@ function onLink(key: (typeof linkItems)[number]['key']): void {
 .item {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 7px 10px;
+  gap: var(--space-12);
+  padding: var(--space-8) var(--space-10);
   border-radius: var(--radius-inner);
   color: var(--ink);
   font-weight: var(--fw-strong);
-  font-size: 14px;
+  font-size: var(--fs-14);
   white-space: nowrap;
 }
 
@@ -228,7 +228,7 @@ function onLink(key: (typeof linkItems)[number]['key']): void {
   justify-content: center;
   border-radius: calc(10px * var(--rk));
   background: var(--chip);
-  font-size: 17px;
+  font-size: var(--fs-17);
   line-height: 1;
 }
 </style>

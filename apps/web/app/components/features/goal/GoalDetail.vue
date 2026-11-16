@@ -118,6 +118,6 @@ function review(chapterId: string, action: 'extend' | 'shift' | 'close'): void {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: var(--space-20);
 }
 </style>

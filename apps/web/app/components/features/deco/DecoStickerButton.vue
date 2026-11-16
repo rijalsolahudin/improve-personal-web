@@ -20,14 +20,14 @@ defineEmits<{ click: [] }>()
   width: fit-content;
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-top: 10px;
-  padding: 5px 14px 5px 5px;
+  gap: var(--space-8);
+  margin-top: var(--space-10);
+  padding: var(--space-6) var(--space-14) var(--space-6) var(--space-6);
   border: var(--border) solid var(--line);
   border-radius: var(--radius-pill);
   background: var(--paper);
   font-weight: var(--fw-strong);
-  font-size: 13px;
+  font-size: var(--fs-13);
 }
 
 .sticker-btn.on {

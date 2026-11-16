@@ -125,7 +125,7 @@ function add(): void {
 .chapters {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-8);
   margin: 0;
   padding: 0;
   border: none;
@@ -137,14 +137,14 @@ function add(): void {
   flex-wrap: wrap;
   align-items: baseline;
   justify-content: space-between;
-  gap: 8px;
-  margin-bottom: 6px;
+  gap: var(--space-8);
+  margin-bottom: var(--space-6);
   padding: 0;
 }
 
 .label {
   font-weight: var(--fw-strong);
-  font-size: 13px;
+  font-size: var(--fs-13);
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--mute-2);
@@ -152,7 +152,7 @@ function add(): void {
 
 .hint {
   font-weight: var(--fw-body);
-  font-size: 12px;
+  font-size: var(--fs-12);
   color: var(--mute);
 }
 
@@ -160,8 +160,8 @@ function add(): void {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
-  padding: 10px;
+  gap: var(--space-8);
+  padding: var(--space-10);
   border: var(--border-thin) solid transparent;
   border-radius: var(--radius-row);
   background: var(--alt);
@@ -190,12 +190,12 @@ function add(): void {
 
 .date {
   flex: 1 1 130px;
-  padding: 9px 10px;
-  font-size: 14px;
+  padding: var(--space-10) var(--space-10);
+  font-size: var(--fs-14);
 }
 
 .tools {
   display: flex;
-  gap: 4px;
+  gap: var(--space-4);
 }
 </style>

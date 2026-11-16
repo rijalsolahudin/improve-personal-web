@@ -23,7 +23,7 @@ const titleId = `${anchor}-title`
 .backup {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--space-12);
   padding: clamp(18px, 3vw, 26px);
   border: var(--border-thin) solid var(--line);
   border-radius: var(--radius-card);
@@ -39,7 +39,7 @@ const titleId = `${anchor}-title`
 .title {
   font-family: var(--font-display);
   font-weight: var(--fw-display);
-  font-size: clamp(22px, 3.5vw, 28px);
+  font-size: calc(clamp(22px, 3.5vw, 28px) * var(--fk-display));
   line-height: var(--lh-title);
 }
 
@@ -52,9 +52,9 @@ const titleId = `${anchor}-title`
 
 .warning {
   display: flex;
-  gap: 10px;
+  gap: var(--space-10);
   align-items: flex-start;
-  padding: 12px 14px;
+  padding: var(--space-12) var(--space-14);
   border-radius: var(--radius-inner);
   background: var(--prio-medium-bg);
   color: var(--prio-medium-fg);

@@ -106,7 +106,7 @@ function onCodeInput(value: string | number): void {
 
 <style scoped>
 .warning {
-  padding: var(--space-5) var(--space-7);
+  padding: var(--space-10) var(--space-14);
   border-radius: var(--radius-inner);
   background: #ffe1da;
   color: #8f1f2f;
@@ -117,11 +117,11 @@ function onCodeInput(value: string | number): void {
 .form {
   display: flex;
   flex-direction: column;
-  gap: var(--space-7);
+  gap: var(--space-14);
 }
 
 .hint {
-  margin-top: calc(var(--space-4) * -1);
+  margin-top: calc(var(--space-8) * -1);
   color: var(--text-subtle);
   font-size: var(--fs-caption);
   line-height: var(--lh-body);
@@ -131,11 +131,11 @@ function onCodeInput(value: string | number): void {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: end;
-  gap: var(--space-5);
+  gap: var(--space-10);
 }
 
 .error {
-  padding: var(--space-4) var(--space-6);
+  padding: var(--space-8) var(--space-12);
   border-radius: var(--radius-inner);
   background: #ffe1da;
   color: var(--danger);

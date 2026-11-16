@@ -56,7 +56,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
   z-index: 97;
   max-height: 70vh;
   overflow-y: auto;
-  padding: 14px 14px 10px;
+  padding: var(--space-14) var(--space-14) var(--space-10);
   background: var(--paper);
   border: var(--border-thick) solid var(--outline);
   border-radius: calc(28px * var(--rk));
@@ -83,15 +83,15 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
   display: block;
   width: 44px;
   height: 5px;
-  margin: 0 auto 14px;
+  margin: 0 auto var(--space-14);
   border-radius: var(--radius-pill);
   background: var(--dash);
 }
 
 .title {
-  margin-bottom: 12px;
+  margin-bottom: var(--space-12);
   font-family: var(--font-display);
   font-weight: var(--fw-display);
-  font-size: 22px;
+  font-size: var(--fs-display-22);
 }
 </style>

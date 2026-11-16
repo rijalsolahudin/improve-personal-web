@@ -25,7 +25,7 @@
   min-height: 300px;
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: var(--space-24);
   padding: clamp(24px, 4vw, 40px);
   background-color: #f2c94c;
   background-image: radial-gradient(rgba(255, 255, 255, 0.4) 1.4px, transparent 1.4px);
@@ -37,13 +37,13 @@
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: 12px;
+  gap: var(--space-12);
 }
 
 .headline {
   font-family: var(--font-display);
   font-weight: var(--fw-display);
-  font-size: clamp(34px, 5vw, 48px);
+  font-size: calc(clamp(34px, 5vw, 48px) * var(--fk-display));
   line-height: 1.02;
   text-wrap: balance;
 }
@@ -53,7 +53,7 @@
   font-family: var(--font-hand);
   /* Patrick Hand hanya punya weight 400; paragraf mewarisi `--fw-body` (700) → faux-bold. */
   font-weight: 400;
-  font-size: 22px;
+  font-size: var(--fs-hand-22);
   line-height: 1.3;
   color: #5a4a2e;
 }

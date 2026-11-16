@@ -67,7 +67,7 @@ const style = computed(() => ({
    tanpa bayangan keras. Stempel mood tetap 2.5px karena itu elemen dekoratif yang menonjol. */
 .entry {
   position: relative;
-  padding: 26px 26px 22px 66px;
+  padding: var(--space-28) var(--space-28) var(--space-22) var(--space-64);
   border: var(--border-thin) solid var(--line);
   border-radius: calc(22px * var(--rk)) calc(22px * var(--rk)) calc(22px * var(--rk))
     calc(8px * var(--rk));
@@ -89,7 +89,7 @@ const style = computed(() => ({
   justify-content: center;
   border: var(--border) solid var(--outline);
   border-radius: 50%;
-  font-size: 26px;
+  font-size: var(--fs-26);
   transform: rotate(10deg);
 }
 
@@ -97,20 +97,20 @@ const style = computed(() => ({
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  gap: 12px;
-  padding-right: 48px;
+  gap: var(--space-12);
+  padding-right: var(--space-48);
 }
 
 .title {
   font-family: var(--font-hand);
   font-weight: 400;
-  font-size: 26px;
+  font-size: var(--fs-hand-26);
   line-height: 32px;
 }
 
 .time {
   font-weight: var(--fw-strong);
-  font-size: 12px;
+  font-size: var(--fs-12);
   color: var(--mute-3);
 }
 
@@ -119,7 +119,7 @@ const style = computed(() => ({
   font-family: var(--font-hand);
   /* Patrick Hand hanya punya weight 400; paragraf mewarisi `--fw-body` (700) → faux-bold. */
   font-weight: 400;
-  font-size: 20px;
+  font-size: var(--fs-hand-20);
   line-height: 32px;
   overflow-wrap: anywhere;
 }
@@ -134,30 +134,30 @@ const style = computed(() => ({
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
-  margin-top: 10px;
+  gap: var(--space-10);
+  margin-top: var(--space-10);
 }
 
 .tags {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: var(--space-6);
 }
 
 .tag {
-  padding: 2px 10px;
+  padding: 2px var(--space-10);
   border-radius: var(--radius-pill);
   background: var(--alt);
   color: var(--ink-2);
   font-family: var(--font-hand);
   /* Patrick Hand hanya punya weight 400; tag mewarisi `--fw-body` (700) → faux-bold. */
   font-weight: 400;
-  font-size: 15px;
+  font-size: var(--fs-hand-15);
 }
 
 @media (max-width: 599px) {
   .entry {
-    padding: 24px 16px 18px 56px;
+    padding: var(--space-24) var(--space-16) var(--space-18) var(--space-56);
   }
 }
 </style>

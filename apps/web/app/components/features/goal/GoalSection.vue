@@ -123,7 +123,7 @@ const bodyId = useId()
 
 <style scoped>
 .section {
-  padding: 18px 22px;
+  padding: var(--space-18) var(--space-22);
   border: var(--border) solid var(--line);
   border-radius: calc(28px * var(--rk));
   background: var(--paper);
@@ -141,7 +141,7 @@ const bodyId = useId()
   width: 100%;
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: var(--space-14);
   padding: 0;
   border: none;
   background: none;
@@ -159,7 +159,7 @@ const bodyId = useId()
   background: #f2e4cc;
   font-family: var(--font-display);
   font-weight: var(--fw-display);
-  font-size: 18px;
+  font-size: var(--fs-display-18);
 }
 
 .selesai .badge {
@@ -183,19 +183,19 @@ const bodyId = useId()
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-8);
 }
 
 .title {
   font-family: var(--font-display);
   font-weight: var(--fw-display);
-  font-size: 19px;
+  font-size: var(--fs-display-19);
   line-height: 1.2;
 }
 
 .sub {
   font-weight: var(--fw-body);
-  font-size: 13px;
+  font-size: var(--fs-13);
   color: var(--mute);
 }
 
@@ -209,14 +209,14 @@ const bodyId = useId()
   text-align: right;
   font-family: var(--font-display);
   font-weight: var(--fw-display);
-  font-size: 18px;
+  font-size: var(--fs-display-18);
   line-height: 1;
 }
 
 .bar {
   display: block;
   height: 8px;
-  margin-top: 6px;
+  margin-top: var(--space-6);
   overflow: hidden;
   border-radius: var(--radius-pill);
   background: var(--chip);
@@ -233,7 +233,7 @@ const bodyId = useId()
   width: 20px;
   text-align: center;
   font-weight: var(--fw-strong);
-  font-size: 14px;
+  font-size: var(--fs-14);
   color: var(--mute);
 }
 
@@ -241,9 +241,9 @@ const bodyId = useId()
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 14px;
-  margin-top: 14px;
-  padding: 14px 16px;
+  gap: var(--space-14);
+  margin-top: var(--space-14);
+  padding: var(--space-14) var(--space-16);
   border-radius: calc(20px * var(--rk));
   background: #ffe9e3;
 }
@@ -255,13 +255,13 @@ const bodyId = useId()
 
 .review-title {
   font-weight: var(--fw-strong);
-  font-size: 15px;
+  font-size: var(--fs-15);
   color: #9a2a14;
 }
 
 .review-sub {
   font-weight: var(--fw-body);
-  font-size: 13px;
+  font-size: var(--fs-13);
   color: #a8573f;
 }
 
@@ -271,11 +271,11 @@ const bodyId = useId()
 
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: var(--space-6);
 }
 
 .items {
-  margin: 10px 0 0;
+  margin: var(--space-10) 0 0;
   padding: 0;
   list-style: none;
 }
@@ -283,14 +283,14 @@ const bodyId = useId()
 .item {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 10px 4px;
+  gap: var(--space-12);
+  padding: var(--space-10) var(--space-4);
   border-top: var(--border-thin) dashed var(--line-2);
 }
 
 .item.empty {
   font-weight: var(--fw-body);
-  font-size: 14px;
+  font-size: var(--fs-14);
   color: var(--mute);
 }
 
@@ -326,7 +326,7 @@ const bodyId = useId()
 
 .item-title {
   font-weight: var(--fw-strong);
-  font-size: 15px;
+  font-size: var(--fs-15);
   line-height: 1.3;
 }
 
@@ -341,22 +341,22 @@ const bodyId = useId()
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: var(--space-8);
 }
 
 .item-meta :deep(.chip) {
-  padding: 1px 8px;
+  padding: 1px var(--space-8);
 }
 
 .item-meta-text {
   font-weight: var(--fw-body);
-  font-size: 12.5px;
+  font-size: var(--fs-13);
   color: var(--mute);
 }
 
 .rate {
   font-weight: var(--fw-strong);
-  font-size: 14px;
+  font-size: var(--fs-14);
 }
 
 .rate.habit {
@@ -373,6 +373,6 @@ const bodyId = useId()
 
   display: flex;
   justify-content: flex-end;
-  margin-top: 8px;
+  margin-top: var(--space-8);
 }
 </style>

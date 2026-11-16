@@ -112,14 +112,14 @@ const weekdays = computed(() =>
 .grid {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: 6px;
+  gap: var(--space-6);
 }
 
 .dow {
-  padding: 4px 0;
+  padding: var(--space-4) 0;
   text-align: center;
   font-weight: var(--fw-strong);
-  font-size: 12px;
+  font-size: var(--fs-12);
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--mute-3);
@@ -131,7 +131,7 @@ const weekdays = computed(() =>
   display: flex;
   flex-direction: column;
   gap: 3px;
-  padding: 6px;
+  padding: var(--space-6);
   border: var(--border) solid transparent;
   border-radius: var(--radius-btn-sq);
   background: var(--paper);
@@ -168,7 +168,7 @@ const weekdays = computed(() =>
   justify-content: center;
   border-radius: var(--radius-check);
   font-weight: var(--fw-strong);
-  font-size: 13px;
+  font-size: var(--fs-13);
 }
 
 .today .num {
@@ -190,20 +190,20 @@ const weekdays = computed(() =>
   border-radius: calc(5px * var(--rk));
   color: var(--paper);
   font-weight: var(--fw-strong);
-  font-size: 9px;
+  font-size: var(--fs-9);
 }
 
 .chip {
   min-width: 0;
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 2px 6px;
+  gap: var(--space-4);
+  padding: 2px var(--space-6);
   border: var(--border-thin) solid var(--outline);
   border-radius: var(--radius-pill);
   background: var(--chip-bg);
   font-weight: var(--fw-strong);
-  font-size: 11px;
+  font-size: var(--fs-11);
   line-height: 1.25;
 }
 
@@ -221,9 +221,9 @@ const weekdays = computed(() =>
 }
 
 .more {
-  padding: 0 6px;
+  padding: 0 var(--space-6);
   font-weight: var(--fw-strong);
-  font-size: 11px;
+  font-size: var(--fs-11);
   color: var(--mute);
 }
 
@@ -234,7 +234,7 @@ const weekdays = computed(() =>
 
   .cell {
     min-height: 64px;
-    padding: 4px;
+    padding: var(--space-4);
     border-radius: var(--radius-inner);
   }
 

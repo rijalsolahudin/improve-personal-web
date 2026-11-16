@@ -281,15 +281,15 @@ async function save(): Promise<void> {
  */
 .sheet {
   position: relative;
-  margin-top: 10px;
-  padding: 28px 0 18px;
+  margin-top: var(--space-10);
+  padding: var(--space-28) 0 var(--space-18);
   border: var(--border-thin) solid var(--line);
   border-radius: calc(28px * var(--rk));
   background: var(--paper-2);
 }
 
 .pad {
-  padding: 0 28px;
+  padding: 0 var(--space-28);
 }
 
 .top {
@@ -297,19 +297,19 @@ async function save(): Promise<void> {
   flex-wrap: wrap;
   align-items: baseline;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--space-12);
 }
 
 .sheet-date {
   font-family: var(--font-hand);
   font-weight: 400;
-  font-size: 30px;
+  font-size: var(--fs-hand-30);
   line-height: 1.1;
 }
 
 .draft-note {
   font-weight: var(--fw-strong);
-  font-size: 12px;
+  font-size: var(--fs-12);
   color: var(--mute-3);
 }
 
@@ -319,11 +319,11 @@ async function save(): Promise<void> {
 }
 
 .papers {
-  padding-top: 14px;
+  padding-top: var(--space-14);
 }
 
 .divider {
-  margin-top: 14px;
+  margin-top: var(--space-14);
   border-top: var(--border-thin) dashed var(--mline);
 }
 
@@ -337,8 +337,8 @@ async function save(): Promise<void> {
   /* Patrick Hand hanya punya weight 400; input mewarisi `--fw-body` (700) → faux-bold. */
   font-weight: 400;
   background-color: var(--memo-bg);
-  padding: 14px 28px 2px 66px;
-  font-size: 26px;
+  padding: var(--space-14) var(--space-28) 2px var(--space-64);
+  font-size: var(--fs-hand-26);
   background-image: linear-gradient(
     90deg,
     transparent 48px,
@@ -349,8 +349,8 @@ async function save(): Promise<void> {
 }
 
 .suggest {
-  margin: 4px 28px 0 66px;
-  padding: 6px;
+  margin: var(--space-4) var(--space-28) 0 var(--space-64);
+  padding: var(--space-6);
   border: var(--border) solid var(--outline);
   border-radius: var(--radius-row);
   background: var(--paper);
@@ -359,7 +359,7 @@ async function save(): Promise<void> {
 }
 
 .suggest-title {
-  padding: 4px 8px;
+  padding: var(--space-4) var(--space-8);
   color: var(--mute-3);
 }
 
@@ -367,13 +367,13 @@ async function save(): Promise<void> {
   width: 100%;
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 10px;
+  gap: var(--space-8);
+  padding: var(--space-8) var(--space-10);
   border: none;
   border-radius: var(--radius-inner);
   background: none;
   font-weight: var(--fw-strong);
-  font-size: 14px;
+  font-size: var(--fs-14);
   text-align: left;
 }
 
@@ -393,7 +393,7 @@ async function save(): Promise<void> {
 
 .suggest-when {
   font-weight: var(--fw-body);
-  font-size: 12px;
+  font-size: var(--fs-12);
   color: var(--mute);
 }
 
@@ -401,19 +401,19 @@ async function save(): Promise<void> {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 6px;
-  padding: 14px 28px 0 66px;
+  gap: var(--space-6);
+  padding: var(--space-14) var(--space-28) 0 var(--space-64);
 }
 
 .prompts-label {
   margin-right: 2px;
   font-weight: var(--fw-strong);
-  font-size: 12px;
+  font-size: var(--fs-12);
   color: var(--mute-3);
 }
 
 .prompt {
-  padding: 4px 12px;
+  padding: var(--space-4) var(--space-12);
   border: none;
   border-radius: var(--radius-pill);
   background: var(--alt);
@@ -421,7 +421,7 @@ async function save(): Promise<void> {
   font-family: var(--font-hand);
   /* Patrick Hand hanya punya weight 400; tombol mewarisi `--fw-body` (700) → faux-bold. */
   font-weight: 400;
-  font-size: 15px;
+  font-size: var(--fs-hand-15);
 }
 
 .prompt:hover {
@@ -433,13 +433,13 @@ async function save(): Promise<void> {
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  padding: 16px 28px 0;
+  gap: var(--space-12);
+  padding: var(--space-16) var(--space-28) 0;
 }
 
 .hint {
   font-weight: var(--fw-strong);
-  font-size: 13px;
+  font-size: var(--fs-13);
   color: var(--mute);
 }
 
@@ -448,40 +448,40 @@ async function save(): Promise<void> {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
-  padding: 10px 12px;
+  gap: var(--space-8);
+  padding: var(--space-10) var(--space-12);
   border: var(--border-thin) solid var(--danger);
   border-radius: var(--radius-row);
   color: var(--danger);
   font-weight: var(--fw-strong);
-  font-size: 13px;
+  font-size: var(--fs-13);
 }
 
 .retry {
-  padding: 4px 12px;
+  padding: var(--space-4) var(--space-12);
   border: var(--border-thin) solid currentcolor;
   border-radius: var(--radius-pill);
   background: none;
   color: inherit;
   font-weight: var(--fw-strong);
-  font-size: 13px;
+  font-size: var(--fs-13);
 }
 
 @media (max-width: 599px) {
   .pad,
   .bottom {
-    padding-inline: 16px;
+    padding-inline: var(--space-16);
   }
 
   .title-input {
-    padding-left: 56px;
-    padding-right: 16px;
+    padding-left: var(--space-56);
+    padding-right: var(--space-16);
   }
 
   .prompts,
   .suggest {
     margin-left: 0;
-    padding-left: 16px;
+    padding-left: var(--space-16);
   }
 }
 </style>

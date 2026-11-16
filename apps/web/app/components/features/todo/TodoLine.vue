@@ -82,22 +82,22 @@ const size = computed(() => {
   min-width: 0;
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 9px 2px;
+  gap: var(--space-10);
+  padding: var(--space-10) 2px;
   border-bottom: var(--border-thin) solid var(--mline);
 }
 
 .dense {
   height: 28px;
-  gap: 8px;
+  gap: var(--space-8);
   padding: 0 2px;
 }
 
 /* Design kartu To-do Daily: baris selebar kartu (margin negatif), tanpa garis pemisah. */
 .daily {
-  gap: 12px;
-  padding: 9px 8px;
-  margin: 0 -8px;
+  gap: var(--space-12);
+  padding: var(--space-10) var(--space-8);
+  margin: 0 calc(-1 * var(--space-8));
   border-bottom: 0;
   border-radius: var(--radius-inner);
 }
@@ -117,7 +117,7 @@ const size = computed(() => {
 .daily .title {
   flex: none;
   font-weight: var(--fw-medium);
-  font-size: 14.5px;
+  font-size: var(--fs-15);
 }
 
 /* Design Daily: teks dua baris (judul + badge/jam), tombol tetap di kanan. */
@@ -133,15 +133,15 @@ const size = computed(() => {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-8);
 }
 
 .daily .meta {
-  font-size: 12.5px;
+  font-size: var(--fs-13);
 }
 
 .dense .title {
-  font-size: 12px;
+  font-size: var(--fs-12);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -158,7 +158,7 @@ const size = computed(() => {
 .meta {
   flex-shrink: 0;
   font-weight: var(--fw-strong);
-  font-size: 11.5px;
+  font-size: var(--fs-12);
   color: var(--mute-3);
   font-variant-numeric: tabular-nums;
 }
@@ -170,15 +170,15 @@ const size = computed(() => {
 .focus:hover,
 .dense .focus {
   min-height: 20px;
-  padding: 0 8px;
-  font-size: 10.5px;
+  padding: 0 var(--space-8);
+  font-size: var(--fs-11);
 }
 
 /* Design Daily memakai pill "▶ Fokus" 26px yang tidak mengecil saat hover. */
 .daily .focus,
 .daily .focus:hover {
   min-height: 26px;
-  padding: 0 10px;
-  font-size: 12px;
+  padding: 0 var(--space-10);
+  font-size: var(--fs-12);
 }
 </style>

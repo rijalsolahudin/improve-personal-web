@@ -85,7 +85,7 @@ const ticks = Array.from({ length: TICK_COUNT }, (_, index) => ({
   top: 10px;
   width: 76px;
   height: 76px;
-  padding: 4px;
+  padding: var(--space-4);
   border-radius: 50%;
   background: var(--ink);
 }
@@ -133,7 +133,7 @@ const ticks = Array.from({ length: TICK_COUNT }, (_, index) => ({
   top: 50%;
   width: 8px;
   height: 8px;
-  margin: -4px 0 0 -4px;
+  margin: calc(-1 * var(--space-4)) 0 0 calc(-1 * var(--space-4));
   border-radius: 50%;
   background: var(--ink);
 }

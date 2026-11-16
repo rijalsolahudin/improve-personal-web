@@ -216,18 +216,18 @@ const deleteLabel = computed(() => {
 .form {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: var(--space-16);
 }
 
 .pair {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  gap: 12px;
+  gap: var(--space-12);
 }
 
 /* Tautan ganti mode menempel di kanan label; ukurannya disamakan dengan label supaya baris sejajar. */
 .mode {
-  font-size: 12px;
+  font-size: var(--fs-12);
 }
 
 .seg-scope {
@@ -235,27 +235,27 @@ const deleteLabel = computed(() => {
 }
 
 .scope {
-  padding: 14px 16px;
+  padding: var(--space-14) var(--space-16);
   border-radius: calc(20px * var(--rk));
   background: var(--soft);
 }
 
 .scope-label {
-  margin-bottom: 8px;
+  margin-bottom: var(--space-8);
   font-weight: var(--fw-strong);
-  font-size: 13px;
+  font-size: var(--fs-13);
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--deep);
 }
 
 .error {
-  padding: 10px 14px;
+  padding: var(--space-10) var(--space-14);
   border-radius: calc(14px * var(--rk));
   background: #ffe1da;
   color: #9a2a14;
   font-weight: var(--fw-strong);
-  font-size: 14px;
+  font-size: var(--fs-14);
 }
 
 .actions {
@@ -263,7 +263,7 @@ const deleteLabel = computed(() => {
   flex-wrap: wrap;
   align-items: center;
   justify-content: flex-end;
-  gap: 10px;
+  gap: var(--space-10);
 }
 
 .spacer {

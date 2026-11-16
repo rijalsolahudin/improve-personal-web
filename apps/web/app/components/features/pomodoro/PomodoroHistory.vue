@@ -53,7 +53,7 @@ const today = computed(() => {
 <style scoped>
 .card {
   min-width: 0;
-  padding: 20px 22px;
+  padding: var(--space-20) var(--space-22);
   border: var(--border-thin) solid var(--line);
   border-radius: calc(28px * var(--rk));
   background: var(--paper);
@@ -68,19 +68,19 @@ const today = computed(() => {
 .title {
   font-family: var(--font-display);
   font-weight: var(--fw-display);
-  font-size: 20px;
+  font-size: var(--fs-display-20);
   line-height: 1.2;
 }
 
 .total {
   font-family: var(--font-display);
   font-weight: var(--fw-display);
-  font-size: 18px;
+  font-size: var(--fs-display-18);
   color: var(--deep);
 }
 
 .rows {
-  margin: 8px 0 0;
+  margin: var(--space-8) 0 0;
   padding: 0;
   list-style: none;
 }
@@ -88,8 +88,8 @@ const today = computed(() => {
 .row {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 9px 0;
+  gap: var(--space-10);
+  padding: var(--space-10) 0;
   border-top: var(--border-thin) dashed var(--line-2);
 }
 
@@ -106,7 +106,7 @@ const today = computed(() => {
   color: var(--paper);
   font-family: var(--font-display);
   font-weight: var(--fw-display);
-  font-size: 12px;
+  font-size: var(--fs-display-12);
 }
 
 /* Sesi yang dilewati: latar `--chip` (permukaan), bukan `--dash` (token GARIS). `--ink-2` di atas
@@ -127,21 +127,21 @@ const today = computed(() => {
 .target {
   overflow: hidden;
   font-weight: var(--fw-strong);
-  font-size: 14px;
+  font-size: var(--fs-14);
   white-space: nowrap;
   text-overflow: ellipsis;
 }
 
 .time {
   font-weight: var(--fw-body);
-  font-size: 12px;
+  font-size: var(--fs-12);
   color: var(--mute);
 }
 
 .empty {
-  padding-top: 6px;
+  padding-top: var(--space-6);
   font-weight: var(--fw-body);
-  font-size: 14px;
+  font-size: var(--fs-14);
   color: var(--mute);
 }
 </style>

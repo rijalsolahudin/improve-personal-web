@@ -147,7 +147,7 @@ function setPip(habitId: string, n: number): void {
 .card {
   display: flex;
   flex-direction: column;
-  padding: 16px 18px;
+  padding: var(--space-16) var(--space-18);
   border: var(--border) solid var(--outline);
   border-radius: var(--radius-card);
   background: var(--paper);
@@ -155,7 +155,7 @@ function setPip(habitId: string, n: number): void {
 }
 
 .card-head {
-  padding-bottom: 12px;
+  padding-bottom: var(--space-12);
   border-bottom: var(--border-thin) dashed var(--dash);
 }
 
@@ -163,7 +163,7 @@ function setPip(habitId: string, n: number): void {
   display: flex;
   flex-direction: column;
   margin: 0;
-  padding: 8px 0 0;
+  padding: var(--space-8) 0 0;
   list-style: none;
 }
 
@@ -171,9 +171,9 @@ function setPip(habitId: string, n: number): void {
 .row {
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin: 0 -8px;
-  padding: 9px 8px;
+  gap: var(--space-12);
+  margin: 0 calc(-1 * var(--space-8));
+  padding: var(--space-10) var(--space-8);
   border-radius: var(--radius-inner);
 }
 
@@ -195,7 +195,7 @@ function setPip(habitId: string, n: number): void {
   min-width: 0;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--space-12);
   padding: 0;
   border: 0;
   background: none;
@@ -206,7 +206,7 @@ function setPip(habitId: string, n: number): void {
 
 .name {
   font-weight: var(--fw-medium);
-  font-size: 14.5px;
+  font-size: var(--fs-15);
   line-height: 1.25;
 }
 
@@ -261,7 +261,7 @@ function setPip(habitId: string, n: number): void {
 .count {
   flex-shrink: 0;
   font-weight: var(--fw-strong);
-  font-size: 12px;
+  font-size: var(--fs-display-12);
   font-variant-numeric: tabular-nums;
 }
 
@@ -276,7 +276,7 @@ function setPip(habitId: string, n: number): void {
   text-align: right;
   font-family: var(--font-display);
   font-weight: var(--fw-display);
-  font-size: 15px;
+  font-size: var(--fs-display-15);
   /* Warna habit mentah (#E6A800, #FF6A13, #F03FBF) < 4,5:1 sebagai teks di `--paper`; campuran
      50% dengan `--ink` mempertahankan warna habit dan menaikkan semua 8 warna ke >= 4,95:1. */
   color: color-mix(in srgb, var(--pip-color) 50%, var(--ink));
@@ -296,7 +296,7 @@ function setPip(habitId: string, n: number): void {
   background: var(--paper);
   color: var(--paper);
   font-weight: var(--fw-strong);
-  font-size: 12px;
+  font-size: var(--fs-12);
 }
 
 .box.on {
@@ -304,7 +304,7 @@ function setPip(habitId: string, n: number): void {
 }
 
 .empty {
-  padding: 14px 4px 4px;
+  padding: var(--space-14) var(--space-4) var(--space-4);
   font-family: var(--font-hand);
   /* Patrick Hand hanya punya weight 400; paragraf mewarisi `--fw-body` (700) → faux-bold. */
   font-weight: 400;

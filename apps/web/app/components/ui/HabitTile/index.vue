@@ -37,8 +37,8 @@ defineEmits<{ toggle: [] }>()
 .tile {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 12px;
+  gap: var(--space-10);
+  padding: var(--space-12);
   border: var(--border-thin) solid transparent;
   border-radius: calc(20px * var(--rk));
   background: var(--alt);
@@ -86,7 +86,7 @@ defineEmits<{ toggle: [] }>()
     flex-shrink: 0;
     flex-direction: column;
     align-items: flex-start;
-    gap: 8px;
+    gap: var(--space-8);
     border-radius: var(--radius-card);
   }
 
@@ -94,11 +94,11 @@ defineEmits<{ toggle: [] }>()
     width: 38px;
     height: 38px;
     border-radius: var(--radius-leaf);
-    font-size: 17px;
+    font-size: var(--fs-17);
   }
 
   .text {
-    gap: 8px;
+    gap: var(--space-8);
   }
 
   .name {

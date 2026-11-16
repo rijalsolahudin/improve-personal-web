@@ -114,7 +114,7 @@ const resendCountdown = computed(() => `0:${String(flow.resendSecondsLeft.value)
 .form {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: var(--space-20);
 }
 
 .back {
@@ -143,7 +143,7 @@ const resendCountdown = computed(() => `0:${String(flow.resendSecondsLeft.value)
   background: #fffdf8;
   font-family: var(--font-display);
   font-weight: var(--fw-display);
-  font-size: 28px;
+  font-size: var(--fs-display-28);
   text-align: center;
   outline: none;
 }
@@ -162,7 +162,7 @@ const resendCountdown = computed(() => `0:${String(flow.resendSecondsLeft.value)
 }
 
 .error {
-  margin-top: -8px;
+  margin-top: calc(-1 * var(--space-8));
   font-weight: var(--fw-body);
   font-size: var(--fs-caption);
   color: #b2402b;
@@ -173,7 +173,7 @@ const resendCountdown = computed(() => `0:${String(flow.resendSecondsLeft.value)
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: var(--space-10);
   font-weight: var(--fw-body);
   font-size: var(--fs-body-sm);
   color: #6b5e4b;

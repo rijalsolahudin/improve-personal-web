@@ -37,7 +37,7 @@ const sortOptions = computed<SegmentedOption<TaskSort>[]>(() =>
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--space-12);
 }
 
 /* Filter bisa digeser horizontal di layar sempit (design). */
@@ -51,7 +51,7 @@ const sortOptions = computed<SegmentedOption<TaskSort>[]>(() =>
 .sort {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-8);
 }
 
 /* Design: grup pill padding 3/gap 2 (default Segmented 4/4) & opsi 7x14 (default 8x14).
@@ -64,12 +64,12 @@ const sortOptions = computed<SegmentedOption<TaskSort>[]>(() =>
 
 .toolbar .filters :deep(.option),
 .toolbar .sort :deep(.option) {
-  padding: 7px 14px;
+  padding: var(--space-8) var(--space-14);
 }
 
 .sort-label {
   font-weight: var(--fw-strong);
-  font-size: 13px;
+  font-size: var(--fs-13);
   color: var(--mute);
 }
 </style>

@@ -172,7 +172,7 @@ const style = computed(() => ({
   border-radius: 50%;
   background: var(--paper);
   font-weight: var(--fw-strong);
-  font-size: 14px;
+  font-size: var(--fs-14);
   line-height: 1;
   touch-action: none;
 }
@@ -180,7 +180,7 @@ const style = computed(() => ({
 .rotate {
   left: 50%;
   top: -44px;
-  margin-left: -14px;
+  margin-left: calc(-1 * var(--space-14));
   cursor: grab;
 }
 

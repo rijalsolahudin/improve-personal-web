@@ -64,13 +64,13 @@ const model = defineModel<T>({ required: true })
 .segmented {
   display: flex;
   gap: 2px;
-  padding: 4px;
+  padding: var(--space-4);
   border-radius: var(--radius-pill);
   background: var(--seg-bg, var(--chip));
 }
 
 .framed {
-  gap: 4px;
+  gap: var(--space-4);
   background: var(--seg-bg, var(--paper));
   border: var(--border) solid var(--outline);
 }
@@ -79,20 +79,20 @@ const model = defineModel<T>({ required: true })
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  padding: 8px 14px;
+  gap: var(--space-8);
+  padding: var(--space-8) var(--space-14);
   border: none;
   border-radius: var(--radius-pill);
   background: transparent;
   color: var(--mute-2);
   font-weight: var(--fw-strong);
-  font-size: 14px;
+  font-size: var(--fs-14);
   white-space: nowrap;
 }
 
 .size-sm .option {
-  padding: 5px 12px;
-  font-size: 13px;
+  padding: var(--space-6) var(--space-12);
+  font-size: var(--fs-13);
 }
 
 .equal .option {

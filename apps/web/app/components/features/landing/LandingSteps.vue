@@ -26,7 +26,7 @@ const STEPS = ['1', '2', '3'] as const
   max-width: 1200px;
   display: flex;
   flex-direction: column;
-  gap: 32px;
+  gap: var(--space-32);
   padding: clamp(28px, 5vw, 56px);
   background-color: var(--primary);
   background-size: 24px 24px;
@@ -51,17 +51,17 @@ const STEPS = ['1', '2', '3'] as const
 }
 
 .heading {
-  margin-top: 6px;
+  margin-top: var(--space-6);
   font-family: var(--font-display);
   font-weight: var(--fw-display);
-  font-size: clamp(34px, 4.5vw, 52px);
+  font-size: calc(clamp(34px, 4.5vw, 52px) * var(--fk-display));
   line-height: var(--lh-tight);
 }
 
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
-  gap: 18px;
+  gap: var(--space-18);
   margin: 0;
   padding: 0;
   list-style: none;
@@ -70,8 +70,8 @@ const STEPS = ['1', '2', '3'] as const
 .card {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 24px;
+  gap: var(--space-12);
+  padding: var(--space-24);
   background: #fffbf4;
   border: var(--border-thick) solid var(--outline);
   border-radius: calc(28px * var(--rk));
@@ -89,7 +89,7 @@ const STEPS = ['1', '2', '3'] as const
   color: #fffbf4;
   font-family: var(--font-display);
   font-weight: var(--fw-display);
-  font-size: 22px;
+  font-size: var(--fs-display-22);
 }
 
 .name {

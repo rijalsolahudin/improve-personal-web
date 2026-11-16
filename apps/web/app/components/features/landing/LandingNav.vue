@@ -19,8 +19,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  padding: 10px 10px 10px 16px;
+  gap: var(--space-16);
+  padding: var(--space-10) var(--space-10) var(--space-10) var(--space-16);
   background: #fffbf4;
   border: var(--border-thick) solid var(--outline);
   border-radius: var(--radius-pill);
@@ -36,7 +36,7 @@
   flex-wrap: wrap;
   align-items: center;
   justify-content: flex-end;
-  gap: 4px;
+  gap: var(--space-4);
 }
 
 .link,
@@ -47,7 +47,7 @@
 }
 
 .link {
-  padding: 10px 16px;
+  padding: var(--space-10) var(--space-16);
   color: var(--ink);
 }
 
@@ -57,7 +57,7 @@
 }
 
 .cta {
-  padding: 11px 20px;
+  padding: var(--space-12) var(--space-20);
   background: var(--accent);
   color: #fffbf4;
 }

@@ -83,11 +83,11 @@ const emailModel = computed({ get: () => flow.email.value, set: flow.setEmail })
 .google-block {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: var(--space-20);
 }
 
 .google-block {
-  gap: 8px;
+  gap: var(--space-8);
 }
 
 .google {
@@ -96,7 +96,7 @@ const emailModel = computed({ get: () => flow.email.value, set: flow.setEmail })
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 12px;
+  gap: var(--space-12);
   border: var(--border) solid var(--outline);
   border-radius: var(--radius-row);
   background: #fff;
@@ -117,7 +117,7 @@ const emailModel = computed({ get: () => flow.email.value, set: flow.setEmail })
 .divider {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--space-12);
   font-weight: var(--fw-strong);
   font-size: var(--fs-meta);
   letter-spacing: 0.12em;
@@ -134,7 +134,7 @@ const emailModel = computed({ get: () => flow.email.value, set: flow.setEmail })
 .field {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--space-6);
 }
 
 .label {
@@ -147,7 +147,7 @@ const emailModel = computed({ get: () => flow.email.value, set: flow.setEmail })
 .input {
   width: 100%;
   height: 54px;
-  padding: 0 16px;
+  padding: 0 var(--space-16);
   border: var(--border) solid var(--outline);
   border-radius: var(--radius-row);
   background: #fffdf8;
@@ -172,7 +172,7 @@ const emailModel = computed({ get: () => flow.email.value, set: flow.setEmail })
 }
 
 .hint {
-  margin-top: -8px;
+  margin-top: calc(-1 * var(--space-8));
   font-weight: var(--fw-medium);
   font-size: var(--fs-caption);
   line-height: 1.5;

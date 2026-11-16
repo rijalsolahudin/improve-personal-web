@@ -240,7 +240,7 @@ const gridStyle = computed(() => ({
 .th-rate {
   display: flex;
   align-items: flex-end;
-  padding-bottom: 10px;
+  padding-bottom: var(--space-10);
   font-weight: var(--fw-strong);
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -248,14 +248,14 @@ const gridStyle = computed(() => ({
 }
 
 .th-name {
-  padding: 0 12px 10px 20px;
-  font-size: 12px;
+  padding: 0 var(--space-12) var(--space-10) var(--space-20);
+  font-size: var(--fs-12);
   letter-spacing: 0.1em;
 }
 
 .th-streak,
 .th-rate {
-  font-size: 11px;
+  font-size: var(--fs-11);
 }
 
 .th-streak {
@@ -264,7 +264,7 @@ const gridStyle = computed(() => ({
 }
 
 .th-rate {
-  padding: 0 20px 10px 4px;
+  padding: 0 var(--space-20) var(--space-10) var(--space-4);
 }
 
 .th-day {
@@ -272,7 +272,7 @@ const gridStyle = computed(() => ({
   flex-direction: column;
   align-items: center;
   gap: 3px;
-  padding: 6px 0 8px;
+  padding: var(--space-6) 0 var(--space-8);
   border-radius: calc(12px * var(--rk)) calc(12px * var(--rk)) 0 0;
 }
 
@@ -308,7 +308,7 @@ const gridStyle = computed(() => ({
 
 .dow {
   font-weight: var(--fw-strong);
-  font-size: 10px;
+  font-size: var(--fs-10);
   letter-spacing: 0.04em;
   color: var(--mute-3);
 }
@@ -329,7 +329,7 @@ const gridStyle = computed(() => ({
   justify-content: center;
   border-radius: 50%;
   font-weight: var(--fw-strong);
-  font-size: 13px;
+  font-size: var(--fs-13);
 }
 
 .today .num {
@@ -341,8 +341,8 @@ const gridStyle = computed(() => ({
   min-width: 0;
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 10px 12px 10px 20px;
+  gap: var(--space-12);
+  padding: var(--space-10) var(--space-12) var(--space-10) var(--space-20);
   border-top: none;
   border-bottom: none;
   border-left: none;
@@ -364,7 +364,7 @@ const gridStyle = computed(() => ({
 
 .name {
   font-weight: var(--fw-strong);
-  font-size: 15px;
+  font-size: var(--fs-15);
   line-height: 1.25;
 }
 
@@ -375,7 +375,7 @@ const gridStyle = computed(() => ({
 .freq {
   margin-top: 1px;
   font-weight: var(--fw-body);
-  font-size: 12px;
+  font-size: var(--fs-12);
   color: var(--mute);
 }
 
@@ -404,7 +404,7 @@ const gridStyle = computed(() => ({
   border-radius: calc(8px * var(--rk));
   background: transparent;
   font-weight: var(--fw-strong);
-  font-size: 13px;
+  font-size: var(--fs-13);
   transition:
     transform 0.12s,
     background 0.12s;
@@ -426,7 +426,7 @@ const gridStyle = computed(() => ({
 .box.partial {
   border: none;
   background: var(--h-soft);
-  font-size: 11px;
+  font-size: var(--fs-11);
 }
 
 .box.met {
@@ -441,14 +441,14 @@ const gridStyle = computed(() => ({
   align-items: baseline;
   justify-content: center;
   gap: 3px;
-  padding-top: 16px;
+  padding-top: var(--space-16);
   border-left: var(--border-thin) solid var(--line);
 }
 
 .streak-n {
   font-family: var(--font-display);
   font-weight: var(--fw-display);
-  font-size: 18px;
+  font-size: var(--fs-display-18);
   line-height: 1;
   color: var(--mute-3);
 }
@@ -459,7 +459,7 @@ const gridStyle = computed(() => ({
 
 .streak-unit {
   font-weight: var(--fw-body);
-  font-size: 11px;
+  font-size: var(--fs-11);
   color: var(--mute);
 }
 
@@ -467,13 +467,13 @@ const gridStyle = computed(() => ({
   align-self: center;
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 0 20px 0 4px;
+  gap: var(--space-6);
+  padding: 0 var(--space-20) 0 var(--space-4);
 }
 
 .rate-n {
   font-weight: var(--fw-strong);
-  font-size: 13px;
+  font-size: var(--fs-13);
   line-height: 1;
 }
 </style>

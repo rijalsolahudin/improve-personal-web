@@ -66,9 +66,9 @@ const items = computed(() =>
 <style scoped>
 .strip {
   display: flex;
-  gap: 8px;
+  gap: var(--space-8);
   overflow-x: auto;
-  padding: 2px 2px 8px;
+  padding: 2px 2px var(--space-8);
 }
 
 .date {
@@ -76,8 +76,8 @@ const items = computed(() =>
   flex-shrink: 0;
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 10px 12px;
+  gap: var(--space-12);
+  padding: var(--space-10) var(--space-12);
   border: var(--border) solid transparent;
   border-radius: var(--radius-row);
   background: transparent;
@@ -105,13 +105,13 @@ const items = computed(() =>
   font-family: var(--font-hand);
   /* Patrick Hand hanya punya weight 400; tombol mewarisi `--fw-body` (700) → faux-bold. */
   font-weight: 400;
-  font-size: 28px;
+  font-size: var(--fs-hand-28);
   line-height: 1;
 }
 
 .month {
   font-weight: var(--fw-strong);
-  font-size: 11px;
+  font-size: var(--fs-11);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--mute-3);
@@ -126,7 +126,7 @@ const items = computed(() =>
 
 .label {
   font-weight: var(--fw-strong);
-  font-size: 14px;
+  font-size: var(--fs-14);
 }
 
 .preview {
@@ -134,7 +134,7 @@ const items = computed(() =>
   font-family: var(--font-hand);
   /* Patrick Hand hanya punya weight 400; tombol mewarisi `--fw-body` (700) → faux-bold. */
   font-weight: 400;
-  font-size: 15px;
+  font-size: var(--fs-hand-15);
   color: var(--mute-2);
   white-space: nowrap;
   text-overflow: ellipsis;
@@ -148,16 +148,16 @@ const items = computed(() =>
   align-items: center;
   justify-content: center;
   border-radius: 50%;
-  font-size: 18px;
+  font-size: var(--fs-18);
   transform: rotate(calc(-8deg * var(--bev)));
 }
 
 .none {
-  padding: 12px;
+  padding: var(--space-12);
   font-family: var(--font-hand);
   /* Patrick Hand hanya punya weight 400; paragraf mewarisi `--fw-body` (700) → faux-bold. */
   font-weight: 400;
-  font-size: 17px;
+  font-size: var(--fs-hand-17);
   color: var(--mute);
 }
 </style>

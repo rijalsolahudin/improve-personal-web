@@ -54,7 +54,7 @@ const PREVIEW_TODOS = [
 <style scoped>
 .preview {
   position: relative;
-  padding: 36px 8px 8px;
+  padding: var(--space-36) var(--space-8) var(--space-8);
 }
 
 .mascot-top {
@@ -76,8 +76,8 @@ const PREVIEW_TODOS = [
 .card {
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  padding: 20px;
+  gap: var(--space-14);
+  padding: var(--space-20);
   background: #fffbf4;
   border: var(--border-thick) solid var(--outline);
   border-radius: var(--radius-panel);
@@ -89,13 +89,13 @@ const PREVIEW_TODOS = [
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 4px;
+  padding: 0 var(--space-4);
 }
 
 .greeting {
   font-family: var(--font-display);
   font-weight: var(--fw-display);
-  font-size: 22px;
+  font-size: var(--fs-display-22);
 }
 
 .avatar {
@@ -110,8 +110,8 @@ const PREVIEW_TODOS = [
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  padding: 16px 20px;
+  gap: var(--space-12);
+  padding: var(--space-16) var(--space-20);
   background-color: var(--primary);
   border-radius: var(--radius-hero);
 }
@@ -141,7 +141,7 @@ const PREVIEW_TODOS = [
 }
 
 .focus {
-  padding: 9px 16px;
+  padding: var(--space-10) var(--space-16);
   border-radius: var(--radius-pill);
   background: var(--accent);
   color: #fffbf4;
@@ -152,13 +152,13 @@ const PREVIEW_TODOS = [
 .stats {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
+  gap: var(--space-12);
 }
 
 .stat {
   display: flex;
   flex-direction: column;
-  padding: 14px 16px;
+  padding: var(--space-14) var(--space-16);
   border-radius: calc(20px * var(--rk));
 }
 
@@ -177,7 +177,7 @@ const PREVIEW_TODOS = [
 .stat-value {
   font-family: var(--font-display);
   font-weight: var(--fw-display);
-  font-size: 28px;
+  font-size: var(--fs-display-28);
   line-height: 1;
 }
 
@@ -190,14 +190,14 @@ const PREVIEW_TODOS = [
 .todos {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-8);
 }
 
 .todo {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 10px 14px;
+  gap: var(--space-12);
+  padding: var(--space-10) var(--space-14);
   border: var(--border-thin) solid #ead8bc;
   border-radius: var(--radius-btn-sq);
 }
@@ -231,7 +231,7 @@ const PREVIEW_TODOS = [
 }
 
 .tag {
-  padding: 3px 10px;
+  padding: 3px var(--space-10);
   border-radius: var(--radius-pill);
   font-weight: var(--fw-strong);
   font-size: var(--fs-eyebrow);

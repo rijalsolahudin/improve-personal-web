@@ -74,13 +74,13 @@ const classes = computed(() =>
 }
 
 .size-md {
-  padding: 11px 14px;
-  font-size: 15px;
+  padding: var(--space-12) var(--space-14);
+  font-size: var(--fs-15);
 }
 
 .size-sm {
-  padding: 9px 12px;
-  font-size: 14px;
+  padding: var(--space-10) var(--space-12);
+  font-size: var(--fs-14);
 }
 
 .shape-square {

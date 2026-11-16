@@ -44,20 +44,20 @@ const viewOptions = computed<SegmentedOption<CalendarView>[]>(() =>
   flex-wrap: wrap;
   align-items: flex-end;
   justify-content: space-between;
-  gap: 16px;
+  gap: var(--space-16);
 }
 
 .title {
   font-family: var(--font-display);
   font-weight: var(--fw-display);
-  font-size: 36px;
+  font-size: var(--fs-display-36);
   line-height: 1.1;
 }
 
 .range {
-  margin-top: 4px;
+  margin-top: var(--space-4);
   font-weight: var(--fw-body);
-  font-size: 16px;
+  font-size: var(--fs-16);
   color: var(--mute);
 }
 
@@ -65,20 +65,20 @@ const viewOptions = computed<SegmentedOption<CalendarView>[]>(() =>
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-10);
 }
 
 .nav {
   display: flex;
-  gap: 6px;
+  gap: var(--space-6);
 }
 
 /* Design: "Hari ini" setinggi 44px dengan sudut 16px (bukan pill), teks 14px.
    Selektor dua kelas supaya menang dari `.btn-md` milik komponen Button. */
 .nav .today {
-  padding: 0 16px;
+  padding: 0 var(--space-16);
   border-radius: var(--radius-btn-sq);
-  font-size: 14px;
+  font-size: var(--fs-14);
 }
 
 /* Grup tampilan: tinggi tetap 44px, bantalan 3px, jarak antar-opsi 2px (design). */
@@ -90,12 +90,12 @@ const viewOptions = computed<SegmentedOption<CalendarView>[]>(() =>
 }
 
 .controls .views :deep(.option) {
-  padding: 7px 16px;
+  padding: var(--space-8) var(--space-16);
 }
 
 @media (max-width: 599px) {
   .title {
-    font-size: 28px;
+    font-size: var(--fs-display-28);
   }
 }
 </style>

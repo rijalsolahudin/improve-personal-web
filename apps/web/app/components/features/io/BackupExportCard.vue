@@ -48,8 +48,8 @@ async function download(): Promise<void> {
 .export-card {
   display: flex;
   flex-direction: column;
-  gap: var(--space-5);
-  padding: var(--space-8);
+  gap: var(--space-10);
+  padding: var(--space-16);
 }
 
 .card-title {
@@ -63,7 +63,7 @@ async function download(): Promise<void> {
 }
 
 .warning {
-  padding: var(--space-5) var(--space-8);
+  padding: var(--space-10) var(--space-16);
   border-radius: var(--radius-inner);
   background: var(--prio-medium-bg);
   color: var(--prio-medium-fg);

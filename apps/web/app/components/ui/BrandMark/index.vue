@@ -35,7 +35,7 @@ const {
 .brand {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-10);
   color: var(--ink);
 }
 
@@ -69,7 +69,7 @@ const {
   flex-direction: column;
   font-family: var(--font-display);
   font-weight: var(--fw-display);
-  font-size: 20px;
+  font-size: var(--fs-display-20);
   line-height: 1;
   white-space: nowrap;
 }

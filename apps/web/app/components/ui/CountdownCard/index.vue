@@ -54,7 +54,7 @@ const style = computed(() => ({ '--cd-tint': bg, '--cd-ink': fg }))
   width: 150px;
   flex-shrink: 0;
   flex-direction: column;
-  padding: 12px 14px;
+  padding: var(--space-12) var(--space-14);
   border-radius: var(--radius-card);
   background: var(--cd-tint);
 }
@@ -62,7 +62,7 @@ const style = computed(() => ({ '--cd-tint': bg, '--cd-ink': fg }))
 .compact .days {
   font-family: var(--font-display);
   font-weight: var(--fw-display);
-  font-size: 30px;
+  font-size: var(--fs-display-30);
   line-height: 1;
   color: var(--cd-ink);
 }
@@ -73,7 +73,7 @@ const style = computed(() => ({ '--cd-tint': bg, '--cd-ink': fg }))
 }
 
 .compact .title {
-  margin-top: 4px;
+  margin-top: var(--space-4);
   font-weight: var(--fw-strong);
   font-size: var(--fs-body-sm);
   line-height: 1.2;
@@ -89,8 +89,8 @@ const style = computed(() => ({ '--cd-tint': bg, '--cd-ink': fg }))
 
 .wide {
   align-items: center;
-  gap: 14px;
-  padding: 16px;
+  gap: var(--space-14);
+  padding: var(--space-16);
   border-radius: var(--radius-hero);
   background: var(--cd-tint);
 }
@@ -102,7 +102,7 @@ const style = computed(() => ({ '--cd-tint': bg, '--cd-ink': fg }))
 
 .wide .date {
   font-weight: var(--fw-strong);
-  font-size: 12px;
+  font-size: var(--fs-12);
   letter-spacing: 0.1em;
   color: var(--cd-ink);
   text-transform: uppercase;
@@ -111,14 +111,14 @@ const style = computed(() => ({ '--cd-tint': bg, '--cd-ink': fg }))
 .wide .title {
   font-family: var(--font-display);
   font-weight: var(--fw-display);
-  font-size: 20px;
+  font-size: var(--fs-display-20);
   line-height: 1.15;
 }
 
 .wide .bar {
   display: block;
   height: 8px;
-  margin-top: 10px;
+  margin-top: var(--space-10);
   overflow: hidden;
   border-radius: var(--radius-pill);
   background: rgba(255, 255, 255, 0.65);
@@ -148,14 +148,14 @@ const style = computed(() => ({ '--cd-tint': bg, '--cd-ink': fg }))
 .badge-n {
   font-family: var(--font-display);
   font-weight: var(--fw-display);
-  font-size: 32px;
+  font-size: var(--fs-display-32);
   line-height: 1;
   color: var(--cd-ink);
 }
 
 .badge-l {
   font-weight: var(--fw-strong);
-  font-size: 12px;
+  font-size: var(--fs-12);
   color: var(--mute);
 }
 </style>

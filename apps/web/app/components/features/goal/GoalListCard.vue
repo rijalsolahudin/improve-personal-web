@@ -57,9 +57,9 @@ const palette = computed(() => ({
 .card {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: var(--space-10);
   width: 100%;
-  padding: 14px 16px;
+  padding: var(--space-14) var(--space-16);
   border: var(--border-thin) solid var(--line);
   border-radius: calc(22px * var(--rk));
   background: var(--paper);
@@ -74,7 +74,7 @@ const palette = computed(() => ({
 .row {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--space-12);
 }
 
 .text {
@@ -87,26 +87,26 @@ const palette = computed(() => ({
 .title {
   font-family: var(--font-display);
   font-weight: var(--fw-display);
-  font-size: 18px;
+  font-size: var(--fs-display-18);
   line-height: 1.15;
 }
 
 .meta {
   font-weight: var(--fw-body);
-  font-size: 13px;
+  font-size: var(--fs-13);
   color: var(--mute);
 }
 
 .pct {
   font-family: var(--font-display);
   font-weight: var(--fw-display);
-  font-size: 18px;
+  font-size: var(--fs-display-18);
   font-variant-numeric: tabular-nums;
 }
 
 .chips {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: var(--space-6);
 }
 </style>

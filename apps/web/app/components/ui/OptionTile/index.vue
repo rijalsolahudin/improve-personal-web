@@ -37,7 +37,7 @@ const {
   border-radius: calc(14px * var(--rk));
   background: var(--paper);
   color: var(--ink);
-  font-size: 20px;
+  font-size: var(--fs-20);
 }
 
 .tile[aria-pressed='true'] {

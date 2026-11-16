@@ -45,29 +45,29 @@ const summary = computed(() => {
 .pomodoro {
   display: flex;
   flex-direction: column;
-  gap: 20px;
-  padding-bottom: 80px;
+  gap: var(--space-20);
+  padding-bottom: var(--space-80);
 }
 
 .title {
   font-family: var(--font-display);
   font-weight: var(--fw-display);
-  font-size: 36px;
+  font-size: var(--fs-display-36);
   line-height: 1.1;
 }
 
 .summary {
-  margin-top: 4px;
+  margin-top: var(--space-4);
   font-weight: var(--fw-body);
-  font-size: 16px;
+  font-size: var(--fs-16);
   color: var(--mute);
 }
 
 .notice {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 14px 18px;
+  gap: var(--space-12);
+  padding: var(--space-14) var(--space-18);
   border-radius: calc(20px * var(--rk));
   background: var(--ink);
   color: var(--paper);
@@ -84,7 +84,7 @@ const summary = computed(() => {
 
 /* "Tutup" design: seukuran teks banner (16px), bukan 13px seperti link kecil Button. */
 .notice :deep(.btn.dismiss) {
-  font-size: 16px;
+  font-size: var(--fs-16);
 }
 
 .layout {
@@ -92,7 +92,7 @@ const summary = computed(() => {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-start;
-  gap: 20px;
+  gap: var(--space-20);
 }
 
 .rail {
@@ -103,7 +103,7 @@ const summary = computed(() => {
 .side {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: var(--space-16);
 }
 
 /*
@@ -120,8 +120,8 @@ const summary = computed(() => {
 
   .side {
     max-height: calc(100vh - 2 * var(--gap-desktop) + 12px);
-    margin: -6px;
-    padding: 6px;
+    margin: calc(-1 * var(--space-6));
+    padding: var(--space-6);
     overflow-y: auto;
     overscroll-behavior: contain;
   }
@@ -129,7 +129,7 @@ const summary = computed(() => {
 
 @media (max-width: 599px) {
   .title {
-    font-size: 28px;
+    font-size: var(--fs-display-28);
   }
 }
 </style>

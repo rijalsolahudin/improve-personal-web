@@ -12,10 +12,10 @@ const { tone } = defineProps<{ tone: GoalTone }>()
 <style scoped>
 .chip {
   display: inline-block;
-  padding: 3px 10px;
+  padding: 3px var(--space-10);
   border-radius: var(--radius-pill);
   font-weight: var(--fw-strong);
-  font-size: 12px;
+  font-size: var(--fs-12);
   white-space: nowrap;
 }
 

@@ -135,8 +135,8 @@ const protectionLabel = computed(() => {
 .card {
   display: flex;
   flex-direction: column;
-  gap: var(--space-8);
-  padding: var(--space-10);
+  gap: var(--space-16);
+  padding: var(--space-22);
   background: var(--surface-card);
   border: var(--border) solid var(--outline);
   border-radius: var(--radius-card);
@@ -146,7 +146,7 @@ const protectionLabel = computed(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-6);
+  gap: var(--space-12);
 }
 
 .card-title {
@@ -157,7 +157,7 @@ const protectionLabel = computed(() => {
 
 .usage {
   display: grid;
-  gap: var(--space-4);
+  gap: var(--space-8);
 }
 
 .usage-value {
@@ -166,7 +166,7 @@ const protectionLabel = computed(() => {
 }
 
 .badge {
-  padding: var(--space-1) var(--space-5);
+  padding: var(--space-2) var(--space-10);
   border-radius: var(--radius-pill);
   font-size: var(--fs-caption);
   white-space: nowrap;
@@ -194,7 +194,7 @@ const protectionLabel = computed(() => {
 }
 
 .warning {
-  padding: var(--space-5) var(--space-8);
+  padding: var(--space-10) var(--space-16);
   border-radius: var(--radius-inner);
   background: var(--prio-medium-bg);
   color: var(--prio-medium-fg);
@@ -205,7 +205,7 @@ const protectionLabel = computed(() => {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-6);
+  gap: var(--space-12);
 }
 
 .backup-link {

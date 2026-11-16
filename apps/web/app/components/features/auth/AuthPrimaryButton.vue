@@ -25,7 +25,7 @@ const {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
+  gap: var(--space-10);
   border: var(--border) solid var(--outline);
   border-radius: var(--radius-row);
   background: var(--ink);

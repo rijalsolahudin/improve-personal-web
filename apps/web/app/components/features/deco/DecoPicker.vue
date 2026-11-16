@@ -147,21 +147,21 @@ onBeforeUnmount(() => clearTimeout(timer))
 .top {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 22px 24px 12px;
+  gap: var(--space-12);
+  padding: var(--space-22) var(--space-24) var(--space-12);
 }
 
 .title-row {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 12px;
+  gap: var(--space-12);
 }
 
 .title {
   font-family: var(--font-display);
   font-weight: var(--fw-display);
-  font-size: 24px;
+  font-size: var(--fs-display-24);
   white-space: nowrap;
 }
 
@@ -184,15 +184,15 @@ onBeforeUnmount(() => clearTimeout(timer))
 
 .tabs {
   display: flex;
-  gap: 4px;
+  gap: var(--space-4);
   overflow-x: auto;
   padding-bottom: 2px;
 }
 
 .tabs button {
   flex-shrink: 0;
-  padding: 8px 14px;
-  font-size: 14px;
+  padding: var(--space-8) var(--space-14);
+  font-size: var(--fs-14);
 }
 
 .tabs .on {
@@ -207,16 +207,16 @@ onBeforeUnmount(() => clearTimeout(timer))
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(86px, 1fr));
   align-content: start;
-  gap: 8px;
-  padding: 4px 24px 18px;
+  gap: var(--space-8);
+  padding: var(--space-4) var(--space-24) var(--space-18);
 }
 
 .cell {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
-  padding: 10px 4px 8px;
+  gap: var(--space-4);
+  padding: var(--space-10) var(--space-4) var(--space-8);
   border: var(--border) solid transparent;
   border-radius: var(--radius-row);
   background: #fbf3e6;
@@ -234,18 +234,18 @@ onBeforeUnmount(() => clearTimeout(timer))
 
 .name {
   font-weight: var(--fw-strong);
-  font-size: 12px;
+  font-size: var(--fs-12);
   line-height: 1.2;
   text-align: center;
 }
 
 .footer {
-  padding: 12px 24px 18px;
+  padding: var(--space-12) var(--space-24) var(--space-18);
   border-top: var(--border-thin) dashed var(--line);
 }
 
 .empty {
-  padding: 0 24px 22px;
+  padding: 0 var(--space-24) var(--space-22);
   text-align: center;
   font-weight: var(--fw-body);
   color: var(--mute);

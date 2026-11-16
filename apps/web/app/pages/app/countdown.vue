@@ -136,8 +136,8 @@ function openEdit(id: string): void {
 .countdown {
   display: flex;
   flex-direction: column;
-  gap: 22px;
-  padding-bottom: 80px;
+  gap: var(--space-22);
+  padding-bottom: var(--space-80);
 }
 
 .header {
@@ -145,38 +145,38 @@ function openEdit(id: string): void {
   flex-wrap: wrap;
   align-items: flex-end;
   justify-content: space-between;
-  gap: 16px;
+  gap: var(--space-16);
 }
 
 .title {
   font-family: var(--font-display);
   font-weight: var(--fw-display);
-  font-size: 36px;
+  font-size: var(--fs-display-36);
   line-height: 1.1;
 }
 
 .summary {
-  margin-top: 4px;
+  margin-top: var(--space-4);
   font-weight: var(--fw-body);
-  font-size: 16px;
+  font-size: var(--fs-16);
   color: var(--mute);
 }
 
 .group-title {
-  margin-bottom: 12px;
+  margin-bottom: var(--space-12);
   font-family: var(--font-display);
   font-weight: var(--fw-display);
-  font-size: 22px;
+  font-size: var(--fs-display-22);
 }
 
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr));
-  gap: 14px;
+  gap: var(--space-14);
 }
 
 .empty {
-  padding: 22px;
+  padding: var(--space-22);
   border: var(--border) dashed var(--dash-2);
   border-radius: var(--radius-hero);
   text-align: center;
@@ -185,17 +185,17 @@ function openEdit(id: string): void {
 }
 
 .archive .grid {
-  margin-top: 12px;
+  margin-top: var(--space-12);
 }
 
 /* Design "Lihat arsip": 14px (Button link = 13px). */
 .archive .archive-toggle {
-  font-size: 14px;
+  font-size: var(--fs-14);
 }
 
 @media (max-width: 599px) {
   .title {
-    font-size: 28px;
+    font-size: var(--fs-display-28);
   }
 }
 </style>

@@ -80,7 +80,7 @@ const daysLeftLabel = computed(() => {
 .hero {
   --btn-ink: var(--goal-text);
 
-  padding: 26px 28px;
+  padding: var(--space-28) var(--space-28);
   border-radius: var(--radius-panel);
   background-color: var(--goal-tint);
 }
@@ -94,16 +94,16 @@ const daysLeftLabel = computed(() => {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-8);
 }
 
 .chip {
-  padding: 4px 12px;
+  padding: var(--space-4) var(--space-12);
   border-radius: var(--radius-pill);
   background: var(--paper);
   color: var(--goal-text);
   font-weight: var(--fw-strong);
-  font-size: 13px;
+  font-size: var(--fs-13);
 }
 
 .chip.solid {
@@ -113,7 +113,7 @@ const daysLeftLabel = computed(() => {
 
 .range {
   font-weight: var(--fw-strong);
-  font-size: 13px;
+  font-size: var(--fs-13);
   color: var(--goal-text);
 }
 
@@ -121,8 +121,8 @@ const daysLeftLabel = computed(() => {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 20px;
-  margin-top: 10px;
+  gap: var(--space-20);
+  margin-top: var(--space-10);
 }
 
 .cover {
@@ -151,7 +151,7 @@ const daysLeftLabel = computed(() => {
 
 .cover-hint {
   font-weight: var(--fw-strong);
-  font-size: 12px;
+  font-size: var(--fs-12);
   line-height: 1.3;
   color: var(--goal-text);
 }
@@ -164,14 +164,14 @@ const daysLeftLabel = computed(() => {
 .title {
   font-family: var(--font-display);
   font-weight: var(--fw-display);
-  font-size: 36px;
+  font-size: var(--fs-display-36);
   line-height: 1.1;
 }
 
 .why {
-  margin-top: 6px;
+  margin-top: var(--space-6);
   font-weight: var(--fw-body);
-  font-size: 16px;
+  font-size: var(--fs-16);
   color: var(--goal-text);
   text-wrap: pretty;
 }
@@ -185,21 +185,21 @@ const daysLeftLabel = computed(() => {
 .ring-pct {
   font-family: var(--font-display);
   font-weight: var(--fw-display);
-  font-size: 26px;
+  font-size: var(--fs-display-26);
   line-height: 1;
 }
 
 .ring-sub {
   font-weight: var(--fw-strong);
-  font-size: 11px;
+  font-size: var(--fs-11);
   color: var(--goal-text);
 }
 
 .actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
-  margin-top: 18px;
+  gap: var(--space-10);
+  margin-top: var(--space-18);
 }
 
 /*
@@ -210,16 +210,16 @@ const daysLeftLabel = computed(() => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: var(--space-8);
   box-sizing: border-box;
-  padding: 10px 18px;
+  padding: var(--space-10) var(--space-18);
   border: none;
   border-radius: var(--radius-pill);
   background: var(--goal-text);
   color: var(--paper);
   font-family: var(--font-body);
   font-weight: var(--fw-strong);
-  font-size: 14px;
+  font-size: var(--fs-14);
   line-height: 1.2;
   white-space: nowrap;
   text-decoration: none;
@@ -233,17 +233,17 @@ const daysLeftLabel = computed(() => {
 /* "Edit goal" design: pill paper 14px/800, padding 10px 18px (Button sm = 36px/13px). */
 .actions :deep(.btn-sm) {
   min-height: 38px;
-  padding: 10px 18px;
-  font-size: 14px;
+  padding: var(--space-10) var(--space-18);
+  font-size: var(--fs-14);
 }
 
 @media (max-width: 599px) {
   .hero {
-    padding: 20px;
+    padding: var(--space-20);
   }
 
   .title {
-    font-size: 28px;
+    font-size: var(--fs-display-28);
   }
 }
 </style>

@@ -214,14 +214,14 @@ function toggleTime(): void {
 .form {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: var(--space-16);
 }
 
 .preview {
   display: flex;
   align-items: center;
-  gap: 14px;
-  padding: 14px 16px;
+  gap: var(--space-14);
+  padding: var(--space-14) var(--space-16);
   border-radius: var(--radius-card);
   background: var(--cd-soft);
 }
@@ -237,7 +237,7 @@ function toggleTime(): void {
   border-radius: calc(18px * var(--rk)) calc(18px * var(--rk)) calc(18px * var(--rk))
     calc(6px * var(--rk));
   background: var(--paper);
-  font-size: 28px;
+  font-size: var(--fs-28);
   transform: rotate(calc(-5deg * var(--bev)));
 }
 
@@ -250,13 +250,13 @@ function toggleTime(): void {
 .preview-title {
   font-family: var(--font-display);
   font-weight: var(--fw-display);
-  font-size: 19px;
+  font-size: var(--fs-display-19);
   line-height: 1.15;
 }
 
 .preview-left {
   font-weight: var(--fw-strong);
-  font-size: 14px;
+  font-size: var(--fs-14);
   color: var(--cd-deep);
 }
 
@@ -264,26 +264,26 @@ function toggleTime(): void {
   height: 46px;
   display: flex;
   align-items: center;
-  padding: 0 14px;
+  padding: 0 var(--space-14);
   border: none;
   border-radius: var(--radius-btn-sq);
   background: var(--alt);
   color: var(--mute-2);
   font-weight: var(--fw-strong);
-  font-size: 14px;
+  font-size: var(--fs-14);
 }
 
 .pair {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 12px;
+  gap: var(--space-12);
 }
 
 .switch-row {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 12px 14px;
+  gap: var(--space-12);
+  padding: var(--space-12) var(--space-14);
   border-radius: var(--radius-row);
   background: var(--alt);
 }
@@ -297,7 +297,7 @@ function toggleTime(): void {
 
 /* Design tautan "Pakai jam"/"Sepanjang hari": 12px (Button link = 13px). */
 .form .time-toggle {
-  font-size: 12px;
+  font-size: var(--fs-12);
 }
 
 .switch-text {
@@ -308,32 +308,32 @@ function toggleTime(): void {
 
 .switch-title {
   font-weight: var(--fw-strong);
-  font-size: 15px;
+  font-size: var(--fs-15);
 }
 
 .switch-hint {
   font-weight: var(--fw-body);
-  font-size: 12px;
+  font-size: var(--fs-12);
   color: var(--mute);
 }
 
 .emojis {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: var(--space-6);
 }
 
 .colors {
-  margin-top: 10px;
+  margin-top: var(--space-10);
 }
 
 .error {
-  padding: 10px 14px;
+  padding: var(--space-10) var(--space-14);
   border-radius: calc(14px * var(--rk));
   background: #ffe1da;
   color: #9a2a14;
   font-weight: var(--fw-strong);
-  font-size: 14px;
+  font-size: var(--fs-14);
 }
 
 .actions {
@@ -341,7 +341,7 @@ function toggleTime(): void {
   flex-wrap: wrap;
   align-items: center;
   justify-content: flex-end;
-  gap: 10px;
+  gap: var(--space-10);
 }
 
 .spacer {

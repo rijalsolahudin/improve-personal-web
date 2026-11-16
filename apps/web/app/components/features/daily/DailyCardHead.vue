@@ -48,7 +48,7 @@ const {
 .head {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-10);
 }
 
 .titles {
@@ -78,7 +78,7 @@ const {
   flex-shrink: 0;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-8);
 }
 
 .track {
@@ -92,7 +92,7 @@ const {
 .meta {
   font-family: var(--font-display);
   font-weight: var(--fw-display);
-  font-size: 15px;
+  font-size: var(--fs-display-15);
   line-height: 1;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;

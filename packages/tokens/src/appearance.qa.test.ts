@@ -147,8 +147,10 @@ describe('token tampilan (F16)', () => {
     expect(css).not.toContain(`[data-style='cute-pure'] [data-deco-builtin]`)
   })
 
-  it('ganti gaya tidak mengubah token layout (tanpa layout shift)', () => {
+  it('gaya tidak menimpa token layout langsung (hanya lewat pengali)', () => {
     // Token geometri: spasi, ukuran font, line-height, tracking, target tap, ukuran grid latar.
+    // Sejak task #142 ukuran & spasi sengaja ikut gaya, tetapi hanya lewat pengali (`--fk*`, `--dk`)
+    // supaya skala tetap satu sumber; gaya tidak boleh menimpa token anak tangganya satu per satu.
     const tokenLayout = /^(space-|gap-|fs-|lh-|tracking-|tap-min|grid-(desktop|mobile)$)/
     const pelanggaran: string[] = []
 

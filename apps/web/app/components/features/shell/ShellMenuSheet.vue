@@ -80,13 +80,13 @@ const groups = [
 .groups {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--space-12);
 }
 
 .group {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-8);
 }
 
 .group-title {
@@ -100,15 +100,15 @@ const groups = [
 .grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 6px;
+  gap: var(--space-6);
 }
 
 .item {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
-  padding: 10px 2px 8px;
+  gap: var(--space-6);
+  padding: var(--space-10) 2px var(--space-8);
   border-radius: var(--radius-row);
   border: var(--border) solid transparent;
   color: var(--ink);
@@ -131,7 +131,7 @@ const groups = [
 
 .label {
   font-weight: var(--fw-strong);
-  font-size: 12px;
+  font-size: var(--fs-12);
   line-height: 1.15;
   text-align: center;
 }

@@ -60,7 +60,7 @@ const style = computed(() => (isPreset.value ? undefined : { background: tone })
 .value {
   font-family: var(--font-display);
   font-weight: var(--fw-display);
-  font-size: clamp(24px, 14cqi, 54px);
+  font-size: calc(clamp(24px, 14cqi, 54px) * var(--fk-display));
   line-height: 1;
   white-space: nowrap;
 }
@@ -79,13 +79,13 @@ const style = computed(() => (isPreset.value ? undefined : { background: tone })
 }
 
 .unit {
-  margin-left: 4px;
+  margin-left: var(--space-4);
   font-size: 0.5em;
 }
 
 .label {
   font-weight: var(--fw-strong);
-  font-size: clamp(13px, 5.6cqi, 19px);
+  font-size: calc(clamp(13px, 5.6cqi, 19px) * var(--fk));
   line-height: 1.25;
   color: var(--deep);
   text-wrap: pretty;

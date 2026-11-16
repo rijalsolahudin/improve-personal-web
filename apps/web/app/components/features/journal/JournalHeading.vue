@@ -14,10 +14,10 @@ const { title, dot = 'var(--accent)' } = defineProps<{ title: string; dot?: stri
 .head {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-8);
   font-family: var(--font-display);
   font-weight: var(--fw-display);
-  font-size: 17px;
+  font-size: var(--fs-display-17);
   line-height: 1.2;
 }
 

@@ -39,6 +39,6 @@ const current = computed(() => ({ goalId, goalChapterId: chapterId }))
 .pills {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: var(--space-6);
 }
 </style>

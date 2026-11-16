@@ -1,7 +1,6 @@
 /** Shape, spacing, dan tipografi (tokens/shape.css, spacing.css, typography.css). */
 
 export const radius = {
-  'radius-pill': '999px',
   'radius-panel': '32px',
   'radius-tabbar': '30px',
   'radius-sticker': '26px',
@@ -36,19 +35,27 @@ export const motion = {
   dur: '.2s',
 } as const
 
+/**
+ * Anak tangga spasi (px) → `--space-<px>`, dikali pengali kerapatan gaya (`--dk`). Komponen memakai
+ * token ini, bukan px mentah, supaya gaya lapang/rapat bisa mengatur jarak seluruh app sekaligus.
+ */
+export const SPACE_STEPS = [
+  2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 28, 32, 36, 40, 44, 48, 56, 64, 80, 96, 112,
+] as const
+
+/**
+ * Anak tangga ukuran font (px). Tiap nilai jadi tiga token sesuai peran keluarga font, masing-masing
+ * dikali pengali gaya: `--fs-<px>` (teks UI, `--fk`), `--fs-display-<px>` (judul, `--fk-display`),
+ * `--fs-hand-<px>` (tulisan tangan, `--fk-hand`). Keluarga font tiap gaya punya proporsi berbeda,
+ * jadi satu pengali untuk semua teks tidak cukup.
+ */
+export const FONT_SIZES = [
+  8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 24, 26, 28, 30, 32, 34, 36, 38, 40, 42,
+  44, 56, 64,
+] as const
+
+/** Token tata letak yang tidak ikut skala gaya (target tap & grid latar harus tetap). */
 export const space = {
-  'space-1': '2px',
-  'space-2': '4px',
-  'space-3': '6px',
-  'space-4': '8px',
-  'space-5': '10px',
-  'space-6': '12px',
-  'space-7': '14px',
-  'space-8': '16px',
-  'space-9': '18px',
-  'space-10': '22px',
-  'space-11': '28px',
-  'space-12': '32px',
   'gap-mobile': '16px',
   'gap-desktop': '28px',
   'tap-min': '44px',
@@ -62,25 +69,26 @@ export const fontFamily = {
   'font-hand': "'Patrick Hand', cursive",
 } as const
 
+/** Ukuran semantik menunjuk anak tangga `FONT_SIZES`, jadi ikut pengali gaya yang sesuai perannya. */
 export const typography = {
   'fw-body': '700',
   'fw-strong': '800',
-  'fs-hero': '64px',
-  'fs-h1-desktop': '36px',
-  'fs-h1': '30px',
-  'fs-stat-xl': '32px',
-  'fs-stat': '26px',
-  'fs-h2': '20px',
-  'fs-h3': '18px',
-  'fs-body-lg': '16px',
-  'fs-body': '15px',
-  'fs-body-sm': '14px',
-  'fs-caption': '13px',
-  'fs-meta': '12px',
-  'fs-eyebrow': '11px',
-  'fs-hand-title': '22px',
-  'fs-hand-body': '19px',
-  'fs-hand-label': '13px',
+  'fs-hero': 'var(--fs-display-64)',
+  'fs-h1-desktop': 'var(--fs-display-36)',
+  'fs-h1': 'var(--fs-display-30)',
+  'fs-stat-xl': 'var(--fs-display-32)',
+  'fs-stat': 'var(--fs-display-26)',
+  'fs-h2': 'var(--fs-display-20)',
+  'fs-h3': 'var(--fs-display-18)',
+  'fs-body-lg': 'var(--fs-16)',
+  'fs-body': 'var(--fs-15)',
+  'fs-body-sm': 'var(--fs-14)',
+  'fs-caption': 'var(--fs-13)',
+  'fs-meta': 'var(--fs-12)',
+  'fs-eyebrow': 'var(--fs-11)',
+  'fs-hand-title': 'var(--fs-hand-22)',
+  'fs-hand-body': 'var(--fs-hand-19)',
+  'fs-hand-label': 'var(--fs-hand-13)',
   'lh-tight': '1.05',
   'lh-title': '1.15',
   'lh-body': '1.25',

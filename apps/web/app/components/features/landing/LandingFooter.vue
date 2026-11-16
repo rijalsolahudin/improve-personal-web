@@ -20,8 +20,8 @@
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  padding-top: 20px;
+  gap: var(--space-16);
+  padding-top: var(--space-20);
   border-top: var(--border-thin) dashed #d9c3a0;
   font-weight: var(--fw-body);
   font-size: var(--fs-body-sm);
@@ -31,11 +31,11 @@
 .brand {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-8);
 }
 
 .links {
   display: flex;
-  gap: 18px;
+  gap: var(--space-18);
 }
 </style>

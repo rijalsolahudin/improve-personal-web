@@ -37,7 +37,7 @@ const priority = defineModel<Priority>({ required: true })
 }
 
 .blocks {
-  gap: 8px;
+  gap: var(--space-8);
 }
 
 button {
@@ -47,17 +47,17 @@ button {
 }
 
 .pills button {
-  padding: 8px 12px;
+  padding: var(--space-8) var(--space-12);
   border-radius: var(--radius-pill);
   background: transparent;
-  font-size: 13px;
+  font-size: var(--fs-13);
 }
 
 .blocks button {
   flex: 1;
-  padding: 10px;
+  padding: var(--space-10);
   border-radius: calc(14px * var(--rk));
-  font-size: 14px;
+  font-size: var(--fs-14);
 }
 
 .level-urgent {

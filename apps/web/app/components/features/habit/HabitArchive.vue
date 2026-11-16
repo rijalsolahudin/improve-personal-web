@@ -54,7 +54,7 @@ async function restore(id: string): Promise<void> {
 
 <style scoped>
 .archive {
-  padding: 4px 0 10px;
+  padding: var(--space-4) 0 var(--space-10);
   border: var(--border-thin) solid var(--line);
   border-radius: calc(20px * var(--rk));
   background: var(--paper);
@@ -63,12 +63,12 @@ async function restore(id: string): Promise<void> {
 .summary {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 10px 20px;
+  gap: var(--space-8);
+  padding: var(--space-10) var(--space-20);
   list-style: none;
   cursor: pointer;
   font-weight: var(--fw-strong);
-  font-size: 12px;
+  font-size: var(--fs-12);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--mute);
@@ -89,9 +89,9 @@ async function restore(id: string): Promise<void> {
 }
 
 .hint {
-  padding: 0 20px 6px;
+  padding: 0 var(--space-20) var(--space-6);
   font-weight: var(--fw-body);
-  font-size: 12px;
+  font-size: var(--fs-12);
   color: var(--mute);
 }
 
@@ -106,8 +106,8 @@ async function restore(id: string): Promise<void> {
 .item {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 8px 20px;
+  gap: var(--space-12);
+  padding: var(--space-8) var(--space-20);
   border-top: var(--border-thin) solid var(--line-2);
 }
 
@@ -118,16 +118,16 @@ async function restore(id: string): Promise<void> {
   white-space: nowrap;
   text-overflow: ellipsis;
   font-weight: var(--fw-strong);
-  font-size: 14px;
+  font-size: var(--fs-14);
 }
 
 .error {
-  margin: 8px 20px 0;
-  padding: 10px 14px;
+  margin: var(--space-8) var(--space-20) 0;
+  padding: var(--space-10) var(--space-14);
   border-radius: calc(14px * var(--rk));
   background: #ffe1da;
   color: #9a2a14;
   font-weight: var(--fw-strong);
-  font-size: 13px;
+  font-size: var(--fs-13);
 }
 </style>

@@ -135,8 +135,8 @@ function editTask(taskId: string): void {
 .calendar {
   display: flex;
   flex-direction: column;
-  gap: 20px;
-  padding-bottom: 80px;
+  gap: var(--space-20);
+  padding-bottom: var(--space-80);
 }
 
 .layout {
@@ -144,13 +144,13 @@ function editTask(taskId: string): void {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-start;
-  gap: 20px;
+  gap: var(--space-20);
 }
 
 .board {
   flex: 999 1 560px;
   min-width: 0;
-  padding: 16px;
+  padding: var(--space-16);
   border: var(--border-thin) solid var(--line);
   border-radius: calc(28px * var(--rk));
   background: var(--paper);
@@ -181,8 +181,8 @@ function editTask(taskId: string): void {
 
   .side {
     max-height: calc(100vh - 2 * var(--gap-desktop) + 12px);
-    margin: -6px;
-    padding: 6px;
+    margin: calc(-1 * var(--space-6));
+    padding: var(--space-6);
     overflow-y: auto;
     overscroll-behavior: contain;
   }
@@ -195,7 +195,7 @@ function editTask(taskId: string): void {
 
   .board {
     flex-basis: 100%;
-    padding: 10px;
+    padding: var(--space-10);
     border-radius: var(--radius-card);
   }
 }

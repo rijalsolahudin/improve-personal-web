@@ -60,13 +60,13 @@ const progressLabel = computed(() =>
   align-items: flex-end;
   justify-content: space-between;
   flex-wrap: wrap;
-  gap: 16px 24px;
+  gap: var(--space-16) var(--space-24);
 }
 
 .titles {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-8);
 }
 
 .date {
@@ -79,7 +79,7 @@ const progressLabel = computed(() =>
 .greeting {
   font-family: var(--font-display);
   font-weight: var(--fw-display);
-  font-size: 38px;
+  font-size: var(--fs-display-38);
   line-height: var(--lh-tight);
 }
 
@@ -87,21 +87,21 @@ const progressLabel = computed(() =>
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-6);
   margin-top: 2px;
 }
 
 .divider {
   width: 1.5px;
   height: 22px;
-  margin: 0 6px;
+  margin: 0 var(--space-6);
   background: var(--line-2);
 }
 
 .summary {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-8);
   max-width: 100%;
 }
 
@@ -117,8 +117,8 @@ const progressLabel = computed(() =>
   flex-shrink: 0;
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 0 14px 0 7px;
+  gap: var(--space-12);
+  padding: 0 var(--space-14) 0 var(--space-8);
   border: var(--border) solid var(--outline);
   border-radius: var(--radius-pill);
   background: var(--paper);

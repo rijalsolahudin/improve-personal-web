@@ -153,20 +153,20 @@ async function submit(): Promise<void> {
 .profile {
   display: flex;
   flex-direction: column;
-  gap: var(--space-9);
+  gap: var(--space-18);
 }
 
 .photo-row {
   display: flex;
   align-items: center;
-  gap: var(--space-9);
+  gap: var(--space-18);
 }
 
 .photo-actions {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: var(--space-5);
+  gap: var(--space-10);
 }
 
 .email,
@@ -176,7 +176,7 @@ async function submit(): Promise<void> {
 }
 
 .error {
-  padding: var(--space-5) var(--space-8);
+  padding: var(--space-10) var(--space-16);
   border-radius: var(--radius-inner);
   background: var(--prio-urgent-bg);
   color: var(--danger);
@@ -186,6 +186,6 @@ async function submit(): Promise<void> {
 .actions {
   display: flex;
   justify-content: flex-end;
-  gap: var(--space-6);
+  gap: var(--space-12);
 }
 </style>

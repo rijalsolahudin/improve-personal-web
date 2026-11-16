@@ -22,15 +22,15 @@ const { feature } = defineProps<{ feature: Feature }>()
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 4px;
+  gap: var(--space-4);
   text-align: center;
 }
 
 .title {
-  margin-top: 14px;
+  margin-top: var(--space-14);
   font-family: var(--font-display);
   font-weight: var(--fw-display);
-  font-size: 32px;
+  font-size: var(--fs-display-32);
   line-height: var(--lh-title);
 }
 
@@ -40,7 +40,7 @@ const { feature } = defineProps<{ feature: Feature }>()
 }
 
 .back {
-  margin-top: 14px;
+  margin-top: var(--space-14);
   font-weight: var(--fw-strong);
 }
 

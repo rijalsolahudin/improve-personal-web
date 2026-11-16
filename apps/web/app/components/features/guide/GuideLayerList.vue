@@ -24,7 +24,7 @@ const { layers, numbered = false } = defineProps<{
 .layers {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr));
-  gap: 10px;
+  gap: var(--space-10);
   margin: 0;
   padding: 0;
   list-style: none;
@@ -32,9 +32,9 @@ const { layers, numbered = false } = defineProps<{
 
 .layer {
   display: flex;
-  gap: 10px;
+  gap: var(--space-10);
   align-items: flex-start;
-  padding: 14px;
+  padding: var(--space-14);
   border-radius: var(--radius-inner);
   background: var(--surface-inset, var(--soft));
 }

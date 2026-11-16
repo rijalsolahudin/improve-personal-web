@@ -41,7 +41,7 @@ const emit = defineEmits<{ toggle: [] }>()
   background: var(--paper);
   color: var(--paper);
   font-weight: var(--fw-strong);
-  font-size: 15px;
+  font-size: var(--fs-15);
 }
 
 .checkbox.size-md {
@@ -49,7 +49,7 @@ const emit = defineEmits<{ toggle: [] }>()
   height: 22px;
   border-radius: calc(8px * var(--rk)) calc(8px * var(--rk)) calc(8px * var(--rk))
     calc(3px * var(--rk));
-  font-size: 12px;
+  font-size: var(--fs-12);
 }
 
 .checkbox.size-sm {
@@ -58,7 +58,7 @@ const emit = defineEmits<{ toggle: [] }>()
   border-width: var(--border-thin);
   border-radius: calc(5px * var(--rk)) calc(5px * var(--rk)) calc(5px * var(--rk))
     calc(2px * var(--rk));
-  font-size: 11px;
+  font-size: var(--fs-11);
 }
 
 .checkbox[aria-checked='true'] {

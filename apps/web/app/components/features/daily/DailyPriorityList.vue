@@ -83,21 +83,21 @@ const visible = computed(() =>
 .prio {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--space-12);
 }
 
 .head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: var(--space-10);
   padding: 0 2px;
 }
 
 .title-row {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-10);
 }
 
 .title {
@@ -110,7 +110,7 @@ const visible = computed(() =>
 .link {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-6);
   font-weight: var(--fw-strong);
   font-size: var(--fs-caption);
   white-space: nowrap;
@@ -126,14 +126,14 @@ const visible = computed(() =>
 .list {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: var(--space-10);
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
 .empty {
-  padding: 14px 16px;
+  padding: var(--space-14) var(--space-16);
   border: var(--border-thin) dashed var(--dash);
   border-radius: calc(20px * var(--rk));
   font-family: var(--font-hand);
@@ -148,9 +148,11 @@ const visible = computed(() =>
 }
 .add {
   display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 4px 14px;
+  /* Baseline, bukan center: tiap gaya memasangkan font `+` dan font tulisan tangan yang posisi
+     glyph-nya di line box berbeda (Special Elite duduk tinggi), jadi center membuat `+` turun. */
+  align-items: baseline;
+  gap: var(--space-12);
+  padding: var(--space-4) var(--space-14);
   border: var(--border-thin) dashed var(--dash);
   border-radius: var(--radius-pill);
 }
@@ -174,7 +176,7 @@ const visible = computed(() =>
   width: 22px;
   text-align: center;
   font-weight: var(--fw-strong);
-  font-size: 18px;
+  font-size: var(--fs-18);
   color: var(--accent);
 }
 
@@ -186,7 +188,7 @@ const visible = computed(() =>
   font-family: var(--font-hand);
   /* Patrick Hand hanya punya weight 400; input mewarisi `--fw-body` (700) → faux-bold. */
   font-weight: 400;
-  font-size: 18px;
+  font-size: var(--fs-hand-18);
   line-height: 32px;
 }
 </style>

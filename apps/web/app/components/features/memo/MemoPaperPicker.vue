@@ -26,7 +26,7 @@ const model = defineModel<MemoPaperName>({ required: true })
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-6);
 }
 
 .eyebrow-label {

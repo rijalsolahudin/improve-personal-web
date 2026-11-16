@@ -31,7 +31,7 @@ const options = computed(() =>
 <style scoped>
 .weather {
   display: flex;
-  gap: 6px;
+  gap: var(--space-6);
 }
 
 .option {

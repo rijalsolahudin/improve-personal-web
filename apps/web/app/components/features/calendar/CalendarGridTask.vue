@@ -45,8 +45,8 @@ const style = computed(() => ({
   min-width: 0;
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 0 8px;
+  gap: var(--space-6);
+  padding: 0 var(--space-8);
   border: calc(1.5px * var(--bk)) dashed var(--dash-2);
   border-radius: calc(10px * var(--rk));
   background: var(--paper);
@@ -55,7 +55,7 @@ const style = computed(() => ({
 }
 
 .marker.compact {
-  padding: 3px 5px;
+  padding: 3px var(--space-6);
 }
 
 .marker:hover {
@@ -75,7 +75,7 @@ const style = computed(() => ({
   background: var(--paper);
   color: var(--paper);
   font-weight: var(--fw-strong);
-  font-size: 9px;
+  font-size: var(--fs-9);
 }
 
 .done .box {
@@ -91,7 +91,7 @@ const style = computed(() => ({
   -webkit-box-orient: vertical;
   overflow-wrap: anywhere;
   font-weight: var(--fw-medium);
-  font-size: 12.5px;
+  font-size: var(--fs-13);
   line-height: 1.2;
 }
 
@@ -115,7 +115,7 @@ const style = computed(() => ({
 .time {
   flex-shrink: 0;
   font-weight: var(--fw-body);
-  font-size: 10.5px;
+  font-size: var(--fs-11);
   color: var(--mute-3);
   font-variant-numeric: tabular-nums;
 }

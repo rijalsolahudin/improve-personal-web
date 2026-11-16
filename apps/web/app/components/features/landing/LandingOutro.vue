@@ -37,7 +37,7 @@ const STICKERS: readonly { name: MascotName; tilt: number }[] = [
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 22px;
+  gap: var(--space-22);
   text-align: center;
 }
 
@@ -46,14 +46,14 @@ const STICKERS: readonly { name: MascotName; tilt: number }[] = [
   flex-wrap: wrap;
   align-items: flex-end;
   justify-content: center;
-  gap: 6px;
+  gap: var(--space-6);
 }
 
 .heading {
   max-width: 14em;
   font-family: var(--font-display);
   font-weight: var(--fw-display);
-  font-size: clamp(36px, 5vw, 60px);
+  font-size: calc(clamp(36px, 5vw, 60px) * var(--fk-display));
   line-height: var(--lh-tight);
   text-wrap: balance;
 }
@@ -61,19 +61,19 @@ const STICKERS: readonly { name: MascotName; tilt: number }[] = [
 .lead {
   max-width: 28em;
   font-weight: var(--fw-medium);
-  font-size: 18px;
+  font-size: var(--fs-18);
   line-height: 1.55;
   color: #6e604e;
 }
 
 .cta {
-  padding: 18px 34px;
+  padding: var(--space-18) var(--space-36);
   border: var(--border-thick) solid var(--outline);
   border-radius: var(--radius-pill);
   background: var(--accent);
   color: #fffbf4;
   font-weight: var(--fw-strong);
-  font-size: 18px;
+  font-size: var(--fs-18);
   box-shadow: calc(5px * var(--sx)) calc(5px * var(--sy)) calc(5px * var(--sbl))
     var(--shadow-color, var(--ink));
   transition: transform 0.12s;

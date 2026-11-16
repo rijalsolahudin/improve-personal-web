@@ -68,8 +68,8 @@ const pool = computed(() => unsortedTasks(tasks.value))
 .eisenhower {
   display: flex;
   flex-direction: column;
-  gap: 20px;
-  padding-bottom: 80px;
+  gap: var(--space-20);
+  padding-bottom: var(--space-80);
 }
 
 .header {
@@ -77,33 +77,33 @@ const pool = computed(() => unsortedTasks(tasks.value))
   flex-wrap: wrap;
   align-items: flex-end;
   justify-content: space-between;
-  gap: 16px;
+  gap: var(--space-16);
 }
 
 .title {
   font-family: var(--font-display);
   font-weight: var(--fw-display);
-  font-size: 36px;
+  font-size: var(--fs-display-36);
   line-height: 1.1;
 }
 
 .summary {
-  margin-top: 4px;
+  margin-top: var(--space-4);
   font-weight: var(--fw-body);
-  font-size: 16px;
+  font-size: var(--fs-16);
   color: var(--mute);
 }
 
 /* Design: CTA header padding 0 18 (primitif Button md 0 20). */
 .header > .btn {
-  padding: 0 18px;
+  padding: 0 var(--space-18);
 }
 
 .layout {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-start;
-  gap: 20px;
+  gap: var(--space-20);
 }
 
 .matrix {
@@ -112,12 +112,12 @@ const pool = computed(() => unsortedTasks(tasks.value))
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   grid-auto-rows: minmax(260px, auto);
-  gap: 16px;
+  gap: var(--space-16);
 }
 
 @media (max-width: 599px) {
   .title {
-    font-size: 28px;
+    font-size: var(--fs-display-28);
   }
 
   .matrix {

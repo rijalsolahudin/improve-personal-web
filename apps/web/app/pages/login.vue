@@ -67,13 +67,13 @@ const AuthOtpStep = defineAsyncComponent(() => import('~/components/features/aut
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: 20px;
+  gap: var(--space-20);
   padding: clamp(24px, 4vw, 44px);
 }
 
 .terms {
   margin-top: auto;
-  padding-top: 8px;
+  padding-top: var(--space-8);
   font-weight: var(--fw-medium);
   font-size: var(--fs-meta);
   line-height: 1.5;

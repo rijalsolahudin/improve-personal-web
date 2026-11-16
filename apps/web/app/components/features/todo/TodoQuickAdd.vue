@@ -45,8 +45,8 @@ function submit(): void {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 10px;
-  padding: 18px 20px;
+  gap: var(--space-10);
+  padding: var(--space-18) var(--space-20);
   border-radius: calc(28px * var(--rk));
   background-color: var(--primary);
   background-size: 20px 20px;
@@ -63,7 +63,7 @@ function submit(): void {
 /* Design quick add: kolom tanggal & tombol Tambah lebih ringkas/pendek dari default Input/Button
    (tanggal 10px, tombol 46px). Awalan `.quick` supaya menang atas style komponen. */
 .quick .date {
-  padding: 10px 14px;
+  padding: var(--space-10) var(--space-14);
 }
 
 .quick .submit {

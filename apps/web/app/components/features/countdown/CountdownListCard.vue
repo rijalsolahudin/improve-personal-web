@@ -73,7 +73,7 @@ const badge = computed(() => {
 .card {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: var(--space-10);
 }
 
 .card.dim .title,
@@ -89,7 +89,7 @@ const badge = computed(() => {
 .head {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--space-12);
   padding: 0;
   border: none;
   background: none;
@@ -111,7 +111,7 @@ const badge = computed(() => {
   border-radius: calc(18px * var(--rk)) calc(18px * var(--rk)) calc(18px * var(--rk))
     calc(6px * var(--rk));
   background: var(--paper);
-  font-size: 26px;
+  font-size: var(--fs-26);
   transform: rotate(calc(-5deg * var(--bev)));
 }
 
@@ -125,13 +125,13 @@ const badge = computed(() => {
 .title {
   font-family: var(--font-display);
   font-weight: var(--fw-display);
-  font-size: 19px;
+  font-size: var(--fs-display-19);
   line-height: 1.15;
 }
 
 .sub {
   font-weight: var(--fw-body);
-  font-size: 12px;
+  font-size: var(--fs-12);
   color: var(--ink-2);
 }
 
@@ -142,7 +142,7 @@ const badge = computed(() => {
   flex-direction: column;
   align-items: center;
   gap: 3px;
-  padding: 6px 8px 5px;
+  padding: var(--space-6) var(--space-8) var(--space-6);
   border: var(--border) solid var(--outline);
   border-radius: calc(16px * var(--rk)) calc(16px * var(--rk)) calc(16px * var(--rk))
     calc(5px * var(--rk));
@@ -152,7 +152,7 @@ const badge = computed(() => {
 .badge-n {
   font-family: var(--font-display);
   font-weight: var(--fw-display);
-  font-size: 30px;
+  font-size: var(--fs-display-30);
   line-height: 1;
   font-variant-numeric: tabular-nums;
   color: var(--cd-deep);
@@ -160,7 +160,7 @@ const badge = computed(() => {
 
 .badge-l {
   font-weight: var(--fw-strong);
-  font-size: 10.5px;
+  font-size: var(--fs-11);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   white-space: nowrap;
@@ -179,7 +179,7 @@ const badge = computed(() => {
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: var(--space-8);
 }
 
 .when {
@@ -191,18 +191,18 @@ const badge = computed(() => {
 
 .left {
   font-weight: var(--fw-strong);
-  font-size: 14px;
+  font-size: var(--fs-14);
   color: var(--cd-deep);
 }
 
 .date {
   font-weight: var(--fw-body);
-  font-size: 12px;
+  font-size: var(--fs-12);
   color: var(--ink-2);
 }
 
 /* Design chip arsip: 12px dengan padding 5px 12px (Button xs = 0 10px). */
 .foot .archive-btn {
-  padding: 0 12px;
+  padding: 0 var(--space-12);
 }
 </style>

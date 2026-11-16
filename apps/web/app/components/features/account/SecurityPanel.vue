@@ -135,7 +135,7 @@ onMounted(async () => {
 .account {
   display: flex;
   flex-direction: column;
-  gap: var(--space-10);
+  gap: var(--space-22);
 }
 
 /*
@@ -144,19 +144,19 @@ onMounted(async () => {
  */
 .grid {
   columns: 3 22rem;
-  column-gap: var(--space-10);
+  column-gap: var(--space-22);
 }
 
 .grid > * {
   break-inside: avoid;
-  margin-bottom: var(--space-10);
+  margin-bottom: var(--space-22);
 }
 
 .card {
   display: flex;
   flex-direction: column;
-  gap: var(--space-8);
-  padding: var(--space-10);
+  gap: var(--space-16);
+  padding: var(--space-22);
   background: var(--surface-card);
   border: var(--border) solid var(--outline);
   border-radius: var(--radius-card);
@@ -170,7 +170,7 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-6);
+  gap: var(--space-12);
 }
 
 .card-title {
@@ -186,7 +186,7 @@ onMounted(async () => {
 }
 
 .badge {
-  padding: var(--space-1) var(--space-5);
+  padding: var(--space-2) var(--space-10);
   border-radius: var(--radius-pill);
   font-size: var(--fs-caption);
   white-space: nowrap;
@@ -213,14 +213,14 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-6);
-  padding: var(--space-6) 0;
+  gap: var(--space-12);
+  padding: var(--space-12) 0;
   border-top: var(--border-thin) solid var(--line);
 }
 
 .device-main {
   display: grid;
-  gap: var(--space-1);
+  gap: var(--space-2);
   min-width: 0;
 }
 
@@ -228,7 +228,7 @@ onMounted(async () => {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-4);
+  gap: var(--space-8);
   font-weight: var(--fw-strong);
 }
 
@@ -247,11 +247,11 @@ onMounted(async () => {
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-6);
+  gap: var(--space-12);
 }
 
 .error {
-  padding: var(--space-5) var(--space-8);
+  padding: var(--space-10) var(--space-16);
   border-radius: var(--radius-inner);
   background: var(--prio-urgent-bg);
   color: var(--danger);

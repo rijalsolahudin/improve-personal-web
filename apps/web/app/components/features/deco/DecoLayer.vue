@@ -275,12 +275,12 @@ const pickerCurrent = computed(() => {
 .tag {
   position: absolute;
   transform: translate(-50%, 30px);
-  padding: 3px 10px;
+  padding: 3px var(--space-10);
   border-radius: var(--radius-pill);
   background: var(--accent);
   color: var(--paper);
   font-weight: var(--fw-strong);
-  font-size: 12px;
+  font-size: var(--fs-12);
   letter-spacing: 0.04em;
   white-space: nowrap;
 }
@@ -295,12 +295,12 @@ const pickerCurrent = computed(() => {
   left: 50%;
   z-index: 120;
   transform: translateX(-50%);
-  padding: 12px 20px;
+  padding: var(--space-12) var(--space-20);
   border-radius: var(--radius-pill);
   background: var(--ink);
   color: var(--paper);
   font-weight: var(--fw-strong);
-  font-size: 14px;
+  font-size: var(--fs-14);
   text-align: center;
   width: max-content;
   max-width: calc(100vw - 32px);

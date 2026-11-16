@@ -85,7 +85,7 @@ function onTab(item: TabBarItem): void {
   height: 70px;
   display: grid;
   align-items: center;
-  padding: 0 4px;
+  padding: 0 var(--space-4);
   background: var(--paper);
   border: var(--border-thick) solid var(--outline);
   border-radius: calc(28px * var(--rk));
@@ -123,13 +123,13 @@ function onTab(item: TabBarItem): void {
   border-radius: var(--radius-leaf-sm);
   font-family: var(--font-display);
   font-weight: var(--fw-display);
-  font-size: 14px;
+  font-size: var(--fs-display-14);
   line-height: 1;
 }
 
 .tab-label {
   font-weight: var(--fw-strong);
-  font-size: 12px;
+  font-size: var(--fs-12);
 }
 
 .tab.on .tab-icon {

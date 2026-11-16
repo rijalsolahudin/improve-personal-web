@@ -13,16 +13,16 @@ const { level, size = 'md' } = defineProps<{ level: Priority; size?: 'md' | 'sm'
 <style scoped>
 .badge {
   display: inline-block;
-  padding: 4px 12px;
+  padding: var(--space-4) var(--space-12);
   border-radius: var(--radius-pill);
   font-weight: var(--fw-strong);
-  font-size: 13px;
+  font-size: var(--fs-13);
   white-space: nowrap;
 }
 
 .badge.size-sm {
-  padding: 1px 7px;
-  font-size: 10.5px;
+  padding: 1px var(--space-8);
+  font-size: var(--fs-11);
 }
 
 .badge-urgent {
@@ -42,8 +42,8 @@ const { level, size = 'md' } = defineProps<{ level: Priority; size?: 'md' | 'sm'
 
 @media (max-width: 599px) {
   .badge {
-    padding: 1px 8px;
-    font-size: 12px;
+    padding: 1px var(--space-8);
+    font-size: var(--fs-12);
   }
 }
 </style>

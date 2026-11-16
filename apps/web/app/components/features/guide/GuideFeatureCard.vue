@@ -33,8 +33,8 @@ const titleId = `${anchor}-title`
 .card {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 20px 22px;
+  gap: var(--space-10);
+  padding: var(--space-20) var(--space-22);
   border: var(--border-thin) solid var(--line);
   border-radius: var(--radius-card);
   background: var(--paper);
@@ -49,13 +49,13 @@ const titleId = `${anchor}-title`
 .head {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: var(--space-8);
   align-items: center;
 }
 
 .code,
 .status {
-  padding: 2px 9px;
+  padding: 2px var(--space-10);
   border-radius: var(--radius-pill);
   font-size: var(--fs-eyebrow);
   font-weight: var(--fw-strong);
@@ -106,7 +106,7 @@ const titleId = `${anchor}-title`
 .tips {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--space-6);
   margin: 0;
   padding: 0;
   list-style: none;
@@ -114,7 +114,7 @@ const titleId = `${anchor}-title`
 
 .tip {
   position: relative;
-  padding-left: 20px;
+  padding-left: var(--space-20);
   color: var(--ink);
   font-size: var(--fs-body-sm);
   line-height: 1.55;
@@ -140,7 +140,7 @@ const titleId = `${anchor}-title`
 
 @media (max-width: 599px) {
   .card {
-    padding: 16px;
+    padding: var(--space-16);
   }
 }
 </style>

@@ -40,8 +40,8 @@ const lists = computed(() =>
 .list {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 0 4px;
+  gap: var(--space-4);
+  padding: 0 var(--space-4);
 }
 
 .rows {
@@ -53,7 +53,7 @@ const lists = computed(() =>
 .row {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-10);
   border-bottom: var(--border-thin) solid var(--mline);
 }
 
@@ -61,7 +61,7 @@ const lists = computed(() =>
   width: 14px;
   font-family: var(--font-display);
   font-weight: var(--fw-display);
-  font-size: 15px;
+  font-size: var(--fs-display-15);
   color: var(--mute-3);
 }
 
@@ -74,7 +74,7 @@ const lists = computed(() =>
   font-family: var(--font-hand);
   /* Patrick Hand hanya punya weight 400; input mewarisi `--fw-body` (700) → faux-bold. */
   font-weight: 400;
-  font-size: 19px;
+  font-size: var(--fs-hand-19);
   line-height: 32px;
   outline: none;
 }

@@ -47,7 +47,7 @@ const mood = computed({
 <style scoped>
 .label {
   font-weight: var(--fw-strong);
-  font-size: 13px;
+  font-size: var(--fs-13);
   line-height: 1.2;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -57,11 +57,11 @@ const mood = computed({
 .feelings {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: var(--space-6);
 }
 
 .feelings button {
-  padding: 5px 12px;
+  padding: var(--space-6) var(--space-12);
   border: var(--border-thin) solid var(--dash);
   border-radius: var(--radius-pill);
   background: transparent;
@@ -69,7 +69,7 @@ const mood = computed({
   font-family: var(--font-hand);
   /* Patrick Hand hanya punya weight 400; tombol mewarisi `--fw-body` (700) → faux-bold. */
   font-weight: 400;
-  font-size: 16px;
+  font-size: var(--fs-hand-16);
 }
 
 .feelings button[aria-pressed='true'] {
@@ -81,6 +81,6 @@ const mood = computed({
 .note {
   --line-h: 30px;
 
-  font-size: 19px;
+  font-size: var(--fs-19);
 }
 </style>

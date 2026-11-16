@@ -52,7 +52,7 @@ const categoryOptions = computed(() => [
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 12px;
+  gap: var(--space-12);
 }
 
 .filters :deep(.segmented) {
@@ -62,7 +62,7 @@ const categoryOptions = computed(() => [
 
 /* Opsi segmented design: padding 8px 16px (default komponen 8px 14px). */
 .filters :deep(.segmented .option) {
-  padding: 8px 16px;
+  padding: var(--space-8) var(--space-16);
 }
 
 .cats {
@@ -73,25 +73,25 @@ const categoryOptions = computed(() => [
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-6);
 }
 
 /* Chip kategori design: 7px 12px / 13,5px, garis hanya saat aktif. */
 .cats :deep(.chip-pick) {
   min-height: 0;
-  padding: 7px 12px;
-  font-size: 13.5px;
+  padding: var(--space-8) var(--space-12);
+  font-size: var(--fs-14);
 }
 
 .manage {
-  padding: 7px 12px;
+  padding: var(--space-8) var(--space-12);
   border: var(--border-thin) dashed var(--dash-2);
   border-radius: var(--radius-pill);
   background: transparent;
   color: var(--accent);
   font-family: var(--font-body);
   font-weight: var(--fw-strong);
-  font-size: 13.5px;
+  font-size: var(--fs-14);
   white-space: nowrap;
 }
 

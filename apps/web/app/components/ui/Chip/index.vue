@@ -36,8 +36,8 @@ const { active = false, variant = 'filter' } = defineProps<{
 
 .chip-filter {
   min-height: 38px;
-  padding: 0 14px;
-  font-size: 14px;
+  padding: 0 var(--space-14);
+  font-size: var(--fs-14);
   border: var(--border) solid var(--line);
   background: var(--paper);
   color: var(--mute-2);
@@ -51,18 +51,18 @@ const { active = false, variant = 'filter' } = defineProps<{
 
 .chip-soft {
   min-height: 36px;
-  padding: 0 12px;
-  font-size: 13px;
+  padding: 0 var(--space-12);
+  font-size: var(--fs-13);
   border: none;
   background: var(--alt);
   color: var(--ink);
 }
 
 .chip-pick {
-  gap: 6px;
+  gap: var(--space-6);
   min-height: 34px;
-  padding: 0 12px;
-  font-size: 13px;
+  padding: 0 var(--space-12);
+  font-size: var(--fs-13);
   border: var(--border-thin) solid var(--chip-line, var(--line));
   background: var(--chip-bg, var(--paper));
   color: var(--ink);
@@ -77,8 +77,8 @@ const { active = false, variant = 'filter' } = defineProps<{
   justify-content: center;
   min-width: 28px;
   min-height: 36px;
-  padding: 0 14px;
-  font-size: 14px;
+  padding: 0 var(--space-14);
+  font-size: var(--fs-14);
   border: none;
   background: var(--chip);
   color: var(--mute-2);

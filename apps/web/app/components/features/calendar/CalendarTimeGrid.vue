@@ -238,12 +238,12 @@ function resize(item: GridEvent, edge: ResizeEdge, event: PointerEvent): void {
 .all-day,
 .body {
   display: flex;
-  gap: 4px;
+  gap: var(--space-4);
 }
 
 .heads,
 .all-day {
-  padding-left: 52px;
+  padding-left: var(--space-56);
 }
 
 .head {
@@ -252,7 +252,7 @@ function resize(item: GridEvent, edge: ResizeEdge, event: PointerEvent): void {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 6px 0 8px;
+  padding: var(--space-6) 0 var(--space-8);
   border: none;
   border-radius: calc(14px * var(--rk));
   background: transparent;
@@ -264,7 +264,7 @@ function resize(item: GridEvent, edge: ResizeEdge, event: PointerEvent): void {
 
 .dow {
   font-weight: var(--fw-strong);
-  font-size: 12px;
+  font-size: var(--fs-12);
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--mute-3);
@@ -280,7 +280,7 @@ function resize(item: GridEvent, edge: ResizeEdge, event: PointerEvent): void {
 .num {
   font-family: var(--font-display);
   font-weight: var(--fw-display);
-  font-size: 22px;
+  font-size: var(--fs-display-22);
   line-height: 1.1;
 }
 
@@ -293,7 +293,7 @@ function resize(item: GridEvent, edge: ResizeEdge, event: PointerEvent): void {
 
 .all-day {
   position: relative;
-  margin-top: 4px;
+  margin-top: var(--space-4);
 }
 
 .all-day-label {
@@ -302,7 +302,7 @@ function resize(item: GridEvent, edge: ResizeEdge, event: PointerEvent): void {
   left: 0;
   width: 48px;
   font-weight: var(--fw-strong);
-  font-size: 11px;
+  font-size: var(--fs-11);
   text-transform: uppercase;
   color: var(--mute-3);
 }
@@ -323,13 +323,13 @@ function resize(item: GridEvent, edge: ResizeEdge, event: PointerEvent): void {
   min-width: 0;
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 2px 7px;
+  gap: var(--space-4);
+  padding: 2px var(--space-8);
   border: var(--border-thin) solid var(--outline);
   border-radius: var(--radius-pill);
   background: var(--chip-bg);
   font-weight: var(--fw-strong);
-  font-size: 11px;
+  font-size: var(--fs-11);
   text-align: left;
 }
 
@@ -353,8 +353,8 @@ function resize(item: GridEvent, edge: ResizeEdge, event: PointerEvent): void {
  */
 .body {
   position: relative;
-  margin-top: 10px;
-  padding-top: 6px;
+  margin-top: var(--space-10);
+  padding-top: var(--space-6);
   max-height: var(--grid-max-h, max(320px, calc(100vh - 300px)));
   overflow-x: hidden;
   overflow-y: auto;
@@ -377,7 +377,7 @@ function resize(item: GridEvent, edge: ResizeEdge, event: PointerEvent): void {
   right: 6px;
   transform: translateY(-50%);
   font-weight: var(--fw-strong);
-  font-size: 11px;
+  font-size: var(--fs-11);
   color: var(--mute-3);
   font-variant-numeric: tabular-nums;
 }
@@ -404,12 +404,12 @@ function resize(item: GridEvent, edge: ResizeEdge, event: PointerEvent): void {
   left: 0;
   display: flex;
   align-items: center;
-  padding: 0 0 0 8px;
+  padding: 0 0 0 var(--space-8);
   border: 0;
   background: transparent;
   color: transparent;
   font-weight: var(--fw-strong);
-  font-size: 10.5px;
+  font-size: var(--fs-11);
   cursor: copy;
   /* Seret slot = bikin jadwal; tanpa ini browser menyerobot gestur untuk scroll. */
   touch-action: none;
@@ -437,13 +437,13 @@ function resize(item: GridEvent, edge: ResizeEdge, event: PointerEvent): void {
   left: 2px;
   z-index: 5;
   box-sizing: border-box;
-  padding: 3px 8px;
+  padding: 3px var(--space-8);
   border: 2px dashed var(--accent);
   border-radius: calc(10px * var(--rk));
   background: var(--chip);
   color: var(--deep);
   font-weight: var(--fw-strong);
-  font-size: 12px;
+  font-size: var(--fs-12);
   font-variant-numeric: tabular-nums;
   pointer-events: none;
 }

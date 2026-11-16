@@ -64,13 +64,13 @@ const activeKey = computed(() =>
   border-radius: var(--radius-leaf-sm);
   font-family: var(--font-display);
   font-weight: var(--fw-display);
-  font-size: 16px;
+  font-size: var(--fs-display-16);
   line-height: 1;
 }
 
 .menu-label {
   font-weight: var(--fw-strong);
-  font-size: 12px;
+  font-size: var(--fs-12);
 }
 
 .menu.on .menu-icon {

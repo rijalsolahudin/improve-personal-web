@@ -59,7 +59,7 @@ const pomodoro = usePomodoro()
 <style scoped>
 .card {
   min-width: 0;
-  padding: 20px 22px;
+  padding: var(--space-20) var(--space-22);
   border: var(--border-thin) solid var(--line);
   border-radius: calc(28px * var(--rk));
   background: var(--paper);
@@ -68,12 +68,12 @@ const pomodoro = usePomodoro()
 .title {
   font-family: var(--font-display);
   font-weight: var(--fw-display);
-  font-size: 20px;
+  font-size: var(--fs-display-20);
   line-height: 1.2;
 }
 
 .rows {
-  margin: 8px 0 0;
+  margin: var(--space-8) 0 0;
   padding: 0;
   list-style: none;
 }
@@ -81,8 +81,8 @@ const pomodoro = usePomodoro()
 .row {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px 0;
+  gap: var(--space-10);
+  padding: var(--space-10) 0;
   border-top: var(--border-thin) dashed var(--line-2);
 }
 
@@ -94,7 +94,7 @@ const pomodoro = usePomodoro()
 .label {
   flex: 1;
   font-weight: var(--fw-strong);
-  font-size: 14px;
+  font-size: var(--fs-14);
 }
 
 .value {
@@ -102,13 +102,13 @@ const pomodoro = usePomodoro()
   text-align: center;
   font-family: var(--font-display);
   font-weight: var(--fw-display);
-  font-size: 18px;
+  font-size: var(--fs-display-18);
 }
 
 /* Glyph −/+ design 18px; IconButton menurunkan ukuran font dari `size` (34 → 14px) lewat
    custom property inline, jadi ukuran glyph diatur di sini, bukan di komponen. */
 .sign {
-  font-size: 18px;
+  font-size: var(--fs-18);
   line-height: 1;
 }
 
