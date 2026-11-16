@@ -174,4 +174,15 @@ import {
 .cta:hover {
   transform: translateY(2px);
 }
+
+.note {
+  max-width: 40em;
+  align-self: center;
+  font-weight: var(--fw-medium);
+  font-size: var(--fs-body-sm);
+  line-height: 1.5;
+  color: #6e604e;
+  text-align: center;
+  text-wrap: pretty;
+}
 </style>

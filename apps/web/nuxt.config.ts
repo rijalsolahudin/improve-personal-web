@@ -178,6 +178,9 @@ export default defineNuxtConfig({
 
   routeRules: {
     '/': { prerender: true },
+    // Screenshot landing (`scripts/landing/shots.ts`): nama berkas tanpa hash, jadi cache seminggu,
+    // bukan `immutable` - pengambilan ulang screenshot tetap sampai ke pengunjung.
+    '/landing/**': { headers: { 'cache-control': 'public, max-age=604800' } },
     // `/app/**` sengaja TANPA cache (bukan `swr`/`isr`): isinya data user. `ssr: false` bikin
     // HTML-nya cuma kerangka SPA (lihat catatan `pwa.workbox.runtimeCaching` di bawah).
     '/app/**': { ssr: false },

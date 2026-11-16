@@ -6,7 +6,8 @@
     </p>
     <nav class="links" :aria-label="$t('landing.footer.label')">
       <a href="#fitur">{{ $t('landing.nav.features') }}</a>
-      <a href="#cara">{{ $t('landing.nav.how') }}</a>
+      <a href="#harga">{{ $t('landing.nav.pricing') }}</a>
+      <a href="#faq">{{ $t('landing.nav.faq') }}</a>
       <NuxtLink :to="getFeature('panduan').path">{{ $t('feature.panduan.label') }}</NuxtLink>
     </nav>
   </footer>

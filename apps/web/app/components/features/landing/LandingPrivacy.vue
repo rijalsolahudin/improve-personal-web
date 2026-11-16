@@ -1,21 +1,25 @@
 <script setup lang="ts">
-const STEPS = ['1', '2', '3'] as const
+/**
+ * Janji privasi (ADR 15). Hanya yang SUDAH berlaku di app: data lokal terenkripsi kunci perangkat,
+ * jalan offline, dan pindah lewat berkas backup. Transfer QR & backup Drive belum dibangun (T27-T32),
+ * jadi sengaja belum disebut.
+ */
+const ITEMS = ['local', 'offline', 'backup'] as const
 </script>
 
 <template>
-  <section id="cara" class="section dot-grid" aria-labelledby="landing-steps-title">
-    <Mascot class="mascot" name="awan" :size="88" />
-    <div>
-      <p class="kicker">{{ $t('landing.steps.kicker') }}</p>
-      <h2 id="landing-steps-title" class="heading">{{ $t('landing.steps.title') }}</h2>
+  <section id="privasi" class="section dot-grid" aria-labelledby="landing-privacy-title">
+    <span class="mascot" aria-hidden="true"><Mascot name="awan" :size="88" /></span>
+    <div class="head">
+      <p class="kicker">{{ $t('landing.privacy.kicker') }}</p>
+      <h2 id="landing-privacy-title" class="heading">{{ $t('landing.privacy.title') }}</h2>
     </div>
-    <ol class="grid">
-      <li v-for="step in STEPS" :key="step" class="card">
-        <span class="number" aria-hidden="true">{{ step }}</span>
-        <h3 class="name">{{ $t(`landing.steps.items.${step}.title`) }}</h3>
-        <p class="desc">{{ $t(`landing.steps.items.${step}.desc`) }}</p>
+    <ul class="grid">
+      <li v-for="item in ITEMS" :key="item" class="card">
+        <h3 class="name">{{ $t(`landing.privacy.items.${item}.title`) }}</h3>
+        <p class="desc">{{ $t(`landing.privacy.items.${item}.desc`) }}</p>
       </li>
-    </ol>
+    </ul>
   </section>
 </template>
 
@@ -46,16 +50,18 @@ const STEPS = ['1', '2', '3'] as const
   font-weight: var(--fw-strong);
   font-size: var(--fs-caption);
   letter-spacing: var(--tracking-group);
-  /* Kicker di atas `--primary`: `--deep` 3,98:1 (cute/hijau), `--deeper` 5,09:1 (QA #67). */
+  /* Kicker di atas `--primary`: `--deeper` lulus AA di semua tema (QA #67). */
   color: var(--deeper);
 }
 
 .heading {
+  max-width: 18em;
   margin-top: var(--space-6);
   font-family: var(--font-display);
   font-weight: var(--fw-display);
-  font-size: calc(clamp(34px, 4.5vw, 52px) * var(--fk-display));
+  font-size: calc(clamp(32px, 4.2vw, 48px) * var(--fk-display));
   line-height: var(--lh-tight);
+  text-wrap: balance;
 }
 
 .grid {
@@ -70,26 +76,11 @@ const STEPS = ['1', '2', '3'] as const
 .card {
   display: flex;
   flex-direction: column;
-  gap: var(--space-12);
+  gap: var(--space-10);
   padding: var(--space-24);
   background: #fffbf4;
   border: var(--border-thick) solid var(--outline);
   border-radius: calc(28px * var(--rk));
-}
-
-.number {
-  width: 48px;
-  height: 48px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: var(--border-thick) solid var(--outline);
-  border-radius: 50%;
-  background: var(--accent);
-  color: #fffbf4;
-  font-family: var(--font-display);
-  font-weight: var(--fw-display);
-  font-size: var(--fs-display-22);
 }
 
 .name {

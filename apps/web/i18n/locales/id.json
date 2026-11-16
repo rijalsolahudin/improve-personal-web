@@ -1031,69 +1031,113 @@
   "landing": {
     "meta": {
       "title": "Rencanakan hari, fokus, rayakan progres",
-      "description": "Goals, kalender, to-do, Pomodoro, habit, sampai memo — semuanya di satu dashboard yang hangat dan nggak bikin pusing."
+      "description": "Daily, kalender, to-do, habit, jurnal, sampai goals di satu aplikasi yang hangat. Datamu cuma di perangkatmu dan tetap jalan tanpa internet."
     },
     "nav": {
       "label": "Navigasi halaman",
       "features": "Fitur",
-      "how": "Cara kerja",
-      "cta": "Masuk",
-      "pricing": "Harga"
+      "privacy": "Privasi",
+      "pricing": "Harga",
+      "faq": "FAQ",
+      "cta": "Masuk"
     },
     "hero": {
       "badge": "Satu tempat untuk tumbuh",
       "titleLead": "Rencanakan hari, fokus, lalu",
       "titleHighlight": "rayakan progres.",
-      "lead": "Goals, kalender, to-do, Pomodoro, habit, sampai memo — semuanya di satu dashboard yang hangat dan nggak bikin pusing.",
+      "lead": "Jadwal, to-do, habit, jurnal, sampai goals jangka panjang di satu aplikasi yang hangat dan nggak bikin pusing. Datamu cuma di perangkatmu.",
       "cta": "Lihat harga",
       "secondary": "Lihat fitur",
-      "note": "mulai {price}/bulan · data cuma di perangkatmu · jalan offline ✎"
+      "note": "mulai {price}/bulan · jalan offline · web, Android, iOS ✎",
+      "shotAlt": "Halaman Daily: sapaan pagi, prioritas hari ini, to-do, dan jadwal hari ini dalam satu layar."
     },
-    "preview": {
-      "greeting": "Selamat pagi, Friend",
-      "nextLabel": "Jadwal berikutnya",
-      "nextTitle": "Belajar AWS SAA",
-      "streak": "hari streak",
-      "goals": "goal aktif",
-      "pomodoro": "pomodoro",
-      "todos": {
-        "vpc": "Review modul VPC",
-        "run": "Lari pagi 3 km",
-        "money": "Catat pengeluaran"
-      }
-    },
-    "features": {
+    "showcase": {
       "kicker": "FITUR",
-      "titleLine1": "Sembilan alat kecil,",
-      "titleLine2": "satu kebiasaan besar.",
-      "lead": "Pakai yang kamu butuh, sembunyikan sisanya. Semua saling terhubung — to-do bisa nempel ke goal, sesi fokus tercatat di overview.",
-      "desc": {
-        "goals": "Pecah target besar jadi milestone yang jelas.",
-        "kalender": "Lihat jadwal mingguan dan sesi fokus sekaligus.",
-        "to-do": "Daftar tugas harian yang bisa nempel ke goal.",
-        "eisenhower": "Pilah mana yang penting, mana yang mendesak.",
-        "pomodoro": "Timer fokus 25 menit dengan jeda otomatis.",
-        "habit": "Bangun streak dari kebiasaan kecil.",
-        "memo": "Catat ide dan refleksi sebelum hilang.",
-        "overview": "Ringkasan progres mingguan dalam satu layar.",
-        "countdown": "Hitung mundur ke ujian, deadline, atau liburan."
+      "title": "Semua yang kamu butuh buat hari yang tertata.",
+      "lead": "Setiap bagian saling nyambung: to-do muncul di kalender, habit terhitung di overview, dan goal memecah mimpi besar jadi langkah harian.",
+      "items": {
+        "calendar": {
+          "kicker": "KALENDER",
+          "title": "Jadwal rutin tanpa ribet.",
+          "desc": "Atur jadwal harian, mingguan, atau bulanan sekali saja, lalu lihat per hari, pekan, atau bulan.",
+          "p1": "Pengulangan fleksibel: tiap hari, hari tertentu, tanggal tertentu",
+          "p2": "Ubah satu kejadian tanpa mengubah semuanya",
+          "p3": "Panel hari ini: jadwal + deadline sekaligus",
+          "alt": "Kalender tampilan pekan dengan jadwal rutin berwarna dan panel hari ini."
+        },
+        "tasks": {
+          "kicker": "TO-DO & EISENHOWER",
+          "title": "Tahu mana yang dikerjakan duluan.",
+          "desc": "Tulis to-do dengan deadline, lalu seret ke matriks Eisenhower supaya yang penting nggak tenggelam oleh yang mendesak.",
+          "p1": "Sisa waktu dihitung otomatis",
+          "p2": "Seret antar kuadran, prioritas ikut berubah",
+          "p3": "Yang sudah selesai bisa dibersihkan sekali klik",
+          "alt": "Matriks Eisenhower dengan task di kuadran Kerjakan, Jadwalkan, Delegasikan, dan Hapus."
+        },
+        "habit": {
+          "kicker": "HABIT",
+          "title": "Kebiasaan kecil, streak panjang.",
+          "desc": "Centang habit tiap hari, lihat streak dan persentase bulan ini. Bisa target berkali-kali sehari, seperti minum 8 gelas air.",
+          "p1": "Streak & rekor per habit",
+          "p2": "Habit harian atau hari tertentu saja",
+          "p3": "Ikon stiker & warna sesuai selera",
+          "alt": "Tabel habit bulan ini dengan centang harian, streak, dan persentase."
+        },
+        "journal": {
+          "kicker": "JOURNAL",
+          "title": "Ruang tenang buat refleksi.",
+          "desc": "Catat perasaan, afirmasi, rasa syukur, dan cerita harimu di kertas bergaris yang nyaman ditulis.",
+          "p1": "Mood harian dan tren di overview",
+          "p2": "Sebut jadwal atau goal dengan {'@'} dan {'#'}",
+          "p3": "Mode fokus tanpa distraksi",
+          "alt": "Halaman Journal dengan pilihan mood, kalimat identitas, dan catatan harian."
+        },
+        "goals": {
+          "kicker": "GOALS",
+          "title": "Mimpi besar, dipecah jadi chapter.",
+          "desc": "Tulis tujuan dan alasannya, bagi jadi chapter bertanggal, lalu tautkan to-do, habit, dan jadwal supaya progresnya terasa.",
+          "p1": "Progres dihitung dari item yang tertaut",
+          "p2": "Kategori warna: karier, kesehatan, keuangan, dan lainnya",
+          "p3": "Bisa langsung dibuatkan countdown",
+          "alt": "Halaman Goals dengan daftar goal aktif, progres, dan chapter."
+        }
       }
     },
-    "steps": {
-      "kicker": "CARA KERJA",
-      "title": "Tiga langkah, tiap hari.",
+    "more": {
+      "title": "Dan masih ada lagi.",
       "items": {
-        "1": {
-          "title": "Tulis goal",
-          "desc": "Mulai dari satu tujuan yang kamu peduli, lalu pecah jadi langkah kecil."
+        "overview": {
+          "title": "Overview",
+          "desc": "Menit fokus, habit tercapai, task tepat waktu, streak, dan tren mood per pekan, bulan, atau tahun.",
+          "alt": "Overview pekanan dengan statistik fokus, streak, dan tren mood."
         },
-        "2": {
-          "title": "Jadwalkan & fokus",
-          "desc": "Taruh di kalender, tekan Fokus, dan biarkan Pomodoro jaga ritmenya."
+        "pomodoro": {
+          "title": "Pomodoro",
+          "desc": "Timer fokus dengan istirahat otomatis. Setiap sesi tercatat dan terhubung ke task.",
+          "alt": "Timer Pomodoro."
         },
-        "3": {
-          "title": "Lihat progresnya",
-          "desc": "Overview dan streak habit menunjukkan seberapa jauh kamu melangkah."
+        "countdown": {
+          "title": "Countdown",
+          "desc": "Hitung mundur ke liburan, ulang tahun, atau deadline, lengkap dengan stiker.",
+          "alt": "Daftar countdown menuju liburan, ulang tahun, dan deadline."
+        }
+      }
+    },
+    "privacy": {
+      "kicker": "PRIVASI",
+      "title": "Datamu cuma di perangkatmu. Bukan di server kami.",
+      "items": {
+        "local": {
+          "title": "Tersimpan lokal & terenkripsi",
+          "desc": "Jurnal, mood, dan rencanamu disimpan di perangkat ini dengan kunci milik perangkat. Kami tidak menyimpan isinya di server."
+        },
+        "offline": {
+          "title": "Tetap jalan tanpa internet",
+          "desc": "Setelah aktif, aplikasi bisa dibuka dan dipakai walau sedang offline. Pasang sebagai aplikasi biar lebih cepat dibuka."
+        },
+        "backup": {
+          "title": "Kamu yang pegang backup-nya",
+          "desc": "Export semua data jadi satu berkas kapan saja, lalu import di perangkat lain saat pindah HP atau laptop."
         }
       }
     },
@@ -1109,6 +1153,35 @@
       },
       "cta": "Pilih {plan}",
       "note": "Kalau masa aktif habis, datamu tetap aman dan bisa dibuka, diekspor, atau dipindah. Cuma menambah dan mengubah data yang menunggu sampai diperpanjang."
+    },
+    "faq": {
+      "title": "Pertanyaan yang sering muncul",
+      "items": {
+        "internet": {
+          "q": "Apakah harus selalu online?",
+          "a": "Nggak. Internet cuma dibutuhkan saat membeli dan mengaktifkan di perangkat pertama kali. Setelah itu aplikasi jalan offline."
+        },
+        "storage": {
+          "q": "Data saya disimpan di mana?",
+          "a": "Di perangkatmu sendiri. Server kami hanya menyimpan email pembelian dan status lisensi, bukan isi jadwal, jurnal, atau data lainnya."
+        },
+        "devices": {
+          "q": "Bisa dipakai di HP dan laptop?",
+          "a": "Bisa. Satu pembelian berlaku di web, Android, dan iOS, untuk sampai 5 perangkat dengan email yang sama."
+        },
+        "expired": {
+          "q": "Kalau paket bulanan/tahunan habis, datanya hilang?",
+          "a": "Nggak. Datamu tetap ada dan bisa dibuka, diekspor, atau dipindah. Menambah dan mengubah data menunggu sampai kamu perpanjang."
+        },
+        "move": {
+          "q": "Gimana kalau ganti HP?",
+          "a": "Export data jadi berkas backup di perangkat lama, lalu import di perangkat baru. Simpan berkas backup di tempat aman, karena tanpa backup data di perangkat yang hilang tidak bisa dipulihkan."
+        },
+        "payment": {
+          "q": "Bayarnya pakai apa?",
+          "a": "Lewat Mayar: QRIS, e-wallet, atau transfer bank. Pembayaran di muka, tanpa tagihan otomatis."
+        }
+      }
     },
     "outro": {
       "title": "Progres kecil tetap progres.",
