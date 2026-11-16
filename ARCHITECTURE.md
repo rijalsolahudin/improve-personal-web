@@ -9,29 +9,31 @@ Kalau dokumen ini bentrok sama kode, update salah satunya di PR yang sama - jang
 
 ### Sudah diputuskan (dulu daftarnya di sini)
 
-**Q1/Q2 (recovery key & envelope kunci) sudah tidak relevan: tidak ada kunci user.**
-Keputusan terbaru ada di ADR 14 - enkripsi at-rest dipindah ke server (AES-256-GCM, keyring di env),
-dan salinan lokal dienkripsi kunci perangkat yang dibuat otomatis. Passkey, kode pemulihan 24 kata,
-QR transfer, KID, dan tabel relay kunci dihapus. Konsekuensinya jujur: server bisa membaca data, dan
-kunci env wajib di-backup terpisah karena ia satu-satunya pembuka database.
+**Keputusan terbaru: ADR 15 (2026-11-16) - local-only + E2E, dijual sekali beli.** Menggantikan ADR 14.
+Data user tidak pernah meninggalkan perangkat dalam bentuk terbaca: tidak ada akun, tidak ada sync
+server, tidak ada enkripsi at-rest di server. Domain tetap menyajikan app (kunjungan pertama + update)
+dan menerbitkan lisensi; setelah itu app jalan penuh lokal. Pindah perangkat lewat **transfer QR**
+(WebRTC + relay ciphertext, fallback animated QR full offline) atau **berkas backup terenkripsi kata
+sandi**, plus **backup terjadwal ke Google Drive milik user**. Konsekuensinya jujur: perangkat hilang
+tanpa backup = data hilang, dan tidak ada pihak yang bisa memulihkannya.
 
 ### Default (diasumsikan, bisa diganti)
 
 | # | Topik | Rekomendasi = default |
 |---|---|---|
-| Q3 | Stack server | **Nitro/H3** di dalam `apps/web` (`server/routes/v1/**`) + **PostgreSQL** + **Drizzle**. Tipis (auth + relay ciphertext), TypeScript bareng client, kontrak dari `packages/contracts`. Nggak ada app server terpisah (ADR 7 direvisi). |
+| Q3 | Stack server | **Nitro/H3** di dalam `apps/web` (`server/routes/v1/**`) + **PostgreSQL** + **Drizzle**. Tipis: webhook pembayaran + aktivasi lisensi via email OTP/Google + relay transfer (ciphertext, tanpa simpan) + proxy cuaca. Tidak ada data user (ADR 15). Nggak ada app server terpisah (ADR 7 direvisi). |
 | Q4 | Mobile | **Expo** (dev build, Expo Router, EAS Build/Update). |
 | Q5 | Monorepo tool | **pnpm workspaces + Turborepo**. |
-| Q6 | Library kripto | **libsodium** (`libsodium-wrappers-sumo` di web, `react-native-libsodium` di native) untuk enkripsi salinan LOKAL (XChaCha20-Poly1305). Enkripsi at-rest server memakai `node:crypto` AES-256-GCM. |
+| Q6 | Library kripto | **libsodium** (`libsodium-wrappers-sumo` di web, `react-native-libsodium` di native) untuk salinan lokal, berkas backup (Argon2id + XChaCha20-Poly1305), dan kanal transfer (`secretstream`). Server hanya memakai Ed25519 untuk menandatangani lisensi. |
 | Q7 | Data lokal di web terenkripsi? | Ya: IndexedDB menyimpan ciphertext dengan kunci perangkat yang dibuat otomatis. Native: SQLite + SQLCipher. |
 
 ---
 
 ## 1. Prinsip
 
-1. **Local-first.** Semua baca/tulis ke DB lokal dulu → UI instan, jalan penuh offline. Server bukan sumber kebenaran.
-2. **Server memegang kunci at-rest.** Isi record disimpan ciphertext (AES-256-GCM) dengan kunci di env server. Server bisa membuka data; itu trade-off sadar supaya data tidak hilang saat perangkat berganti (ADR 14).
-3. **Login = akses.** Login (OTP/Google) memberi sesi API, dan sesi itulah yang membuka data. Tidak ada langkah unlock atau kunci user yang perlu dipulihkan.
+1. **Local-only.** DB lokal adalah satu-satunya sumber kebenaran. Semua baca/tulis lokal → UI instan, jalan penuh offline. Tidak ada sync server (ADR 15).
+2. **Data tidak pernah keluar dalam bentuk terbaca.** Yang meninggalkan perangkat hanya ciphertext dengan kunci yang tidak pernah dipegang server: berkas backup (kunci dari kata sandi), Google Drive (sama), dan transfer QR (kunci sekali pakai di QR).
+3. **Lisensi = akses.** Tidak ada akun yang membuka data. Login email (OTP/Google) hanya membuktikan email pembeli saat aktivasi; token lisensi ditandatangani server sekali, lalu diverifikasi offline dengan public key yang ditanam di app.
 4. **Logika sekali, UI dua kali.** Domain, repository, sync, kripto ditulis sekali di `packages/*` (TS murni). Nuxt & RN cuma UI + adapter platform.
 5. **Tiga pilar wajib** (keamanan, performa, kerapian) di setiap perubahan.
 
@@ -48,23 +50,27 @@ flowchart LR
     LDB[(DB lokal terenkripsi)]
     KS[[Keychain / Keystore / WebCrypto]]
   end
-  subgraph Cloud["Server (untrusted untuk isi data)"]
+  subgraph Cloud["Server di domain (tidak pernah melihat data user)"]
     API[API v1 - Nitro/H3 di apps/web/server]
-    PG[(Postgres: ciphertext + metadata)]
+    PG[(Postgres: lisensi + aktivasi)]
+    RL[Relay transfer - ciphertext, tanpa simpan]
   end
-  MAIL[Resend / SendGrid / SMTP]
-  G[Google OAuth]
+  PAY[Payment provider]
+  GD[(Google Drive milik user)]
+  D2[Perangkat baru]
   U --> W & M
   W & M --> LDB
   W & M --> KS
-  W -- "satu server Nitro: sajikan UI + layani API-nya sendiri" --> API
-  M -- "HTTPS: sesi + ciphertext" --> API
+  W -- "kunjungan pertama + update: aset app" --> API
+  W & M -- "sekali: aktivasi lisensi" --> API
+  PAY -- webhook --> API
   API --> PG
-  API --> MAIL
-  W & M --> G
+  W & M -- "backup terenkripsi (langsung, tanpa server kita)" --> GD
+  W & M <-- "transfer QR: WebRTC P2P, fallback lewat relay" --> D2
+  W & M -.-> RL -.-> D2
 ```
 
-**Trust boundary:** transport memakai TLS; isi record disegel server sebelum masuk database. Server (dan pemegang kunci env) bisa membaca data - lihat ADR 14.
+**Trust boundary:** server hanya tahu akun login (email), lisensi, dan perangkat yang diaktivasi. Isi data hanya ada di perangkat; semua salinan di luar perangkat (berkas backup, Drive, aliran transfer) dienkripsi dengan kunci yang tidak pernah dikirim ke server. Relay hanya meneruskan byte terenkripsi dan tidak menyimpannya.
 
 ---
 
@@ -76,7 +82,7 @@ improve-personal/
 │   ├── web/                 # Nuxt 4 - web desktop + PWA; API v1 (auth + sync relay) jalan di server/ (Nitro/H3)  (+ ARCHITECTURE.md, docs/PRD.md)
 │   └── mobile/              # Expo / React Native - Android + iOS  (+ ARCHITECTURE.md, docs/PRD.md)
 ├── packages/
-│   ├── core/                # domain + use case + repository interface + sync engine
+│   ├── core/                # domain + use case + repository interface + merge, io, transfer, license
 │   ├── (crypto lokal hidup di `apps/web/app/utils/crypto` sampai mobile mulai)
 │   ├── contracts/           # schema zod API + DTO + versi protokol
 │   ├── tokens/              # design token → CSS vars (web) & theme object (RN)
@@ -88,7 +94,7 @@ improve-personal/
 └── .claude/                 # settings, agents
 ```
 
-Nggak ada app server terpisah: `apps/server` tidak ada dan tidak akan dibuat - API (auth + relay ciphertext) tinggal di `apps/web/server/**` dan dilayani Nitro/H3 di app yang sama (ADR 7 direvisi). Karena itu `apps/web` di-build sebagai preset server (Node), bukan situs statis di CDN.
+Nggak ada app server terpisah: `apps/server` tidak ada dan tidak akan dibuat - API (lisensi + relay transfer + proxy cuaca) tinggal di `apps/web/server/**` dan dilayani Nitro/H3 di app yang sama (ADR 7 direvisi). Karena itu `apps/web` di-build sebagai preset server (Node), bukan situs statis di CDN.
 
 ### Aturan dependensi
 
@@ -119,8 +125,10 @@ packages/core/src/
 ├── recurrence/    # engine F1 (ekspansi per rentang, exception, edit 3 opsi)
 ├── calc/          # sisa waktu, countdown unit, streak, progress goal, agregasi Overview
 ├── repository/    # interface Repository<T> + query by range
-├── sync/          # outbox, push/pull, HLC, LWW merge, status
-├── io/            # import/export JSON + validasi skema + migrasi versi
+├── sync/          # HLC + LWW merge (dipakai import "gabung" & transfer); outbox/push/pull dihapus (ADR 15)
+├── io/            # import/export JSON + berkas backup terenkripsi + validasi skema + migrasi versi
+├── transfer/      # protokol transfer QR: payload QR, framing, fountain code animated QR (tanpa I/O)
+├── license/       # verifikasi token lisensi Ed25519 (murni, public key di-inject)
 └── ports.ts       # interface yang diimplementasi tiap platform
 ```
 
@@ -145,17 +153,17 @@ Satu **contract test suite** di `packages/core/test/adapters/` dijalankan ke tia
 
 Keamanan data di sini tidak datang dari pilihan library, tapi dari cara pakainya. Library yang benar tetap bisa kehilangan data kalau aturan ini dilanggar.
 
-- **Server buta, client yang tahu.** Prinsip induk; semua aturan di bawah ikut dari sini.
-- **Tulis lokal dulu, selalu.** UI tidak pernah menunggu jaringan. Kalau ragu antara kirim dulu atau simpan dulu - simpan dulu.
-- **Record + outbox dalam SATU transaksi.** Kalau tidak, crash di antara keduanya bikin data tersimpan tapi tidak pernah terkirim - hilang diam-diam.
+- **Perangkat adalah satu-satunya salinan hidup.** Prinsip induk sejak ADR 15; semua aturan di bawah ikut dari sini.
+- **Tulis lokal dulu, selalu.** UI tidak pernah menunggu jaringan.
 - **Satu penulis per origin di web** (`navigator.locks`, mis. lock `ip-writer`). IndexedDB tidak punya lock antar tab, jadi dua tab bisa saling menimpa. `BroadcastChannel` cuma memberi tahu, bukan mengunci.
 - **Dilarang `await` non-IndexedDB di dalam transaksi** (fetch, timer, apa pun). Transaksi IndexedDB auto-commit begitu tidak ada request pending, jadi tulisan sisanya hilang tanpa error.
 - **Durability transaksi tulis: `strict`.** Default Chrome sekarang `relaxed` - commit terakhir bisa hilang saat mati listrik, OS crash, atau disk penuh.
-- **Mobile: `synchronous = FULL`** untuk transaksi record + outbox. WAL dengan `NORMAL` masih bisa kehilangan transaksi terakhir saat mati listrik.
+- **Mobile: `synchronous = FULL`** untuk transaksi tulis record. WAL dengan `NORMAL` masih bisa kehilangan transaksi terakhir saat mati listrik.
 - **`navigator.storage.persist()` wajib dipanggil** dan PWA didorong untuk di-install. Tanpa itu browser bisa menghapus storage (Safari membersihkan situs yang tidak dibuka ~7 hari kalau tidak di-install).
 - **Tulis per record.** Dilarang pola hapus-semua-lalu-tulis-ulang.
-- **Restore wajib diuji, bukan diasumsikan.** Drill: hapus total storage di perangkat bersih, login, lalu pastikan seluruh data kembali dari server. Salinan lokal boleh hilang; berkas export adalah jalur tambahan, bukan satu-satunya.
-- Sync engine boleh memahami isi record karena server memegang kunci at-rest (ADR 14). Yang tetap dilarang: mengirim kunci perangkat ke server.
+- **Restore wajib diuji, bukan diasumsikan.** Drill: hapus total storage di perangkat bersih, lalu pulihkan dari berkas backup terenkripsi, dari Google Drive, dan lewat transfer QR - ketiganya harus menghasilkan data identik. Tanpa server, backup adalah satu-satunya jaring pengaman.
+- **Pengingat backup wajib.** App melacak waktu backup terakhir; lewat ambang (default 7 hari) → pengingat yang tidak bisa disembunyikan permanen. Gagal `persist()` → pengingat lebih keras.
+- Dilarang mengirim kunci perangkat, kunci backup, atau plaintext record ke server mana pun.
 
 ---
 
@@ -176,14 +184,10 @@ type Record<T> = {
 
 // yang ditulis ke disk LOKAL (disegel kunci perangkat)
 type SealedRecord = { id, hlc, deleted, blob }
-
-// yang dikirim ke server (payload polos; server menyegelnya sendiri)
-type SyncRecordDto = { id, hlc, deleted, payload }
 ```
 
-- `type`/`schemaVersion`/`data` ada di dalam `payload`; server tidak menafsirkan isinya, hanya menyegel dan membukanya kembali.
-- Metadata `id`, `hlc`, `deleted` ikut AAD ciphertext server, jadi baris tidak bisa dipindah ke akun/record lain atau diubah metadatanya tanpa membuat dekripsi gagal.
-- Salinan lokal memakai blob v2 (XChaCha20-Poly1305, AAD mengikat KID lokal, akun, record, HLC, `deleted`, padding 256 B) - konstanta di `packages/contracts/src/record-format.ts`.
+- Tidak ada DTO record ke server (ADR 15). Record keluar perangkat hanya di dalam berkas backup terenkripsi atau aliran transfer terenkripsi, dengan bentuk dokumen backup yang sama (`io/backup.ts`).
+- Salinan lokal memakai blob v2 (XChaCha20-Poly1305, AAD mengikat KID lokal, profil, record, HLC, `deleted`, padding 256 B) - konstanta di `packages/contracts/src/record-format.ts`. Slot "akun" di AAD diisi ID profil lokal (dibuat sekali per perangkat), bukan `userId` server.
 - Index lokal untuk query rentang tanggal disimpan di tabel index terpisah; jalur panas = query index, bukan decrypt semua record.
 
 ### Entitas utama
@@ -194,96 +198,121 @@ Relasi pakai ID (`todo.scheduleId`, `goalLink.itemId`). Referensi ke record yang
 ### Server (Postgres)
 
 ```
-users(id, email, created_at)
-devices(id, user_id, name, last_seen_at, last_ip_city, revoked_at)
-sessions(id, device_id, token_hash, expires_at)
+users(id, email, created_at)                                   -- login OTP/Google
+devices(id, user_id, name, platform, installation_id, ...)     -- perangkat yang pernah login
+sessions(id, device_id, token_hash, expires_at, ...)           -- sesi login (bukan akses data)
 otp_challenges(id, email_hash, code_hash, expires_at, attempts)
-records(user_id, id, hlc, hlc_wall_ms, hlc_counter, hlc_device, deleted,
-        blob BYTEA, key_version SMALLINT, server_seq BIGSERIAL)   -- PK (user_id, id)
-sync_watermarks(user_id, purged_seq)
+oauth_states(...)                                              -- PKCE Google
+purchases(id, email, amount, status pending|paid|failed, mayar_id, payment_url, expires_at, paid_at)
+licenses(id, email, order_ref, edition, max_activations, revoked_at, created_at)
+license_activations(license_id, device_id, activated_at)       -- PK (license_id, device_id)
 rate_limits(scope, bucket, window_start, count)
 ```
 
-`blob` = ciphertext AES-256-GCM milik server (`ips1 | key_version | iv | tag | ciphertext`).
-`server_seq` = cursor pull. Tidak ada kolom plaintext data user.
+Tidak ada isi data aplikasi. Email disimpan apa adanya (keputusan 2026-11-16): login lama dipakai ulang
+dan email asli dibutuhkan untuk support, refund, dan kirim ulang konfirmasi pembelian. `licenses`
+dikunci ke email (bukan `users.id`) karena pembelian terjadi sebelum pembeli pernah login.
+Sesi relay transfer hidup di memori server (TTL pendek), tidak pernah di database.
 
 ---
 
 ## 7. Kripto & kunci
 
+Tiga kunci, masing-masing untuk satu keperluan. Tidak ada kunci utama user, tidak ada kode pemulihan,
+dan tidak ada kunci yang dipegang server (ADR 15).
+
 ```mermaid
 flowchart LR
-  ENV[NUXT_RECORD_ENCRYPTION_KEYS - keyring versi] -->|AES-256-GCM| SRV[Ciphertext di Postgres]
   MK[Master Key perangkat - 32 byte acak] -->|KDF subkey 'data'| DK[Data Key lokal]
-  DK -->|XChaCha20-Poly1305| IDB[Ciphertext di IndexedDB]
-  DEV[Device Key - WebCrypto non-extractable] -->|wrap| MK
+  DK -->|XChaCha20-Poly1305| IDB[Ciphertext di IndexedDB / SQLite]
+  DEV[Device Key - WebCrypto non-extractable / Keystore] -->|wrap| MK
+  PW[Kata sandi backup] -->|Argon2id + salt| BK[Backup Key]
+  BK -->|XChaCha20-Poly1305 secretstream| BF[Berkas backup / Google Drive]
+  QR[Kunci sesi 32 byte di QR] -->|XChaCha20-Poly1305 secretstream| TX[Aliran transfer]
 ```
 
-**Sisi server (at-rest).**
-- `records.blob` = `"ips1" | keyVersion(u16) | iv(12) | tag(16) | ciphertext`, AES-256-GCM dari `node:crypto`.
-- AAD = `ips1|keyVersion|userId|recordId|hlc|deleted` - mencegah baris dipindah ke akun/record lain dan metadata diubah tanpa terdeteksi.
-- Kunci: keyring `versi:base64-32-byte` di `NUXT_RECORD_ENCRYPTION_KEYS`; versi aktif di `NUXT_RECORD_ENCRYPTION_ACTIVE_VERSION`. Versi lama tetap dibaca, jadi rotasi tidak mengunci data lama. Tidak ada kunci default; env hilang/invalid = server menolak start.
-- Kunci env adalah SATU-SATUNYA pembuka data. Wajib disimpan di secret manager/backup terpisah dari database.
+**Salinan lokal (sudah ada).**
+- MK 32 byte acak per perangkat, dibungkus `CryptoKey` non-extractable (AES-KW). Turunannya menyegel `record` di IndexedDB; native memakai SQLCipher + Keystore/Keychain.
+- MK hilang (data situs dihapus) = salinan lokal tidak bisa dibuka. **Tidak ada full pull dari server lagi**; pemulihan hanya dari backup atau transfer.
 
-**Sisi perangkat (salinan lokal).**
-- MK 32 byte acak per perangkat, dibungkus `CryptoKey` non-extractable (AES-KW). Turunannya dipakai menyegel `record` di IndexedDB.
-- MK hilang (data situs dihapus) bukan kehilangan data: salinan lokal dibuang, kunci baru dibuat, lalu full pull dari server.
-- Tidak ada passkey, recovery 24 kata, QR transfer, atau envelope kunci di server. KID hanya dipakai sebagai bagian AAD blob lokal, tidak pernah dikirim ke server.
+**Berkas backup (`ip-backup-enc`).**
+- Header polos: `format`, `version`, `kdf: { alg: 'argon2id13', opslimit, memlimit, salt }`, `createdAt`. Isi: dokumen `ip-backup` (format yang sama dengan export plaintext) → gzip → `crypto_secretstream_xchacha20poly1305` per chunk 64 KB. Header ikut sebagai AAD chunk pertama.
+- Kata sandi minimal 12 karakter + meter kekuatan; parameter Argon2id minimal `OPSLIMIT_MODERATE`/`MEMLIMIT_MODERATE` (diuji di HP kelas bawah ≤ 3 detik).
+- Backup terjadwal (Drive) butuh kunci tanpa mengetik kata sandi tiap kali: Backup Key hasil Argon2id disimpan lokal **dibungkus Device Key**, bukan kata sandinya. Ganti kata sandi = backup baru dengan salt baru.
+- Export plaintext JSON tetap ada untuk keterbacaan, dengan peringatan lama.
 
-**Dilarang:** log kunci/payload/ciphertext, mengirim kunci perangkat ke mana pun, atau membuat algoritma sendiri.
+**Kanal transfer.**
+- Kunci sesi 32 byte acak dibuat perangkat lama, hanya ada di QR dan di memori kedua perangkat, dibuang setelah selesai atau 10 menit.
+- Semua yang lewat relay/WebRTC (termasuk pesan kontrol setelah handshake) dienkripsi kunci ini. Kode verifikasi 6 digit = `BLAKE2b(key, 'ip-sas')` dipotong, ditampilkan di dua layar dan dikonfirmasi user di perangkat lama sebelum data dikirim.
 
-## 8. Auth
+**Lisensi.** Server menandatangani token dengan Ed25519; private key hanya di env server, public key ditanam di build app.
 
-- Email OTP: kode 6 digit, hash di DB, TTL ≤ 10 menit, sekali pakai, rate limit per email + per IP. Respons selalu generik (nggak bocorin email terdaftar).
-- Transport email: production pakai **Resend** (kode random); non-production pakai **SMTP lewat `NUXT_SMTP_URL`** kalau terisi (nodemailer) - juga kode random, jadi mode OTP fix mati otomatis begitu ada transport email. `NUXT_MAIL_FROM` wajib diisi kalau ada transport email (SMTP di non-production, Resend di production).
-- OTP fix `777777`: cuma kalau `APP_ENV ∈ {development, staging, test, preview}` **dan** `NUXT_SMTP_URL` kosong. Env kosong/lain = production. Server **nolak start** kalau `APP_ENV=production` dan mode fix aktif.
-- Production **nolak start** kalau `NUXT_SMTP_URL` ikut terisi - tanda berkas env non-production kebaca di deployment production. Ada test-nya.
-- Google: Authorization Code + PKCE, validasi `state`, `nonce`, ID token (`aud`, `iss`, `exp`).
-- Sesi: token opaque per perangkat (hash di DB). Web: cookie `HttpOnly; Secure; SameSite=Lax`. Mobile: `SecureStore`. Revoke per perangkat = hapus sesi.
-- Setiap endpoint: `user_id` diambil dari sesi, **bukan** dari body/param.
+**Dilarang:** log kunci/kata sandi/payload/ciphertext, mengirim kunci apa pun ke server, menyimpan kata sandi backup, atau membuat algoritma sendiri.
 
----
+## 8. Lisensi
 
-## 9. Sync
+Satu pembelian (Rp99.000) berlaku di semua platform. Identitas pembeli = **email yang dipakai saat
+membeli**; tidak ada kode lisensi untuk diketik. Login di sini hanya membuktikan "email ini sudah
+membeli" - tidak membuka data dan tidak membuat sesi.
+
+- **Beli (Mayar, pola Ergonio):** `/beli` (nama, email, nomor WA) → `POST /v1/purchase/checkout` (publik, rate limit per email & IP, nominal dari server) → baris `purchases` + payment request Mayar `hl/v1/payment/create` dengan `description` berakhiran `[wh:product=improve-personal;env=<NUXT_MAYAR_ENVIRONMENT>]` untuk webhook-gateway → pembeli bayar → `POST /v1/payments/webhook/mayar` (token rahasia dari `?token=`/Bearer/header "token", dibandingkan timing-safe; token kosong = tolak semua) → hanya `payment.received` + `SUCCESS`/`paid` + nominal ≥ harga yang melunasi (atomik) → `grantLicense(email, order_ref = purchases.id)`. Nomor WA hanya diteruskan ke Mayar, tidak disimpan. Manual/kompensasi: `license license-grant <email> <order-ref>`.
+- **Aktivasi (sekali per perangkat, online):** login OTP/Google lama (`/v1/auth/**`) → `POST /v1/license/token` (sesi wajib, tanpa body) → server cari lisensi aktif untuk email sesi (kunci baris `FOR UPDATE`), catat `(license, device)` bila belum ada, cek batas (default 5) → token `{ v, lid, did, iat, ed }` + tanda tangan Ed25519. Perangkat yang sama minta ulang tidak memakai jatah.
+- Email yang belum membeli → setelah OTP lolos, tampil "Email ini belum terdaftar membeli" + tombol beli. Status pembelian hanya terungkap ke pemilik email (sudah membuktikan OTP), jadi tidak bocor ke pihak lain; permintaan OTP sendiri tetap selalu dijawab generik.
+- App menyimpan token lokal dan memverifikasinya **offline** di setiap start. Tidak ada heartbeat, tidak ada cek online berkala.
+- Token tidak memuat email atau fingerprint; `did` hanya id baris `devices` di server. Token disimpan di `localStorage` (bukan rahasia; keaslian dijamin tanda tangan) dan diverifikasi dengan WebCrypto Ed25519 di `middleware/license.global.ts`.
+- Transfer QR ikut membawa token lisensi, jadi perangkat baru yang menerima transfer tidak perlu aktivasi ulang.
+- Pembajakan lewat patch JS diterima sebagai risiko: sasaran lisensi adalah user jujur, bukan DRM.
+- **Native:** aktivasi dengan email yang sama. Risiko kebijakan toko (Apple 3.1.3(b) "multiplatform services" umumnya mensyaratkan produk yang sama juga tersedia lewat IAP; Google Play punya aturan serupa) wajib dicek ulang sebelum rilis native - bisa berarti IAP tetap disediakan sebagai jalur beli kedua yang menulis ke tabel `licenses` yang sama.
+- Rate limit OTP per email + per IP (logika OTP lama dipakai ulang); kode `777777` tetap hanya non-production tanpa SMTP.
+
+## 9. Pindah perangkat & backup
+
+Pengganti sync (ADR 15). Tiga jalur, satu format isi (dokumen `ip-backup`), satu logika penerapan
+(`io/import.ts`: "ganti semua" untuk perangkat kosong, "gabung" pakai LWW HLC - ADR 3).
+
+### Transfer QR
 
 ```mermaid
 sequenceDiagram
-  participant UI
-  participant Core as core/sync
-  participant DB as DB lokal
-  participant S as Server
-  UI->>Core: save(record)
-  Core->>DB: tulis SealedRecord lokal + outbox (1 transaksi)
-  Core-->>UI: selesai (instan)
-  Core->>S: POST /sync/push [batch ≤ 500, payload polos]
-  S-->>Core: ack + server_seq
-  Core->>S: GET /sync/pull?cursor=n&limit=500
-  S-->>Core: payload + nextCursor
-  Core->>DB: merge LWW (hlc terbesar menang), simpan cursor
+  participant Old as Perangkat lama
+  participant R as Relay (domain)
+  participant New as Perangkat baru
+  Old->>R: buka sesi (sessionId acak)
+  Old-->>New: QR: ipt1 | sessionId | key | relayUrl
+  New->>R: gabung sesi
+  R-->>Old: signaling WebRTC (SDP/ICE, dienkripsi key)
+  New-->>Old: kode verifikasi 6 digit tampil di dua layar
+  Old->>Old: user konfirmasi kode cocok
+  Old->>New: dokumen backup (secretstream) via DataChannel P2P
+  Note over Old,New: gagal P2P dalam 8 detik → frame yang sama diteruskan relay
+  New->>New: validasi skema → terapkan → segel ulang dengan kunci perangkat sendiri
+  New-->>Old: ack (hash isi) → kedua sisi buang kunci
 ```
 
-- **Kapan sync:** saat app dibuka, setelah tulis (debounce ~2 dtk), tiap 5 menit di foreground, saat online lagi.
-- **Konflik:** bandingkan `hlc` (HLC, bukan jam device mentah → aman dari jam HP yang ngaco). Tie → `deviceId` terbesar.
-- **Server:** upsert hanya kalau `hlc` masuk > `hlc` tersimpan. Server menyegel `payload` sebelum insert dan membukanya saat pull.
-- **Hapus:** tombstone ikut sync. Purge tombstone > 90 hari (setelah semua perangkat aktif lewat cursor-nya).
-- **Status UI:** `synced | pending | offline | error` dari `core/sync`, dipakai web & mobile.
-- Sync jalan di background, nggak pernah blok UI. Penyegelan lokal batch besar di luar render (web/mobile).
+- Relay: WebSocket di `apps/web/server`, sesi di memori, TTL 10 menit, maks 2 peserta, batas byte per sesi, rate limit per IP. Tidak menyimpan apa pun ke disk/DB dan tidak me-log isi frame.
+- Tanpa TURN: fallback relay sudah menutup kasus NAT simetris.
+- **Animated QR (full offline):** dokumen dikompres + dienkripsi, dipecah dengan fountain code (urutan scan tidak penting, frame hilang tidak perlu diulang), ditampilkan sebagai rangkaian QR. Kunci sesi ada di setiap frame header (setara QR tunggal), kode verifikasi tetap wajib. Dipakai kalau dua perangkat tidak bisa online.
+- Perangkat baru tidak kosong → tanya "ganti semua" atau "gabung", sama seperti import.
+
+### Backup
+
+- **Manual:** unduh berkas `ip-backup-enc` (default) atau export plaintext (dengan peringatan).
+- **Google Drive terjadwal:** OAuth Google Identity Services langsung dari client, scope sempit (`drive.appdata` atau `drive.file` - diputuskan di task-nya), token akses hanya di memori. Berkas terenkripsi diunggah langsung browser → Drive, tidak lewat server kita. Simpan N versi terakhir (default 5).
+- "Terjadwal" di web = dijalankan saat app dibuka kalau jadwalnya lewat (browser tidak bisa jalan di latar belakang secara andal); native memakai background task OS.
+- Restore: pilih berkas / pilih versi dari Drive → kata sandi → preview jumlah data → terapkan.
 
 ### API (versi di path, schema di `packages/contracts`)
 
 ```
-POST /v1/auth/otp/request      POST /v1/auth/otp/verify
-GET  /v1/auth/google/start     GET  /v1/auth/google/callback
-POST /v1/auth/logout           GET  /v1/devices
-DELETE /v1/devices/:id         GET  /v1/auth/session
-POST /v1/sync/push             GET  /v1/sync/pull
-POST /v1/account/deletion-otp  DELETE /v1/account
-GET  /health
+POST /v1/auth/otp/request         POST /v1/auth/otp/verify      GET /v1/auth/session
+GET  /v1/auth/google/start        GET  /v1/auth/google/callback POST /v1/auth/logout
+POST /v1/license/token            (sesi -> token lisensi)
+POST /v1/purchase/checkout        POST /v1/payments/webhook/mayar
+POST /v1/payments/webhook        GET  /v1/transfer/relay   (upgrade WebSocket)
+GET  /v1/weather                 GET  /health
 ```
 
-Tidak ada endpoint kunci: kunci at-rest milik server, jadi tidak ada envelope/transfer/KID yang perlu direlay. `x-expected-user-id` tetap wajib untuk klien berbasis cookie.
-
-Bentuk respons seragam untuk SEMUA endpoint: sukses `{ data: <DTO> }`, gagal `{ error: { code, message, details? } }` dengan status dari `ERROR_HTTP_STATUS`; endpoint yang memang nggak punya body (logout, revoke perangkat, hapus akun, permintaan OTP) balas `204` tanpa body. Pembungkusan sukses terpusat di `apps/web/server/utils/api-error.ts` (bukan diulang di tiap route), dan schema-nya satu sumber di `packages/contracts/src/protocol.ts` (`apiDataEnvelopeSchema`, `apiErrorBodySchema`, `apiResponseSchema`) supaya web & mobile nggak merakit amplop sendiri.
+Bentuk respons seragam untuk SEMUA endpoint: sukses `{ data: <DTO> }`, gagal `{ error: { code, message, details? } }` dengan status dari `ERROR_HTTP_STATUS`. Pembungkusan sukses terpusat di `apps/web/server/utils/api-error.ts`, schema-nya satu sumber di `packages/contracts/src/protocol.ts`.
 
 Endpoint ini dilayani Nitro di dalam `apps/web` (`server/routes/v1/**`), bukan app terpisah.
 
@@ -297,7 +326,7 @@ Detail tiap app ada di dokumennya sendiri. Root ini cuma nampung hal yang berlak
 |---|---|---|
 | `apps/web` (Nuxt 4) | [`apps/web/ARCHITECTURE.md`](apps/web/ARCHITECTURE.md) | Struktur `app/`, mode render, PWA, state (Pinia) |
 | `apps/mobile` (Expo) | [`apps/mobile/ARCHITECTURE.md`](apps/mobile/ARCHITECTURE.md) | Struktur, adapter native, kunci app, build & OTA |
-| API server (di dalam `apps/web`) | [`apps/web/ARCHITECTURE.md`](apps/web/ARCHITECTURE.md) | Struktur `server/**`, route `/v1/**`, auth, relay sync - nggak ada app terpisah (ADR 7 direvisi) |
+| API server (di dalam `apps/web`) | [`apps/web/ARCHITECTURE.md`](apps/web/ARCHITECTURE.md) | Struktur `server/**`, route `/v1/**`, lisensi, relay transfer - nggak ada app terpisah (ADR 7 direvisi) |
 
 Aturan:
 
@@ -307,16 +336,16 @@ Aturan:
 
 ### Server DI DALAM `apps/web` (Nitro/H3)
 
-Nggak ada app server terpisah - API (auth + relay ciphertext) tinggal di `apps/web/server/**`.
+Nggak ada app server terpisah - API (lisensi + relay transfer + proxy cuaca) tinggal di `apps/web/server/**`.
 
 ```
 server/
-├── routes/         # endpoint /v1/** per resource: auth, devices, keys, sync, account
-├── services/       # logika (OTP, sesi, sync upsert)
-├── db/             # drizzle schema + migrasi
-├── middleware/     # auth, rate limit, request id, error handler
+├── routes/         # endpoint /v1/** per resource: license, payments, transfer, weather
+├── services/       # logika (penerbitan & aktivasi lisensi, sesi relay di memori)
+├── db/             # drizzle schema + migrasi (lisensi saja)
+├── middleware/     # rate limit, request id, error handler
 ├── utils/          # validasi env (zod) - gagal start kalau invalid
-└── tasks/          # job terjadwal (purge tombstone, bersihkan OTP kedaluwarsa)
+└── tasks/          # job terjadwal (bersihkan rate limit kedaluwarsa)
 ```
 
 Detail struktur server ada di [`apps/web/ARCHITECTURE.md`](apps/web/ARCHITECTURE.md) §1.
@@ -328,7 +357,7 @@ Detail struktur server ada di [`apps/web/ARCHITECTURE.md`](apps/web/ARCHITECTURE
 - **Waktu:** simpan instan sebagai epoch ms UTC + simpan `tz` untuk jadwal berulang. Ekspansi recurrence pakai zona waktu perangkat. Minggu mulai Senin.
 - **Timer global:** satu ticker per app (bukan per item) untuk sisa waktu / countdown (AC T5).
 - **Teks user:** render sebagai teks. Markdown memo lewat sanitizer (DOMPurify di web, renderer markdown tanpa HTML di RN). Dilarang `v-html` / `dangerouslySetInnerHTML` dari input mentah.
-- **Import:** validasi schema penuh + cek versi **sebelum** nulis apa pun. Batas ukuran file. Export kasih peringatan "file nggak terenkripsi".
+- **Import:** validasi schema penuh + cek versi **sebelum** nulis apa pun. Batas ukuran file. Berlaku sama untuk berkas backup, Drive, dan transfer QR (satu jalur `io/import.ts`). Export plaintext kasih peringatan "file nggak terenkripsi".
 - **Sticker:** aset statis per pack, lazy-load, di-precache untuk offline. Layer hias: `pointer-events: none` di luar mode hias, posisi dalam % relatif elemen, disimpan per breakpoint (HP/tablet/desktop).
 - **Bahasa:** UI Indonesia; string tetap lewat i18n (`@nuxtjs/i18n` / `i18next`) biar gampang ditambah.
 
@@ -336,16 +365,20 @@ Detail struktur server ada di [`apps/web/ARCHITECTURE.md`](apps/web/ARCHITECTURE
 
 ## 12. Environment & deploy
 
-| Env | Web (Nitro: UI + API) | Mobile | Host server | OTP |
+| Env | Web (Nitro: UI + API) | Mobile | Host server | Lisensi |
 |---|---|---|---|---|
-| development | `nuxi dev` (Nitro lokal, sekaligus API) | Expo dev build | lokal + Postgres docker | email via SMTP (Mailpit), atau `777777` kalau `NUXT_SMTP_URL` kosong |
-| preview | per PR (Nitro Node) | EAS internal | preview | `777777`, atau email via SMTP kalau `NUXT_SMTP_URL` diisi |
-| staging | staging URL (Nitro Node) | EAS internal/TestFlight | staging | `777777`, atau email via SMTP kalau `NUXT_SMTP_URL` diisi |
-| production | Nitro Node server (sajikan UI + API `/v1/*`) | Play Store / App Store | host Node produksi + Postgres | random via email (Resend) |
+| development | `nuxi dev` (Nitro lokal, sekaligus API) | Expo dev build | lokal + Postgres docker | keypair Ed25519 dev; webhook pembayaran mode sandbox |
+| preview | per PR (Nitro Node) | EAS internal | preview | keypair dev, sandbox |
+| staging | staging URL (Nitro Node) | EAS internal/TestFlight | staging | keypair staging, sandbox |
+| production | Nitro Node server (sajikan UI + API `/v1/*`) | Play Store / App Store | host Node produksi + Postgres | keypair production; private key hanya di secret manager |
 
-- Transport email: `NUXT_SMTP_URL` (`smtp://…`/`smtps://…`, nodemailer) kalau terisi = email benar-benar dikirim, dan mode OTP fix `777777` **mati otomatis** di env itu. Kalau kosong, non-production balik ke `777777` tanpa kirim email; production tetap Resend (`NUXT_RESEND_API_KEY`) + `NUXT_MAIL_FROM`. `NUXT_MAIL_FROM` wajib diisi kalau ada transport email.
-- **Konteks lokal:** Mailpit jalan sebagai container `local-mailpit` (axllent/mailpit) - SMTP `127.0.0.1:1025`, UI inbox `http://127.0.0.1:8025`. `apps/web/.env.example` memuat `NUXT_SMTP_URL=smtp://127.0.0.1:1025`.
-- Web = satu Nitro Node server yang sajikan UI + API `/v1/*` (bukan static/SPA build di CDN) - konsekuensinya butuh host Node (container, mis. Dokploy), nggak bisa cuma CDN statis. Postgres managed + backup harian.
+- Public key lisensi per env ditanam saat build; token dari env lain ditolak (fail-closed). Server **nolak start** kalau private key hilang/invalid atau kalau keypair dev kebaca di production.
+- Email untuk OTP aktivasi + konfirmasi pembelian (Resend di production, SMTP/Mailpit di lokal - `NUXT_SMTP_URL`, `NUXT_MAIL_FROM`). Aturan OTP per env lama tetap berlaku: `777777` hanya non-production dengan `NUXT_SMTP_URL` kosong; production nolak start kalau `NUXT_SMTP_URL` terisi.
+- `NUXT_LICENSE_SIGNING_KEY` (seed Ed25519, rahasia) + `NUXT_PUBLIC_LICENSE_PUBLIC_KEY` (ditanam di build) wajib berpasangan; tidak cocok = server nolak start. Buat dengan `license license-keygen`.
+- **Konteks lokal:** Mailpit jalan sebagai container `local-mailpit` (axllent/mailpit) - SMTP `127.0.0.1:1025`, UI inbox `http://127.0.0.1:8025`.
+- Web = satu Nitro Node server yang sajikan UI + API `/v1/*`; relay transfer butuh WebSocket, jadi tetap host Node (container, mis. Dokploy). Postgres managed + backup harian (isinya lisensi saja).
+- **Domain wajib diperpanjang jangka panjang** (auto-renew + pengingat): origin yang jatuh ke pihak lain bisa memasang service worker baru dan membaca data lokal user. Ini komitmen produk ke pembeli, bukan sekadar urusan ops.
+- Service worker: precache app shell + aset; update di latar belakang; tidak pernah cache respons `/v1/**`.
 - Secret cuma dari env/secret manager. `.env*` nggak di-commit.
 - Mobile OTA (EAS Update) cuma JS; ditandatangani, channel per env.
 
@@ -355,14 +388,14 @@ Detail struktur server ada di [`apps/web/ARCHITECTURE.md`](apps/web/ARCHITECTURE
 
 Wajib lulus sebelum merge:
 1. `pnpm lint` (termasuk aturan boundary §3) + `typecheck`
-2. Unit test `packages/*` (recurrence, calc, crypto, sync, io) - coverage ≥ 80%
+2. Unit test `packages/*` (recurrence, calc, crypto, merge HLC, io + backup terenkripsi, transfer, license) - coverage ≥ 80%
 3. Contract test adapter storage (IndexedDB & SQLite)
-4. Test server: auth, OTP per env (termasuk `777777` ditolak di production), ownership
+4. Test server: webhook (signature + idempoten), aktivasi via OTP/Google (batas, dicabut, email belum beli, `777777` ditolak di production), relay (TTL, maks peserta, batas byte, tidak menyimpan isi), keypair dev ditolak di production
 5. Build web + PWA + Android + iOS
 6. `pnpm audit` - High/Critical = blok
 7. Budget performa sesuai `apps/<app>/.claude/rules/performance.md`
 
-E2E (T16): Playwright (web/PWA) + Maestro (mobile), termasuk skenario 2 perangkat offline → online.
+E2E (T16): Playwright (web/PWA) + Maestro (mobile), termasuk drill restore (berkas, Drive, transfer QR P2P, transfer lewat relay, animated QR) dan app jalan penuh dengan jaringan mati setelah aktivasi.
 
 ---
 
@@ -370,17 +403,18 @@ E2E (T16): Playwright (web/PWA) + Maestro (mobile), termasuk skenario 2 perangka
 
 | # | Keputusan | Alasan | Trade-off |
 |---|---|---|---|
-| 1 | Local-first + server relay | Offline penuh, UI instan, privasi | Sync & konflik jadi tanggung jawab client |
+| 1 | ~~Local-first + server relay~~ **digantikan ADR 15**: local-only | - | - |
 | 2 | ~~Login terpisah dari unlock~~ **digantikan ADR 14** | - | - |
-| 3 | LWW per record pakai HLC | Cukup untuk 1 user, simpel | Edit bersamaan di 2 perangkat: satu kalah utuh |
+| 3 | LWW per record pakai HLC - **sejak ADR 15 dipakai untuk import/transfer "gabung"** | Cukup untuk 1 user, simpel | Record yang diedit di dua perangkat lalu digabung: satu kalah utuh |
 | 4 | ~~`type` ikut dienkripsi~~ **digantikan ADR 14**: `payload` disegel server | Server tetap tidak menyimpan kolom tipe | Server bisa membuka payload dengan kunci env |
 | 5 | Logika di `packages/*` murni | Satu sumber logika web & mobile, test deterministik | Butuh disiplin port/adapter |
 | 6 | Web app `ssr: false` - **direvisi 2026-10-17** | Data user nggak ada di server, SSR cuma risiko. Revisi: halaman app tetap `ssr: false`, tapi output build web bukan lagi static - API `/v1/*` dilayani di app yang sama (`server/routes/v1/**`), jadi build-nya preset server (Node) | SEO cuma untuk halaman publik; `apps/web` nggak bisa lagi disajikan sebagai situs statis dari CDN - butuh host Node |
 | 7 | Server terpisah (`apps/server`) - **direvisi 2026-10-17** | Dulu: dipakai web & mobile, deploy & skala independen. Revisi: API (auth + relay ciphertext) tinggal DI DALAM `apps/web` (`server/routes/v1/**`, Nitro/H3) - satu app, satu deploy, kontrak & sesi lebih gampang karena nggak ada boundary app. `apps/server` tidak ada dan tidak akan dibuat | Keuntungan: nggak ada deploy kedua. Kerugian: `apps/web` nggak bisa lagi disajikan sebagai situs statis dari CDN (butuh host Node), dan mobile bergantung pada API yang di-host bareng frontend web |
 | 8 | libsodium di dua platform | Primitive identik, teruji | Ukuran bundle web +~200 KB (lazy-load setelah login) |
-| 9 | Pinia di web sebagai **proyeksi reaktif**, bukan pemilik data | 16 fitur saling silang (task ↔ Eisenhower/kalender/Daily/goal/Overview) butuh satu sumber reaktif + getter turunan; `useState` per-key nggak punya getter, action, plugin, atau devtools, dan makin susah dirawat di skala ini | Ada satu lapisan cache lagi di atas repo → butuh disiplin: store nggak boleh nulis langsung ke DB, semua mutasi lewat use case `core` (kalau nggak, outbox & tombstone T21 bocor) |
+| 9 | Pinia di web sebagai **proyeksi reaktif**, bukan pemilik data | 16 fitur saling silang (task ↔ Eisenhower/kalender/Daily/goal/Overview) butuh satu sumber reaktif + getter turunan; `useState` per-key nggak punya getter, action, plugin, atau devtools, dan makin susah dirawat di skala ini | Ada satu lapisan cache lagi di atas repo → butuh disiplin: store nggak boleh nulis langsung ke DB, semua mutasi lewat use case `core` (kalau nggak, HLC & tombstone yang dipakai merge transfer bocor) |
  10 | ~~dihapus oleh ADR 14~~ | Kunci user tidak ada lagi | - |
  11 | ~~dihapus oleh ADR 14~~ | Kunci user tidak ada lagi | - |
  12 | ~~dihapus oleh ADR 14~~ | Kunci user tidak ada lagi | - |
 | 13 | ~~KID + blob record v2 di server~~ **digantikan ADR 14**: KID hanya AAD blob lokal | Server tidak lagi memvalidasi KID | Tidak ada deteksi split-brain karena tidak ada kunci user |
-| 14 | **Enkripsi at-rest di server** (AES-256-GCM, keyring di env) + salinan lokal berkunci perangkat; hapus passkey/recovery/QR/KID | Tujuan produk: data tidak boleh hilang karena user kehilangan kunci. E2EE membuat server tidak bisa memulihkan apa pun, dan menjaga kunci user adalah beban yang terus memakan korban | Server (pemegang env) bisa membaca data dan menjadi single point of failure; wajib backup kunci terpisah. Performa naik karena pull tidak perlu dekripsi di client untuk index |
+| 14 | ~~**Enkripsi at-rest di server** (AES-256-GCM, keyring di env) + salinan lokal berkunci perangkat; hapus passkey/recovery/QR/KID | Tujuan produk: data tidak boleh hilang karena user kehilangan kunci. E2EE membuat server tidak bisa memulihkan apa pun, dan menjaga kunci user adalah beban yang terus memakan korban | Server (pemegang env) bisa membaca data dan menjadi single point of failure; wajib backup kunci terpisah. Performa naik karena pull tidak perlu dekripsi di client untuk index~~ **digantikan ADR 15** |
+| 15 | **Local-only + E2E, sekali beli** (2026-11-16): tanpa akun/sync/at-rest server; pindah perangkat lewat transfer QR (WebRTC P2P, fallback relay ciphertext, fallback animated QR offline) + berkas backup terenkripsi kata sandi (Argon2id) + backup terjadwal ke Google Drive user; lisensi Ed25519 diverifikasi offline; satu pembelian (Rp99.000) untuk semua platform, aktivasi lewat email pembeli (OTP/Google lama dipakai ulang hanya untuk itu). Kode server lama (sesi, perangkat, akun, sync, at-rest, tabel `users/devices/sessions/records`) dihapus | Model jual sekali beli tidak cocok dengan biaya server yang berjalan terus; data jurnal/mood paling aman kalau tidak pernah ada di server; kewajiban UU PDP jauh lebih ringan | Perangkat hilang tanpa backup = data hilang permanen, support tidak bisa membantu; tidak ada sync otomatis antar perangkat; app bergantung pada domain tetap dimiliki (risiko origin takeover); lisensi web bisa dibajak dengan patch JS |

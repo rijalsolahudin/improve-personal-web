@@ -1,10 +1,9 @@
 # Architecture — apps/mobile (Expo / React Native)
 
-> **Superseded sebagian oleh ADR 14 (root `ARCHITECTURE.md`).** Tidak ada lagi kunci user: passkey,
-> recovery 24 kata, QR transfer, KID, dan envelope kunci dihapus. Enkripsi at-rest ada di server
-> (AES-256-GCM, keyring env); mobile hanya menyimpan salinan lokal berkunci perangkat (Keychain/
-> Keystore + SQLCipher). Bagian passkey/pairing/recovery di bawah adalah riwayat keputusan, bukan
-> rencana implementasi.
+> **Superseded sebagian oleh ADR 15 (root `ARCHITECTURE.md`).** Local-only: tidak ada akun, sync,
+> atau enkripsi at-rest di server. Data hanya di SQLite (SQLCipher) berkunci perangkat (Keychain/
+> Keystore); pindah perangkat lewat transfer QR atau backup terenkripsi. Bagian passkey/pairing/
+> recovery/sync di bawah adalah riwayat keputusan, bukan rencana implementasi.
 
 Android (APK) + iOS. Dokumen ini **cuma** soal `apps/mobile`.
 
@@ -66,7 +65,6 @@ docs/                   # symlink ke docs/ root
 | `SecureKeyStore` | `expo-secure-store` (Keychain / Keystore), material kunci tidak pernah ke disk polos, aksesibilitas `WHEN_UNLOCKED_THIS_DEVICE_ONLY` |
 | `CryptoProvider` | `react-native-libsodium` - primitive identik web (ADR 8) |
 | `Clock` | jam perangkat + HLC |
-| `HttpClient` | `fetch` |
 | `Scheduler` | `AppState` (foreground/background) |
 
 `StorageAdapter` wajib lolos **contract test suite yang sama** dengan adapter IndexedDB web (§5, AC T23) - satu test, dua adapter.
@@ -76,13 +74,12 @@ docs/                   # symlink ke docs/ root
 - Biometrik buat **membuka kunci item Keychain/Keystore yang diikat biometrik**, bukan cuma `if (success) showData()`.
 - Kunci app saat app dibuka / balik dari background.
 - Layar berisi data sensitif disembunyikan di app switcher (`FLAG_SECURE`).
-- Logout wajib ngerjain: cabut sesi, kosongkan cache query, buang state persist berisi data user.
 - Detail lengkap: [`.claude/rules/security.md`](.claude/rules/security.md).
 
-## 5. Timer & sync
+## 5. Timer
 
 - **Pomodoro:** simpan `startedAt` + hitung sisa dari jam, bukan dari interval - harus tetap akurat ±1 detik setelah app ke-background 5 menit+ (AC T7).
-- **Sync:** push setelah tulis (debounce), pull saat app dibuka dan tiap 5 menit di foreground, plus saat kembali online. Jalan di background, nggak pernah ngeblok UI (§9).
+- **Pindah perangkat & backup:** transfer QR + backup terenkripsi + Google Drive (root §9, T29–T32). Backup terjadwal native memakai background task OS.
 
 ## 6. Build & rilis
 
