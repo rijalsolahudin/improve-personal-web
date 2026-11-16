@@ -1,5 +1,6 @@
 import { mockNuxtImport } from '@nuxt/test-utils/runtime'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { reactive } from 'vue'
 
 import { usePurchase } from './usePurchase'
 
@@ -7,11 +8,16 @@ import { usePurchase } from './usePurchase'
 const { fetchMock } = vi.hoisted(() => ({ fetchMock: vi.fn() }))
 mockNuxtImport('$fetch', () => fetchMock)
 
+/** `?plan=` datang dari tombol paket di landing. */
+const route = reactive<{ query: Record<string, unknown> }>({ query: {} })
+mockNuxtImport('useRoute', () => () => route)
+
 const assignMock = vi.fn()
 
 beforeEach(() => {
   fetchMock.mockReset()
   assignMock.mockReset()
+  route.query = {}
   vi.stubGlobal('location', { ...window.location, assign: assignMock })
 })
 
@@ -38,6 +44,27 @@ describe('usePurchase', () => {
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
+  it('paket awal dari `?plan=`; nilai asing jatuh ke tahunan', () => {
+    route.query = { plan: 'lifetime' }
+    expect(usePurchase().plan.value).toBe('lifetime')
+
+    route.query = { plan: 'gratis' }
+    expect(usePurchase().plan.value).toBe('yearly')
+  })
+
+  it('paket yang dipilih ikut ke checkout', async () => {
+    fetchMock.mockResolvedValue({ data: { paymentUrl: 'https://mayar.link/abc' } })
+    const purchase = filled()
+    purchase.plan.value = 'monthly'
+
+    await purchase.submit()
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/v1/purchase/checkout',
+      expect.objectContaining({ body: expect.objectContaining({ plan: 'monthly' }) }),
+    )
+  })
+
   it('sukses -> kirim data ternormalisasi (tanpa harga), lalu pindah ke Mayar', async () => {
     fetchMock.mockResolvedValue({ data: { paymentUrl: 'https://mayar.link/abc' } })
     const purchase = filled()
@@ -46,7 +73,7 @@ describe('usePurchase', () => {
 
     expect(fetchMock).toHaveBeenCalledWith('/v1/purchase/checkout', {
       method: 'POST',
-      body: { name: 'Rina', email: 'rina@email.com', mobile: '081234567890' },
+      body: { name: 'Rina', email: 'rina@email.com', mobile: '081234567890', plan: 'yearly' },
     })
     expect(assignMock).toHaveBeenCalledWith('https://mayar.link/abc')
   })

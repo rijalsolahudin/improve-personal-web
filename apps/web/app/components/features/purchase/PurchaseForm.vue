@@ -2,10 +2,10 @@
 import { BUYER_NAME_MAX_LENGTH } from '@improve-personal/contracts'
 
 import type { PurchaseField } from '~/composables/usePurchase'
-import { LICENSE_PRICE_LABEL } from '~/utils/price'
+import { planPriceLabel } from '~/utils/price'
 import { EMAIL_MAX_LENGTH } from '~/utils/validation'
 
-/** Form beli lisensi (ADR 15): nama, email pembelian, nomor WA -> halaman bayar Mayar. */
+/** Form beli lisensi (ADR 15 + ADR 16): paket, nama, email pembelian, nomor WA -> halaman bayar Mayar. */
 const purchase = usePurchase()
 
 function hasError(field: PurchaseField): boolean {
@@ -15,14 +15,13 @@ function hasError(field: PurchaseField): boolean {
 
 <template>
   <div class="step">
-    <AuthHeading
-      :eyebrow="$t('purchase.eyebrow')"
-      :title="$t('purchase.title', { price: LICENSE_PRICE_LABEL })"
-    >
+    <AuthHeading :eyebrow="$t('purchase.eyebrow')" :title="$t('purchase.title')">
       {{ $t('purchase.sub') }}
     </AuthHeading>
 
     <form class="form" novalidate @submit.prevent="purchase.submit">
+      <PurchasePlanPicker v-model="purchase.plan.value" />
+
       <div class="field">
         <label class="label" for="purchase-name">{{ $t('purchase.nameLabel') }}</label>
         <Input
@@ -74,7 +73,7 @@ function hasError(field: PurchaseField): boolean {
       </p>
 
       <AuthPrimaryButton :is-loading="purchase.isSubmitting.value">
-        {{ $t('purchase.submit', { price: LICENSE_PRICE_LABEL }) }}
+        {{ $t('purchase.submit', { price: planPriceLabel(purchase.plan.value) }) }}
       </AuthPrimaryButton>
     </form>
 

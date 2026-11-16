@@ -1,20 +1,24 @@
 import { z } from 'zod'
 
 import { uuidSchema } from './protocol.ts'
+import { licensePlanSchema } from './purchase.ts'
 
 /**
- * Token lisensi (ADR 15, ARCHITECTURE.md §8).
+ * Token lisensi (ADR 15 + ADR 16, ARCHITECTURE.md §8).
  *
  * Bentuk wire: `<payload>.<signature>` - keduanya base64url tanpa padding. `payload` adalah JSON
  * `LicenseTokenPayload`; `signature` adalah tanda tangan Ed25519 (64 byte) atas BYTE string
  * `<payload>` (bukan atas JSON hasil parse), jadi verifikasi tidak bergantung pada urutan key.
  *
  * Token sengaja TIDAK memuat email atau data pribadi: ia hanya bukti "perangkat ini sudah
- * diaktivasi untuk lisensi X". Ditandatangani server sekali, diverifikasi app secara offline dengan
- * public key yang ditanam saat build.
+ * diaktivasi untuk lisensi X sampai `exp`". Ditandatangani server, diverifikasi app secara offline
+ * dengan public key yang ditanam saat build, dan disegarkan lewat `POST /v1/license/refresh` saat
+ * masa aktif hampir/sudah habis.
+ *
+ * v2 (ADR 16) menambah `plan` + `exp`; token v1 (sekali beli) tidak diterima lagi.
  */
 
-export const LICENSE_TOKEN_VERSION = 1
+export const LICENSE_TOKEN_VERSION = 2
 
 export const LICENSE_EDITIONS = ['standard'] as const
 
@@ -36,6 +40,9 @@ export const licenseTokenPayloadSchema = z
     /** Waktu terbit, epoch detik. */
     iat: z.number().int().positive(),
     ed: z.enum(LICENSE_EDITIONS),
+    plan: licensePlanSchema,
+    /** Akhir masa aktif, epoch detik. `null` = lifetime. */
+    exp: z.number().int().positive().nullable(),
   })
   .strict()
 
@@ -55,6 +62,11 @@ export const licenseTokenSchema = z
 export const licenseTokenResultSchema = z.object({ token: licenseTokenSchema }).strict()
 
 export type LicenseTokenResult = z.infer<typeof licenseTokenResultSchema>
+
+/** `POST /v1/license/refresh` - token lama (bertanda tangan) sebagai bukti, tanpa sesi login. */
+export const licenseRefreshInputSchema = z.object({ token: licenseTokenSchema }).strict()
+
+export type LicenseRefreshInput = z.infer<typeof licenseRefreshInputSchema>
 
 /** Pecah token jadi bagian yang ditandatangani dan tanda tangannya. `null` = bentuknya salah. */
 export function splitLicenseToken(

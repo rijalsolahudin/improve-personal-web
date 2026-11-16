@@ -1,6 +1,6 @@
 import { and, desc, eq, gt, inArray, isNotNull, ne } from 'drizzle-orm'
 
-import { LICENSE_PRICE_IDR, type CheckoutInput } from '@improve-personal/contracts'
+import { LICENSE_PLANS, type CheckoutInput, type LicensePlanId } from '@improve-personal/contracts'
 
 import { purchases } from '../db/schema'
 import { apiProblem } from '../utils/api-error'
@@ -20,10 +20,11 @@ import { grantLicense } from './license'
 import { consumeRateLimit } from './rate-limit'
 
 /**
- * Pembelian lisensi lewat Mayar (ADR 15, PRD F15 "Pembelian & Lisensi").
+ * Pembelian lisensi lewat Mayar (ADR 15 + ADR 16, PRD F15 "Pembelian & Lisensi").
  *
  * Alur: halaman beli -> `startCheckout` (baris `purchases` + payment request Mayar) -> pembeli bayar
- * di Mayar -> webhook `handleMayarWebhook` -> `purchases.status = paid` + `grantLicense`. Pembeli lalu
+ * di Mayar -> webhook `handleMayarWebhook` -> `purchases.status = paid` + `grantLicense` (perpanjang
+ * sesuai `purchases.plan`). Pembeli lalu
  * login dengan email yang sama dan app menerbitkan token lisensi (`services/license.ts`).
  */
 
@@ -38,12 +39,20 @@ const REUSE_MIN_REMAINING_MS = 5 * 60 * 1000
 /** Path tujuan setelah bayar (di origin app sendiri). */
 export const CHECKOUT_RETURN_PATH = '/beli/selesai'
 
+/** Nama paket di tagihan Mayar (dibaca pembeli di email/halaman bayar). */
+const PLAN_LABELS: Readonly<Record<LicensePlanId, string>> = {
+  monthly: 'Bulanan',
+  yearly: 'Tahunan',
+  lifetime: 'Lifetime',
+}
+
 /**
- * Nominal yang ditagih. Override hanya berlaku di non-production (Mayar tidak punya sandbox, jadi uji
- * bayar = uang sungguhan); production selalu `LICENSE_PRICE_IDR`.
+ * Nominal yang ditagih untuk satu paket. Override hanya berlaku di non-production (Mayar tidak punya
+ * sandbox, jadi uji bayar = uang sungguhan) dan berlaku untuk semua paket; production selalu harga
+ * `LICENSE_PLANS`.
  */
-export function licensePriceIdr(env: ServerEnv): number {
-  if (env.isProduction || env.priceOverrideIdr === null) return LICENSE_PRICE_IDR
+export function licensePriceIdr(env: ServerEnv, plan: LicensePlanId): number {
+  if (env.isProduction || env.priceOverrideIdr === null) return LICENSE_PLANS[plan].priceIdr
   return env.priceOverrideIdr
 }
 
@@ -55,7 +64,7 @@ export type StartCheckoutInput = CheckoutInput & {
 /**
  * Buat (atau pakai ulang) link bayar untuk email ini.
  *
- * Link yang masih berlaku untuk email + harga yang sama dipakai ulang, supaya klik berulang tidak
+ * Link yang masih berlaku untuk email + paket + harga yang sama dipakai ulang, supaya klik berulang tidak
  * menumpuk tagihan di Mayar. Rate limit per email & per IP menutup penyalahgunaan endpoint publik ini
  * sebagai pengirim email Mayar ke alamat orang lain.
  */
@@ -73,7 +82,7 @@ export async function startCheckout(
   await consumeRateLimit(ctx, 'purchase:email', input.email)
   if (ctx.clientIp !== null) await consumeRateLimit(ctx, 'purchase:ip', ctx.clientIp)
 
-  const amount = licensePriceIdr(ctx.env)
+  const amount = licensePriceIdr(ctx.env, input.plan)
 
   const [open] = await ctx.db
     .select({ paymentUrl: purchases.paymentUrl })
@@ -82,6 +91,7 @@ export async function startCheckout(
       and(
         eq(purchases.email, input.email),
         eq(purchases.status, 'pending'),
+        eq(purchases.plan, input.plan),
         eq(purchases.amount, amount),
         isNotNull(purchases.paymentUrl),
         gt(purchases.expiresAt, new Date(ctx.now.getTime() + REUSE_MIN_REMAINING_MS)),
@@ -96,6 +106,7 @@ export async function startCheckout(
   await ctx.db.insert(purchases).values({
     id,
     email: input.email,
+    plan: input.plan,
     amount,
     expiresAt,
     createdAt: ctx.now,
@@ -110,7 +121,7 @@ export async function startCheckout(
         mobile: input.mobile,
         amount,
         redirectUrl: `${input.origin}${CHECKOUT_RETURN_PATH}`,
-        description: `Lisensi Improve Personal - ${id} ${mayarGatewayTag({ product: ctx.env.mayarProduct, environment: ctx.env.mayarEnvironment })}`,
+        description: `Lisensi Improve Personal ${PLAN_LABELS[input.plan]} - ${id} ${mayarGatewayTag({ product: ctx.env.mayarProduct, environment: ctx.env.mayarEnvironment })}`,
         expiredAt: expiresAt,
       },
       request,
@@ -198,8 +209,8 @@ export async function handleMayarWebhook(
       .set({ status: 'paid', paidAt: ctx.now })
       .where(and(eq(purchases.id, purchase.id), ne(purchases.status, 'paid')))
     // Tetap dipanggil walau baris sudah `paid`: memulihkan lisensi kalau proses sebelumnya mati di
-    // antara dua langkah ini. Idempoten per `order_ref`.
-    await grantLicense(ctx, { email: purchase.email, orderRef: purchase.id })
+    // antara dua langkah ini. Idempoten per `order_ref`, jadi tidak memperpanjang dua kali.
+    await grantLicense(ctx, { email: purchase.email, orderRef: purchase.id, plan: purchase.plan })
     return { status: 'paid' }
   }
 

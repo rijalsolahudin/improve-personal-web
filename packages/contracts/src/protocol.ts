@@ -16,12 +16,13 @@ import { z } from 'zod'
  *   GET    /v1/auth/google/callback    auth.ts     googleCallbackQuerySchema -> sessionDtoSchema
  *   GET    /v1/auth/session            auth.ts     currentSessionResultSchema
  *   POST   /v1/license/token           license.ts  (tanpa body; email + perangkat dari SESI) -> licenseTokenResultSchema
+ *   POST   /v1/license/refresh         license.ts  licenseRefreshInputSchema -> licenseTokenResultSchema (publik; token lama = bukti)
  *   POST   /v1/purchase/checkout       purchase.ts checkoutInputSchema -> checkoutResultSchema (publik)
  *   POST   /v1/payments/webhook/mayar  -           webhook Mayar (publik, token rahasia)
  *
  * Sejak ADR 15 tidak ada endpoint data (sync), perangkat, atau akun. Login (OTP/Google) hanya
  * membuktikan email pembeli; `license/token` menukar sesi itu jadi token lisensi yang diverifikasi
- * offline oleh app.
+ * offline oleh app, dan `license/refresh` memperbarui `exp` token itu tanpa login ulang (ADR 16).
  *
  * Daftar di atas WAJIB sama dengan isi `apps/web/server/routes/v1/**`; kalau tidak, ada endpoint yang
  * dipakai klien tapi tidak tercatat sebagai kontrak (pernah terjadi pada `auth/logout`). Kesamaannya dijaga test `apps/web/server/tests/contract-routes.test.ts`.

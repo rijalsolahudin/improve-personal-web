@@ -11,6 +11,8 @@ import {
   uuid,
 } from 'drizzle-orm/pg-core'
 
+import { LICENSE_PLAN_IDS } from '@improve-personal/contracts'
+
 /**
  * Skema Postgres server: login (OTP/Google) + lisensi + rate limit. Sejak ADR 15 tidak ada data isi
  * aplikasi di server sama sekali - login hanya membuktikan email pembeli (`licenses`).
@@ -215,8 +217,11 @@ export const rateLimits = pgTable(
   ],
 )
 
+export const licensePlanEnum = pgEnum('license_plan', LICENSE_PLAN_IDS)
+
 /**
- * Tabel `licenses` - bukti pembelian (ADR 15). Satu baris per pembelian.
+ * Tabel `licenses` - hak pakai satu email (ADR 15, ADR 16). SATU baris per email; setiap pembelian
+ * lunas memperpanjang `expires_at` lewat `license_grants`.
  *
  * Dikunci ke EMAIL, bukan ke `users.id`: pembelian terjadi di halaman beli (lewat payment provider)
  * sebelum pembeli pernah login, jadi baris `users` untuk email itu bisa saja belum ada. Saat aktivasi,
@@ -228,24 +233,38 @@ export const licenses = pgTable(
     id: uuid('id').primaryKey(),
     /** Selalu lowercase (dinormalkan `emailSchema`), sama seperti `users.email`. */
     email: text('email').notNull(),
-    /** Id transaksi dari payment provider - kunci idempotensi webhook. */
-    orderRef: text('order_ref').notNull(),
+    /** Paket yang sedang berlaku (pembelian terakhir; `lifetime` tidak pernah turun). */
+    plan: licensePlanEnum('plan').notNull(),
+    /** Akhir masa aktif. `NULL` = lifetime. */
+    expiresAt: timestamp('expires_at', { withTimezone: true }),
     edition: text('edition').notNull().default('standard'),
     maxActivations: integer('max_activations').notNull().default(5),
     revokedAt: timestamp('revoked_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [
-    uniqueIndex('uq_licenses_order_ref').on(table.orderRef),
-    index('idx_licenses_email').on(table.email),
-  ],
+  (table) => [uniqueIndex('uq_licenses_email').on(table.email)],
 )
+
+/**
+ * Tabel `license_grants` - satu baris per pembelian yang sudah memperpanjang lisensi.
+ *
+ * `order_ref` (= `purchases.id`, atau ref manual dari CLI) sebagai PK adalah kunci idempotensi:
+ * webhook yang dikirim ulang tidak bisa memperpanjang dua kali.
+ */
+export const licenseGrants = pgTable('license_grants', {
+  orderRef: text('order_ref').primaryKey(),
+  licenseId: uuid('license_id')
+    .notNull()
+    .references(() => licenses.id, { onDelete: 'cascade' }),
+  plan: licensePlanEnum('plan').notNull(),
+  grantedAt: timestamp('granted_at', { withTimezone: true }).notNull().defaultNow(),
+})
 
 export const purchaseStatusEnum = pgEnum('purchase_status', ['pending', 'paid', 'failed'])
 
 /**
- * Tabel `purchases` - satu checkout Mayar. Begitu `paid`, lisensi diterbitkan dengan
- * `licenses.order_ref = purchases.id` (idempoten).
+ * Tabel `purchases` - satu checkout Mayar. Begitu `paid`, lisensi diperpanjang lewat
+ * `license_grants.order_ref = purchases.id` (idempoten).
  *
  * Nomor HP pembeli TIDAK disimpan: hanya diteruskan ke Mayar yang mewajibkannya.
  */
@@ -254,6 +273,7 @@ export const purchases = pgTable(
   {
     id: uuid('id').primaryKey(),
     email: text('email').notNull(),
+    plan: licensePlanEnum('plan').notNull(),
     /** Nominal yang ditagih (rupiah) - pembanding `amount` di webhook. */
     amount: integer('amount').notNull(),
     status: purchaseStatusEnum('status').notNull().default('pending'),
@@ -298,4 +318,5 @@ export type DeviceRow = typeof devices.$inferSelect
 export type SessionRow = typeof sessions.$inferSelect
 export type OtpChallengeRow = typeof otpChallenges.$inferSelect
 export type LicenseRow = typeof licenses.$inferSelect
+export type LicenseGrantRow = typeof licenseGrants.$inferSelect
 export type PurchaseRow = typeof purchases.$inferSelect

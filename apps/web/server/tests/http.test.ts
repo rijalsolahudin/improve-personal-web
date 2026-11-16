@@ -527,19 +527,54 @@ describe('lisensi lewat HTTP (ADR 15)', () => {
     expect(before.status).toBe(403)
     expect(problemOf(before).error.code).toBe('LICENSE_REQUIRED')
 
-    await grantLicense(liveCtx(fixture), { email: fixture.email, orderRef: `qa-${randomUUID()}` })
+    await grantLicense(liveCtx(fixture), {
+      email: fixture.email,
+      orderRef: `qa-${randomUUID()}`,
+      plan: 'yearly',
+    })
 
     const after = await api('/v1/license/token', { method: 'POST', cookie })
     expect(after.status).toBe(200)
-    expect(apiDataEnvelopeSchema(licenseTokenResultSchema).safeParse(after.body).success).toBe(true)
+    const issued = apiDataEnvelopeSchema(licenseTokenResultSchema).safeParse(after.body)
+    expect(issued.success).toBe(true)
     expect(after.headers.get('cache-control')).toContain('no-store')
+
+    // Refresh publik (ADR 16): token lama = bukti, tanpa cookie sesi.
+    const refreshed = await api('/v1/license/refresh', {
+      method: 'POST',
+      body: { token: issued.data?.data.token },
+    })
+    expect(refreshed.status).toBe(200)
+    expect(apiDataEnvelopeSchema(licenseTokenResultSchema).safeParse(refreshed.body).success).toBe(
+      true,
+    )
+  })
+
+  it('refresh dengan token palsu -> 401; body asing -> 400', async () => {
+    const forged = await api('/v1/license/refresh', {
+      method: 'POST',
+      body: { token: 'YWJj.ZGVm' },
+    })
+    expect(forged.status).toBe(401)
+    expect(problemOf(forged).error.code).toBe('UNAUTHENTICATED')
+
+    expectValidationFailure(
+      await api('/v1/license/refresh', { method: 'POST', body: { token: 'YWJj.ZGVm', lid: 'x' } }),
+      'refresh dengan field asing',
+    )
   })
 })
 
 describe('pembelian & webhook Mayar lewat HTTP (ADR 15)', () => {
   it('checkout: input tidak valid -> 400 VALIDATION_FAILED, harga dari klien ditolak', async () => {
     const fixture = scope.fixture({ prefix: 'http-checkout' })
-    const body = { name: 'QA', email: fixture.email, mobile: '081234567890', amount: 1 }
+    const body = {
+      name: 'QA',
+      email: fixture.email,
+      mobile: '081234567890',
+      plan: 'yearly',
+      amount: 1,
+    }
 
     expectValidationFailure(
       await api('/v1/purchase/checkout', { method: 'POST', body }),

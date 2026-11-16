@@ -1,3 +1,7 @@
+<script setup lang="ts">
+import { planPriceLabel } from '~/utils/price'
+</script>
+
 <template>
   <header class="hero">
     <div class="copy">
@@ -11,12 +15,10 @@
       </h1>
       <p class="lead">{{ $t('landing.hero.lead') }}</p>
       <div class="actions">
-        <NuxtLink :to="PURCHASE_PATH" class="btn btn-primary">{{
-          $t('landing.hero.cta', { price: LICENSE_PRICE_LABEL })
-        }}</NuxtLink>
+        <a href="#harga" class="btn btn-primary">{{ $t('landing.hero.cta') }}</a>
         <a href="#fitur" class="btn btn-outline">{{ $t('landing.hero.secondary') }}</a>
       </div>
-      <p class="note">{{ $t('landing.hero.note') }}</p>
+      <p class="note">{{ $t('landing.hero.note', { price: planPriceLabel('monthly') }) }}</p>
     </div>
     <!--
       Cuplikan dashboard di hero: murni hiasan statis (`aria-hidden`), tidak punya state atau

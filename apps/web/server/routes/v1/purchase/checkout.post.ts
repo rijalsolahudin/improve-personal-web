@@ -4,9 +4,11 @@ import { serviceContext } from '../../../services/context'
 import { startCheckout } from '../../../services/purchase'
 
 /**
- * `POST /v1/purchase/checkout` - mulai pembelian lisensi (ADR 15). Publik: pembeli belum login.
+ * `POST /v1/purchase/checkout` - mulai pembelian lisensi (ADR 15 + ADR 16). Publik: pembeli belum
+ * login.
  *
- * Nominal tidak pernah datang dari klien; server yang menentukan (`licensePriceIdr`). Respons berisi
+ * Klien hanya memilih `plan`; nominal tidak pernah datang dari klien - server yang menentukan
+ * (`licensePriceIdr`). Respons berisi
  * link bayar Mayar; klien berpindah ke sana dengan navigasi penuh.
  */
 export default defineApiHandler(async (event) => {

@@ -27,6 +27,7 @@ useSeoMeta({
     -->
     <LazyLandingFeatureGrid hydrate-never />
     <LazyLandingSteps hydrate-never />
+    <LazyLandingPricing hydrate-never />
     <LazyLandingOutro hydrate-never />
     <LazyLandingFooter hydrate-never />
   </div>

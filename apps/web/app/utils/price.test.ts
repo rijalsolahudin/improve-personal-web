@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest'
 
-import { LICENSE_PRICE_LABEL, formatRupiah } from './price'
+import {
+  YEARLY_PER_MONTH_LABEL,
+  YEARLY_SAVING_PERCENT,
+  formatRupiah,
+  planFromQuery,
+  planPriceLabel,
+  purchasePathFor,
+} from './price'
 
 describe('formatRupiah', () => {
   it.each([
@@ -11,8 +18,31 @@ describe('formatRupiah', () => {
   ])('%d -> %s', (amount, expected) => {
     expect(formatRupiah(amount)).toBe(expected)
   })
+})
 
-  it('label harga lisensi = Rp99.000', () => {
-    expect(LICENSE_PRICE_LABEL).toBe('Rp99.000')
+describe('paket lisensi', () => {
+  it('label harga per paket (ADR 16)', () => {
+    expect(planPriceLabel('monthly')).toBe('Rp19.000')
+    expect(planPriceLabel('yearly')).toBe('Rp99.000')
+    expect(planPriceLabel('lifetime')).toBe('Rp249.000')
+  })
+
+  it('tahunan hemat 57% dibanding 12x bulanan', () => {
+    expect(YEARLY_SAVING_PERCENT).toBe(57)
+    expect(YEARLY_PER_MONTH_LABEL).toBe('Rp8.250')
+  })
+
+  it.each([
+    ['monthly', 'monthly'],
+    ['lifetime', 'lifetime'],
+    [undefined, 'yearly'],
+    ['weekly', 'yearly'],
+    [['monthly'], 'yearly'],
+  ])('planFromQuery(%j) = %s', (value, expected) => {
+    expect(planFromQuery(value)).toBe(expected)
+  })
+
+  it('link beli membawa paket', () => {
+    expect(purchasePathFor('lifetime')).toBe('/beli?plan=lifetime')
   })
 })

@@ -3,11 +3,16 @@ import {
   apiErrorBodySchema,
   checkoutInputSchema,
   checkoutResultSchema,
+  type LicensePlanId,
 } from '@improve-personal/contracts'
 
+import { planFromQuery } from '~/utils/price'
+
 /**
- * Form beli lisensi (ADR 15): nama, email, nomor WA -> `POST /v1/purchase/checkout` -> halaman bayar
- * Mayar. Nominal tidak dikirim dari sini; server yang menentukan.
+ * Form beli lisensi (ADR 15 + ADR 16): paket, nama, email, nomor WA -> `POST /v1/purchase/checkout`
+ * -> halaman bayar Mayar. Hanya `plan` yang dikirim; nominal ditentukan server.
+ *
+ * Paket awal diambil dari `?plan=` (tombol paket di landing), selain itu paket default (tahunan).
  *
  * Validasi di client memakai schema kontrak yang SAMA dengan server, jadi pesan field muncul tanpa
  * request; server tetap memvalidasi ulang.
@@ -32,6 +37,7 @@ function purchaseErrorOf(caught: unknown): PurchaseError {
 }
 
 export function usePurchase() {
+  const plan = ref<LicensePlanId>(planFromQuery(useRoute().query.plan))
   const name = ref('')
   const email = ref('')
   const mobile = ref('')
@@ -47,6 +53,7 @@ export function usePurchase() {
       name: name.value,
       email: email.value,
       mobile: mobile.value,
+      plan: plan.value,
     })
     if (!input.success) {
       fieldErrors.value = input.error.issues
@@ -75,5 +82,5 @@ export function usePurchase() {
     }
   }
 
-  return { name, email, mobile, fieldErrors, error, isSubmitting, submit }
+  return { plan, name, email, mobile, fieldErrors, error, isSubmitting, submit }
 }

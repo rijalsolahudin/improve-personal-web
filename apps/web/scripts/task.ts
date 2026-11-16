@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto'
 
-import { emailSchema } from '@improve-personal/contracts'
+import { emailSchema, licensePlanSchema } from '@improve-personal/contracts'
 
 import { closeAllDatabases, databaseFor } from '../server/db/client'
 import { grantLicense } from '../server/services/license'
@@ -31,7 +31,7 @@ import { LICENSE_SEED_BYTES, createLicenseSigner } from '../server/utils/license
  * Pakai:
  *   tsx scripts/task.ts cleanup-ephemeral
  *   tsx scripts/task.ts license-keygen
- *   tsx scripts/task.ts license-grant <email> <order-ref>
+ *   tsx scripts/task.ts license-grant <email> <order-ref> [monthly|yearly|lifetime]
  */
 
 /** Petakan env `NUXT_*` ke bentuk config yang diterima `resolveServerEnv` (key privat runtimeConfig). */
@@ -52,6 +52,7 @@ function runtimeConfigFromProcessEnv(): Record<string, unknown> {
     licenseSigningKey: process.env.NUXT_LICENSE_SIGNING_KEY,
     mayarApiKey: process.env.NUXT_MAYAR_API_KEY,
     mayarWebhookToken: process.env.NUXT_MAYAR_WEBHOOK_TOKEN,
+    mayarProduct: process.env.NUXT_MAYAR_PRODUCT,
     mayarEnvironment: process.env.NUXT_MAYAR_ENVIRONMENT,
     priceOverrideIdr: process.env.NUXT_PRICE_OVERRIDE_IDR,
     public: { licensePublicKey: process.env.NUXT_PUBLIC_LICENSE_PUBLIC_KEY },
@@ -79,16 +80,18 @@ const TASKS = {
   },
   /**
    * Catat pembelian manual (penjualan di luar webhook, kompensasi, uji). Idempoten per order-ref.
+   * Paket default `lifetime` (kompensasi/uji paling sering butuh akses tanpa batas).
    * Output hanya id lisensi - email tidak ikut dicetak supaya log operator tidak menyimpan PII.
    */
   'license-grant': async () => {
     const email = emailSchema.parse(process.argv[3])
     const orderRef = process.argv[4]
     if (!orderRef)
-      throw new Error('order-ref wajib: tsx scripts/task.ts license-grant <email> <ref>')
+      throw new Error('order-ref wajib: tsx scripts/task.ts license-grant <email> <ref> [paket]')
+    const plan = licensePlanSchema.parse(process.argv[5] ?? 'lifetime')
 
-    const license = await grantLicense(contextFromProcessEnv(), { email, orderRef })
-    return { licenseId: license.id }
+    const license = await grantLicense(contextFromProcessEnv(), { email, orderRef, plan })
+    return { licenseId: license.id, plan: license.plan, expiresAt: license.expiresAt }
   },
 } as const
 

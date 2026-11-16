@@ -1,11 +1,11 @@
 // @vitest-environment node
 import { randomUUID } from 'node:crypto'
 
-import { LICENSE_PRICE_IDR } from '@improve-personal/contracts'
+import { LICENSE_PLANS, type LicensePlanId } from '@improve-personal/contracts'
 import { eq } from 'drizzle-orm'
 import { afterAll, describe, expect, it, vi } from 'vitest'
 
-import { licenses, purchases } from '../db/schema'
+import { licenseGrants, licenses, purchases } from '../db/schema'
 import { handleMayarWebhook, licensePriceIdr, startCheckout } from '../services/purchase'
 import type { MayarFetch } from '../utils/mayar'
 import { closeTestDb, makeEnv, testDb, type Fixture } from './helpers/harness'
@@ -38,17 +38,22 @@ function fakeMayar(): MayarFetch & { readonly ids: string[] } {
   return Object.assign(request, { ids })
 }
 
-function checkoutOf(fixture: Fixture) {
+const YEARLY_PRICE = LICENSE_PLANS.yearly.priceIdr
+const MS_PER_DAY = 24 * 60 * 60 * 1000
+
+function checkoutOf(fixture: Fixture, plan: LicensePlanId = 'yearly') {
   return {
     name: 'QA Pembeli',
     email: fixture.email,
     mobile: '081234567890',
+    plan,
     origin: 'https://app.test',
   }
 }
 
-async function purchaseOf(email: string) {
-  const [row] = await testDb().select().from(purchases).where(eq(purchases.email, email))
+async function purchaseOf(email: string, plan?: LicensePlanId) {
+  const rows = await testDb().select().from(purchases).where(eq(purchases.email, email))
+  const row = rows.find((candidate) => plan === undefined || candidate.plan === plan)
   if (row === undefined) throw new Error('baris pembelian tidak ada')
   return row
 }
@@ -72,12 +77,14 @@ describe('startCheckout', () => {
     expect(row).toMatchObject({
       status: 'pending',
       mayarId: mayar.ids[0],
-      amount: LICENSE_PRICE_IDR,
+      plan: 'yearly',
+      amount: YEARLY_PRICE,
     })
 
     const [, init] = vi.mocked(mayar).mock.calls[0] ?? []
     const sent = JSON.parse(String(init?.body)) as { description: string; redirectUrl: string }
     expect(sent.description).toContain(row.id)
+    expect(sent.description).toContain('Tahunan')
     expect(sent.description.endsWith('[wh:product=jurnal-pro;env=development]')).toBe(true)
     expect(sent.redirectUrl).toBe('https://app.test/beli/selesai')
   })
@@ -91,6 +98,19 @@ describe('startCheckout', () => {
 
     expect(second).toBe(first)
     expect(mayar).toHaveBeenCalledTimes(1)
+  })
+
+  it('paket lain -> tagihan baru dengan harga paket itu', async () => {
+    const fixture = mayarFixture('purchase-plans')
+    const mayar = fakeMayar()
+
+    const yearly = await startCheckout(fixture.ctx(), checkoutOf(fixture, 'yearly'), mayar)
+    const lifetime = await startCheckout(fixture.ctx(), checkoutOf(fixture, 'lifetime'), mayar)
+
+    expect(lifetime).not.toBe(yearly)
+    expect((await purchaseOf(fixture.email, 'lifetime')).amount).toBe(
+      LICENSE_PLANS.lifetime.priceIdr,
+    )
   })
 
   it('API key kosong -> gagal tanpa memanggil Mayar', async () => {
@@ -117,12 +137,13 @@ describe('startCheckout', () => {
 
 describe('licensePriceIdr', () => {
   it('override dipakai di non-production', () => {
-    expect(licensePriceIdr(makeEnv({ priceOverrideIdr: 1_000 }))).toBe(1_000)
+    expect(licensePriceIdr(makeEnv({ priceOverrideIdr: 1_000 }), 'lifetime')).toBe(1_000)
   })
 
   it('production mengabaikan override (tidak pernah menagih kurang)', () => {
     const env = { ...makeEnv({ priceOverrideIdr: 1_000 }), isProduction: true }
-    expect(licensePriceIdr(env)).toBe(LICENSE_PRICE_IDR)
+    expect(licensePriceIdr(env, 'monthly')).toBe(LICENSE_PLANS.monthly.priceIdr)
+    expect(licensePriceIdr(env, 'yearly')).toBe(YEARLY_PRICE)
   })
 })
 
@@ -134,7 +155,7 @@ describe('handleMayarWebhook', () => {
     return { fixture, mayarId: mayar.ids[0] ?? '' }
   }
 
-  function paidBody(mayarId: string, amount = LICENSE_PRICE_IDR) {
+  function paidBody(mayarId: string, amount = YEARLY_PRICE) {
     return {
       event: 'payment.received',
       data: { id: mayarId, status: 'SUCCESS', transactionStatus: 'created', amount },
@@ -170,7 +191,7 @@ describe('handleMayarWebhook', () => {
     ).resolves.toEqual({ status: 'ok' })
   })
 
-  it('lunas -> pembelian paid + lisensi terbit; dikirim ulang tetap SATU lisensi', async () => {
+  it('lunas -> pembelian paid + lisensi setahun; dikirim ulang tidak memperpanjang dua kali', async () => {
     const { fixture, mayarId } = await pendingPurchase('purchase-wh-paid')
 
     await expect(
@@ -182,7 +203,16 @@ describe('handleMayarWebhook', () => {
     const granted = await licensesOf(fixture.email)
     expect(purchase.status).toBe('paid')
     expect(granted).toHaveLength(1)
-    expect(granted[0]?.orderRef).toBe(purchase.id)
+    expect(granted[0]).toMatchObject({
+      plan: 'yearly',
+      expiresAt: new Date(fixture.ctx().now.getTime() + 365 * MS_PER_DAY),
+    })
+
+    const grants = await testDb()
+      .select()
+      .from(licenseGrants)
+      .where(eq(licenseGrants.orderRef, purchase.id))
+    expect(grants).toHaveLength(1)
   })
 
   it('kurang bayar -> ditolak, tidak ada lisensi', async () => {

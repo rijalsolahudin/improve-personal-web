@@ -42,7 +42,18 @@ Enum client_kind {
 
 Enum otp_purpose {
   login
-  delete_account
+}
+
+Enum license_plan {
+  monthly
+  yearly
+  lifetime
+}
+
+Enum purchase_status {
+  pending
+  paid
+  failed
 }
 
 Table users {
@@ -180,6 +191,58 @@ Table oauth_states {
   '''
 }
 
+Table licenses {
+  id              uuid         [pk, note: 'UUID v7']
+  email           text         [not null, unique, note: 'lowercase; SATU lisensi per email (ADR 16)']
+  plan            license_plan [not null, note: 'paket yang berlaku; lifetime tidak pernah turun']
+  expires_at      timestamptz  [note: 'NULL = lifetime']
+  edition         text         [not null, default: 'standard']
+  max_activations int          [not null, default: 5]
+  revoked_at      timestamptz
+  created_at      timestamptz  [not null, default: `now()`]
+
+  Note: '''
+  Dikunci ke email, bukan users.id: pembelian terjadi sebelum pembeli pernah login.
+  Setiap pembelian lunas memperpanjang expires_at dari max(now, expires_at) lewat license_grants.
+  '''
+}
+
+Table license_grants {
+  order_ref  text         [pk, note: 'purchases.id atau ref manual CLI - kunci idempotensi webhook']
+  license_id uuid         [not null]
+  plan       license_plan [not null]
+  granted_at timestamptz  [not null, default: `now()`]
+}
+
+Table license_activations {
+  license_id   uuid        [not null]
+  device_id    uuid        [not null]
+  activated_at timestamptz [not null, default: `now()`]
+
+  indexes {
+    (license_id, device_id) [pk, name: 'pk_license_activations']
+  }
+}
+
+Table purchases {
+  id          uuid            [pk, note: 'UUID v7; jadi order_ref saat lunas']
+  email       text            [not null]
+  plan        license_plan    [not null]
+  amount      int             [not null, note: 'rupiah yang ditagih; pembanding amount di webhook']
+  status      purchase_status [not null, default: 'pending']
+  mayar_id    text            [unique]
+  payment_url text
+  expires_at  timestamptz     [not null, note: 'umur link bayar (24 jam)']
+  paid_at     timestamptz
+  created_at  timestamptz     [not null, default: `now()`]
+
+  indexes {
+    email [name: 'idx_purchases_email']
+  }
+
+  Note: 'Nomor HP pembeli TIDAK disimpan: hanya diteruskan ke Mayar.'
+}
+
 Table rate_limits {
   scope        text        [not null, note: 'mis. otp:email | otp:ip | keys:envelope | weather']
   bucket       text        [not null, note: 'HMAC dari identifier (email/IP/user) — bukan nilai polos']
@@ -202,7 +265,6 @@ Ref: devices.user_id > users.id
 Ref: sessions.user_id > users.id
 Ref: sessions.device_id > devices.id
 
-Ref: records.user_id > users.id
-
-// 1:1 ditegakkan lewat [pk] di sync_watermarks.user_id (bukan Ref 1:1, biar FK-nya nggak terbalik)
-Ref: sync_watermarks.user_id > users.id
+Ref: license_grants.license_id > licenses.id [delete: cascade]
+Ref: license_activations.license_id > licenses.id [delete: cascade]
+Ref: license_activations.device_id > devices.id [delete: cascade]

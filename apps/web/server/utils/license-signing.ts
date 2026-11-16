@@ -1,6 +1,10 @@
-import { createPrivateKey, createPublicKey, sign, type KeyObject } from 'node:crypto'
+import { createPrivateKey, createPublicKey, sign, verify, type KeyObject } from 'node:crypto'
 
-import type { LicenseTokenPayload } from '@improve-personal/contracts'
+import {
+  licenseTokenPayloadSchema,
+  splitLicenseToken,
+  type LicenseTokenPayload,
+} from '@improve-personal/contracts'
 
 /**
  * Penanda tangan token lisensi (ADR 15, ARCHITECTURE.md §8) - Ed25519 dari `node:crypto`.
@@ -22,6 +26,8 @@ export type LicenseSigner = {
   /** Public key mentah 32 byte, base64 - nilai yang harus sama dengan yang ditanam di app. */
   readonly publicKey: string
   readonly sign: (payload: LicenseTokenPayload) => string
+  /** Payload token yang tanda tangannya sah dan bentuknya sesuai versi sekarang; selain itu `null`. */
+  readonly verify: (token: string) => LicenseTokenPayload | null
 }
 
 /** Seed base64 -> kunci privat. Melempar kalau bukan tepat 32 byte (pesan tanpa nilai kunci). */
@@ -38,23 +44,38 @@ function privateKeyFromSeed(seedBase64: string): KeyObject {
   })
 }
 
-/** Public key mentah (32 byte, base64) dari kunci privat. */
-function rawPublicKey(privateKey: KeyObject): string {
-  const jwk = createPublicKey(privateKey).export({ format: 'jwk' })
+/** Public key mentah (32 byte, base64). */
+function rawPublicKey(publicKey: KeyObject): string {
+  const jwk = publicKey.export({ format: 'jwk' })
   if (typeof jwk.x !== 'string') throw new Error('public key lisensi tidak bisa diturunkan')
   return Buffer.from(jwk.x, 'base64url').toString('base64')
 }
 
 export function createLicenseSigner(seedBase64: string): LicenseSigner {
   const privateKey = privateKeyFromSeed(seedBase64)
+  const publicKey = createPublicKey(privateKey)
 
   return {
-    publicKey: rawPublicKey(privateKey),
+    publicKey: rawPublicKey(publicKey),
     sign(payload) {
       const signed = Buffer.from(JSON.stringify(payload), 'utf8').toString('base64url')
       // Ed25519 di node: algoritma `null` (hash sudah bagian dari skema tanda tangannya).
       const signature = sign(null, Buffer.from(signed, 'utf8'), privateKey).toString('base64url')
       return `${signed}.${signature}`
+    },
+    verify(token) {
+      const parts = splitLicenseToken(token)
+      if (parts === null) return null
+      const signature = Buffer.from(parts.signature, 'base64url')
+      if (!verify(null, Buffer.from(parts.signed, 'utf8'), publicKey, signature)) return null
+
+      try {
+        const json: unknown = JSON.parse(Buffer.from(parts.signed, 'base64url').toString('utf8'))
+        const parsed = licenseTokenPayloadSchema.safeParse(json)
+        return parsed.success ? parsed.data : null
+      } catch {
+        return null
+      }
     },
   }
 }

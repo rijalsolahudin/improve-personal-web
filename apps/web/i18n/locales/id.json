@@ -1037,16 +1037,17 @@
       "label": "Navigasi halaman",
       "features": "Fitur",
       "how": "Cara kerja",
-      "cta": "Masuk"
+      "cta": "Masuk",
+      "pricing": "Harga"
     },
     "hero": {
       "badge": "Satu tempat untuk tumbuh",
       "titleLead": "Rencanakan hari, fokus, lalu",
       "titleHighlight": "rayakan progres.",
       "lead": "Goals, kalender, to-do, Pomodoro, habit, sampai memo — semuanya di satu dashboard yang hangat dan nggak bikin pusing.",
-      "cta": "Beli {price}",
+      "cta": "Lihat harga",
       "secondary": "Lihat fitur",
-      "note": "sekali beli · data cuma di perangkatmu · jalan offline ✎"
+      "note": "mulai {price}/bulan · data cuma di perangkatmu · jalan offline ✎"
     },
     "preview": {
       "greeting": "Selamat pagi, Friend",
@@ -1096,10 +1097,23 @@
         }
       }
     },
+    "pricing": {
+      "kicker": "HARGA",
+      "title": "Pilih yang pas buatmu.",
+      "lead": "Semua paket membuka semua fitur di web, Android, dan iOS. Bayar di muka, tanpa tagihan otomatis.",
+      "featured": "Paling hemat · hemat {percent}%",
+      "items": {
+        "monthly": "Coba dulu sebulan. Perpanjang kapan saja, sisa harinya nggak hangus.",
+        "yearly": "Setahun penuh, cuma sekitar {perMonth} per bulan.",
+        "lifetime": "Bayar sekali, pakai selamanya, termasuk semua update."
+      },
+      "cta": "Pilih {plan}",
+      "note": "Kalau masa aktif habis, datamu tetap aman dan bisa dibuka, diekspor, atau dipindah. Cuma menambah dan mengubah data yang menunggu sampai diperpanjang."
+    },
     "outro": {
       "title": "Progres kecil tetap progres.",
       "lead": "Pilih stiker favoritmu, atur tema, dan mulai dari satu to-do hari ini.",
-      "cta": "Beli sekarang · {price}"
+      "cta": "Mulai tahunan · {price}"
     },
     "footer": {
       "label": "Tautan footer",
@@ -1158,7 +1172,7 @@
       "eyebrow": "LISENSI",
       "notPurchased": {
         "title": "Email ini belum membeli",
-        "body": "Aplikasi ini dibeli sekali (Rp99.000) dan dipakai dengan email yang sama saat membeli. Kalau kamu membeli dengan email lain, masuk pakai email itu."
+        "body": "Aplikasi ini dipakai dengan email yang sama saat membeli (bulanan, tahunan, atau lifetime). Kalau kamu membeli dengan email lain, masuk pakai email itu."
       },
       "limitReached": {
         "title": "Jatah perangkat habis",
@@ -1181,9 +1195,10 @@
     "meta": {
       "title": "Beli"
     },
-    "eyebrow": "SEKALI BELI",
-    "title": "Punya selamanya, {price}",
-    "sub": "Satu pembelian berlaku di web, Android, dan iOS. Datamu tetap di perangkatmu sendiri.",
+    "eyebrow": "BELI LISENSI",
+    "title": "Pilih paketmu",
+    "sub": "Berlaku di web, Android, dan iOS. Bayar di muka, tanpa tagihan otomatis. Datamu tetap di perangkatmu sendiri.",
+    "planLabel": "PAKET",
     "nameLabel": "NAMA",
     "emailLabel": "EMAIL",
     "emailHint": "Email ini yang nanti dipakai untuk masuk ke aplikasi.",
@@ -1205,6 +1220,21 @@
       "cta": "Masuk sekarang",
       "note": "Butuh bantuan? Balas email konfirmasi dari Mayar atau hubungi kami."
     }
+  },
+  "plans": {
+    "monthly": {
+      "name": "Bulanan",
+      "period": "/bulan"
+    },
+    "yearly": {
+      "name": "Tahunan",
+      "period": "/tahun"
+    },
+    "lifetime": {
+      "name": "Lifetime",
+      "period": " sekali bayar"
+    },
+    "saving": "Hemat {percent}%"
   },
   "appearance": {
     "label": "Tampilan",

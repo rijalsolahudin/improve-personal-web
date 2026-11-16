@@ -161,27 +161,34 @@ export {
   LICENSE_SIGNATURE_BYTES,
   LICENSE_TOKEN_MAX_LENGTH,
   LICENSE_TOKEN_VERSION,
+  licenseRefreshInputSchema,
   licenseTokenPayloadSchema,
   licenseTokenResultSchema,
   licenseTokenSchema,
   splitLicenseToken,
   type LicenseEdition,
+  type LicenseRefreshInput,
   type LicenseTokenPayload,
   type LicenseTokenResult,
 } from './license.ts'
 
 // -----------------------------------------------------------------------------
-// Pembelian (ADR 15): checkout Mayar, satu harga untuk semua platform
+// Pembelian (ADR 16): checkout Mayar, tiga paket prabayar untuk semua platform
 // -----------------------------------------------------------------------------
 
 export {
   BUYER_NAME_MAX_LENGTH,
-  LICENSE_PRICE_IDR,
+  DEFAULT_LICENSE_PLAN,
+  LICENSE_PLAN_IDS,
+  LICENSE_PLANS,
   buyerMobileSchema,
   checkoutInputSchema,
   checkoutResultSchema,
+  licensePlanSchema,
   type CheckoutInput,
   type CheckoutResult,
+  type LicensePlan,
+  type LicensePlanId,
 } from './purchase.ts'
 
 // -----------------------------------------------------------------------------

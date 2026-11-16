@@ -38,6 +38,11 @@ export const RATE_LIMIT_RULES = {
    */
   'license:token': { limit: 20, windowSeconds: 3600 },
   /**
+   * Penyegaran token (publik, ADR 16): app memanggilnya paling sering sekali per start saat masa
+   * aktif < 7 hari, jadi jatah per IP cukup longgar untuk satu rumah/kantor dengan banyak perangkat.
+   */
+  'license:refresh': { limit: 60, windowSeconds: 3600 },
+  /**
    * Checkout publik: tiap checkout baru membuat payment request Mayar (yang mengirim email ke
    * pembeli). Per email menahan spam ke satu inbox; per IP menahan satu IP menyapu banyak email.
    */
