@@ -47,8 +47,18 @@ const HIDE_CHROME_CSS = `
   [id^='nuxt-devtools'], nuxt-devtools-frame { display: none !important; }
 `
 
-const SHOTS: readonly { readonly name: string; readonly path: string }[] = [
-  { name: 'daily', path: '/app' },
+type Shot = {
+  readonly name: string
+  readonly path: string
+  /**
+   * Tinggi viewport khusus. Daily dipotret lebih tinggi supaya Prioritas, To-do, DAN Habit hari ini
+   * ikut terlihat; tingginya harus sama dengan `DAILY_SHOT_HEIGHT` di `LandingHero.vue` (x 1600/1440).
+   */
+  readonly height?: number
+}
+
+const SHOTS: readonly Shot[] = [
+  { name: 'daily', path: '/app', height: 1300 },
   { name: 'kalender', path: '/app/kalender' },
   { name: 'to-do', path: '/app/to-do' },
   { name: 'eisenhower', path: '/app/eisenhower' },
@@ -160,6 +170,7 @@ async function main(): Promise<void> {
     await importDemoData(page, backupPath)
 
     for (const shot of SHOTS) {
+      await page.setViewportSize({ ...VIEWPORT, height: shot.height ?? VIEWPORT.height })
       await page.goto(`${BASE_URL}${shot.path}`)
       await settle(page)
       const png = join(work, `${shot.name}.png`)

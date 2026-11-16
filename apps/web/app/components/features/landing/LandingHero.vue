@@ -3,6 +3,8 @@ import { planPriceLabel } from '~/utils/price'
 
 const PHONE_WIDTH = 600
 const PHONE_HEIGHT = 1298
+/** Screenshot Daily dipotret 1440x1300 (`scripts/landing/shots.ts`) supaya Habit ikut terlihat. */
+const DAILY_SHOT_HEIGHT = 1444
 </script>
 
 <template>
@@ -29,6 +31,7 @@ const PHONE_HEIGHT = 1298
         name="daily"
         :alt="$t('landing.hero.shotAlt')"
         is-eager
+        :height="DAILY_SHOT_HEIGHT"
         sizes="(min-width: 1200px) 1100px, 100vw"
       />
       <!-- Versi HP: hiasan pendamping (alt kosong) - isinya sama dengan screenshot di sebelahnya. -->

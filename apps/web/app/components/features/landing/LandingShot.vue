@@ -11,17 +11,21 @@ const {
   alt,
   isEager = false,
   sizes = '(min-width: 1024px) 640px, 100vw',
+  // Viewport 1440x900 (16:10) -> 1600x1000. Literal: default `defineProps` tidak boleh merujuk
+  // konstanta lokal.
+  height = 1000,
 } = defineProps<{
   /** Nama berkas tanpa akhiran ukuran, mis. `daily`. */
   name: string
   alt: string
   isEager?: boolean
   sizes?: string
+  /** Tinggi intrinsik varian 1600 px; berbeda hanya untuk screenshot yang viewport-nya lebih tinggi. */
+  height?: number
 }>()
 
-/** Ukuran intrinsik varian terbesar (`OUTPUT_WIDTHS` di skrip screenshot, viewport 1440x900 = rasio 16:10). */
+/** Lebar varian terbesar (`OUTPUT_WIDTHS` di skrip screenshot). */
 const WIDTH = 1600
-const HEIGHT = 1000
 </script>
 
 <template>
@@ -38,7 +42,7 @@ const HEIGHT = 1000
       :sizes="sizes"
       :alt="alt"
       :width="WIDTH"
-      :height="HEIGHT"
+      :height="height"
       :loading="isEager ? 'eager' : 'lazy'"
       :fetchpriority="isEager ? 'high' : 'auto'"
       decoding="async"
