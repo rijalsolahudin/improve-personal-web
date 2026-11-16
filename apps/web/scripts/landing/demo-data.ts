@@ -341,9 +341,9 @@ export function buildDemoBackup(nowMs: number): string {
 
   // Countdown.
   const countdowns: [string, number, string, string][] = [
-    ['Liburan ke Jepang', at(38, 7), 'perjalanan/pesawat', PALETTE.pink],
-    ['Ulang tahun Ibu', at(12, 0), 'perayaan/kue', PALETTE.orange],
-    ['Deadline proyek Q4', at(9, 17), 'perayaan/piala', PALETTE.purple],
+    ['Liburan ke Jepang', at(38, 7), 'perjalanan/pesawat', '#10A8D8'],
+    ['Ulang tahun Ibu', at(12, 0), 'perayaan/kue', '#F03FBF'],
+    ['Deadline proyek Q4', at(9, 17), 'perayaan/piala', '#9B4FC9'],
   ]
   for (const [name, targetAt, sticker, color] of countdowns) {
     add('countdown', {
