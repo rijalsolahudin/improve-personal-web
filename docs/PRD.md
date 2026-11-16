@@ -15,7 +15,7 @@ Satu app di **web desktop, PWA, dan aplikasi native Android (APK) & iOS** yang b
 **Masuk:**
 - Platform: **web desktop**, **PWA** (bisa di-install, jalan offline), **native Android (APK) & iOS**. Web pakai Nuxt, native pakai React Native, logika inti di-share.
 - Fitur: [F1 Schedule](#f1-schedule), [F2 To-do](#f2-to-do), [F3 Eisenhower](#f3-eisenhower), [F4 Pomodoro](#f4-pomodoro), [F5 Countdown](#f5-countdown), [F6 Calendar](#f6-calendar), [F7 Habit](#f7-habit), [F8 Journal](#f8-journal), [F9 Guide](#f9-guide), [F10 Import/Export](#f10-importexport), [F11 Overview](#f11-overview), [F12 Daily](#f12-daily), [F13 Goals](#f13-goals), [F14 Sticker](#f14-sticker), [F15 Lisensi & Pindah Perangkat](#f15-lisensi-pindah-perangkat--keamanan), [F16 Tampilan](#f16-tampilan-tema-warna--gaya).
-- Local-only tanpa akun, lisensi sekali beli, pindah perangkat via QR, backup terenkripsi (berkas + Google Drive terjadwal), salinan lokal berkunci perangkat (ADR 15).
+- Local-only tanpa akun, lisensi bulanan/tahunan/lifetime (ADR 16), pindah perangkat via QR, backup terenkripsi (berkas + Google Drive terjadwal), salinan lokal berkunci perangkat (ADR 15).
 
 **TIDAK dikerjakan sekarang:**
 - Kolaborasi/sharing.
@@ -775,7 +775,7 @@ Koleksi bawaan per pack, dipakai di jurnal/ikon/hias halaman. Diganti kapan aja.
 
 ## F15. Lisensi, Pindah Perangkat & Keamanan
 
-Web + PWA (Nuxt) dan native Android/iOS (React Native), dengan logika inti di-share. **Local-only** (ADR 15): data hanya ada di perangkat (IndexedDB web/PWA, SQLite native), tidak ada akun, tidak ada sync server. Dijual **sekali beli**. Domain menyajikan app dan menerbitkan lisensi; setelah itu app jalan penuh offline.
+Web + PWA (Nuxt) dan native Android/iOS (React Native), dengan logika inti di-share. **Local-only** (ADR 15): data hanya ada di perangkat (IndexedDB web/PWA, SQLite native), tidak ada akun, tidak ada sync server. Dijual dalam **tiga paket prabayar: bulanan, tahunan, lifetime** (ADR 16). Domain menyajikan app dan menerbitkan lisensi; setelah itu app jalan penuh offline.
 
 ### Platform
 - **Web desktop:** Nuxt (Vue + TypeScript), IndexedDB local storage
@@ -795,15 +795,26 @@ Web + PWA (Nuxt) dan native Android/iOS (React Native), dengan logika inti di-sh
 | Cuaca (F12) | Proxy cuaca tanpa menyimpan lokasi | Koordinat sesaat, tidak disimpan |
 
 ### Pembelian & Lisensi
-- **Harga: Rp99.000, sekali beli, berlaku di semua platform** (web/PWA, Android, iOS).
-1. Beli di `/beli` (nama, email, nomor WhatsApp) → bayar di **Mayar** → kembali ke `/beli/selesai` ("masuk dengan email pembelian"). Lunas resmi lewat webhook Mayar, bukan halaman ini.
+- **Harga (ADR 16), berlaku di semua platform** (web/PWA, Android, iOS):
+
+  | Paket | Harga | Masa aktif | Catatan |
+  |---|---|---|---|
+  | Bulanan | Rp19.000 | 30 hari | untuk coba dulu |
+  | Tahunan | Rp99.000 | 365 hari | paket utama, label "Paling hemat" (hemat 57% vs 12× bulanan) |
+  | Lifetime | Rp249.000 | selamanya | termasuk semua update |
+
+- **Prabayar, tanpa auto-debit.** Perpanjang = beli lagi dengan email yang sama; masa aktif ditambahkan ke sisa yang ada (tidak hangus). Beli lifetime saat masih punya paket = langsung lifetime, tanpa prorata.
+1. Beli di `/beli` (pilih paket, lalu nama, email, nomor WhatsApp) → bayar di **Mayar** → kembali ke `/beli/selesai` ("masuk dengan email pembelian"). Lunas resmi lewat webhook Mayar, bukan halaman ini.
 2. Di app (perangkat mana pun): layar aktivasi → **masukkan email pembeli → OTP 6 digit** (atau Google dengan email yang sama). Sekali per perangkat, butuh online.
-3. Server cocokkan email dengan pembelian → balas token bertanda tangan; app memverifikasinya **offline** setiap start. Tidak ada cek online berkala, tidak ada sesi login yang tersisa.
+3. Server cocokkan email dengan pembelian → balas token bertanda tangan berisi paket + tanggal habis; app memverifikasinya **offline** setiap start. Tidak ada sesi login yang tersisa.
+- **Perpanjangan terbawa otomatis:** saat online dan sisa masa aktif < 7 hari (atau sudah habis), app menyegarkan token di latar belakang tanpa OTP ulang. Perpanjang di satu perangkat → perangkat lain ikut aktif begitu online.
+- **Pengingat:** mulai H-7 banner "Lisensi habis dalam N hari - Perpanjang" (bisa ditutup, muncul lagi besoknya). Lifetime tidak pernah melihatnya.
+- **Lisensi habis = baca-saja:** semua data tetap bisa dilihat, dicari, diekspor, di-backup, dan dipindah perangkat. Menambah/mengubah/menghapus data diblokir dengan pesan "Lisensi habis - perpanjang untuk mengubah data" + tombol Perpanjang. Data tidak pernah dihapus atau dikunci.
 4. Batas aktivasi per pembelian: default 5 perangkat (bisa diubah operator). Perangkat yang menerima transfer QR ikut membawa lisensi.
 - Login ini **hanya membuktikan email sudah membeli**, tidak membuka atau menyinkronkan data.
 - Email belum membeli → setelah OTP benar: "Email ini belum terdaftar membeli" + tombol beli. Permintaan OTP selalu dijawab generik.
 - Server menyimpan email login + bukti pembelian (untuk support/refund); token di perangkat tidak memuat email. Isi data aplikasi tidak pernah ke server.
-- Tanpa lisensi aktif: hanya layar aktivasi + halaman beli yang terbuka.
+- Belum pernah punya lisensi di perangkat ini: hanya layar aktivasi + halaman beli yang terbuka. (Pernah aktif lalu habis = baca-saja, bukan terkunci.)
 - Aturan OTP per environment lama tetap berlaku (production random via Resend; non-production `777777` hanya kalau `NUXT_SMTP_URL` kosong; fail-closed).
 - **Native:** aturan Apple/Google soal pembelian di luar toko wajib dicek sebelum rilis native; kemungkinan IAP tetap disediakan sebagai jalur beli kedua ke lisensi yang sama.
 
@@ -875,7 +886,7 @@ Web + PWA (Nuxt) dan native Android/iOS (React Native), dengan logika inti di-sh
 - Local query instant (SQLite/IndexedDB).
 
 ### Yang Belum Ada (jujur)
-- Semua alur di F15 ini baru keputusan (ADR 15); implementasi dilacak di T26–T34.
+- Semua alur di F15 ini baru keputusan (ADR 15); implementasi dilacak di T26–T34. Tiga paket (ADR 16) dilacak di T35–T36; T33 sudah membangun jalur sekali beli Rp99.000 yang dirombak T35.
 - Kode server lama (akun, sesi, sync, at-rest) masih ada sampai T26 selesai.
 
 ## F16. Tampilan: Tema Warna & Gaya
@@ -959,10 +970,12 @@ Data hanya ada di perangkat dan diakses lewat interface repository; server cuma 
 | M9 Lisensi & Pindah | T31 | UI transfer QR: tampil QR, scan kamera, konfirmasi kode, progress, Ganti semua/Gabung | Alur F15 "Pindah Perangkat via QR" jalan web↔web, web↔native, native↔native; izin kamera ditolak → pesan + alternatif backup; batal/timeout tidak meninggalkan data parsial; 10.000 record P2P < 15 dtk di jaringan sama | `fe` | T30 | M |
 | M9 Lisensi & Pindah | T32 | Transfer offline animated QR (fountain code) | Dua perangkat tanpa jaringan bisa transfer data contoh 2 MB; urutan scan bebas & frame terlewat tidak perlu diulang; progress %; kode verifikasi tetap wajib; hasil identik dengan transfer online | `be` | T30, T31 | M |
 | M9 Lisensi & Pindah | T33 | Lisensi sekali beli Rp99.000 semua platform: halaman beli, webhook pembayaran, aktivasi email pembeli (OTP/Google), verifikasi offline Ed25519, layar aktivasi | Webhook diverifikasi signature & idempoten; aktivasi lewat login OTP/Google lama + `POST /v1/license/token` menghormati batas 5 & pencabutan; email belum beli → pesan + tombol beli (hanya setelah OTP benar); permintaan OTP selalu generik; token diverifikasi offline tiap start (app jalan dengan jaringan mati); token env lain ditolak; keypair dev ditolak di production; tidak ada sesi/cookie yang dibuat; tanpa lisensi hanya layar aktivasi + beli yang terbuka | `be` | T26 | L |
+| M9 Lisensi & Pindah | T35 | Server & kontrak tiga paket (ADR 16): `LICENSE_PLANS` di contracts, `plan` di checkout & `purchases`, satu lisensi per email + `license_grants`, perpanjangan `max(now, exp)`, token v2 (`plan`, `exp`), `POST /v1/license/refresh` | Nominal hanya dari server per paket; webhook ulang tidak memperpanjang dua kali; perpanjangan menumpuk dari sisa, tidak dari hari bayar; lifetime tidak pernah turun; lisensi dicabut → refresh ditolak; refresh hanya untuk `lid`+`did` yang tercatat; token v1 ditolak (belum ada user production; perangkat dev cukup aktivasi ulang) | `be` | T33 | M |
+| M9 Lisensi & Pindah | T36 | Client tiga paket: pilih paket di `/beli` (tahunan default + "Paling hemat"), verifikasi `exp` offline, refresh otomatis saat online (< 7 hari / habis), banner H-7, mode baca-saja saat habis | Paket terpilih ikut ke checkout; lisensi habis → semua halaman tetap terbuka tapi aksi tulis diblokir dengan pesan + tombol Perpanjang, export/backup/transfer tetap jalan; refresh gagal/offline tidak memblokir apa pun; banner tidak muncul untuk lifetime; harga di UI diambil dari `LICENSE_PLANS` | `fe` | T35 | M |
 | M9 Lisensi & Pindah | T34 | Revisi Panduan "Gimana data lo dijaga" + FAQ backup/pindah HP sesuai ADR 15 | Isi F9 terbaru; tidak ada lagi penyebutan akun/OTP/sync/kunci env; analogi brankas di rumah; konsekuensi kehilangan data ditulis jelas | `fe` | T28, T31 | S |
 | M10 Platform | T23 | App native React Native (Android APK + iOS) pakai package logika bersama + PWA Nuxt (manifest, service worker, offline) + adapter SQLite di native | Build APK & iOS jalan di perangkat nyata; app RN pakai package inti yang sama dengan web (nggak ada duplikasi logika data/kripto/backup/transfer); kunci app biometrik lokal (dari T22); PWA bisa di-install & dibuka offline; adapter SQLite lolos test repository yang sama dengan IndexedDB; service worker nggak cache respons API berisi data user | `fe` | T1, T2 | L |
 | M10 Platform | T25 | Tampilan: tema warna (Kuning/Hijau/Ungu) + 7 gaya (Cute default, Cute Pure, Kertas, Simple, Elegan, Vintage, Tegas) sebagai design token, menu Tampilan + preview, simpan di perangkat, ikut backup/transfer | Ganti gaya/tema langsung tanpa reload & tanpa layout shift; pilihan bertahan setelah restart dan ikut terbawa lewat backup/transfer; default Cute + Kuning; nilai tak dikenal → default tanpa error; gaya terpasang sebelum render pertama (tanpa kedip); font gaya di-lazy-load & offline; kontras AA di semua kombinasi gaya × tema; semua halaman yang ada tampil benar di tiap gaya | `fe` | T2, T24 | L |
-| M11 QA | T16 | Uji end-to-end seluruh AC + kriteria sukses di web desktop, PWA, Android, iOS | Semua AC terverifikasi dengan bukti per platform; nol `blocker`/`mayor` kebuka | `qa` | T4–T15, T17, T18, T23–T34 | L |
+| M11 QA | T16 | Uji end-to-end seluruh AC + kriteria sukses di web desktop, PWA, Android, iOS | Semua AC terverifikasi dengan bukti per platform; nol `blocker`/`mayor` kebuka | `qa` | T4–T15, T17, T18, T23–T36 | L |
 
 ### PARALEL
 - T1 ∥ T2.
@@ -971,11 +984,11 @@ Data hanya ada di perangkat dan diakses lewat interface repository; server cuma 
 - T9 ∥ T11 (setelah T4).
 - T24 setelah T4–T11 & T15 (layer hias dipasang ke halaman yang sudah jadi).
 - T25 setelah T2 & T24 (token gaya dipakai semua halaman; boleh paralel dengan T13/T14/T18).
-- ADR 15: T26 dulu (hapus kode lama), lalu T27 ∥ T30 ∥ T33; T28 setelah T27; T29 setelah T28; T31 setelah T30; T32 setelah T31; T34 setelah T28 & T31.
+- ADR 15: T26 dulu (hapus kode lama), lalu T27 ∥ T30 ∥ T33; T28 setelah T27; T29 setelah T28; T31 setelah T30; T32 setelah T31; T34 setelah T28 & T31; ADR 16: T35 lalu T36.
 - T13 ∥ T14 ∥ T18 (setelah T24; Overview butuh widget goal dari T18 → integrasinya dikerjain di T18, bukan T13).
 
 ### Definition of Done
-- Semua task aktif (T1–T15, T17, T18, T23–T34) `done`, QA (T16) verdict LULUS.
+- Semua task aktif (T1–T15, T17, T18, T23–T36) `done`, QA (T16) verdict LULUS.
 - Lint, typecheck, unit test (recurrence, sisa waktu, countdown, streak, progress goal, import/export, kripto, backup terenkripsi, transfer, lisensi), build web + PWA + APK + iOS lulus.
 - Nggak ada `innerHTML` dari input user tanpa sanitasi; import divalidasi skema sebelum nulis apa pun.
 - Server terbukti nggak menyimpan data user apa pun; berkas backup, berkas di Drive, dan aliran transfer terbukti ciphertext; kunci, kata sandi backup, kode lisensi, dan payload nggak pernah di-log.
@@ -988,7 +1001,7 @@ Data hanya ada di perangkat dan diakses lewat interface repository; server cuma 
 
 #### Lisensi, Penyimpanan & Keamanan (ADR 15)
 - **Payment provider = Mayar** (pola Ergonio/konveksiin: webhook-gateway dengan tag di `description`).
-- **Model jual = sekali beli Rp99.000 untuk semua platform** — aktivasi sekali per perangkat dengan email pembeli (OTP/Google), lalu diverifikasi offline; login tidak membuka data.
+- **Model jual = tiga paket prabayar (ADR 16): bulanan Rp19.000, tahunan Rp99.000, lifetime Rp249.000, semua platform, tanpa auto-debit** — habis = baca-saja, bukan terkunci; lifetime termasuk semua update; aktivasi sekali per perangkat dengan email pembeli (OTP/Google), lalu diverifikasi offline; login tidak membuka data.
 - **Penyimpanan = local-only + salinan lokal berkunci perangkat** — tidak ada sync server dan tidak ada enkripsi at-rest di server. Menggantikan ADR 14.
 - **Pindah perangkat = transfer QR (WebRTC, fallback relay, fallback animated QR offline) atau backup** — tidak ada sync otomatis.
 - **Backup = berkas terenkripsi kata sandi (default) + Google Drive terjadwal (v1)** — export JSON plaintext tetap ada untuk dibaca manusia.
@@ -1035,8 +1048,7 @@ Data hanya ada di perangkat dan diakses lewat interface repository; server cuma 
 ### Open Questions
 
 #### Blocking
-1. **Kebijakan update mayor** (v1.x gratis selamanya? v2 bayar lagi/diskon?) — copy halaman beli belum menyebutnya.
-2. **Forward webhook-gateway `improve-personal/<env>`** harus didaftarkan di `mayar-webhook.rijalsolahudin.com` sebelum pembayaran pertama.
+1. **Forward webhook-gateway `improve-personal/<env>`** harus didaftarkan di `mayar-webhook.rijalsolahudin.com` sebelum pembayaran pertama.
 
 #### Default
 1. **Notifikasi pengingat jadwal/deadline di luar app?** Di native/PWA bisa pakai notifikasi lokal tanpa server (tetap privat). Sementara: nggak, cuma in-app.

@@ -17,6 +17,11 @@ dan menerbitkan lisensi; setelah itu app jalan penuh lokal. Pindah perangkat lew
 sandi**, plus **backup terjadwal ke Google Drive milik user**. Konsekuensinya jujur: perangkat hilang
 tanpa backup = data hilang, dan tidak ada pihak yang bisa memulihkannya.
 
+**Revisi harga: ADR 16 (2026-11-17) - tiga paket prabayar.** Bulanan Rp19.000 (30 hari), tahunan
+Rp99.000 (365 hari), lifetime Rp249.000. Tanpa perpanjangan otomatis: perpanjang = beli lagi. Token
+lisensi kini membawa tanggal habis; lisensi habis = app **baca-saja** (data tetap bisa dilihat,
+diekspor, di-backup, dan dipindah), bukan terkunci. Bagian lain ADR 15 tetap berlaku.
+
 ### Default (diasumsikan, bisa diganti)
 
 | # | Topik | Rekomendasi = default |
@@ -203,8 +208,9 @@ devices(id, user_id, name, platform, installation_id, ...)     -- perangkat yang
 sessions(id, device_id, token_hash, expires_at, ...)           -- sesi login (bukan akses data)
 otp_challenges(id, email_hash, code_hash, expires_at, attempts)
 oauth_states(...)                                              -- PKCE Google
-purchases(id, email, amount, status pending|paid|failed, mayar_id, payment_url, expires_at, paid_at)
-licenses(id, email, order_ref, edition, max_activations, revoked_at, created_at)
+purchases(id, email, plan, amount, status pending|paid|failed, mayar_id, payment_url, expires_at, paid_at)
+licenses(id, email, edition, max_activations, expires_at, revoked_at, created_at)  -- satu per email; expires_at NULL = lifetime
+license_grants(order_ref, license_id, plan, granted_at)        -- PK order_ref: pembelian lunas -> perpanjangan, idempoten
 license_activations(license_id, device_id, activated_at)       -- PK (license_id, device_id)
 rate_limits(scope, bucket, window_start, count)
 ```
@@ -251,14 +257,35 @@ flowchart LR
 
 ## 8. Lisensi
 
-Satu pembelian (Rp99.000) berlaku di semua platform. Identitas pembeli = **email yang dipakai saat
-membeli**; tidak ada kode lisensi untuk diketik. Login di sini hanya membuktikan "email ini sudah
-membeli" - tidak membuka data dan tidak membuat sesi.
+Tiga paket prabayar (ADR 16), semuanya berlaku di semua platform:
 
-- **Beli (Mayar, pola Ergonio):** `/beli` (nama, email, nomor WA) → `POST /v1/purchase/checkout` (publik, rate limit per email & IP, nominal dari server) → baris `purchases` + payment request Mayar `hl/v1/payment/create` dengan `description` berakhiran `[wh:product=improve-personal;env=<NUXT_MAYAR_ENVIRONMENT>]` untuk webhook-gateway → pembeli bayar → `POST /v1/payments/webhook/mayar` (token rahasia dari `?token=`/Bearer/header "token", dibandingkan timing-safe; token kosong = tolak semua) → hanya `payment.received` + `SUCCESS`/`paid` + nominal ≥ harga yang melunasi (atomik) → `grantLicense(email, order_ref = purchases.id)`. Nomor WA hanya diteruskan ke Mayar, tidak disimpan. Manual/kompensasi: `license license-grant <email> <order-ref>`.
-- **Aktivasi (sekali per perangkat, online):** login OTP/Google lama (`/v1/auth/**`) → `POST /v1/license/token` (sesi wajib, tanpa body) → server cari lisensi aktif untuk email sesi (kunci baris `FOR UPDATE`), catat `(license, device)` bila belum ada, cek batas (default 5) → token `{ v, lid, did, iat, ed }` + tanda tangan Ed25519. Perangkat yang sama minta ulang tidak memakai jatah.
+| Paket | Harga | Masa aktif |
+|---|---|---|
+| `monthly` | Rp19.000 | 30 hari |
+| `yearly` | Rp99.000 | 365 hari |
+| `lifetime` | Rp249.000 | tanpa batas |
+
+Harga & masa aktif satu sumber di `packages/contracts` (`LICENSE_PLANS`); server tidak pernah menerima
+nominal dari client. Identitas pembeli = **email yang dipakai saat membeli**; tidak ada kode lisensi
+untuk diketik. Login di sini hanya membuktikan "email ini sudah membeli" - tidak membuka data dan tidak
+membuat sesi.
+
+- **Satu lisensi per email.** Setiap pembelian lunas mencatat `license_grants(order_ref)` (idempoten:
+  webhook ulang tidak memperpanjang dua kali) lalu memperpanjang `licenses.expires_at` dari
+  `max(sekarang, expires_at)` sebanyak masa aktif paket. `lifetime` men-set `expires_at = NULL` dan
+  tidak bisa turun lagi. Tidak ada prorata: naik ke lifetime = bayar penuh Rp249.000.
+- **Tanpa auto-debit.** QRIS/VA tidak bisa ditagih ulang otomatis; perpanjangan = checkout baru
+  (endpoint & webhook yang sama, `plan` di body). Pengingat habis ditampilkan di app mulai H-7.
+- **Lisensi habis = baca-saja**, tidak terkunci: data tetap bisa dilihat, diekspor, di-backup, dan
+  dipindah perangkat; menambah/mengubah data diblokir sampai diperpanjang. Data tidak pernah dihapus
+  atau disandera.
+
+- **Beli (Mayar, pola Ergonio):** `/beli` (nama, email, nomor WA) → `POST /v1/purchase/checkout` (publik, rate limit per email & IP, nominal dari server) → baris `purchases` + payment request Mayar `hl/v1/payment/create` dengan `description` berakhiran `[wh:product=<NUXT_MAYAR_PRODUCT>;env=<NUXT_MAYAR_ENVIRONMENT>]` (produk default `improve-personal`) untuk webhook-gateway → pembeli bayar → `POST /v1/payments/webhook/mayar` (token rahasia dari `?token=`/Bearer/header "token", dibandingkan timing-safe; token kosong = tolak semua) → hanya `payment.received` + `SUCCESS`/`paid` + nominal ≥ harga yang melunasi (atomik) → `grantLicense(email, order_ref = purchases.id)`. Nomor WA hanya diteruskan ke Mayar, tidak disimpan. Manual/kompensasi: `license license-grant <email> <order-ref>`.
+- **Aktivasi (sekali per perangkat, online):** login OTP/Google lama (`/v1/auth/**`) → `POST /v1/license/token` (sesi wajib, tanpa body) → server cari lisensi aktif untuk email sesi (kunci baris `FOR UPDATE`), catat `(license, device)` bila belum ada, cek batas (default 5) → token `{ v: 2, lid, did, iat, ed, plan, exp }` + tanda tangan Ed25519 (`exp` detik unix, `null` untuk lifetime). Perangkat yang sama minta ulang tidak memakai jatah.
+- **Penyegaran (online, tanpa login ulang):** `POST /v1/license/refresh` dengan token lama sebagai bukti (tanda tangan dicek, `lid`+`did` harus masih tercatat di `license_activations`, lisensi belum dicabut) → token baru dengan `exp` terkini. App memanggilnya otomatis saat online kalau sisa masa aktif < 7 hari atau sudah habis, jadi perpanjangan dari perangkat lain langsung terbawa tanpa OTP.
 - Email yang belum membeli → setelah OTP lolos, tampil "Email ini belum terdaftar membeli" + tombol beli. Status pembelian hanya terungkap ke pemilik email (sudah membuktikan OTP), jadi tidak bocor ke pihak lain; permintaan OTP sendiri tetap selalu dijawab generik.
-- App menyimpan token lokal dan memverifikasinya **offline** di setiap start. Tidak ada heartbeat, tidak ada cek online berkala.
+- App menyimpan token lokal dan memverifikasinya **offline** di setiap start; `exp` dibandingkan dengan jam perangkat. Tidak ada heartbeat; satu-satunya panggilan online adalah penyegaran di atas.
+- Jam perangkat bisa dimundurkan untuk memperpanjang paket bulanan/tahunan secara offline. Diterima sebagai risiko (sama seperti patch JS): lisensi menyasar user jujur, dan app tetap butuh online untuk transfer/backup Drive/update.
 - Token tidak memuat email atau fingerprint; `did` hanya id baris `devices` di server. Token disimpan di `localStorage` (bukan rahasia; keaslian dijamin tanda tangan) dan diverifikasi dengan WebCrypto Ed25519 di `middleware/license.global.ts`.
 - Transfer QR ikut membawa token lisensi, jadi perangkat baru yang menerima transfer tidak perlu aktivasi ulang.
 - Pembajakan lewat patch JS diterima sebagai risiko: sasaran lisensi adalah user jujur, bukan DRM.
@@ -307,6 +334,7 @@ sequenceDiagram
 POST /v1/auth/otp/request         POST /v1/auth/otp/verify      GET /v1/auth/session
 GET  /v1/auth/google/start        GET  /v1/auth/google/callback POST /v1/auth/logout
 POST /v1/license/token            (sesi -> token lisensi)
+POST /v1/license/refresh          (token lama -> token dengan exp terkini)
 POST /v1/purchase/checkout        POST /v1/payments/webhook/mayar
 POST /v1/payments/webhook        GET  /v1/transfer/relay   (upgrade WebSocket)
 GET  /v1/weather                 GET  /health
@@ -417,4 +445,5 @@ E2E (T16): Playwright (web/PWA) + Maestro (mobile), termasuk drill restore (berk
  12 | ~~dihapus oleh ADR 14~~ | Kunci user tidak ada lagi | - |
 | 13 | ~~KID + blob record v2 di server~~ **digantikan ADR 14**: KID hanya AAD blob lokal | Server tidak lagi memvalidasi KID | Tidak ada deteksi split-brain karena tidak ada kunci user |
 | 14 | ~~**Enkripsi at-rest di server** (AES-256-GCM, keyring di env) + salinan lokal berkunci perangkat; hapus passkey/recovery/QR/KID | Tujuan produk: data tidak boleh hilang karena user kehilangan kunci. E2EE membuat server tidak bisa memulihkan apa pun, dan menjaga kunci user adalah beban yang terus memakan korban | Server (pemegang env) bisa membaca data dan menjadi single point of failure; wajib backup kunci terpisah. Performa naik karena pull tidak perlu dekripsi di client untuk index~~ **digantikan ADR 15** |
-| 15 | **Local-only + E2E, sekali beli** (2026-11-16): tanpa akun/sync/at-rest server; pindah perangkat lewat transfer QR (WebRTC P2P, fallback relay ciphertext, fallback animated QR offline) + berkas backup terenkripsi kata sandi (Argon2id) + backup terjadwal ke Google Drive user; lisensi Ed25519 diverifikasi offline; satu pembelian (Rp99.000) untuk semua platform, aktivasi lewat email pembeli (OTP/Google lama dipakai ulang hanya untuk itu). Kode server lama (sesi, perangkat, akun, sync, at-rest, tabel `users/devices/sessions/records`) dihapus | Model jual sekali beli tidak cocok dengan biaya server yang berjalan terus; data jurnal/mood paling aman kalau tidak pernah ada di server; kewajiban UU PDP jauh lebih ringan | Perangkat hilang tanpa backup = data hilang permanen, support tidak bisa membantu; tidak ada sync otomatis antar perangkat; app bergantung pada domain tetap dimiliki (risiko origin takeover); lisensi web bisa dibajak dengan patch JS |
+| 15 | **Local-only + E2E, sekali beli** (2026-11-16; **harga & model jual direvisi ADR 16**): tanpa akun/sync/at-rest server; pindah perangkat lewat transfer QR (WebRTC P2P, fallback relay ciphertext, fallback animated QR offline) + berkas backup terenkripsi kata sandi (Argon2id) + backup terjadwal ke Google Drive user; lisensi Ed25519 diverifikasi offline; satu pembelian (Rp99.000) untuk semua platform, aktivasi lewat email pembeli (OTP/Google lama dipakai ulang hanya untuk itu). Kode server lama (sesi, perangkat, akun, sync, at-rest, tabel `users/devices/sessions/records`) dihapus | Model jual sekali beli tidak cocok dengan biaya server yang berjalan terus; data jurnal/mood paling aman kalau tidak pernah ada di server; kewajiban UU PDP jauh lebih ringan | Perangkat hilang tanpa backup = data hilang permanen, support tidak bisa membantu; tidak ada sync otomatis antar perangkat; app bergantung pada domain tetap dimiliki (risiko origin takeover); lisensi web bisa dibajak dengan patch JS |
+| 16 | **Tiga paket prabayar** (2026-11-17): bulanan Rp19.000 / tahunan Rp99.000 / lifetime Rp249.000, tanpa auto-debit; satu lisensi per email diperpanjang per pembelian (`license_grants` idempoten); token v2 membawa `plan` + `exp`; `POST /v1/license/refresh` menyegarkan token dengan token lama sebagai bukti; lisensi habis = baca-saja | Pendapatan berulang menutup biaya domain/relay/support yang berjalan terus, sementara lifetime tetap ada untuk yang tidak mau langganan; prabayar cocok dengan QRIS/VA yang tidak bisa auto-debit | Perpanjangan manual = churn lebih tinggi daripada auto-debit; `exp` dicek dengan jam perangkat sehingga bisa diakali offline; baca-saja tetap memberi akses data (disengaja: data milik user) |
