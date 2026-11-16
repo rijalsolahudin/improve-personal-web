@@ -207,6 +207,10 @@ export {
 } from './entities/habit.ts'
 
 export {
+  JOURNAL_STICKER_MAX,
+  JOURNAL_STICKER_MAX_LINE,
+  JOURNAL_STICKER_SCALE_MAX,
+  JOURNAL_STICKER_SCALE_MIN,
   compareByPosition,
   findEntryForDate,
   hasJournalContent,

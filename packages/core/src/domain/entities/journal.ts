@@ -82,13 +82,33 @@ export const journalAffirmationSchema = z
 
 export type JournalAffirmation = z.infer<typeof journalAffirmationSchema>
 
-/** `journal_sticker` - HANYA menyimpan ID sticker, bukan gambarnya. */
+/** Batas sticker per jurnal; pagar supaya render & sync satu halaman tetap ringan. */
+export const JOURNAL_STICKER_MAX = 12
+/** Indeks baris kertas tertinggi yang boleh ditempeli (kertas tidak pernah sepanjang ini). */
+export const JOURNAL_STICKER_MAX_LINE = 400
+export const JOURNAL_STICKER_SCALE_MIN = 0.5
+export const JOURNAL_STICKER_SCALE_MAX = 2.5
+
+/**
+ * `journal_sticker` - HANYA menyimpan ID sticker, bukan gambarnya.
+ *
+ * Posisi sengaja tidak dalam pixel: `x` adalah pecahan lebar kertas dan `line` indeks baris kertas
+ * bergaris. Tinggi baris kertas tetap di semua ukuran layar, jadi sticker tetap di baris yang sama
+ * walaupun lebar kertas berubah. `position` = urutan tumpuk (yang lebih besar di atas).
+ *
+ * Record terpisah (bukan field `journal_entry`) supaya klien lama yang mem-parse `journal_entry`
+ * secara `.strict()` tidak gagal memuat jurnal begitu ada sticker.
+ */
 export const journalStickerSchema = z
   .object({
     id: uuidV7Schema,
     entryId: uuidV7Schema,
     stickerId: z.string().min(1).max(120),
     position: z.int().min(0).max(1_000),
+    x: z.number().min(0).max(1),
+    line: z.int().min(0).max(JOURNAL_STICKER_MAX_LINE),
+    rotate: z.number().min(-180).max(180),
+    scale: z.number().min(JOURNAL_STICKER_SCALE_MIN).max(JOURNAL_STICKER_SCALE_MAX),
   })
   .strict()
 
