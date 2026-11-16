@@ -39,10 +39,10 @@ const lists = computed(() =>
 </template>
 
 <style scoped>
-/* Di bawah kertas diary: tiga daftar berdampingan di layar lebar, bertumpuk di HP. */
+/* Berdampingan saat di bawah kertas; bertumpuk saat jadi kolom samping atau di HP. */
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
   gap: var(--space-20);
 }
 

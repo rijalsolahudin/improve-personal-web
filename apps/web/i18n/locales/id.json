@@ -1015,12 +1015,11 @@
     "paperToggle": "Ganti kertas",
     "feelingsAdd": "+ tambah perasaan",
     "feelingsDone": "Selesai",
-    "feelingsShort": "Rasanya",
+    "howToday": "Gimana harimu?",
     "feelingsEdit": "ubah",
     "edit": "✎ Ubah",
     "openDay": "Buka halaman →",
     "doneEditing": "Selesai, lihat halaman",
-    "points": "Poin hari ini ({n})",
     "focus": "⤢ Fokus",
     "focusExit": "Keluar fokus (Esc)",
     "format": {
@@ -1212,8 +1211,7 @@
       "sad": "Yang bikin sedih",
       "better": "Yang bisa lebih baik"
     },
-    "listItem": "{list} nomor {n}",
-    "about": "Tentang hari ini"
+    "listItem": "{list} nomor {n}"
   },
   "keys": {
     "freshKeyWarning": "Data di perangkat ini dienkripsi dengan kunci baru. Recovery key belum diatur: kalau perangkat ini hilang atau datanya terhapus, isinya tidak bisa dipulihkan. Jangan dipakai untuk data penting sampai onboarding kunci selesai.",

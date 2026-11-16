@@ -119,14 +119,10 @@ function pick(color: HighlightColor): void {
 </template>
 
 <style scoped>
-/* Satu pill bergaris putus-putus, senada dengan tombol toolbar lain di atas kertas. */
 .formats {
   display: flex;
   align-items: center;
   gap: 2px;
-  padding: 2px var(--space-4);
-  border: var(--border-thin) dashed var(--dash);
-  border-radius: var(--radius-pill);
 }
 
 .format {

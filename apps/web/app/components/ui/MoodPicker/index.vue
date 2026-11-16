@@ -32,26 +32,27 @@ const moods = MOOD_EMOJI.map((emoji, index) => ({ emoji, index, tint: moodTints[
 .moods {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: var(--space-6);
+  gap: var(--space-2);
 }
 
+/* Tanpa bingkai: emoji + label saja, supaya mood tidak bersaing dengan tulisan jurnal. */
 .mood {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--space-4);
-  padding: var(--space-8) 2px var(--space-6);
-  border: var(--border) solid var(--line);
-  border-radius: calc(20px * var(--rk)) calc(20px * var(--rk)) calc(20px * var(--rk))
-    calc(8px * var(--rk));
-  background: var(--paper);
+  gap: 2px;
+  padding: var(--space-6) 2px var(--space-4);
+  border: none;
+  border-radius: calc(14px * var(--rk));
+  background: none;
+  color: var(--mute-3);
   transition: transform 0.15s;
 }
 
 /* Design: tile terpilih miring -2°, tile mana pun yang di-hover naik -3° + membesar. */
 .mood[aria-pressed='true'] {
   background: var(--mood-tint);
-  border-color: var(--outline);
+  color: var(--ink);
   transform: rotate(calc(-2deg * var(--bev)));
 }
 
@@ -60,12 +61,8 @@ const moods = MOOD_EMOJI.map((emoji, index) => ({ emoji, index, tint: moodTints[
 }
 
 .emoji {
-  font-size: var(--fs-30);
+  font-size: var(--fs-24);
   line-height: 1;
-}
-
-.mood[aria-pressed='true'] .emoji {
-  font-size: var(--fs-36);
 }
 
 .label {
@@ -75,5 +72,6 @@ const moods = MOOD_EMOJI.map((emoji, index) => ({ emoji, index, tint: moodTints[
   font-size: var(--fs-hand-label);
   line-height: 1.05;
   text-align: center;
+  white-space: nowrap;
 }
 </style>

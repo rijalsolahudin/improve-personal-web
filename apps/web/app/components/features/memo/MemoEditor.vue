@@ -10,15 +10,12 @@ import {
   mentionQuery,
   wordCount,
 } from '~/utils/memo'
-import { JOURNAL_LISTS } from '~/utils/journal'
 import type { MentionKind, RichFormatTarget } from '~/utils/memo/richtext'
 import { SCHEDULE_COLORS, occurrencesOn } from '~/utils/schedule'
 import { addDays, fromIsoDate } from '~/utils/time'
 
 /** Halaman tulis jurnal untuk tanggal `day` (design: kertas bergaris + selotip). */
 const { day } = defineProps<{ day: string }>()
-/** `show-points`: user minta lompat ke tiga daftar refleksi di bawah kertas. */
-const emit = defineEmits<{ 'show-points': [] }>()
 
 /** Rentang jadwal yang ditawarkan saat mengetik `@` (design: ±2 hari dari tanggal memo). */
 const SUGGEST_RANGE_DAYS = 2
@@ -66,15 +63,6 @@ function openFocus(): void {
   isQuiet.value = false
   void enterFocus()
 }
-const journal = useJournalDay(() => day)
-/** Jumlah poin refleksi yang terisi, ditampilkan di chip toolbar supaya daftar tetap terjangkau. */
-const pointCount = computed(() =>
-  JOURNAL_LISTS.reduce(
-    (total, key) => total + journal.day.value[key].filter((item) => item.trim() !== '').length,
-    0,
-  ),
-)
-
 const words = computed(() => wordCount(draft.value.text))
 const query = computed(() => mentionQuery(draft.value.text))
 const suggestions = computed(() => {
@@ -272,13 +260,12 @@ const saveStatus = computed(() => {
       />
       <div v-if="!isFocus" class="pad">
         <MemoSheetHead :day="day">
-          <p class="eyebrow about">{{ $t('journal.about') }}</p>
-          <h2 id="memo-editor-title" class="sheet-date">
+          <!-- Tanggal sudah tampil di kartu hari di atas; judul ini hanya untuk pembaca layar. -->
+          <h2 id="memo-editor-title" class="visually-hidden">
             {{ longDate(fromIsoDate(day).getTime()) }}
           </h2>
         </MemoSheetHead>
       </div>
-      <div v-if="!isFocus" class="divider" />
       <div v-if="!isFocus" class="tools">
         <MemoFormatBar :target="formatTarget" />
         <button
@@ -296,9 +283,6 @@ const saveStatus = computed(() => {
           @click="toggleTool('paper')"
         >
           {{ $t('memo.paperToggle') }}
-        </button>
-        <button type="button" class="tool" @click="emit('show-points')">
-          {{ $t('memo.points', { n: pointCount }) }}
         </button>
         <button type="button" class="tool" @click="openFocus">
           {{ $t('memo.focus') }}
@@ -420,7 +404,8 @@ const saveStatus = computed(() => {
 .sheet {
   position: relative;
   margin-top: var(--space-10);
-  padding: var(--space-28) 0 var(--space-18);
+  /* Atas lebih tipis dari samping: tinggi baris judul tulisan tangan sudah menambah jarak sendiri. */
+  padding: var(--space-20) 0 var(--space-18);
   border: var(--border-thin) solid var(--line);
   border-radius: calc(28px * var(--rk));
   background: var(--paper-2);
@@ -428,18 +413,6 @@ const saveStatus = computed(() => {
 
 .pad {
   padding: 0 var(--space-28);
-}
-
-.sheet-date {
-  font-family: var(--font-hand);
-  font-weight: 400;
-  font-size: var(--fs-hand-30);
-  line-height: 1.1;
-}
-
-.about {
-  margin-bottom: 2px;
-  color: var(--deep);
 }
 
 /*
@@ -453,15 +426,17 @@ const saveStatus = computed(() => {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-8);
-  padding: var(--space-10) var(--space-28) var(--space-10) var(--space-64);
-  border-bottom: var(--border-thin) dashed var(--mline);
+  gap: var(--space-2);
+  margin-top: var(--space-20);
+  padding: var(--space-6) var(--space-28) var(--space-6) var(--space-64);
+  border-block: var(--border-thin) solid var(--line);
   background: var(--paper-2);
 }
 
+/* Tombol teks polos, tanpa bingkai: toolbar terbaca sebagai satu baris, bukan deretan pil. */
 .tool {
-  padding: var(--space-4) var(--space-12);
-  border: var(--border-thin) dashed var(--dash);
+  padding: var(--space-4) var(--space-10);
+  border: none;
   border-radius: var(--radius-pill);
   background: none;
   color: var(--mute-2);
@@ -469,10 +444,17 @@ const saveStatus = computed(() => {
   font-size: var(--fs-12);
 }
 
+.tool:hover,
 .tool[aria-expanded='true'] {
-  border-style: solid;
-  border-color: var(--outline);
+  background: var(--alt);
   color: var(--ink);
+}
+
+/* Grup format dipisah dari tombol lain cukup lewat garis tipis, bukan bingkai. */
+.tools > .formats {
+  margin-right: var(--space-8);
+  padding-right: var(--space-8);
+  border-right: var(--border-thin) solid var(--line);
 }
 
 .meta {
@@ -570,11 +552,6 @@ const saveStatus = computed(() => {
 
 .focus-bar .meta {
   margin-left: 0;
-}
-
-.divider {
-  margin-top: var(--space-14);
-  border-top: var(--border-thin) dashed var(--mline);
 }
 
 .title-input {
