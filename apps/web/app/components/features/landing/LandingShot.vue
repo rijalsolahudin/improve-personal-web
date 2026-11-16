@@ -19,7 +19,7 @@ const {
   sizes?: string
 }>()
 
-/** Ukuran intrinsik varian terbesar (`OUTPUT_WIDTHS` di skrip screenshot, rasio 1280x800). */
+/** Ukuran intrinsik varian terbesar (`OUTPUT_WIDTHS` di skrip screenshot, viewport 1440x900 = rasio 16:10). */
 const WIDTH = 1600
 const HEIGHT = 1000
 </script>

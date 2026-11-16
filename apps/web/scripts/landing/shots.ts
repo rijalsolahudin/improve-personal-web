@@ -28,7 +28,8 @@ import { DEMO_TZ, buildDemoBackup } from './demo-data'
 const BASE_URL = process.argv[2] ?? 'http://localhost:3700'
 const OUT_DIR = resolve(import.meta.dirname, '../../public/landing')
 
-const VIEWPORT = { width: 1280, height: 800 }
+/** Layar lebar (16:10, sama dengan rasio bingkai di landing) supaya isi halaman lega. */
+const VIEWPORT = { width: 1440, height: 900 }
 const PHONE_VIEWPORT = { width: 390, height: 844 }
 /** Render 2x lalu diperkecil: teks tetap tajam di layar retina tanpa berkas raksasa. */
 const DEVICE_SCALE = 2
@@ -58,6 +59,12 @@ const SHOTS: readonly { readonly name: string; readonly path: string }[] = [
   { name: 'pomodoro', path: '/app/pomodoro' },
   { name: 'countdown', path: '/app/countdown' },
 ]
+
+/**
+ * Sama dengan `SIDEBAR_STORAGE_KEY` di `app/stores/ui.ts`. Ditulis ulang karena store itu memakai
+ * auto-import Nuxt (`defineStore`) sehingga tidak bisa diimpor dari skrip Node ini.
+ */
+const SIDEBAR_STORAGE_KEY = `${TECH_IDENTITY.storagePrefix}sb`
 
 const PHONE_SHOTS: readonly string[] = ['daily', 'habit']
 
@@ -138,10 +145,14 @@ async function main(): Promise<void> {
       timezoneId: DEMO_TZ,
       reducedMotion: 'reduce',
     })
-    await context.addInitScript(([key, value]) => window.localStorage.setItem(key, value), [
-      `${TECH_IDENTITY.storagePrefix}license`,
-      token,
-    ] as const)
+    await context.addInitScript(
+      ([licenseKey, license, sidebarKey]) => {
+        window.localStorage.setItem(licenseKey, license)
+        // Sidebar ditutup: area isi lebih luas di screenshot.
+        window.localStorage.setItem(sidebarKey, '1')
+      },
+      [`${TECH_IDENTITY.storagePrefix}license`, token, SIDEBAR_STORAGE_KEY] as const,
+    )
 
     const page = await context.newPage()
     await page.clock.install({ time: shotTime })
