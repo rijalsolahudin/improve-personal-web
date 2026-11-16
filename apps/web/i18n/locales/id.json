@@ -167,7 +167,8 @@
       "empty": "Belum ada task penting & mendesak atau urgent.",
       "more": "Lihat {n} lagi",
       "less": "Lipat lagi",
-      "add": "Tambah prioritas, lalu Enter…",
+      "add": "Judul prioritas, lalu Enter…",
+      "addButton": "+ Tambah",
       "addLabel": "Judul prioritas baru"
     },
     "todo": {
