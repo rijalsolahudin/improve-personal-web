@@ -1,7 +1,7 @@
 import { z } from 'zod'
 
 import { isLicenseKeyPair } from './license-signing'
-import { normalizeMayarEnvironment } from './mayar'
+import { normalizeMayarEnvironment, normalizeMayarProduct } from './mayar'
 
 /**
  * Validasi env server - fail-closed.
@@ -152,7 +152,12 @@ const serverEnvSchema = z
     /** Token rahasia yang wajib dibawa webhook Mayar. Kosong = webhook menolak semua (503). */
     mayarWebhookToken: z.string().default(''),
     /**
-     * Label environment untuk tag rute webhook-gateway (`[wh:product=improve-personal;env=<ini>]`):
+     * Kunci produk di webhook-gateway (`[wh:product=<ini>;env=...]`). Harus sama dengan forward yang
+     * terdaftar di gateway; dinormalkan jadi slug, kosong = `improve-personal`.
+     */
+    mayarProduct: z.string().default('').transform(normalizeMayarProduct),
+    /**
+     * Label environment untuk tag rute webhook-gateway (`[wh:product=...;env=<ini>]`):
      * Mayar hanya meneruskan `description` ke webhook, jadi label ini yang menentukan app mana yang
      * menerima pembayaran. Dinormalkan jadi slug; kosong = `production`.
      */

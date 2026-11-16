@@ -7,6 +7,7 @@ import {
   createMayarPayment,
   mayarGatewayTag,
   normalizeMayarEnvironment,
+  normalizeMayarProduct,
   type MayarFetch,
 } from './mayar'
 
@@ -21,8 +22,19 @@ describe('tag gateway webhook', () => {
     expect(normalizeMayarEnvironment(raw)).toBe(expected)
   })
 
-  it('tag memakai kunci produk yang terdaftar di gateway', () => {
-    expect(mayarGatewayTag('development')).toBe('[wh:product=improve-personal;env=development]')
+  it.each([
+    [undefined, 'improve-personal'],
+    ['', 'improve-personal'],
+    [' Improve Personal Pro ', 'improve-personal-pro'],
+    ['x;env=prod]', 'x-env-prod'],
+  ])('normalizeMayarProduct(%j) = %j', (raw, expected) => {
+    expect(normalizeMayarProduct(raw)).toBe(expected)
+  })
+
+  it('tag memuat produk dan environment', () => {
+    expect(mayarGatewayTag({ product: 'improve-personal', environment: 'development' })).toBe(
+      '[wh:product=improve-personal;env=development]',
+    )
   })
 })
 

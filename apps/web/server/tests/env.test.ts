@@ -550,10 +550,17 @@ describe('Mayar (ADR 15)', () => {
     }
   })
 
-  it('non-production boleh tanpa Mayar; environment default `production`', () => {
+  it('non-production boleh tanpa Mayar; produk & environment punya default', () => {
     const env = resolveServerEnv(baseConfig())
     expect(env.mayarApiKey).toBe('')
+    expect(env.mayarProduct).toBe('improve-personal')
     expect(env.mayarEnvironment).toBe('production')
+  })
+
+  it('produk Mayar dari env dinormalkan jadi slug', () => {
+    expect(resolveServerEnv(baseConfig({ mayarProduct: 'Jurnal Pro' })).mayarProduct).toBe(
+      'jurnal-pro',
+    )
   })
 
   it('override harga harus bilangan bulat > 0', () => {

@@ -6,13 +6,14 @@
  *
  * Mayar hanya punya satu host dan HANYA meneruskan `description` pembayaran ke webhook (tanpa
  * metadata). Karena itu tujuan webhook ditulis sebagai tag di ujung description,
- * `[wh:product=improve-personal;env=<env>]`, yang dibaca webhook-gateway untuk meneruskan ke app &
- * environment yang benar. `MAYAR_GATEWAY_PRODUCT` harus sama dengan kunci yang terdaftar di gateway.
+ * `[wh:product=<produk>;env=<env>]`, yang dibaca webhook-gateway untuk meneruskan ke app &
+ * environment yang benar. Produk (`NUXT_MAYAR_PRODUCT`) harus sama dengan kunci yang terdaftar di
+ * gateway.
  */
 
 export const MAYAR_PAYMENT_ENDPOINT = 'https://api.mayar.id/hl/v1/payment/create'
 
-export const MAYAR_GATEWAY_PRODUCT = 'improve-personal'
+export const DEFAULT_MAYAR_PRODUCT = 'improve-personal'
 
 export const DEFAULT_MAYAR_ENVIRONMENT = 'production'
 
@@ -20,7 +21,7 @@ export const DEFAULT_MAYAR_ENVIRONMENT = 'production'
 const ERROR_BODY_LOG_LIMIT = 300
 
 /** Slug huruf kecil (a-z, 0-9, strip; maks 20) supaya tidak pernah merusak sintaks tag. */
-export function normalizeMayarEnvironment(value: unknown): string {
+function toGatewaySlug(value: unknown, fallback: string): string {
   const slug = String(value ?? '')
     .trim()
     .toLowerCase()
@@ -28,11 +29,24 @@ export function normalizeMayarEnvironment(value: unknown): string {
     .replace(/^-+|-+$/g, '')
     .slice(0, 20)
     .replace(/-+$/g, '')
-  return slug || DEFAULT_MAYAR_ENVIRONMENT
+  return slug || fallback
 }
 
-export function mayarGatewayTag(environment: string): string {
-  return `[wh:product=${MAYAR_GATEWAY_PRODUCT};env=${environment}]`
+export function normalizeMayarProduct(value: unknown): string {
+  return toGatewaySlug(value, DEFAULT_MAYAR_PRODUCT)
+}
+
+export function normalizeMayarEnvironment(value: unknown): string {
+  return toGatewaySlug(value, DEFAULT_MAYAR_ENVIRONMENT)
+}
+
+export type MayarGatewayRoute = {
+  readonly product: string
+  readonly environment: string
+}
+
+export function mayarGatewayTag(route: MayarGatewayRoute): string {
+  return `[wh:product=${route.product};env=${route.environment}]`
 }
 
 export type CreateMayarPaymentInput = {

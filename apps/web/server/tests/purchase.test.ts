@@ -59,7 +59,10 @@ async function licensesOf(email: string) {
 
 describe('startCheckout', () => {
   it('membuat pembelian pending + link Mayar dengan tag gateway', async () => {
-    const fixture = mayarFixture('purchase-checkout', { mayarEnvironment: 'development' })
+    const fixture = mayarFixture('purchase-checkout', {
+      mayarProduct: 'jurnal-pro',
+      mayarEnvironment: 'development',
+    })
     const mayar = fakeMayar()
 
     const link = await startCheckout(fixture.ctx(), checkoutOf(fixture), mayar)
@@ -75,7 +78,7 @@ describe('startCheckout', () => {
     const [, init] = vi.mocked(mayar).mock.calls[0] ?? []
     const sent = JSON.parse(String(init?.body)) as { description: string; redirectUrl: string }
     expect(sent.description).toContain(row.id)
-    expect(sent.description.endsWith('[wh:product=improve-personal;env=development]')).toBe(true)
+    expect(sent.description.endsWith('[wh:product=jurnal-pro;env=development]')).toBe(true)
     expect(sent.redirectUrl).toBe('https://app.test/beli/selesai')
   })
 

@@ -155,10 +155,12 @@ export default defineNuxtConfig({
     smtpUrl: '',
     // Seed Ed25519 penanda tangan token lisensi (ADR 15). Rahasia: hanya di server.
     licenseSigningKey: '',
-    // Pembayaran Mayar (ADR 15): API key + token webhook = rahasia server. `mayarEnvironment` jadi
-    // tag rute webhook-gateway; `priceOverrideIdr` hanya untuk uji di non-production.
+    // Pembayaran Mayar (ADR 15): API key + token webhook = rahasia server. `mayarProduct` +
+    // `mayarEnvironment` jadi tag rute webhook-gateway; `priceOverrideIdr` hanya untuk uji di
+    // non-production.
     mayarApiKey: '',
     mayarWebhookToken: '',
+    mayarProduct: '',
     mayarEnvironment: '',
     priceOverrideIdr: '',
     // `public.appEnv` cuma untuk UI (mis. login demo). Kosong = production.

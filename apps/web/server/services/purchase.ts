@@ -64,7 +64,11 @@ export async function startCheckout(
   input: StartCheckoutInput,
   request?: MayarFetch,
 ): Promise<string> {
-  if (ctx.env.mayarApiKey === '') throw apiProblem('INTERNAL')
+  if (ctx.env.mayarApiKey === '') {
+    // Salah konfigurasi, bukan kesalahan pembeli: sebut env-nya supaya log langsung menunjuk sebabnya.
+    console.error('[purchase] NUXT_MAYAR_API_KEY kosong - checkout dinonaktifkan')
+    throw apiProblem('INTERNAL')
+  }
 
   await consumeRateLimit(ctx, 'purchase:email', input.email)
   if (ctx.clientIp !== null) await consumeRateLimit(ctx, 'purchase:ip', ctx.clientIp)
@@ -106,7 +110,7 @@ export async function startCheckout(
         mobile: input.mobile,
         amount,
         redirectUrl: `${input.origin}${CHECKOUT_RETURN_PATH}`,
-        description: `Lisensi Improve Personal - ${id} ${mayarGatewayTag(ctx.env.mayarEnvironment)}`,
+        description: `Lisensi Improve Personal - ${id} ${mayarGatewayTag({ product: ctx.env.mayarProduct, environment: ctx.env.mayarEnvironment })}`,
         expiredAt: expiresAt,
       },
       request,
