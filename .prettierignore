@@ -15,3 +15,5 @@ docs
 .claude
 *.md
 apps/web/source-ui
+# Salinan skill pihak ketiga (dari .claude/skills lewat sync:agents): ikut .claude, jangan diformat tangan.
+.qoder/skills
