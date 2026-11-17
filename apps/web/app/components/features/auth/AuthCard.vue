@@ -3,6 +3,7 @@
  * Bingkai halaman publik ber-kartu (login/aktivasi, beli, selesai bayar): panel merek di kiri, isi di
  * kanan, catatan kecil di bawah isi.
  */
+const { panel = 'login' } = defineProps<{ panel?: 'login' | 'purchase' }>()
 </script>
 
 <template>
@@ -11,7 +12,7 @@
       <!-- Panel merek: teks statis + maskot hias. Markup-nya dirender di server (LCP halaman ini),
            hidrasinya tidak dibutuhkan karena tidak ada interaksi - jadi chunk maskot/BrandMark
            tidak ikut render-blocking JS. -->
-      <LazyAuthBrandPanel hydrate-never />
+      <LazyAuthBrandPanel :variant="panel" hydrate-never />
       <div class="form-side">
         <slot />
         <p v-if="$slots.note" class="terms"><slot name="note" /></p>

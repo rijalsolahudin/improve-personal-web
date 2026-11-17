@@ -1198,10 +1198,6 @@
     "meta": {
       "title": "Masuk"
     },
-    "brand": {
-      "headline": "Halo lagi! Yuk lanjut tumbuh pelan-pelan.",
-      "sub": "Datamu tetap di perangkat ini. Masuk cuma buat memastikan lisensimu."
-    },
     "google": {
       "idle": "Lanjut dengan Google",
       "pending": "Menghubungkan ke Google…"
@@ -1212,6 +1208,7 @@
       "sub": "Pakai email yang kamu pakai saat membeli. Cukup sekali per perangkat; setelah itu aplikasi jalan tanpa internet.",
       "divider": "ATAU PAKAI EMAIL",
       "emailLabel": "EMAIL",
+      "emailPlaceholder": "nama{'@'}email.com",
       "emailPlaceholder": "kamu{'@'}email.com",
       "send": "Kirim kode OTP",
       "sending": "Mengirim kode…",
@@ -1265,6 +1262,22 @@
       "otherEmail": "Masuk dengan email lain"
     }
   },
+  "authPanel": {
+    "login": {
+      "headline": "Halo lagi! Yuk lanjut tumbuh pelan-pelan.",
+      "sub": "Datamu tetap di perangkat ini. Masuk cuma buat memastikan lisensimu."
+    },
+    "purchase": {
+      "headline": "Satu lisensi, semua fitur.",
+      "sub": "Pilih paket, bayar, lalu masuk pakai email yang sama.",
+      "benefits": {
+        "features": "To-Do, Habit, Goals, Jurnal, Pomodoro - tanpa batas",
+        "local": "Datamu disimpan di perangkatmu, bukan di server kami",
+        "platforms": "Satu lisensi untuk web, Android, dan iOS",
+        "noRenewal": "Bayar di muka, tanpa tagihan otomatis"
+      }
+    }
+  },
   "purchase": {
     "meta": {
       "title": "Beli"
@@ -1274,10 +1287,39 @@
     "sub": "Berlaku di web, Android, dan iOS. Bayar di muka, tanpa tagihan otomatis. Datamu tetap di perangkatmu sendiri.",
     "planLabel": "PAKET",
     "nameLabel": "NAMA",
+    "namePlaceholder": "Nama lengkapmu",
     "emailLabel": "EMAIL",
+    "emailPlaceholder": "nama{'@'}email.com",
     "emailHint": "Email ini yang nanti dipakai untuk masuk ke aplikasi.",
     "mobileLabel": "NOMOR WHATSAPP",
-    "mobilePlaceholder": "08xxxxxxxxxx",
+    "mobileCountryLabel": "Kode negara",
+    "countrySearch": "Cari negara atau kode",
+    "countryEmpty": "Negara tidak ditemukan.",
+    "countries": {
+      "ID": "Indonesia",
+      "MY": "Malaysia",
+      "SG": "Singapura",
+      "BN": "Brunei",
+      "TL": "Timor Leste",
+      "TH": "Thailand",
+      "PH": "Filipina",
+      "VN": "Vietnam",
+      "AU": "Australia",
+      "NZ": "Selandia Baru",
+      "JP": "Jepang",
+      "KR": "Korea Selatan",
+      "CN": "Tiongkok",
+      "HK": "Hong Kong",
+      "TW": "Taiwan",
+      "IN": "India",
+      "SA": "Arab Saudi",
+      "AE": "Uni Emirat Arab",
+      "QA": "Qatar",
+      "NL": "Belanda",
+      "DE": "Jerman",
+      "GB": "Inggris",
+      "US": "Amerika Serikat"
+    },
     "submit": "Bayar {price}",
     "haveLicense": "Sudah beli? Masuk di sini",
     "note": "Pembayaran diproses Mayar (QRIS, e-wallet, transfer bank). Nomor WhatsApp hanya diteruskan ke Mayar, tidak kami simpan.",

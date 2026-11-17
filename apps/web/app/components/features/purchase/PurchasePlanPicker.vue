@@ -35,6 +35,8 @@ const plan = defineModel<LicensePlanId>({ required: true })
   display: flex;
   flex-direction: column;
   gap: var(--space-8);
+  /* `fieldset` bawaan browser ber-min-width min-content: tanpa ini kartu paket meluber di HP. */
+  min-width: 0;
   margin: 0;
   padding: 0;
   border: 0;
@@ -70,6 +72,7 @@ const plan = defineModel<LicensePlanId>({ required: true })
 }
 
 .radio {
+  flex: none;
   accent-color: var(--accent);
   width: 18px;
   height: 18px;
@@ -92,6 +95,7 @@ const plan = defineModel<LicensePlanId>({ required: true })
   background: var(--accent);
   color: #fffbf4;
   font-size: var(--fs-meta);
+  white-space: nowrap;
 }
 
 .price {

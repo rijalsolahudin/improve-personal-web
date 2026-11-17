@@ -5,14 +5,20 @@ import { licenseTokenPayloadSchema, splitLicenseToken } from '@improve-personal/
 import { eq } from 'drizzle-orm'
 import { afterAll, describe, expect, it } from 'vitest'
 
-import { licenseActivations, licenseGrants, licenses } from '../db/schema'
+import { licenseActivations, licenseGrants, licenses, users } from '../db/schema'
 import {
   extendLicenseTerm,
   grantLicense,
   issueLicenseToken,
   refreshLicenseToken,
 } from '../services/license'
-import { closeTestDb, seedSession, testDb, TEST_LICENSE_PUBLIC_KEY } from './helpers/harness'
+import {
+  closeTestDb,
+  makeEnv,
+  seedSession,
+  testDb,
+  TEST_LICENSE_PUBLIC_KEY,
+} from './helpers/harness'
 import { captureProblem, testScope } from './helpers/scope'
 
 const scope = testScope()
@@ -177,6 +183,77 @@ describe('issueLicenseToken', () => {
     )
 
     expect(problem?.code).toBe('LICENSE_REQUIRED')
+  })
+})
+
+describe('super admin', () => {
+  /** Fixture yang email-nya terdaftar di `NUXT_SUPER_ADMIN_EMAILS`. */
+  function superAdmin(prefix: string) {
+    const fixture = scope.fixture({ prefix })
+    const ctx = fixture.ctx({ env: makeEnv({ superAdminEmails: fixture.email.toUpperCase() }) })
+    return { fixture, ctx }
+  }
+
+  async function roleOf(email: string) {
+    const [row] = await testDb()
+      .select({ role: users.role })
+      .from(users)
+      .where(eq(users.email, email))
+    return row?.role
+  }
+
+  it('tanpa pembelian -> token lifetime sah', async () => {
+    const { fixture, ctx } = superAdmin('license-super')
+    const session = await seedSession(ctx, { email: fixture.email })
+
+    const token = await issueLicenseToken(ctx, { email: fixture.email, deviceId: session.deviceId })
+
+    const { isValid, payload } = verifyToken(token)
+    expect(isValid).toBe(true)
+    expect(payload).toMatchObject({ plan: 'lifetime', exp: null, did: session.deviceId })
+    expect(await roleOf(fixture.email)).toBe('super_admin')
+  })
+
+  it('lisensi yang dicabut/berjangka dipulihkan jadi lifetime', async () => {
+    const { fixture, ctx } = superAdmin('license-super-revoked')
+    const license = await grantLicense(ctx, {
+      email: fixture.email,
+      orderRef: `qa-${randomUUID()}`,
+      plan: 'monthly',
+    })
+    await testDb().update(licenses).set({ revokedAt: ctx.now }).where(eq(licenses.id, license.id))
+    const session = await seedSession(ctx, { email: fixture.email })
+
+    const token = await issueLicenseToken(ctx, { email: fixture.email, deviceId: session.deviceId })
+
+    expect(verifyToken(token).payload).toMatchObject({
+      lid: license.id,
+      plan: 'lifetime',
+      exp: null,
+    })
+  })
+
+  it('email dihapus dari env -> turun jadi member di login berikutnya', async () => {
+    const { fixture, ctx } = superAdmin('license-super-demoted')
+    await seedSession(ctx, { email: fixture.email })
+    expect(await roleOf(fixture.email)).toBe('super_admin')
+
+    await seedSession(fixture.ctx(), { email: fixture.email })
+
+    expect(await roleOf(fixture.email)).toBe('member')
+  })
+
+  it('member tanpa pembelian tetap LICENSE_REQUIRED', async () => {
+    const fixture = scope.fixture({ prefix: 'license-member' })
+    const ctx = fixture.ctx({ env: makeEnv({ superAdminEmails: 'orang-lain@example.com' }) })
+    const session = await seedSession(ctx, { email: fixture.email })
+
+    const problem = await captureProblem(
+      issueLicenseToken(ctx, { email: fixture.email, deviceId: session.deviceId }),
+    )
+
+    expect(problem?.code).toBe('LICENSE_REQUIRED')
+    expect(await roleOf(fixture.email)).toBe('member')
   })
 })
 

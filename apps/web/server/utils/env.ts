@@ -1,3 +1,4 @@
+import { emailSchema } from '@improve-personal/contracts'
 import { z } from 'zod'
 
 import { isLicenseKeyPair } from './license-signing'
@@ -174,6 +175,15 @@ const serverEnvSchema = z
         (value) => value === null || (Number.isInteger(value) && value > 0),
         'NUXT_PRICE_OVERRIDE_IDR harus bilangan bulat rupiah > 0',
       ),
+    /**
+     * Email super admin (dipisah koma): akses penuh tanpa membeli lisensi. Di env, bukan di repo,
+     * supaya email pribadi tidak ikut git dan bisa beda per environment. Kosong = tidak ada.
+     */
+    superAdminEmails: z
+      .string()
+      .default('')
+      .transform((value) => value.split(',').filter((part) => part.trim() !== ''))
+      .pipe(z.array(emailSchema)),
     resendApiKey: z.string().default(''),
     mailFrom: z.string().default(''),
     /**

@@ -25,14 +25,28 @@ describe('LICENSE_PLANS', () => {
 })
 
 describe('buyerMobileSchema', () => {
-  it.each(['081234567890', '+6281234567890', '6281234567890', '0812-3456-7890', ' 0812 3456 789 '])(
-    'menerima %j',
-    (value) => {
-      expect(buyerMobileSchema.safeParse(value).success).toBe(true)
-    },
-  )
+  it.each([
+    '081234567890',
+    '+6281234567890',
+    '6281234567890',
+    '0812-3456-7890',
+    ' 0812 3456 789 ',
+    '+60123456789',
+    '+1 415 555 0100',
+  ])('menerima %j', (value) => {
+    expect(buyerMobileSchema.safeParse(value).success).toBe(true)
+  })
 
-  it.each(['', '12345', '0212345678', 'abc', '+1 555 0100'])('menolak %j', (value) => {
+  it.each([
+    '',
+    '12345',
+    '0212345678',
+    'abc',
+    '+0123456789',
+    '+6512',
+    '+1234567890123456',
+    '+62212345678',
+  ])('menolak %j', (value) => {
     expect(buyerMobileSchema.safeParse(value).success).toBe(false)
   })
 })

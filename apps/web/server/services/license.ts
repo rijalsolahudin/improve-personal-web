@@ -7,7 +7,7 @@ import {
   type LicensePlanId,
 } from '@improve-personal/contracts'
 
-import { licenseActivations, licenseGrants, licenses, type LicenseRow } from '../db/schema'
+import { licenseActivations, licenseGrants, licenses, users, type LicenseRow } from '../db/schema'
 import { apiProblem } from '../utils/api-error'
 import { createLicenseSigner } from '../utils/license-signing'
 import { uuidv7 } from '../utils/uuid'
@@ -24,6 +24,12 @@ import type { ServiceContext } from './context'
 /** Edisi yang dijual saat ini. Kolom `licenses.edition` disiapkan untuk edisi lain nanti. */
 const DEFAULT_EDITION: LicenseEdition = 'standard'
 
+/**
+ * Jatah perangkat super admin: operator memakai banyak browser/HP untuk uji, dan jatah pembeli (5)
+ * akan cepat habis. Tetap ada batas supaya akun yang bocor tidak bisa mengaktivasi tanpa ujung.
+ */
+const SUPER_ADMIN_MAX_ACTIVATIONS = 50
+
 const MS_PER_SECOND = 1_000
 const MS_PER_DAY = 24 * 60 * 60 * MS_PER_SECOND
 
@@ -37,6 +43,7 @@ export type IssueLicenseTokenInput = {
 /**
  * Terbitkan token lisensi untuk perangkat sesi ini.
  *
+ * - Super admin (`users.role`) -> lisensi lifetime dibuat/dipulihkan otomatis, tanpa pembelian.
  * - Email belum membeli / lisensinya dicabut -> `LICENSE_REQUIRED`.
  * - Lisensi yang sudah habis tetap diberi token (dengan `exp` lampau): app menampilkannya sebagai
  *   baca-saja, bukan menolak login - data user tidak pernah disandera (ADR 16).
@@ -52,6 +59,33 @@ export async function issueLicenseToken(
   input: IssueLicenseTokenInput,
 ): Promise<string> {
   const license = await ctx.db.transaction(async (tx) => {
+    const [user] = await tx
+      .select({ role: users.role })
+      .from(users)
+      .where(eq(users.email, input.email))
+      .limit(1)
+    if (user?.role === 'super_admin') {
+      await tx
+        .insert(licenses)
+        .values({
+          id: uuidv7(ctx.now.getTime()),
+          email: input.email,
+          plan: 'lifetime',
+          expiresAt: null,
+          maxActivations: SUPER_ADMIN_MAX_ACTIVATIONS,
+          createdAt: ctx.now,
+        })
+        .onConflictDoUpdate({
+          target: licenses.email,
+          set: {
+            plan: 'lifetime',
+            expiresAt: null,
+            revokedAt: null,
+            maxActivations: SUPER_ADMIN_MAX_ACTIVATIONS,
+          },
+        })
+    }
+
     const [active] = await tx
       .select()
       .from(licenses)

@@ -163,6 +163,9 @@ export default defineNuxtConfig({
     mayarProduct: '',
     mayarEnvironment: '',
     priceOverrideIdr: '',
+    // Email super admin (dipisah koma): akses tanpa membeli lisensi. Bukan rahasia, tapi PII -
+    // isi lewat env, jangan di repo.
+    superAdminEmails: '',
     // `public.appEnv` cuma untuk UI (mis. login demo). Kosong = production.
     // `public.licensePublicKey` = pasangan public key `licenseSigningKey`; app memakainya untuk
     // memverifikasi token lisensi secara offline. Public key memang boleh publik.

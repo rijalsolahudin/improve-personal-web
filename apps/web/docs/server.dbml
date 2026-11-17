@@ -56,9 +56,15 @@ Enum purchase_status {
   failed
 }
 
+Enum user_role {
+  super_admin [note: 'akses penuh tanpa membeli lisensi; dari NUXT_SUPER_ADMIN_EMAILS']
+  member
+}
+
 Table users {
   id          uuid        [pk, note: 'UUID v7']
   email       text        [not null, note: 'disimpan lowercase, hasil normalisasi di service']
+  role        user_role   [not null, default: 'member', note: 'disinkronkan dari env setiap login']
   created_at  timestamptz [not null, default: `now()`]
 
   indexes {

@@ -563,6 +563,17 @@ describe('Mayar (ADR 15)', () => {
     )
   })
 
+  it('email super admin: dipisah koma, dinormalkan, kosong = tidak ada', () => {
+    expect(resolveServerEnv(baseConfig()).superAdminEmails).toEqual([])
+    expect(
+      resolveServerEnv(baseConfig({ superAdminEmails: ' Admin@Example.com, ops@example.com ,' }))
+        .superAdminEmails,
+    ).toEqual(['admin@example.com', 'ops@example.com'])
+    expect(() => resolveServerEnv(baseConfig({ superAdminEmails: 'bukan-email' }))).toThrow(
+      ServerEnvError,
+    )
+  })
+
   it('override harga harus bilangan bulat > 0', () => {
     expect(resolveServerEnv(baseConfig({ priceOverrideIdr: '1000' })).priceOverrideIdr).toBe(1000)
     expect(() => resolveServerEnv(baseConfig({ priceOverrideIdr: '0' }))).toThrow(ServerEnvError)

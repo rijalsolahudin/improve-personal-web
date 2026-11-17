@@ -6,7 +6,7 @@ definePageMeta({ layout: false })
 </script>
 
 <template>
-  <AuthCard>
+  <AuthCard panel="purchase">
     <PurchaseForm />
     <template #note>{{ $t('purchase.note') }}</template>
   </AuthCard>

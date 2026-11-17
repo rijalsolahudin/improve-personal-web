@@ -31,6 +31,7 @@ function hasError(field: PurchaseField): boolean {
           class="input"
           :class="{ invalid: hasError('name') }"
           autocomplete="name"
+          :placeholder="$t('purchase.namePlaceholder')"
           :maxlength="BUYER_NAME_MAX_LENGTH"
         />
       </div>
@@ -45,6 +46,7 @@ function hasError(field: PurchaseField): boolean {
           :class="{ invalid: hasError('email') }"
           type="email"
           autocomplete="email"
+          :placeholder="$t('purchase.emailPlaceholder')"
           :maxlength="EMAIL_MAX_LENGTH"
         />
         <p class="hint">{{ $t('purchase.emailHint') }}</p>
@@ -52,16 +54,10 @@ function hasError(field: PurchaseField): boolean {
 
       <div class="field">
         <label class="label" for="purchase-mobile">{{ $t('purchase.mobileLabel') }}</label>
-        <Input
+        <PurchaseMobileInput
           id="purchase-mobile"
           v-model="purchase.mobile.value"
-          variant="bare"
-          class="input"
-          :class="{ invalid: hasError('mobile') }"
-          type="tel"
-          inputmode="tel"
-          autocomplete="tel"
-          :placeholder="$t('purchase.mobilePlaceholder')"
+          :is-invalid="hasError('mobile')"
         />
       </div>
 

@@ -32,12 +32,19 @@ export const DEFAULT_LICENSE_PLAN: LicensePlanId = 'yearly'
 
 export const BUYER_NAME_MAX_LENGTH = 80
 
-/** Nomor HP/WA: Mayar mewajibkannya. Hanya diteruskan ke Mayar, tidak disimpan server. */
+/**
+ * Nomor HP/WA: Mayar mewajibkannya. Hanya diteruskan ke Mayar, tidak disimpan server.
+ *
+ * Form web mengirim E.164 (`+<kode negara><nomor>`, 8-15 digit) dari pemilih kode negara. Format
+ * Indonesia lama (`08…`, `628…`) tetap diterima untuk klien yang belum diperbarui.
+ */
 export const buyerMobileSchema = z
   .string()
   .trim()
   .transform((value) => value.replace(/[\s-]/g, ''))
-  .pipe(z.string().regex(/^(\+62|62|0)8\d{7,12}$/, 'nomor HP Indonesia tidak valid'))
+  .pipe(
+    z.string().regex(/^(?:(?:\+62|62|0)8\d{7,12}|\+(?!62)[1-9]\d{7,14})$/, 'nomor HP tidak valid'),
+  )
 
 /** `POST /v1/purchase/checkout` - publik, tanpa sesi. */
 export const checkoutInputSchema = z

@@ -41,12 +41,21 @@ export const clientKindEnum = pgEnum('client_kind', ['web', 'mobile'])
 /** `otp_purpose` (dbml `otp_challenges.purpose`). */
 export const otpPurposeEnum = pgEnum('otp_purpose', ['login', 'delete_account'])
 
+/**
+ * `user_role`. `super_admin` = pemilik/operator: akses penuh tanpa membeli lisensi. Ditentukan dari
+ * `NUXT_SUPER_ADMIN_EMAILS` dan disinkronkan setiap login (`server/services/user.ts`).
+ */
+export const userRoleEnum = pgEnum('user_role', ['super_admin', 'member'])
+
+export type UserRole = (typeof userRoleEnum.enumValues)[number]
+
 export const users = pgTable(
   'users',
   {
     id: uuid('id').primaryKey(),
     /** Selalu lowercase; normalisasi di `emailSchema` (`packages/contracts/src/auth.ts`). */
     email: text('email').notNull(),
+    role: userRoleEnum('role').notNull().default('member'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [uniqueIndex('uq_users_email').on(table.email)],
