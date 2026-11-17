@@ -1,3 +1,4 @@
+import { LICENSE_TOKEN_VERSION, type LicenseTokenPayload } from '@improve-personal/contracts'
 import { beforeAll, describe, expect, it } from 'vitest'
 
 import {
@@ -7,13 +8,22 @@ import {
   verifyLicenseToken,
 } from './token'
 
+const ISSUED_AT = 1_700_000_000
+const SECONDS_PER_YEAR = 365 * 24 * 60 * 60
+
+/**
+ * `satisfies` mengikat contoh ini ke kontrak: kalau skema token berubah lagi (seperti v2 menambah
+ * `plan` + `exp`), test gagal di typecheck, bukan diam-diam mendapat `null` saat verifikasi.
+ */
 const PAYLOAD = {
-  v: 1,
+  v: LICENSE_TOKEN_VERSION,
   lid: '018f2c4e-0000-7000-8000-00000000000a',
   did: '018f2c4e-0000-7000-8000-0000000000d1',
-  iat: 1_700_000_000,
+  iat: ISSUED_AT,
   ed: 'standard',
-}
+  plan: 'yearly',
+  exp: ISSUED_AT + SECONDS_PER_YEAR,
+} satisfies LicenseTokenPayload
 
 function toBase64Url(bytes: Uint8Array): string {
   return btoa(String.fromCharCode(...bytes))
@@ -58,6 +68,12 @@ describe('verifyLicenseToken', () => {
   it('token bertanda tangan kunci server -> payload', async () => {
     const token = await signToken(server.privateKey, PAYLOAD)
     expect(await verifyLicenseToken(token, server.publicKey)).toEqual(PAYLOAD)
+  })
+
+  it('token v1 lama (sekali beli, tanpa plan/exp) ditolak walau tanda tangannya sah', async () => {
+    const { plan: _plan, exp: _exp, ...legacy } = PAYLOAD
+    const token = await signToken(server.privateKey, { ...legacy, v: 1 })
+    expect(await verifyLicenseToken(token, server.publicKey)).toBeNull()
   })
 
   it('payload diubah setelah ditandatangani -> null', async () => {
