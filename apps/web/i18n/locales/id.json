@@ -996,11 +996,6 @@
     "deletedGoal": "goal dihapus",
     "deletedGoalHint": "Goal ini sudah dihapus",
     "goalMentionTitle": "Sebut goal",
-    "autosave": {
-      "saving": "Menyimpan…",
-      "saved": "✓ Tersimpan otomatis",
-      "idle": "Tersimpan otomatis saat kamu menulis"
-    },
     "paperToggle": "Ganti kertas",
     "feelingsAdd": "+ tambah perasaan",
     "feelingsDone": "Selesai",
