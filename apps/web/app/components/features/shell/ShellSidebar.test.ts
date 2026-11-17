@@ -46,14 +46,14 @@ describe('ShellSidebar collapse', () => {
     expect(collapsedHrefs).toEqual(expandedHrefs)
   })
 
-  it('semua label nav collapsed memakai title sebagai nama aksesibel', async () => {
+  it('semua label nav collapsed memakai aria-label sebagai nama aksesibel', async () => {
     useUiStore().isCollapsed = true
     const wrapper = await mountSuspended(ShellSidebar)
     const links = wrapper.findAll('a.nav-item')
 
     expect(links.length).toBeGreaterThan(0)
     for (const link of links) {
-      expect(link.attributes('title')).toBeTruthy()
+      expect(link.attributes('aria-label')).toBeTruthy()
       expect(link.get('.label').attributes('aria-hidden')).toBe('true')
     }
   })

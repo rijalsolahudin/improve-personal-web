@@ -1,17 +1,17 @@
-import { breakpoints } from '@improve-personal/tokens'
-
 export const SIDEBAR_STORAGE_KEY = 'ip-sb'
 
+/** Sidebar ciut kecuali user pernah membukanya sendiri (pilihan tersimpan selalu dihormati). */
+const DEFAULT_COLLAPSED = true
+
 function readInitialCollapsed(): boolean {
-  if (!import.meta.client) return false
+  if (!import.meta.client) return DEFAULT_COLLAPSED
   try {
     const stored = localStorage.getItem(SIDEBAR_STORAGE_KEY)
     if (stored === '1' || stored === '0') return stored === '1'
   } catch {
-    // Storage tidak tersedia: pakai default berdasarkan lebar layar.
+    // Storage tidak tersedia: pakai default.
   }
-  // Design: sidebar otomatis ciut di bawah 1200px kecuali user memilih sendiri.
-  return window.matchMedia(`(max-width: ${breakpoints.sidebarExpanded - 1}px)`).matches
+  return DEFAULT_COLLAPSED
 }
 
 /**

@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import type { IconName } from '~/utils/icons'
 
+/** Jarak bubble label dari tepi kanan item collapsed (px). */
+const TIP_GAP = 12
+
 const {
   glyph,
   icon = undefined,
@@ -20,6 +23,27 @@ const {
 }>()
 
 const emit = defineEmits<{ click: [event: MouseEvent] }>()
+
+/** Posisi bubble label; `null` saat tidak ditampilkan (terbuka, atau kursor/fokus sedang tidak di item). */
+const tip = ref<{ top: number; left: number } | null>(null)
+
+function showTip(event: Event): void {
+  if (!collapsed) return
+  const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
+  tip.value = { top: rect.top + rect.height / 2, left: rect.right + TIP_GAP }
+}
+
+function hideTip(): void {
+  tip.value = null
+}
+
+// Sidebar yang di-expand saat kursor masih di atas item: bubble tidak boleh tertinggal.
+watch(
+  () => collapsed,
+  (next) => {
+    if (!next) hideTip()
+  },
+)
 </script>
 
 <template>
@@ -28,12 +52,16 @@ const emit = defineEmits<{ click: [event: MouseEvent] }>()
     :to="to"
     class="nav-item"
     :class="{ collapsed, active }"
-    :title="collapsed ? label : undefined"
+    :aria-label="collapsed ? label : undefined"
+    @mouseenter="showTip"
+    @mouseleave="hideTip"
+    @focus="showTip"
+    @blur="hideTip"
   >
     <AppIcon :glyph="glyph" :icon="icon" :color="color" />
     <!--
       Label selalu dirender supaya collapse bisa memudarkannya (dulu `v-if` membuatnya lenyap
-      mendadak). Saat collapsed teksnya jadi nama aksesibel lewat `title`, jadi jangan dibaca dua kali.
+      mendadak). Saat collapsed teksnya jadi nama aksesibel lewat `aria-label`, jadi jangan dibaca dua kali.
     -->
     <span class="label" :aria-hidden="collapsed ? 'true' : undefined">{{ label }}</span>
   </NuxtLink>
@@ -42,12 +70,27 @@ const emit = defineEmits<{ click: [event: MouseEvent] }>()
     type="button"
     class="nav-item"
     :class="{ collapsed, active }"
-    :title="collapsed ? label : undefined"
+    :aria-label="collapsed ? label : undefined"
+    @mouseenter="showTip"
+    @mouseleave="hideTip"
+    @focus="showTip"
+    @blur="hideTip"
     @click="emit('click', $event)"
   >
     <AppIcon :glyph="glyph" :icon="icon" :color="color" />
     <span class="label" :aria-hidden="collapsed ? 'true' : undefined">{{ label }}</span>
   </button>
+  <!-- Di-teleport ke body: `.nav` sidebar memakai `overflow: hidden auto` dan akan memotong bubble. -->
+  <Teleport to="body">
+    <div
+      v-if="tip"
+      class="nav-tip"
+      aria-hidden="true"
+      :style="{ top: `${tip.top}px`, left: `${tip.left}px` }"
+    >
+      {{ label }}
+    </div>
+  </Teleport>
 </template>
 
 <style scoped>
@@ -123,5 +166,40 @@ const emit = defineEmits<{ click: [event: MouseEvent] }>()
 .nav-item.collapsed .label {
   opacity: 0;
   max-inline-size: 0;
+}
+
+/* Bubble label saat collapsed: gaya tooltip yang selaras dengan kartu sidebar, bukan `title` native. */
+.nav-tip {
+  position: fixed;
+  z-index: 200;
+  padding: var(--space-6) var(--space-12);
+  border-radius: calc(10px * var(--rk));
+  background: var(--ink);
+  color: var(--bg);
+  font-weight: var(--fw-strong);
+  font-size: var(--fs-13);
+  white-space: nowrap;
+  box-shadow: var(--shadow-drop);
+  pointer-events: none;
+  transform: translateY(-50%);
+  animation: nav-tip-in var(--dur) var(--ease);
+}
+
+/* Panah kecil di sisi kiri bubble, menunjuk ke item sidebar. */
+.nav-tip::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  right: 100%;
+  translate: 0 -50%;
+  border: var(--space-6) solid transparent;
+  border-right-color: var(--ink);
+}
+
+@keyframes nav-tip-in {
+  from {
+    opacity: 0;
+    transform: translate(-4px, -50%);
+  }
 }
 </style>

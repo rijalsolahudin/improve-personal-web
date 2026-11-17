@@ -114,8 +114,6 @@ function addPrompt(key: (typeof PROMPT_KEYS)[number]): void {
 }
 
 const saving = ref(false)
-/** Halaman tanggal ini sudah tersimpan otomatis setidaknya sekali sejak dibuka. */
-const hasSaved = ref(false)
 let timer: ReturnType<typeof setTimeout> | undefined
 
 /**
@@ -128,7 +126,6 @@ watch(
     // Ketikan tanggal sebelumnya yang masih menunggu jeda autosave disimpan dulu, selagi draf di
     // editor masih milik tanggal itu.
     if (previous !== undefined) flush(previous)
-    hasSaved.value = false
     showDay(next, memos.memoOn(next))
   },
   { immediate: true },
@@ -190,7 +187,6 @@ async function save(target = day): Promise<void> {
     // tahanan draf tidak menggantung; draf yang berbeda dari halaman tidak ikut dibuang.
     if (unchangedSince(target, values)) load(memos.memoOn(target) ?? page, target)
     release(target)
-    if (target === day) hasSaved.value = true
   } finally {
     saving.value = false
     if (isDirty(day) && !memos.hasUnsaved(day)) schedule()
@@ -228,11 +224,6 @@ const openTool = ref<'prompts' | 'paper' | null>(null)
 function toggleTool(tool: 'prompts' | 'paper'): void {
   openTool.value = openTool.value === tool ? null : tool
 }
-
-const saveStatus = computed(() => {
-  if (saving.value) return 'saving'
-  return hasSaved.value && !isDirty(day) ? 'saved' : 'idle'
-})
 </script>
 
 <template>
@@ -289,8 +280,6 @@ const saveStatus = computed(() => {
         </button>
         <p class="meta">
           <span id="memo-hint">{{ $t('memo.wordsHint', { n: words }) }}</span>
-          ·
-          <span role="status">{{ $t(`memo.autosave.${saveStatus}`) }}</span>
         </p>
       </div>
       <MemoPaperPicker v-if="!isFocus && openTool === 'paper'" v-model="paper" class="tool-panel" />
@@ -314,8 +303,6 @@ const saveStatus = computed(() => {
           <div class="focus-end">
             <p class="meta">
               <span id="memo-hint">{{ $t('memo.wordsHint', { n: words }) }}</span>
-              ·
-              <span role="status">{{ $t(`memo.autosave.${saveStatus}`) }}</span>
             </p>
             <button type="button" class="tool" @click="exitFocus">
               {{ $t('memo.focusExit') }}
@@ -403,6 +390,8 @@ const saveStatus = computed(() => {
  */
 .sheet {
   position: relative;
+  /* Tinggi satu baris toolbar, dipakai bersama tombol format di `MemoFormatBar`. */
+  --tool-row-h: calc(28px * var(--dk));
   margin-top: var(--space-10);
   /* Atas lebih tipis dari samping: tinggi baris judul tulisan tangan sudah menambah jarak sendiri. */
   padding: var(--space-20) 0 var(--space-18);
@@ -426,22 +415,28 @@ const saveStatus = computed(() => {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--space-6) var(--space-4);
+  min-height: var(--tool-row-h);
   margin-top: var(--space-20);
   padding: var(--space-6) var(--space-28) var(--space-6) var(--space-64);
   border-block: var(--border-thin) solid var(--line);
   background: var(--paper-2);
 }
 
-/* Tombol teks polos, tanpa bingkai: toolbar terbaca sebagai satu baris, bukan deretan pil. */
+/* Satu tinggi untuk semua kontrol toolbar supaya teks dan ikon sejajar di satu garis tengah. */
 .tool {
-  padding: var(--space-4) var(--space-10);
+  height: var(--tool-row-h);
+  display: inline-flex;
+  align-items: center;
+  padding: 0 var(--space-10);
   border: none;
   border-radius: var(--radius-pill);
   background: none;
   color: var(--mute-2);
   font-weight: var(--fw-strong);
   font-size: var(--fs-12);
+  line-height: 1;
+  white-space: nowrap;
 }
 
 .tool:hover,
@@ -450,15 +445,16 @@ const saveStatus = computed(() => {
   color: var(--ink);
 }
 
-/* Grup format dipisah dari tombol lain cukup lewat garis tipis, bukan bingkai. */
+/* Grup format dipisah dari aksi teks lewat garis tipis; tidak ada bingkai di sekelilingnya. */
 .tools > .formats {
-  margin-right: var(--space-8);
   padding-right: var(--space-8);
+  margin-right: var(--space-4);
   border-right: var(--border-thin) solid var(--line);
 }
 
 .meta {
   margin-left: auto;
+  white-space: nowrap;
   font-weight: var(--fw-strong);
   font-size: var(--fs-12);
   color: var(--mute-3);
