@@ -99,7 +99,7 @@ const style = computed(() => ({
 
 .tone-danger {
   border: none;
-  background: #ffe1da;
-  color: #c2381a;
+  background: color-mix(in srgb, var(--danger) 12%, var(--paper));
+  color: var(--danger);
 }
 </style>

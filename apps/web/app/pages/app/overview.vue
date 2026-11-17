@@ -62,9 +62,11 @@ const rangeOptions = computed(() =>
       </div>
       <div class="controls">
         <div v-if="canNav" class="nav">
-          <IconButton :title="$t('calendar.prev')" @click="shift(-1)">‹</IconButton>
+          <IconButton :title="$t('calendar.prev')" @click="shift(-1)">
+            <Icon name="chevron-left" :size="20" />
+          </IconButton>
           <IconButton :title="$t('calendar.next')" :disabled="!canNext" @click="shift(1)">
-            ›
+            <Icon name="chevron-right" :size="20" />
           </IconButton>
         </div>
         <Segmented
@@ -803,11 +805,11 @@ const rangeOptions = computed(() =>
 
 .late {
   border: none;
-  background: #ffe1da;
+  background: color-mix(in srgb, var(--danger) 12%, var(--paper));
 }
 
 .late-title {
-  color: #7a1f10;
+  color: var(--danger);
 }
 
 .countdown {
@@ -852,7 +854,7 @@ const rangeOptions = computed(() =>
 .late-left {
   font-weight: var(--fw-strong);
   font-size: var(--fs-12);
-  color: #c2381a;
+  color: var(--danger);
   white-space: nowrap;
 }
 

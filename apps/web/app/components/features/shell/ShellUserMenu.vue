@@ -83,7 +83,12 @@ function onLink(key: (typeof linkItems)[number]['key']): void {
         <span class="name">{{ displayName || $t('shell.user.name') }}</span>
         <span class="sub">{{ $t('shell.user.label') }}</span>
       </span>
-      <span v-if="!collapsed" class="caret" aria-hidden="true">{{ isOpen ? '▾' : '▴' }}</span>
+      <Icon
+        v-if="!collapsed"
+        :name="isOpen ? 'chevron-down' : 'chevron-up'"
+        :size="14"
+        class="caret"
+      />
       <span v-else class="visually-hidden">{{ $t('shell.user.label') }}</span>
     </button>
   </div>

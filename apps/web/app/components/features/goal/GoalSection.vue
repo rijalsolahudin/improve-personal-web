@@ -239,12 +239,6 @@ const bodyId = useId()
   transform: rotate(180deg);
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .caret {
-    transition: none;
-  }
-}
-
 .review {
   display: flex;
   flex-wrap: wrap;

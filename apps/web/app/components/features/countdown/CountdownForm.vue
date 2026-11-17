@@ -39,6 +39,14 @@ const draft = ref<CountdownDraft>(
 )
 const error = ref<CountdownDraftError | null>(null)
 const isConfirmingDelete = ref(false)
+
+const ERROR_FIELD: Record<CountdownDraftError, 'title' | 'date'> = {
+  titleRequired: 'title',
+  titleTooLong: 'title',
+  dateRequired: 'date',
+  pastDate: 'date',
+}
+const { errorId, isInvalid, describedBy } = useFieldError(error, ERROR_FIELD)
 const isPickingSticker = ref(false)
 
 const tint = computed(() => countdownTint(draft.value.color))
@@ -123,8 +131,12 @@ function toggleTime(): void {
           data-autofocus
           :maxlength="COUNTDOWN_TITLE_MAX"
           :placeholder="$t('countdown.form.titlePlaceholder')"
-          :aria-invalid="error === 'titleRequired'"
+          :aria-invalid="isInvalid('title')"
+          :aria-describedby="describedBy('title')"
         />
+        <FieldError v-if="isInvalid('title')" :id="errorId">
+          {{ $t(`countdown.form.error.${error}`) }}
+        </FieldError>
       </Field>
 
       <div class="pair">
@@ -132,8 +144,12 @@ function toggleTime(): void {
           <Input
             v-model="draft.date"
             type="date"
-            :aria-invalid="error === 'dateRequired' || error === 'pastDate'"
+            :aria-invalid="isInvalid('date')"
+            :aria-describedby="describedBy('date')"
           />
+          <FieldError v-if="isInvalid('date')" :id="errorId">
+            {{ $t(`countdown.form.error.${error}`) }}
+          </FieldError>
         </Field>
         <Field :label="$t('countdown.form.time')">
           <template #action>
@@ -178,10 +194,6 @@ function toggleTime(): void {
         />
         <SwatchPicker v-model="draft.color" class="colors" :options="colorOptions" />
       </Field>
-
-      <p v-if="error" class="error" role="alert">
-        {{ $t(`countdown.form.error.${error}`) }}
-      </p>
 
       <div class="actions">
         <template v-if="original">
@@ -325,15 +337,6 @@ function toggleTime(): void {
 
 .colors {
   margin-top: var(--space-10);
-}
-
-.error {
-  padding: var(--space-10) var(--space-14);
-  border-radius: calc(14px * var(--rk));
-  background: #ffe1da;
-  color: #9a2a14;
-  font-weight: var(--fw-strong);
-  font-size: var(--fs-14);
 }
 
 .actions {

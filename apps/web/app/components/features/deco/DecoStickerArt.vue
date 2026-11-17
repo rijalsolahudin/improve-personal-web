@@ -19,7 +19,7 @@ const boxStyle = computed(() => {
     return {
       ...base,
       borderRadius: `${Math.round(size * 0.3)}px`,
-      background: sticker.value?.tint ?? '#f2e4cc',
+      background: sticker.value?.tint ?? 'var(--chip)',
       border: `${Math.max(1.5, size / 30).toFixed(1)}px solid var(--ink)`,
       boxShadow: `0 ${Math.max(2, Math.round(size / 20))}px 0 rgb(47 42 36 / 0.18)`,
     }
@@ -78,7 +78,7 @@ const fontSize = computed(() => `${Math.round(size * (isIcon.value ? 0.54 : 0.8)
   justify-content: center;
   border: var(--border) dashed #c9b89e;
   border-radius: 28%;
-  background: #fbf3e6;
+  background: var(--alt);
   font-family: var(--font-display);
   font-weight: var(--fw-display);
   color: #a8957c;

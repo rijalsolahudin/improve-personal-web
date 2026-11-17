@@ -7,7 +7,7 @@ const { scheduleId, day } = defineProps<{ scheduleId: string; day: string }>()
 const { findSchedule } = useSchedules()
 const schedule = computed(() => findSchedule(scheduleId))
 const tint = computed(() =>
-  schedule.value ? (SCHEDULE_COLORS[schedule.value.color] ?? SCHEDULE_COLORS[0])[1] : '#f2e4cc',
+  schedule.value ? (SCHEDULE_COLORS[schedule.value.color] ?? SCHEDULE_COLORS[0])[1] : 'var(--chip)',
 )
 
 // Kalender membaca posisi dari state sesi yang sama (`pages/app/kalender.vue`).
@@ -53,7 +53,7 @@ async function open(): Promise<void> {
 }
 
 .deleted {
-  --tint: #f2e4cc;
+  --tint: var(--chip);
   color: var(--mute);
   cursor: default;
 }

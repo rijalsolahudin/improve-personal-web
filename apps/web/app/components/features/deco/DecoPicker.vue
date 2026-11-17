@@ -91,7 +91,7 @@ onBeforeUnmount(() => clearTimeout(timer))
           :title="$t('common.close')"
           @click="emit('close')"
         >
-          ×
+          <Icon name="x" :size="18" />
         </IconButton>
       </div>
       <Input
@@ -219,7 +219,7 @@ onBeforeUnmount(() => clearTimeout(timer))
   padding: var(--space-10) var(--space-4) var(--space-8);
   border: var(--border) solid transparent;
   border-radius: var(--radius-row);
-  background: #fbf3e6;
+  background: var(--alt);
   transition: transform var(--dur) var(--ease);
 }
 

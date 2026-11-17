@@ -20,11 +20,15 @@ describe('CalendarToolbar', () => {
     const wrapper = await mountSuspended(CalendarToolbar, {
       props: { rangeLabel: '8 Sep – 14 Sep 2025', view: 'pekan' },
     })
-    const byText = (label: string) => wrapper.findAll('button').find((b) => b.text() === label)
+    // Tombol navigasi berisi ikon saja: cari lewat nama aksesibelnya (aria-label), bukan glyph.
+    const byText = (label: string) =>
+      wrapper
+        .findAll('button')
+        .find((b) => b.text() === label || b.attributes('aria-label') === label)
 
-    await byText('‹')!.trigger('click')
+    await byText('Sebelumnya')!.trigger('click')
     await byText('Hari ini')!.trigger('click')
-    await byText('›')!.trigger('click')
+    await byText('Berikutnya')!.trigger('click')
     await byText('+ Jadwal')!.trigger('click')
 
     expect(wrapper.emitted('prev')).toHaveLength(1)

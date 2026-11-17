@@ -684,8 +684,16 @@ export const ICONS = {
   ],
   // Kontrol UI (buka/tutup, urutkan, hapus), bukan pilihan ikon user.
   'chevron-down': [path('M6 9L12 15L18 9')],
+  'chevron-up': [path('M6 15L12 9L18 15')],
+  'chevron-left': [path('M15 18L9 12L15 6')],
+  'chevron-right': [path('M9 6L15 12L9 18')],
   'arrow-up': [path('M12 19V5M5 12L12 5L19 12')],
   'arrow-down': [path('M12 5V19M19 12L12 19L5 12')],
+  'arrow-left': [path('M19 12H5M12 19L5 12L12 5')],
+  'arrow-right': [path('M5 12H19M12 5L19 12L12 19')],
+  'more-horizontal': [circle(5, 12, 1), circle(12, 12, 1), circle(19, 12, 1)],
+  plus: [path('M12 5V19M5 12H19')],
+  minus: [path('M5 12H19')],
   x: [path('M18 6L6 18M6 6L18 18')],
 } as const satisfies Record<string, readonly SvgElement[]>
 

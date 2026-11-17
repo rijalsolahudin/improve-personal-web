@@ -108,8 +108,11 @@ async function mountCalendar(): Promise<VueWrapper> {
 }
 
 const text = (wrapper: VueWrapper, selector: string): string => wrapper.find(selector).text()
+// Tombol navigasi berisi ikon saja: dicocokkan lewat aria-label selain teks.
 const button = (wrapper: VueWrapper, label: string) =>
-  wrapper.findAll('button').find((item) => item.text() === label)
+  wrapper
+    .findAll('button')
+    .find((item) => item.text() === label || item.attributes('aria-label') === label)
 const cell = (wrapper: VueWrapper, labelPart: string) =>
   wrapper.findAll('button.cell').find((item) => item.attributes('aria-label')?.includes(labelPart))
 
@@ -257,11 +260,11 @@ describe('T9 navigasi view & tanggal', () => {
     mounted = await mountCalendar()
 
     expect(text(mounted, '.range')).toBe('Desember 2025')
-    await button(mounted, '›')?.trigger('click')
+    await button(mounted, 'Berikutnya')?.trigger('click')
     await flushPromises()
     expect(text(mounted, '.range')).toBe('Januari 2026')
 
-    await button(mounted, '‹')?.trigger('click')
+    await button(mounted, 'Sebelumnya')?.trigger('click')
     await flushPromises()
     expect(text(mounted, '.range')).toBe('Desember 2025')
   })
@@ -270,15 +273,15 @@ describe('T9 navigasi view & tanggal', () => {
     seedCalendar('pekan', '2025-09-10', '2025-09-10')
     mounted = await mountCalendar()
 
-    await button(mounted, '›')?.trigger('click')
+    await button(mounted, 'Berikutnya')?.trigger('click')
     await flushPromises()
     expect(text(mounted, '.range')).toBe('15 Sep – 21 Sep 2025')
 
-    await button(mounted, '‹')?.trigger('click')
+    await button(mounted, 'Sebelumnya')?.trigger('click')
     await flushPromises()
     expect(text(mounted, '.range')).toBe('8 Sep – 14 Sep 2025')
 
-    await button(mounted, '›')?.trigger('click')
+    await button(mounted, 'Berikutnya')?.trigger('click')
     await flushPromises()
     await button(mounted, 'Hari ini')?.trigger('click')
     await flushPromises()
@@ -290,7 +293,7 @@ describe('T9 navigasi view & tanggal', () => {
     mounted = await mountCalendar()
 
     expect(text(mounted, '.range')).toBe('Rabu, 10 September 2025')
-    await button(mounted, '›')?.trigger('click')
+    await button(mounted, 'Berikutnya')?.trigger('click')
     await flushPromises()
     expect(text(mounted, '.range')).toBe('Kamis, 11 September 2025')
     expect(mounted.findAll('.col')[0]?.text()).toContain('Kelas AWS')

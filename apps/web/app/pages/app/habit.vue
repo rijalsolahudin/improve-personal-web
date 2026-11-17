@@ -59,7 +59,7 @@ const summary = computed(() => {
             :radius="14"
             @click="month = firstOfMonth(month, -1)"
           >
-            ‹
+            <Icon name="chevron-left" :size="20" />
           </IconButton>
           <span class="month" aria-live="polite">{{
             monthYear(fromIsoDate(month).getTime())
@@ -71,7 +71,7 @@ const summary = computed(() => {
             :disabled="isCurrentMonth"
             @click="month = firstOfMonth(month, 1)"
           >
-            ›
+            <Icon name="chevron-right" :size="20" />
           </IconButton>
         </div>
         <div class="legend" aria-hidden="true">
@@ -233,8 +233,8 @@ const summary = computed(() => {
 .error {
   padding: var(--space-10) var(--space-16);
   border-radius: calc(14px * var(--rk));
-  background: #ffe1da;
-  color: #9a2a14;
+  background: color-mix(in srgb, var(--danger) 12%, var(--paper));
+  color: var(--danger);
   font-weight: var(--fw-strong);
   font-size: var(--fs-14);
 }

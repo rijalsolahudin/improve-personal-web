@@ -65,7 +65,7 @@ const timeLeft = computed(() => (task.done ? t('time.done') : formatTimeLeft(tas
       :title="$t('eisenhower.removeTask', { title: task.title })"
       @click="$emit('remove')"
     >
-      ×
+      <Icon name="x" :size="14" />
     </IconButton>
   </li>
 </template>
@@ -134,7 +134,7 @@ const timeLeft = computed(() => (task.done ? t('time.done') : formatTimeLeft(tas
 }
 
 .left.overdue {
-  color: #c2381a;
+  color: var(--danger);
 }
 
 .prio {

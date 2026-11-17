@@ -134,9 +134,9 @@ function add(): void {
         </IconButton>
       </span>
     </div>
-    <p v-if="error" :id="errorId" class="error" role="alert">
+    <FieldError v-if="error" :id="errorId">
       {{ $t(`goals.form.error.${error}`) }}
-    </p>
+    </FieldError>
     <Button v-if="draft.chapters.length < GOAL_MAX_CHAPTERS" variant="dashed" block @click="add">
       + {{ $t('goals.form.addChapter') }}
     </Button>
@@ -219,11 +219,5 @@ function add(): void {
 .tools {
   display: flex;
   gap: var(--space-4);
-}
-
-.error {
-  color: var(--danger);
-  font-weight: var(--fw-strong);
-  font-size: var(--fs-13);
 }
 </style>

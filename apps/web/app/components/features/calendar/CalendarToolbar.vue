@@ -20,11 +20,15 @@ const viewOptions = computed<SegmentedOption<CalendarView>[]>(() =>
     </div>
     <div class="controls">
       <div class="nav">
-        <IconButton :title="$t('calendar.prev')" @click="$emit('prev')">‹</IconButton>
+        <IconButton :title="$t('calendar.prev')" @click="$emit('prev')">
+          <Icon name="chevron-left" :size="20" />
+        </IconButton>
         <Button variant="outline" class="today" @click="$emit('today')">
           {{ $t('calendar.today') }}
         </Button>
-        <IconButton :title="$t('calendar.next')" @click="$emit('next')">›</IconButton>
+        <IconButton :title="$t('calendar.next')" @click="$emit('next')">
+          <Icon name="chevron-right" :size="20" />
+        </IconButton>
       </div>
       <Segmented
         v-model="view"

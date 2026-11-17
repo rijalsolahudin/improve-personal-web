@@ -35,10 +35,7 @@ const ERROR_FIELD: Record<GoalDraftError, 'title' | 'why' | 'end' | 'chapters'> 
   chapterTitle: 'chapters',
   chapterRange: 'chapters',
 }
-const errorField = computed(() => (error.value ? ERROR_FIELD[error.value] : null))
-const errorId = useId()
-const describedBy = (field: 'title' | 'why' | 'end'): string | undefined =>
-  errorField.value === field ? errorId : undefined
+const { errorId, isInvalid, describedBy } = useFieldError(error, ERROR_FIELD)
 
 // Error hilang begitu user mengubah isian lagi.
 watch(draft, () => (error.value = null), { deep: true })
@@ -76,12 +73,12 @@ function onDelete(): void {
           data-autofocus
           :maxlength="GOAL_TITLE_MAX"
           :placeholder="$t('goals.form.titlePlaceholder')"
-          :aria-invalid="errorField === 'title'"
+          :aria-invalid="isInvalid('title')"
           :aria-describedby="describedBy('title')"
         />
-        <p v-if="errorField === 'title'" :id="errorId" class="error" role="alert">
+        <FieldError v-if="isInvalid('title')" :id="errorId">
           {{ $t(`goals.form.error.${error}`) }}
-        </p>
+        </FieldError>
       </Field>
       <Field :label="$t('goals.form.why')">
         <Input
@@ -89,12 +86,12 @@ function onDelete(): void {
           multiline
           :maxlength="GOAL_WHY_MAX"
           :placeholder="$t('goals.form.whyPlaceholder')"
-          :aria-invalid="errorField === 'why'"
+          :aria-invalid="isInvalid('why')"
           :aria-describedby="describedBy('why')"
         />
-        <p v-if="errorField === 'why'" :id="errorId" class="error" role="alert">
+        <FieldError v-if="isInvalid('why')" :id="errorId">
           {{ $t(`goals.form.error.${error}`) }}
-        </p>
+        </FieldError>
       </Field>
 
       <Field :label="$t('goals.form.category')" is-group>
@@ -122,12 +119,12 @@ function onDelete(): void {
             v-model="draft.end"
             type="date"
             :min="draft.start"
-            :aria-invalid="errorField === 'end'"
+            :aria-invalid="isInvalid('end')"
             :aria-describedby="describedBy('end')"
           />
-          <p v-if="errorField === 'end'" :id="errorId" class="error" role="alert">
+          <FieldError v-if="isInvalid('end')" :id="errorId">
             {{ $t(`goals.form.error.${error}`) }}
-          </p>
+          </FieldError>
         </Field>
       </div>
 
@@ -142,7 +139,7 @@ function onDelete(): void {
 
       <GoalFormChapters
         :draft="draft"
-        :error="errorField === 'chapters' ? error : null"
+        :error="isInvalid('chapters') ? error : null"
         :error-id="errorId"
         @change="(chapters) => (draft.chapters = chapters)"
       />
@@ -188,13 +185,6 @@ function onDelete(): void {
 
 .seg-fit {
   width: fit-content;
-}
-
-.error {
-  margin-top: var(--space-6);
-  color: var(--danger);
-  font-weight: var(--fw-strong);
-  font-size: var(--fs-13);
 }
 
 .actions {

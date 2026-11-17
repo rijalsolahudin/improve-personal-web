@@ -124,7 +124,7 @@ function trapFocus(event: KeyboardEvent): void {
             :title="$t('common.close')"
             @click="emit('close')"
           >
-            ×
+            <Icon name="x" :size="18" />
           </IconButton>
         </header>
         <slot />

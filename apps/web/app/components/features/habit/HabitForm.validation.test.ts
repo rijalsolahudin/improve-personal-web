@@ -17,7 +17,10 @@ import HabitForm from './HabitForm.vue'
 let mounted: VueWrapper | null = null
 
 function buttonWith(wrapper: VueWrapper, label: string) {
-  const button = wrapper.findAll('button').find((candidate) => candidate.text() === label)
+  // Tombol stepper berisi ikon saja: dicocokkan lewat aria-label selain teks.
+  const button = wrapper
+    .findAll('button')
+    .find((candidate) => candidate.text() === label || candidate.attributes('aria-label') === label)
   if (!button) throw new Error(`tombol "${label}" tidak ada`)
   return button
 }
@@ -60,14 +63,14 @@ describe('form habit: batas & pesan validasi (QA T10)', () => {
 
     expect(targetText(mounted)).toBe('1x')
     // Tombol kurang dimatikan di batas bawah.
-    expect(buttonWith(mounted, '−').attributes('disabled')).toBeDefined()
+    expect(buttonWith(mounted, 'Kurangi target').attributes('disabled')).toBeDefined()
 
     for (let step = 1; step < HABIT_TARGET_MAX; step += 1) {
-      await buttonWith(mounted, '+').trigger('click')
+      await buttonWith(mounted, 'Tambah target').trigger('click')
     }
 
     expect(targetText(mounted)).toBe(`${HABIT_TARGET_MAX}x`)
-    expect(buttonWith(mounted, '+').attributes('disabled')).toBeDefined()
+    expect(buttonWith(mounted, 'Tambah target').attributes('disabled')).toBeDefined()
   })
 
   it('frekuensi "Hari tertentu" tanpa hari terpilih ditolak saat simpan', async () => {

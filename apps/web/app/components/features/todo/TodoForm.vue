@@ -38,6 +38,13 @@ const draft = ref<TaskDraft>(
 const error = ref<TaskDraftError | null>(null)
 const isConfirmingDelete = ref(false)
 
+const ERROR_FIELD: Record<TaskDraftError, 'title' | 'deadline'> = {
+  titleRequired: 'title',
+  titleTooLong: 'title',
+  deadline: 'deadline',
+}
+const { errorId, isInvalid, describedBy } = useFieldError(error, ERROR_FIELD)
+
 watch(draft, () => (error.value = null), { deep: true })
 
 const scheduleOptions = computed(() => [
@@ -82,8 +89,12 @@ function onDelete(): void {
           data-autofocus
           :maxlength="TASK_TITLE_MAX"
           :placeholder="$t('todo.form.titlePlaceholder')"
-          :aria-invalid="error === 'titleRequired' || error === 'titleTooLong'"
+          :aria-invalid="isInvalid('title')"
+          :aria-describedby="describedBy('title')"
         />
+        <FieldError v-if="isInvalid('title')" :id="errorId">
+          {{ $t(`todo.form.error.${error}`) }}
+        </FieldError>
       </Field>
 
       <Field :label="$t('todo.form.deadline')" is-group>
@@ -97,15 +108,20 @@ function onDelete(): void {
             v-model="draft.date"
             type="date"
             :aria-label="$t('todo.form.date')"
-            :aria-invalid="error === 'deadline'"
+            :aria-invalid="isInvalid('deadline')"
+            :aria-describedby="describedBy('deadline')"
           />
           <Input
             v-model="draft.time"
             type="time"
             :aria-label="$t('todo.form.time')"
-            :aria-invalid="error === 'deadline'"
+            :aria-invalid="isInvalid('deadline')"
+            :aria-describedby="describedBy('deadline')"
           />
         </div>
+        <FieldError v-if="isInvalid('deadline')" :id="errorId">
+          {{ $t(`todo.form.error.${error}`) }}
+        </FieldError>
       </Field>
 
       <Field :label="$t('priority.label')" is-group>
@@ -150,8 +166,6 @@ function onDelete(): void {
         </div>
       </Field>
 
-      <p v-if="error" class="error" role="alert">{{ $t(`todo.form.error.${error}`) }}</p>
-
       <div class="actions">
         <Button v-if="existing" variant="danger" @click="onDelete">
           {{ $t(isConfirmingDelete ? 'todo.form.deleteConfirm' : 'todo.form.delete') }}
@@ -189,15 +203,6 @@ function onDelete(): void {
   width: 9px;
   height: 9px;
   border-radius: calc(3px * var(--rk));
-}
-
-.error {
-  padding: var(--space-10) var(--space-14);
-  border-radius: calc(14px * var(--rk));
-  background: #ffe1da;
-  color: #9a2a14;
-  font-weight: var(--fw-strong);
-  font-size: var(--fs-14);
 }
 
 .actions {

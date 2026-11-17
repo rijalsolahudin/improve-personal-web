@@ -46,6 +46,18 @@ const draft = ref<ScheduleDraft>(initialDraft())
 const scope = ref<EditScope>(isRecurring ? 'this' : 'all')
 const error = ref<ScheduleDraftError | null>(null)
 const isConfirmingDelete = ref(false)
+
+const ERROR_FIELD: Record<ScheduleDraftError, 'title' | 'dateTime' | 'duration' | 'recurrence'> = {
+  titleRequired: 'title',
+  titleTooLong: 'title',
+  dateTime: 'dateTime',
+  duration: 'duration',
+  noDays: 'recurrence',
+  monthPattern: 'recurrence',
+  untilDate: 'recurrence',
+  count: 'recurrence',
+}
+const { errorId, isInvalid, describedBy } = useFieldError(error, ERROR_FIELD)
 const pendingTasks = ref<string[]>([])
 const linkedTitle = ref('')
 
@@ -118,8 +130,12 @@ const deleteLabel = computed(() => {
           data-autofocus
           :maxlength="SCHEDULE_TITLE_MAX"
           :placeholder="$t('calendar.form.titlePlaceholder')"
-          :aria-invalid="error === 'titleRequired'"
+          :aria-invalid="isInvalid('title')"
+          :aria-describedby="describedBy('title')"
         />
+        <FieldError v-if="isInvalid('title')" :id="errorId">
+          {{ $t(`calendar.form.error.${error}`) }}
+        </FieldError>
       </Field>
 
       <Field :label="$t('calendar.form.color')" is-group>
@@ -127,12 +143,25 @@ const deleteLabel = computed(() => {
       </Field>
 
       <Field :label="$t('calendar.form.date')">
-        <Input v-model="draft.date" type="date" :aria-invalid="error === 'dateTime'" />
+        <Input
+          v-model="draft.date"
+          type="date"
+          :aria-invalid="isInvalid('dateTime')"
+          :aria-describedby="describedBy('dateTime')"
+        />
+        <FieldError v-if="isInvalid('dateTime')" :id="errorId">
+          {{ $t(`calendar.form.error.${error}`) }}
+        </FieldError>
       </Field>
 
       <div class="pair">
         <Field :label="$t('calendar.form.start')">
-          <Input v-model="draft.time" type="time" :aria-invalid="error === 'dateTime'" />
+          <Input
+            v-model="draft.time"
+            type="time"
+            :aria-invalid="isInvalid('dateTime')"
+            :aria-describedby="describedBy('dateTime')"
+          />
         </Field>
         <Field :label="$t(draft.timeMode === 'end' ? 'calendar.form.end' : 'calendar.form.dur')">
           <template #action>
@@ -144,7 +173,8 @@ const deleteLabel = computed(() => {
             v-if="draft.timeMode === 'end'"
             v-model="draft.end"
             type="time"
-            :aria-invalid="error === 'duration'"
+            :aria-invalid="isInvalid('duration')"
+            :aria-describedby="describedBy('duration')"
           />
           <Input
             v-else
@@ -153,12 +183,19 @@ const deleteLabel = computed(() => {
             min="5"
             max="1440"
             step="5"
-            :aria-invalid="error === 'duration'"
+            :aria-invalid="isInvalid('duration')"
+            :aria-describedby="describedBy('duration')"
           />
+          <FieldError v-if="isInvalid('duration')" :id="errorId">
+            {{ $t(`calendar.form.error.${error}`) }}
+          </FieldError>
         </Field>
       </div>
 
-      <ScheduleRecurrence v-model="draft" :error="error" />
+      <ScheduleRecurrence v-model="draft" :error="error" :error-id="errorId" />
+      <FieldError v-if="isInvalid('recurrence')" :id="errorId">
+        {{ $t(`calendar.form.error.${error}`) }}
+      </FieldError>
 
       <Field :label="$t('calendar.form.goal')" is-group>
         <GoalPicker
@@ -195,8 +232,6 @@ const deleteLabel = computed(() => {
           :label="$t('calendar.form.scopeTitle')"
         />
       </div>
-
-      <p v-if="error" class="error" role="alert">{{ $t(`calendar.form.error.${error}`) }}</p>
 
       <div class="actions">
         <template v-if="original">
@@ -247,15 +282,6 @@ const deleteLabel = computed(() => {
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--deep);
-}
-
-.error {
-  padding: var(--space-10) var(--space-14);
-  border-radius: calc(14px * var(--rk));
-  background: #ffe1da;
-  color: #9a2a14;
-  font-weight: var(--fw-strong);
-  font-size: var(--fs-14);
 }
 
 .actions {
