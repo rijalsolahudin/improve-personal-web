@@ -351,6 +351,13 @@ const focusStyle = computed(() => focusPillStyle(item.size === 'tiny'))
   background: var(--ev-solid);
 }
 
+/* Area sentuh minimal 24px (WCAG 2.5.8) tanpa membesarkan lingkaran yang terlihat. */
+.check::before {
+  content: '';
+  position: absolute;
+  inset: -3px;
+}
+
 .size-small .check {
   top: calc(50% - 9px);
 }
@@ -360,6 +367,11 @@ const focusStyle = computed(() => focusPillStyle(item.size === 'tiny'))
   width: 14px;
   height: 14px;
   top: calc(50% - 7px);
+}
+
+.size-tiny .check::before,
+.compact .check::before {
+  inset: -5px;
 }
 
 .compact.size-big .check {

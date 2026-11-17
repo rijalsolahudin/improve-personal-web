@@ -193,7 +193,7 @@ const style = computed(() => ({
 .remove {
   left: -22px;
   top: -22px;
-  background: #e2445c;
+  background: var(--danger);
   color: var(--paper);
 }
 
