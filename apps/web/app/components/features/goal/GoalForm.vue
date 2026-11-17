@@ -25,6 +25,21 @@ const draft = ref<GoalDraft>(existing ? draftFromGoal(existing) : emptyGoalDraft
 const error = ref<GoalDraftError | null>(null)
 const isConfirmingDelete = ref(false)
 
+/** Pesan error tampil tepat di bawah kolom penyebabnya, bukan menumpuk di dekat tombol simpan. */
+const ERROR_FIELD: Record<GoalDraftError, 'title' | 'why' | 'end' | 'chapters'> = {
+  titleRequired: 'title',
+  titleTooLong: 'title',
+  whyTooLong: 'why',
+  dateOrder: 'end',
+  tooManyChapters: 'chapters',
+  chapterTitle: 'chapters',
+  chapterRange: 'chapters',
+}
+const errorField = computed(() => (error.value ? ERROR_FIELD[error.value] : null))
+const errorId = useId()
+const describedBy = (field: 'title' | 'why' | 'end'): string | undefined =>
+  errorField.value === field ? errorId : undefined
+
 // Error hilang begitu user mengubah isian lagi.
 watch(draft, () => (error.value = null), { deep: true })
 
@@ -61,8 +76,12 @@ function onDelete(): void {
           data-autofocus
           :maxlength="GOAL_TITLE_MAX"
           :placeholder="$t('goals.form.titlePlaceholder')"
-          :aria-invalid="error === 'titleRequired' || error === 'titleTooLong'"
+          :aria-invalid="errorField === 'title'"
+          :aria-describedby="describedBy('title')"
         />
+        <p v-if="errorField === 'title'" :id="errorId" class="error" role="alert">
+          {{ $t(`goals.form.error.${error}`) }}
+        </p>
       </Field>
       <Field :label="$t('goals.form.why')">
         <Input
@@ -70,7 +89,12 @@ function onDelete(): void {
           multiline
           :maxlength="GOAL_WHY_MAX"
           :placeholder="$t('goals.form.whyPlaceholder')"
+          :aria-invalid="errorField === 'why'"
+          :aria-describedby="describedBy('why')"
         />
+        <p v-if="errorField === 'why'" :id="errorId" class="error" role="alert">
+          {{ $t(`goals.form.error.${error}`) }}
+        </p>
       </Field>
 
       <Field :label="$t('goals.form.category')" is-group>
@@ -98,8 +122,12 @@ function onDelete(): void {
             v-model="draft.end"
             type="date"
             :min="draft.start"
-            :aria-invalid="error === 'dateOrder'"
+            :aria-invalid="errorField === 'end'"
+            :aria-describedby="describedBy('end')"
           />
+          <p v-if="errorField === 'end'" :id="errorId" class="error" role="alert">
+            {{ $t(`goals.form.error.${error}`) }}
+          </p>
         </Field>
       </div>
 
@@ -114,11 +142,10 @@ function onDelete(): void {
 
       <GoalFormChapters
         :draft="draft"
-        :show-errors="error === 'chapterRange'"
+        :error="errorField === 'chapters' ? error : null"
+        :error-id="errorId"
         @change="(chapters) => (draft.chapters = chapters)"
       />
-
-      <p v-if="error" class="error" role="alert">{{ $t(`goals.form.error.${error}`) }}</p>
 
       <div class="actions">
         <Button v-if="existing" variant="danger" @click="onDelete">
@@ -164,12 +191,10 @@ function onDelete(): void {
 }
 
 .error {
-  padding: var(--space-10) var(--space-14);
-  border-radius: calc(14px * var(--rk));
-  border: var(--border-thin) solid var(--danger);
+  margin-top: var(--space-6);
   color: var(--danger);
   font-weight: var(--fw-strong);
-  font-size: var(--fs-14);
+  font-size: var(--fs-13);
 }
 
 .actions {

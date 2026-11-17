@@ -41,7 +41,10 @@ const daysLeftLabel = computed(() => {
         @click="$emit('pick-cover')"
       >
         <LazyDecoStickerArt v-if="goal.cover" :sid="goal.cover" :size="78" />
-        <span v-else class="cover-hint">✿<br />{{ $t('goals.cover') }}</span>
+        <span v-else class="cover-hint">
+          <Icon name="flower" :size="22" />
+          {{ $t('goals.cover') }}
+        </span>
       </button>
       <div class="text">
         <h2 id="goal-hero-title" class="title">{{ goal.title }}</h2>
@@ -151,6 +154,10 @@ const daysLeftLabel = computed(() => {
 }
 
 .cover-hint {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-4);
   font-weight: var(--fw-strong);
   font-size: var(--fs-12);
   line-height: 1.3;
