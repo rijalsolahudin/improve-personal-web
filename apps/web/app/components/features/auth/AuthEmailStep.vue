@@ -162,13 +162,13 @@ const emailModel = computed({ get: () => flow.email.value, set: flow.setEmail })
 }
 
 .input.invalid {
-  border-color: #b2402b;
+  border-color: var(--danger);
 }
 
 .error {
   font-weight: var(--fw-body);
   font-size: var(--fs-caption);
-  color: #b2402b;
+  color: var(--danger);
 }
 
 .hint {

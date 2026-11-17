@@ -134,7 +134,7 @@ const timeLeft = computed(() => (task.done ? t('time.done') : formatTimeLeft(tas
 }
 
 .left.overdue {
-  color: #c2381a;
+  color: var(--danger);
 }
 
 .prio {

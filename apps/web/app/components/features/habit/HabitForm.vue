@@ -34,6 +34,17 @@ const { weekdayOfIndex } = useDateFormat()
 const existing = findHabit(habitId)
 const draft = ref<HabitDraft>(existing ? draftFromHabit(existing) : emptyHabitDraft())
 const error = ref<FormError | null>(null)
+/** Gagal tulis (`persist`/`delete`/`archive`) bukan milik satu kolom: tampil di bawah form. */
+const ERROR_FIELD: Record<FormError, 'name' | 'frequency' | 'target' | null> = {
+  nameRequired: 'name',
+  nameTooLong: 'name',
+  noDays: 'frequency',
+  target: 'target',
+  persist: null,
+  delete: null,
+  archive: null,
+}
+const { errorId, generalError, isInvalid, describedBy } = useFieldError(error, ERROR_FIELD)
 /** Aksi tulis yang sedang menunggu penyimpanan; tombol dimatikan selama ini (cegah klik ganda). */
 const pending = ref<PendingAction | null>(null)
 const isConfirmingDelete = ref(false)
@@ -142,8 +153,12 @@ async function onArchive(): Promise<void> {
           data-autofocus
           :maxlength="HABIT_NAME_MAX"
           :placeholder="$t('habit.form.namePlaceholder')"
-          :aria-invalid="error === 'nameRequired' || error === 'nameTooLong'"
+          :aria-invalid="isInvalid('name')"
+          :aria-describedby="describedBy('name')"
         />
+        <FieldError v-if="isInvalid('name')" :id="errorId">
+          {{ $t(`habit.form.error.${error}`) }}
+        </FieldError>
       </Field>
 
       <Field :label="$t('habit.form.iconColor')" is-group>
@@ -168,7 +183,11 @@ async function onArchive(): Promise<void> {
         <SwatchPicker v-model="draft.color" class="colors" :options="colorOptions" />
       </Field>
 
-      <Field :label="$t('habit.form.frequency')" is-group>
+      <Field
+        :label="$t('habit.form.frequency')"
+        is-group
+        :aria-describedby="describedBy('frequency')"
+      >
         <div class="pills">
           <Chip :active="draft.days === null" @click="draft.days = null">
             {{ $t('habit.everyDay') }}
@@ -190,9 +209,12 @@ async function onArchive(): Promise<void> {
             {{ weekdayOfIndex(day) }}
           </Chip>
         </div>
+        <FieldError v-if="isInvalid('frequency')" :id="errorId">
+          {{ $t(`habit.form.error.${error}`) }}
+        </FieldError>
       </Field>
 
-      <Field :label="$t('habit.form.target')" is-group>
+      <Field :label="$t('habit.form.target')" is-group :aria-describedby="describedBy('target')">
         <div class="stepper">
           <IconButton
             tone="plain"
@@ -202,7 +224,7 @@ async function onArchive(): Promise<void> {
             :title="$t('habit.form.targetLess')"
             @click="draft.target -= 1"
           >
-            −
+            <Icon name="minus" :size="18" />
           </IconButton>
           <span class="target" aria-live="polite">{{ draft.target }}x</span>
           <IconButton
@@ -213,9 +235,12 @@ async function onArchive(): Promise<void> {
             :title="$t('habit.form.targetMore')"
             @click="draft.target += 1"
           >
-            +
+            <Icon name="plus" :size="18" />
           </IconButton>
         </div>
+        <FieldError v-if="isInvalid('target')" :id="errorId">
+          {{ $t(`habit.form.error.${error}`) }}
+        </FieldError>
       </Field>
 
       <Field :label="$t('habit.form.goal')" is-group>
@@ -237,7 +262,7 @@ async function onArchive(): Promise<void> {
         />
       </Field>
 
-      <p v-if="error" class="error" role="alert">{{ $t(`habit.form.error.${error}`) }}</p>
+      <FieldError v-if="generalError">{{ $t(`habit.form.error.${generalError}`) }}</FieldError>
 
       <div class="actions">
         <Button v-if="existing" variant="danger" :disabled="pending !== null" @click="onDelete">
@@ -309,15 +334,6 @@ async function onArchive(): Promise<void> {
   font-family: var(--font-display);
   font-weight: var(--fw-display);
   font-size: var(--fs-display-22);
-}
-
-.error {
-  padding: var(--space-10) var(--space-14);
-  border-radius: calc(14px * var(--rk));
-  background: #ffe1da;
-  color: #9a2a14;
-  font-weight: var(--fw-strong);
-  font-size: var(--fs-14);
 }
 
 .actions {

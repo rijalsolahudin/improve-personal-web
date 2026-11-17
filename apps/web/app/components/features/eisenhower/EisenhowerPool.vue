@@ -130,7 +130,7 @@ const formatTimeLeft = useTimeLeft()
 }
 
 .left.overdue {
-  color: #c2381a;
+  color: var(--danger);
 }
 
 .grip {

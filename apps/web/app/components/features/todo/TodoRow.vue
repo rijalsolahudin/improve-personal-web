@@ -163,7 +163,7 @@ const deadlineLabel = computed(() =>
 }
 
 .left.overdue {
-  color: #c2381a;
+  color: var(--danger);
 }
 
 .deadline {

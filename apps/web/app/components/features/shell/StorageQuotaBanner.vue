@@ -31,10 +31,10 @@ const { isBlocked, dismiss } = useStorageQuotaAlert()
   flex-wrap: wrap;
   margin: 0 0 var(--space-6, 0.5rem);
   padding: 0.5rem 0.75rem;
-  border: 1px solid #e9b7ae;
+  border: 1px solid color-mix(in srgb, var(--danger) 35%, var(--paper));
   border-radius: 0.6rem;
-  background: #ffe1da;
-  color: #8f1f30;
+  background: color-mix(in srgb, var(--danger) 12%, var(--paper));
+  color: var(--danger);
   font-size: 0.85rem;
 }
 

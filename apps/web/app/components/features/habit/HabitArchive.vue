@@ -125,8 +125,8 @@ async function restore(id: string): Promise<void> {
   margin: var(--space-8) var(--space-20) 0;
   padding: var(--space-10) var(--space-14);
   border-radius: calc(14px * var(--rk));
-  background: #ffe1da;
-  color: #9a2a14;
+  background: color-mix(in srgb, var(--danger) 12%, var(--paper));
+  color: var(--danger);
   font-weight: var(--fw-strong);
   font-size: var(--fs-13);
 }

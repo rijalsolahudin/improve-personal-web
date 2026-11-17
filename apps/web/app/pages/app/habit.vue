@@ -233,8 +233,8 @@ const summary = computed(() => {
 .error {
   padding: var(--space-10) var(--space-16);
   border-radius: calc(14px * var(--rk));
-  background: #ffe1da;
-  color: #9a2a14;
+  background: color-mix(in srgb, var(--danger) 12%, var(--paper));
+  color: var(--danger);
   font-weight: var(--fw-strong);
   font-size: var(--fs-14);
 }

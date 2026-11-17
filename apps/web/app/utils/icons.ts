@@ -692,6 +692,8 @@ export const ICONS = {
   'arrow-left': [path('M19 12H5M12 19L5 12L12 5')],
   'arrow-right': [path('M5 12H19M12 5L19 12L12 19')],
   'more-horizontal': [circle(5, 12, 1), circle(12, 12, 1), circle(19, 12, 1)],
+  plus: [path('M12 5V19M5 12H19')],
+  minus: [path('M5 12H19')],
   x: [path('M18 6L6 18M6 6L18 18')],
 } as const satisfies Record<string, readonly SvgElement[]>
 

@@ -10,7 +10,11 @@ import { fromIsoDate } from '~/utils/time'
 
 /** Pilihan "Berulang" di form jadwal: sekali / harian tiap n hari / mingguan / bulanan + aturan berakhir. */
 const draft = defineModel<ScheduleDraft>({ required: true })
-const { error = null } = defineProps<{ error?: ScheduleDraftError | null }>()
+const { error = null, errorId = undefined } = defineProps<{
+  error?: ScheduleDraftError | null
+  /** Id pesan error di form induk, ditautkan ke kolom yang bermasalah. */
+  errorId?: string
+}>()
 
 const TYPES: readonly RecurrenceType[] = ['once', 'daily', 'weekly', 'monthly']
 const INTERVALS = [1, 2] as const
@@ -158,6 +162,7 @@ watch(
         type="date"
         :aria-label="$t('calendar.form.untilDate')"
         :aria-invalid="error === 'untilDate'"
+        :aria-describedby="error === 'untilDate' ? errorId : undefined"
       />
       <label v-else-if="draft.ends === 'count'" class="count">
         <Input
@@ -169,6 +174,7 @@ watch(
           max="999"
           :aria-label="$t('calendar.form.count')"
           :aria-invalid="error === 'count'"
+          :aria-describedby="error === 'count' ? errorId : undefined"
         />
         <span>{{ $t('calendar.form.countUnit') }}</span>
       </label>
