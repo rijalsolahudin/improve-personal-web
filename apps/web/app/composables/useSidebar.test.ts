@@ -20,8 +20,8 @@ describe('useSidebar', () => {
     expect(useSidebar().isCollapsed.value).toBe(true)
   })
 
-  it('ciut otomatis di layar sempit selama user belum memilih', () => {
-    vi.spyOn(window, 'matchMedia').mockReturnValue({ matches: true } as MediaQueryList)
+  it('default ciut selama user belum memilih, di layar lebar sekalipun', () => {
+    vi.spyOn(window, 'matchMedia').mockReturnValue({ matches: false } as MediaQueryList)
     expect(useSidebar().isCollapsed.value).toBe(true)
   })
 

@@ -121,14 +121,15 @@ function pick(color: HighlightColor): void {
 <style scoped>
 .formats {
   display: flex;
+  flex-shrink: 0;
   align-items: center;
-  gap: 2px;
+  gap: var(--space-2);
 }
 
 .format {
   position: relative;
-  width: 28px;
-  height: 26px;
+  width: var(--tool-row-h);
+  height: var(--tool-row-h);
   display: inline-flex;
   align-items: center;
   justify-content: center;

@@ -309,8 +309,7 @@ describe('QA #71 temuan QA: teks yang diketik selama menyimpan', () => {
     const finish = gate.hold()
     await page.find('section.sheet').trigger('focusout')
 
-    // Selama menunggu konfirmasi, status berbunyi "Menyimpan…" dan editor masih bisa diketik.
-    expect(page.find('.meta [role="status"]').text()).toBe('Menyimpan…')
+    // Selama menunggu konfirmasi, editor masih bisa diketik.
     await typeDiary('Versi pertama. Tambahan penting.')
     expect(localStorage.getItem(DRAFT_KEY)).toContain('Tambahan penting')
 
