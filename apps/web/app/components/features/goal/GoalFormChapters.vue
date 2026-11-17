@@ -5,6 +5,7 @@ import {
   nextChapterDraft,
   type ChapterDraft,
   type GoalDraft,
+  type GoalDraftError,
 } from '~/utils/goals'
 
 /**
@@ -12,8 +13,20 @@ import {
  * `draft.chapters` (objek reaktif milik parent, selalu terbaru) supaya dua perubahan
  * beruntun dalam satu tick tidak saling menimpa.
  */
-const { draft, showErrors } = defineProps<{ draft: GoalDraft; showErrors: boolean }>()
+const { draft, error, errorId } = defineProps<{
+  draft: GoalDraft
+  /** Error form yang menyangkut chapter; null = tidak ada. */
+  error: GoalDraftError | null
+  /** Id pesan error, ditautkan ke kolom yang bermasalah lewat `aria-describedby`. */
+  errorId: string
+}>()
 const emit = defineEmits<{ change: [chapters: ChapterDraft[]] }>()
+
+// Tandai kolom penyebab error dengan teks + `aria-invalid`, bukan warna border saja.
+const isTitleInvalid = (row: ChapterDraft): boolean => error === 'chapterTitle' && !row.title.trim()
+const isRangeInvalid = (row: ChapterDraft): boolean =>
+  error === 'chapterRange' && isChapterDraftOutOfRange(row, draft)
+const describedBy = (isInvalid: boolean): string | undefined => (isInvalid ? errorId : undefined)
 
 function patch(index: number, change: Partial<ChapterDraft>): void {
   emit(
@@ -53,7 +66,7 @@ function add(): void {
       v-for="(row, index) in draft.chapters"
       :key="row.key"
       class="row"
-      :class="{ invalid: showErrors && isChapterDraftOutOfRange(row, draft) }"
+      :class="{ invalid: isTitleInvalid(row) || isRangeInvalid(row) }"
     >
       <span class="num" aria-hidden="true">{{ index + 1 }}</span>
       <Input
@@ -63,6 +76,8 @@ function add(): void {
         maxlength="120"
         :placeholder="$t('goals.form.chapterTitle')"
         :aria-label="$t('goals.form.chapterTitleN', { n: index + 1 })"
+        :aria-invalid="isTitleInvalid(row)"
+        :aria-describedby="describedBy(isTitleInvalid(row))"
         @update:model-value="(value) => patch(index, { title: String(value) })"
       />
       <Input
@@ -73,6 +88,8 @@ function add(): void {
         :min="draft.start"
         :max="draft.end"
         :aria-label="$t('goals.form.chapterStartN', { n: index + 1 })"
+        :aria-invalid="isRangeInvalid(row)"
+        :aria-describedby="describedBy(isRangeInvalid(row))"
         @update:model-value="(value) => patch(index, { start: String(value) })"
       />
       <Input
@@ -83,6 +100,8 @@ function add(): void {
         :min="draft.start"
         :max="draft.end"
         :aria-label="$t('goals.form.chapterEndN', { n: index + 1 })"
+        :aria-invalid="isRangeInvalid(row)"
+        :aria-describedby="describedBy(isRangeInvalid(row))"
         @update:model-value="(value) => patch(index, { end: String(value) })"
       />
       <span class="tools">
@@ -93,7 +112,7 @@ function add(): void {
           :title="$t('goals.form.up', { n: index + 1 })"
           @click="move(index, -1)"
         >
-          ↑
+          <Icon name="arrow-up" :size="16" />
         </IconButton>
         <IconButton
           tone="bare"
@@ -102,7 +121,7 @@ function add(): void {
           :title="$t('goals.form.down', { n: index + 1 })"
           @click="move(index, 1)"
         >
-          ↓
+          <Icon name="arrow-down" :size="16" />
         </IconButton>
         <IconButton
           tone="danger"
@@ -111,10 +130,13 @@ function add(): void {
           :title="$t('goals.form.removeChapter', { n: index + 1 })"
           @click="remove(index)"
         >
-          ×
+          <Icon name="x" :size="16" />
         </IconButton>
       </span>
     </div>
+    <p v-if="error" :id="errorId" class="error" role="alert">
+      {{ $t(`goals.form.error.${error}`) }}
+    </p>
     <Button v-if="draft.chapters.length < GOAL_MAX_CHAPTERS" variant="dashed" block @click="add">
       + {{ $t('goals.form.addChapter') }}
     </Button>
@@ -197,5 +219,11 @@ function add(): void {
 .tools {
   display: flex;
   gap: var(--space-4);
+}
+
+.error {
+  color: var(--danger);
+  font-weight: var(--fw-strong);
+  font-size: var(--fs-13);
 }
 </style>

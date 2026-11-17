@@ -62,7 +62,9 @@ const bodyId = useId()
         <span class="pct">{{ progress }}%</span>
         <span class="bar" aria-hidden="true"><span :style="{ width: `${progress}%` }" /></span>
       </span>
-      <span class="caret" aria-hidden="true">{{ isOpen ? '▴' : '▾' }}</span>
+      <span class="caret" :class="{ open: isOpen }" aria-hidden="true">
+        <Icon name="chevron-down" :size="18" />
+      </span>
     </button>
 
     <div v-if="isOpen" :id="bodyId">
@@ -226,10 +228,21 @@ const bodyId = useId()
 
 .caret {
   width: 20px;
-  text-align: center;
-  font-weight: var(--fw-strong);
-  font-size: var(--fs-14);
+  flex-shrink: 0;
+  display: flex;
+  justify-content: center;
   color: var(--mute);
+  transition: transform var(--dur) var(--ease);
+}
+
+.caret.open {
+  transform: rotate(180deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .caret {
+    transition: none;
+  }
 }
 
 .review {

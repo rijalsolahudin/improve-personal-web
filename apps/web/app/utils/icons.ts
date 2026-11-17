@@ -682,6 +682,11 @@ export const ICONS = {
     circle(12, 12, 3),
     path('M3 3L21 21'),
   ],
+  // Kontrol UI (buka/tutup, urutkan, hapus), bukan pilihan ikon user.
+  'chevron-down': [path('M6 9L12 15L18 9')],
+  'arrow-up': [path('M12 19V5M5 12L12 5L19 12')],
+  'arrow-down': [path('M12 5V19M19 12L12 19L5 12')],
+  x: [path('M18 6L6 18M6 6L18 18')],
 } as const satisfies Record<string, readonly SvgElement[]>
 
 export type IconName = keyof typeof ICONS
