@@ -38,8 +38,8 @@ const palette = computed(() => ({
       <GoalCoverTile :cover="goal.cover" :category="category" />
       <span class="text">
         <span class="title">{{ goal.title }}</span>
+        <span class="meta">{{ category.label }}</span>
         <span class="meta">
-          {{ category.label }} ·
           {{ $t('goals.target', { date: dayMonthYear(fromIsoDate(goal.end).getTime()) }) }}
         </span>
       </span>
@@ -54,7 +54,7 @@ const palette = computed(() => ({
       <GoalChip v-if="goal.status !== 'aktif'" :tone="GOAL_STATUS_TONE[goal.status]">{{
         $t(`goals.status.${goal.status}`)
       }}</GoalChip>
-      <GoalChip v-if="isReview" tone="red">{{ $t('goals.needsReview') }}</GoalChip>
+      <GoalChip v-if="isReview" tone="alert">{{ $t('goals.needsReview') }}</GoalChip>
     </span>
   </button>
 </template>

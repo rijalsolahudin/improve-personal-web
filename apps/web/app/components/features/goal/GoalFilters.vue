@@ -28,21 +28,32 @@ const categoryOptions = computed(() => [
 
 <template>
   <div class="filters">
-    <Segmented v-model="status" :options="statusOptions" :label="$t('goals.filterStatus')" framed />
-    <div class="cats" role="group" :aria-label="$t('goals.filterCategory')">
-      <Chip
-        v-for="option in categoryOptions"
-        :key="option.key"
-        variant="pick"
-        :active="category === option.key"
-        @click="category = option.key"
-      >
-        <span class="dot" :style="{ background: option.accent }" aria-hidden="true" />
-        {{ option.label }}
-      </Chip>
-      <button type="button" class="manage" @click="emit('manage')">
-        {{ $t('goals.manageCategories') }}
-      </button>
+    <div class="row">
+      <span class="label">{{ $t('goals.form.status') }}</span>
+      <Segmented
+        v-model="status"
+        :options="statusOptions"
+        :label="$t('goals.filterStatus')"
+        framed
+      />
+    </div>
+    <div class="row">
+      <span class="label">{{ $t('goals.form.category') }}</span>
+      <div class="cats" role="group" :aria-label="$t('goals.filterCategory')">
+        <Chip
+          v-for="option in categoryOptions"
+          :key="option.key"
+          variant="pick"
+          :active="category === option.key"
+          @click="category = option.key"
+        >
+          <span class="dot" :style="{ background: option.accent }" aria-hidden="true" />
+          {{ option.label }}
+        </Chip>
+        <button type="button" class="manage" @click="emit('manage')">
+          {{ $t('goals.manageCategories') }}
+        </button>
+      </div>
     </div>
   </div>
 </template>
@@ -50,9 +61,31 @@ const categoryOptions = computed(() => [
 <style scoped>
 .filters {
   display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+}
+
+.row {
+  display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-12);
+}
+
+.label {
+  width: 72px;
+  flex-shrink: 0;
+  font-weight: var(--fw-strong);
+  font-size: var(--fs-13);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--mute-2);
+}
+
+@media (max-width: 599px) {
+  .label {
+    width: 100%;
+  }
 }
 
 .filters :deep(.segmented) {

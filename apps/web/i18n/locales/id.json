@@ -616,7 +616,6 @@
       "terlewat": "terlewat",
       "ditutup": "ditutup"
     },
-    "always": "selalu",
     "along": "Sepanjang goal",
     "alongSub": "Ikut rentang goal · {n} item",
     "chapterSub": "{period} · {n} item",
@@ -997,11 +996,6 @@
     "deletedGoal": "goal dihapus",
     "deletedGoalHint": "Goal ini sudah dihapus",
     "goalMentionTitle": "Sebut goal",
-    "autosave": {
-      "saving": "Menyimpan…",
-      "saved": "✓ Tersimpan otomatis",
-      "idle": "Tersimpan otomatis saat kamu menulis"
-    },
     "paperToggle": "Ganti kertas",
     "feelingsAdd": "+ tambah perasaan",
     "feelingsDone": "Selesai",
