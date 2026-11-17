@@ -30,7 +30,6 @@ const daysLeftLabel = computed(() => {
     <div class="chips">
       <span class="chip">{{ category.label }}</span>
       <span class="chip solid">{{ daysLeftLabel }}</span>
-      <span class="range">{{ range }}</span>
     </div>
     <div class="main">
       <button
@@ -46,6 +45,7 @@ const daysLeftLabel = computed(() => {
       </button>
       <div class="text">
         <h2 id="goal-hero-title" class="title">{{ goal.title }}</h2>
+        <p class="range">{{ range }}</p>
         <p v-if="goal.why" class="why">“{{ goal.why }}”</p>
       </div>
       <ProgressRing
@@ -112,6 +112,7 @@ const daysLeftLabel = computed(() => {
 }
 
 .range {
+  margin-top: var(--space-4);
   font-weight: var(--fw-strong);
   font-size: var(--fs-13);
   color: var(--goal-text);

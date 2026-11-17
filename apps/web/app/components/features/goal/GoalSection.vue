@@ -55,7 +55,6 @@ const bodyId = useId()
           <GoalChip v-if="status" :tone="CHAPTER_TONE[status]">
             {{ $t(`goals.chapterStatus.${status}`) }}
           </GoalChip>
-          <GoalChip v-else tone="sand">{{ $t('goals.always') }}</GoalChip>
         </span>
         <span class="sub">{{ sub }}</span>
       </span>
@@ -99,7 +98,7 @@ const bodyId = useId()
             @toggle="emit('toggle-item', item.id)"
           />
           <span v-else class="marker" aria-hidden="true">
-            <span class="dot" :class="item.kind" />
+            <span class="dot" />
           </span>
           <span class="item-text">
             <span class="item-title">{{ item.title }}</span>
@@ -108,7 +107,7 @@ const bodyId = useId()
               <span class="item-meta-text">{{ item.meta }}</span>
             </span>
           </span>
-          <span v-if="item.kind !== 'task'" class="rate" :class="item.kind">
+          <span v-if="item.kind !== 'task'" class="rate">
             {{ itemProgress(item) === null ? '–' : `${itemProgress(item)}%` }}
           </span>
         </li>
@@ -129,12 +128,8 @@ const bodyId = useId()
   background: var(--paper);
 }
 
-.section.berjalan {
-  border-color: var(--goal-solid);
-}
-
 .section.terlewat {
-  border-color: #f3a99a;
+  border-color: var(--danger);
 }
 
 .head {
@@ -156,19 +151,19 @@ const bodyId = useId()
   align-items: center;
   justify-content: center;
   border-radius: var(--radius-leaf);
-  background: #f2e4cc;
+  background: var(--chip);
   font-family: var(--font-display);
   font-weight: var(--fw-display);
   font-size: var(--fs-display-18);
 }
 
 .selesai .badge {
-  background: var(--goal-solid);
+  background: var(--ink);
   color: var(--paper);
 }
 
 .terlewat .badge {
-  background: #e2445c;
+  background: var(--danger);
   color: var(--paper);
 }
 
@@ -244,8 +239,8 @@ const bodyId = useId()
   gap: var(--space-14);
   margin-top: var(--space-14);
   padding: var(--space-14) var(--space-16);
+  border: var(--border-thin) solid var(--danger);
   border-radius: calc(20px * var(--rk));
-  background: #ffe9e3;
 }
 
 .review-text {
@@ -256,13 +251,13 @@ const bodyId = useId()
 .review-title {
   font-weight: var(--fw-strong);
   font-size: var(--fs-15);
-  color: #9a2a14;
+  color: var(--danger);
 }
 
 .review-sub {
   font-weight: var(--fw-body);
   font-size: var(--fs-13);
-  color: #a8573f;
+  color: var(--mute);
 }
 
 .review-actions {
@@ -303,17 +298,10 @@ const bodyId = useId()
 }
 
 .dot {
-  width: 10px;
-  height: 10px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
-}
-
-.dot.habit {
-  background: #2e6a26;
-}
-
-.dot.jadwal {
-  background: #8a5a00;
+  background: var(--mute-2);
 }
 
 .item-text {
@@ -357,14 +345,7 @@ const bodyId = useId()
 .rate {
   font-weight: var(--fw-strong);
   font-size: var(--fs-14);
-}
-
-.rate.habit {
-  color: #2e6a26;
-}
-
-.rate.jadwal {
-  color: #8a5a00;
+  color: var(--ink);
 }
 
 .mark {

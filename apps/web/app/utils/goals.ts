@@ -38,27 +38,31 @@ export type ChapterStatus = (typeof CHAPTER_STATUSES)[number]
 
 export type GoalItemKind = 'task' | 'habit' | 'jadwal'
 
-export type GoalTone = 'green' | 'yellow' | 'sand' | 'red' | 'grey' | 'purple' | 'violet'
+/**
+ * Tiga makna saja: netral (default), selesai, dan perlu perhatian. Warna lain tidak dipakai di
+ * halaman goal supaya status tidak bersaing dengan warna kategori.
+ */
+export type GoalTone = 'neutral' | 'success' | 'alert'
 
 export const CHAPTER_TONE: Record<ChapterStatus, GoalTone> = {
-  'belum-mulai': 'sand',
-  berjalan: 'yellow',
-  selesai: 'green',
-  terlewat: 'red',
-  ditutup: 'grey',
+  'belum-mulai': 'neutral',
+  berjalan: 'neutral',
+  selesai: 'success',
+  terlewat: 'alert',
+  ditutup: 'neutral',
 }
 
 export const GOAL_STATUS_TONE: Record<GoalStatus, GoalTone> = {
-  aktif: 'green',
-  ditunda: 'sand',
-  selesai: 'violet',
-  dibatalkan: 'grey',
+  aktif: 'neutral',
+  ditunda: 'neutral',
+  selesai: 'success',
+  dibatalkan: 'neutral',
 }
 
 export const ITEM_TONE: Record<GoalItemKind, GoalTone> = {
-  task: 'purple',
-  habit: 'green',
-  jadwal: 'yellow',
+  task: 'neutral',
+  habit: 'neutral',
+  jadwal: 'neutral',
 }
 
 export const GOAL_TITLE_MAX = 120

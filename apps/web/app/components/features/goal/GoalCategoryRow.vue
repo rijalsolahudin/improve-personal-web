@@ -145,14 +145,14 @@ function requestRemove(): void {
   gap: var(--space-10);
   padding: var(--space-10) var(--space-12);
   border-radius: calc(14px * var(--rk));
-  background: #ffe9e3;
+  border: var(--border-thin) solid var(--danger);
 }
 
 .warning {
   flex: 1 1 200px;
   font-weight: var(--fw-strong);
   font-size: var(--fs-14);
-  color: #9a2a14;
+  color: var(--danger);
 }
 
 .swatches {
