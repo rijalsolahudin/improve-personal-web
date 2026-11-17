@@ -68,8 +68,11 @@ async function mountCalendar(): Promise<VueWrapper> {
   return wrapper
 }
 
+// Tombol navigasi berisi ikon saja: dicocokkan lewat aria-label selain teks.
 const button = (wrapper: VueWrapper, label: string) =>
-  wrapper.findAll('button').find((item) => item.text() === label)
+  wrapper
+    .findAll('button')
+    .find((item) => item.text() === label || item.attributes('aria-label') === label)
 
 async function click(wrapper: VueWrapper, label: string): Promise<void> {
   await button(wrapper, label)?.trigger('click')
@@ -94,7 +97,7 @@ describe('T9 navigasi ‹/› menyamakan papan dan panel hari', () => {
     seedCalendar('hari', '2025-09-10', '2025-09-10')
     mounted = await mountCalendar()
 
-    await click(mounted, '›')
+    await click(mounted, 'Berikutnya')
 
     expect(mounted.find('.range').text()).toBe('Kamis, 11 September 2025')
     expect(mounted.find('aside.panel').text()).toContain('11 September')
@@ -105,7 +108,7 @@ describe('T9 navigasi ‹/› menyamakan papan dan panel hari', () => {
     seedCalendar('pekan', '2025-09-10', '2025-09-10')
     mounted = await mountCalendar()
 
-    await click(mounted, '›')
+    await click(mounted, 'Berikutnya')
 
     expect(mounted.find('.range').text()).toBe('15 Sep – 21 Sep 2025')
     expect(mounted.find('aside.panel').text()).toContain('17 September')
@@ -115,12 +118,12 @@ describe('T9 navigasi ‹/› menyamakan papan dan panel hari', () => {
     seedCalendar('bulan', '2025-09-01', '2025-09-10')
     mounted = await mountCalendar()
 
-    await click(mounted, '›')
+    await click(mounted, 'Berikutnya')
 
     expect(mounted.find('.range').text()).toBe('Oktober 2025')
     expect(mounted.find('aside.panel').text()).toContain('1 Oktober')
 
-    await click(mounted, '‹')
+    await click(mounted, 'Sebelumnya')
 
     expect(mounted.find('.range').text()).toBe('September 2025')
     expect(mounted.find('aside.panel').text()).toContain('1 September')

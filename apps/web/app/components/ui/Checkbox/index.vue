@@ -23,7 +23,7 @@ const emit = defineEmits<{ toggle: [] }>()
     :aria-label="label"
     @click.stop="emit('toggle')"
   >
-    <span v-if="checked" class="mark" aria-hidden="true">✓</span>
+    <Icon v-if="checked" name="check" :stroke="3" class="mark" />
   </button>
 </template>
 
@@ -69,7 +69,10 @@ const emit = defineEmits<{ toggle: [] }>()
  * Design: tanda centang "dicap" - muncul kecil & miring, sedikit melewati ukuran asli,
  * lalu diam. Hanya visual; tidak mengubah `aria-checked` atau tinggi kotak.
  */
+/* Ikon mengikuti font-size varian (lg/md/sm), jadi ukurannya ikut skala checkbox. */
 .mark {
+  width: 1em;
+  height: 1em;
   display: inline-block;
   animation: check-stamp 0.28s cubic-bezier(0.3, 1.3, 0.5, 1) both;
 }

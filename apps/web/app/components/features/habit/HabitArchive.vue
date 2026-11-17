@@ -32,7 +32,7 @@ async function restore(id: string): Promise<void> {
 <template>
   <details v-if="archivedHabits.length" class="archive">
     <summary class="summary">
-      <span class="chevron" aria-hidden="true">›</span>
+      <Icon name="chevron-right" :size="16" class="chevron" />
       {{ $t('habit.archive.title', { n: archivedHabits.length }) }}
     </summary>
 

@@ -91,7 +91,7 @@ onBeforeUnmount(() => clearTimeout(timer))
           :title="$t('common.close')"
           @click="emit('close')"
         >
-          ×
+          <Icon name="x" :size="18" />
         </IconButton>
       </div>
       <Input

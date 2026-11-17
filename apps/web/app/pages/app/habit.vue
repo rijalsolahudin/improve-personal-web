@@ -59,7 +59,7 @@ const summary = computed(() => {
             :radius="14"
             @click="month = firstOfMonth(month, -1)"
           >
-            ‹
+            <Icon name="chevron-left" :size="20" />
           </IconButton>
           <span class="month" aria-live="polite">{{
             monthYear(fromIsoDate(month).getTime())
@@ -71,7 +71,7 @@ const summary = computed(() => {
             :disabled="isCurrentMonth"
             @click="month = firstOfMonth(month, 1)"
           >
-            ›
+            <Icon name="chevron-right" :size="20" />
           </IconButton>
         </div>
         <div class="legend" aria-hidden="true">

@@ -91,7 +91,7 @@ const focusStyle = computed(() => focusPillStyle(item.size === 'tiny'))
       :aria-label="$t('common.toggleDone', { title })"
       @click.stop="emit('toggle')"
     >
-      <span v-if="item.isDone" aria-hidden="true">✓</span>
+      <Icon v-if="item.isDone" name="check" :size="12" :stroke="3" />
     </button>
     <button type="button" class="body" @click="emit('open')">
       <span v-if="item.size !== 'big'" class="line">

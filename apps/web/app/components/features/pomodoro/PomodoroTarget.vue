@@ -92,7 +92,9 @@ function onFreeInput(value: string | number): void {
             <span class="dot" :style="{ background: option.color }" aria-hidden="true" />
             <span class="option-title">{{ option.label }}</span>
             <span v-if="option.meta" class="meta">{{ option.meta }}</span>
-            <span class="check" aria-hidden="true">✓</span>
+            <span class="check" aria-hidden="true"
+              ><Icon name="check" :size="12" :stroke="3"
+            /></span>
           </button>
         </li>
       </ul>

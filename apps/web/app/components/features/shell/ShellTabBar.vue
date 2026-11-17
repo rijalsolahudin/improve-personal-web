@@ -34,7 +34,7 @@ const activeKey = computed(() =>
         aria-controls="shell-menu"
         @click="emit('toggle-menu')"
       >
-        <span class="menu-icon" aria-hidden="true">⋯</span>
+        <span class="menu-icon" aria-hidden="true"><Icon name="more-horizontal" :size="20" /></span>
         <span class="menu-label">{{ $t('shell.menu') }}</span>
       </button>
     </template>

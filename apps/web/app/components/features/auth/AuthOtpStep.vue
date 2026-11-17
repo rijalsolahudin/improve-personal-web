@@ -59,7 +59,7 @@ const resendCountdown = computed(() => `0:${String(flow.resendSecondsLeft.value)
 <template>
   <div class="step">
     <Button variant="soft" size="sm" class="back" @click="flow.backToEmail">
-      <span aria-hidden="true">←</span> {{ $t('login.otp.back') }}
+      <Icon name="arrow-left" :size="16" /> {{ $t('login.otp.back') }}
     </Button>
 
     <AuthHeading :eyebrow="$t('login.otp.eyebrow')" :title="$t('login.otp.title')">

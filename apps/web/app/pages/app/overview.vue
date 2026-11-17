@@ -62,9 +62,11 @@ const rangeOptions = computed(() =>
       </div>
       <div class="controls">
         <div v-if="canNav" class="nav">
-          <IconButton :title="$t('calendar.prev')" @click="shift(-1)">‹</IconButton>
+          <IconButton :title="$t('calendar.prev')" @click="shift(-1)">
+            <Icon name="chevron-left" :size="20" />
+          </IconButton>
           <IconButton :title="$t('calendar.next')" :disabled="!canNext" @click="shift(1)">
-            ›
+            <Icon name="chevron-right" :size="20" />
           </IconButton>
         </div>
         <Segmented

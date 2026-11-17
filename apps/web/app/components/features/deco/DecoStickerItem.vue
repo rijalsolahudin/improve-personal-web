@@ -106,7 +106,7 @@ const style = computed(() => ({
         @pointerdown.stop.prevent
         @click="emit('remove')"
       >
-        ×
+        <Icon name="x" :size="12" :stroke="2.5" />
       </button>
       <button
         type="button"

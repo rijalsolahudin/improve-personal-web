@@ -49,7 +49,7 @@ function removePending(index: number): void {
           :aria-label="$t('calendar.form.linkedRemove', { title: item })"
           @click="removePending(index)"
         >
-          ×
+          <Icon name="x" :size="14" />
         </button>
       </li>
     </ul>

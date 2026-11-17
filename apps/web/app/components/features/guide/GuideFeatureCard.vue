@@ -24,7 +24,7 @@ const titleId = `${anchor}-title`
     </ul>
 
     <NuxtLink v-if="feature.href" :to="feature.href" class="open">
-      {{ GUIDE_COPY.open }} <span aria-hidden="true">→</span>
+      {{ GUIDE_COPY.open }} <Icon name="arrow-right" :size="16" />
     </NuxtLink>
   </article>
 </template>

@@ -76,7 +76,7 @@ function pick(color: HighlightColor): void {
         @mousedown.prevent
         @click="isPicking = !isPicking"
       >
-        ▾
+        <Icon name="chevron-down" :size="12" />
       </button>
       <span
         v-if="isPicking"
