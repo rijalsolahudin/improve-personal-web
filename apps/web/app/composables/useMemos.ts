@@ -7,6 +7,7 @@ import {
   isMood,
   joinMemoText,
   memoOn as memoOnList,
+  tidyMemoText,
   type Memo,
   type MemoFeeling,
   type MoodByDate,
@@ -569,8 +570,8 @@ export function useMemos(options: UseMemosOptions = {}) {
    * lewat `retryEmptiedWrite`.
    */
   function save(input: MemoInput): Memo | null {
-    const text = input.text.trim().slice(0, MEMO_TEXT_MAX)
-    if (!text) return retryEmptiedWrite(input.date)
+    const text = tidyMemoText(input.text).slice(0, MEMO_TEXT_MAX)
+    if (!text.trim()) return retryEmptiedWrite(input.date)
 
     const fields = {
       title: input.title.trim().slice(0, MEMO_TITLE_MAX),

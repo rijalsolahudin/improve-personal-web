@@ -176,6 +176,23 @@ describe('T11 mention @jadwal', () => {
     expect(useState<string>('calendar-anchor').value).toBe(TODAY)
   })
 
+  it('ketik @ / # tanpa hasil tetap memunculkan daftar dengan pesan kosong (regresi: terasa tidak berefek)', async () => {
+    seed([], {}, {})
+    useState<Schedule[]>('schedules').value = []
+    mounted = await mountPage()
+
+    await typeDiary('Pagi ikut @')
+    const schedules = mounted.find('.suggest[aria-label="Sebut jadwal"]')
+    expect(schedules.exists()).toBe(true)
+    expect(schedules.find('.suggest-empty').text()).toBe(
+      'Belum ada jadwal dalam ±2 hari dari tanggal ini.',
+    )
+
+    await typeDiary('Demi #')
+    const goals = mounted.find('.suggest[aria-label="Sebut goal"]')
+    expect(goals.find('.suggest-empty').text()).toBe('Belum ada goal aktif yang cocok.')
+  })
+
   it('ketik @ menawarkan jadwal sekitar tanggal, dipilih jadi token lalu tampil sebagai chip', async () => {
     seed([], {}, {})
     mounted = await mountPage()

@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { Node, mergeAttributes, type JSONContent } from '@tiptap/core'
+import { Node, mergeAttributes, type Editor, type JSONContent } from '@tiptap/core'
 import Highlight from '@tiptap/extension-highlight'
 import { Placeholder } from '@tiptap/extensions'
 import StarterKit from '@tiptap/starter-kit'
 import { EditorContent, useEditor } from '@tiptap/vue-3'
 import { memoPapers, type MemoPaperName } from '@improve-personal/tokens'
 
+import { classifyPaperClick } from '~/utils/memo/paperClick'
 import {
   DEFAULT_HIGHLIGHT,
   isHighlightColor,
@@ -25,6 +26,8 @@ import {
  */
 const {
   paper = 'krem',
+  variant = 'main',
+  isAutofocus = false,
   placeholder = '',
   label,
   describedBy = undefined,
@@ -32,6 +35,12 @@ const {
   mentionLabel,
 } = defineProps<{
   paper?: MemoPaperName
+  /**
+   * `main` = kertas bergaris dengan garis margin, `column` = kolom kanan mode split (tanpa margin),
+   * `bare` = kotak teks bebas yang menumpang di atas kertas (tanpa latar).
+   */
+  variant?: 'main' | 'column' | 'bare'
+  isAutofocus?: boolean
   placeholder?: string
   label: string
   describedBy?: string
@@ -42,6 +51,19 @@ const {
 }>()
 
 const model = defineModel<string>({ default: '' })
+const emit = defineEmits<{
+  /** Posisi kursor (koordinat viewport) supaya saran `@` / `#` bisa muncul tepat di bawahnya. */
+  caret: [rect: { left: number; bottom: number }]
+  /** Klik di titik kosong kertas (koordinat viewport): pemanggil menaruh kotak teks bebas. */
+  place: [point: { x: number; y: number }]
+  focus: []
+  blur: []
+}>()
+
+function emitCaret(current: Editor): void {
+  const { left, bottom } = current.view.coordsAtPos(current.state.selection.from)
+  emit('caret', { left, bottom })
+}
 
 /** Token mention `@[id]` / `#[id]` sebagai chip di dalam kertas (atom: dihapus utuh, tidak diedit). */
 const Mention = Node.create({
@@ -84,6 +106,7 @@ let lastMarkdown = model.value
 
 const editor = useEditor({
   content: parseRich(model.value) as JSONContent,
+  autofocus: isAutofocus ? 'end' : false,
   extensions: [
     StarterKit.configure({
       // Kertas bergaris: satu baris = satu paragraf, jadi elemen yang mengubah tinggi baris atau
@@ -118,8 +141,33 @@ const editor = useEditor({
     }
     lastMarkdown = markdown
     model.value = markdown
+    emitCaret(current)
   },
+  onSelectionUpdate: ({ editor: current }) => emitCaret(current),
+  onFocus: () => emit('focus'),
+  onBlur: () => emit('blur'),
 })
+
+/**
+ * Kertas tidak harus diisi berurutan: klik baris kosong di bawah tulisan langsung menulis di baris
+ * itu, dan klik titik kosong lain (kanan tulisan / tengah kertas) meminta kotak teks bebas. Kotak
+ * bebas sendiri tidak punya perilaku ini - di dalamnya klik selalu klik biasa.
+ */
+function onPointerDown(event: PointerEvent): void {
+  const current = editor.value
+  if (variant === 'bare' || event.button !== 0 || current === undefined) return
+  if (event.target instanceof Element && event.target.closest('.mention-chip')) return
+
+  const click = classifyPaperClick(current.view.dom, event.clientX, event.clientY)
+  if (click === null) return
+  event.preventDefault()
+  if (click.kind === 'place') {
+    emit('place', { x: event.clientX, y: event.clientY })
+    return
+  }
+  const blanks = Array.from({ length: click.lines }, () => ({ type: 'paragraph' }))
+  current.chain().insertContentAt(current.state.doc.content.size, blanks).focus('end').run()
+}
 
 watch(model, (next) => {
   const current = editor.value
@@ -180,7 +228,13 @@ defineExpose({
 </script>
 
 <template>
-  <EditorContent class="paper" :editor="editor" :style="style" />
+  <EditorContent
+    class="paper"
+    :class="variant"
+    :editor="editor"
+    :style="style"
+    @pointerdown="onPointerDown"
+  />
 </template>
 
 <style scoped>
@@ -276,9 +330,28 @@ defineExpose({
 }
 
 @media (max-width: 599px) {
-  .paper {
+  .paper.main {
     padding-left: var(--space-56);
     padding-right: var(--space-16);
   }
+}
+
+/* Kolom kanan split: garis baris tetap, garis margin merah hanya milik kolom kiri. */
+.paper.column {
+  padding-left: var(--space-16);
+  background-image: repeating-linear-gradient(
+    transparent 0,
+    transparent 33px,
+    var(--memo-line) 33px,
+    var(--memo-line) 34px
+  );
+}
+
+/* Kotak bebas menumpang di kertas: tanpa latar/garis, barisnya tetap jatuh di garis kertas. */
+.paper.bare {
+  min-height: 34px;
+  padding: 0 var(--space-6);
+  border-bottom: 0;
+  background: none;
 }
 </style>

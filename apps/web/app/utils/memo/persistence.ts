@@ -6,6 +6,7 @@ import {
   MEMO_TEXT_MAX,
   MEMO_TITLE_MAX,
   joinMemoText,
+  tidyMemoText,
   type Memo,
   type MemoFeeling,
   type MoodByDate,
@@ -92,11 +93,14 @@ function sameFeelings(a: readonly MemoFeeling[], b: readonly MemoFeeling[]): boo
   return a.length === b.length && a.every((feeling, index) => feeling === b[index])
 }
 
-/** Nilai yang dibandingkan/digabung: judul & isi tanpa spasi tepi, perasaan tanpa duplikat. */
+/**
+ * Nilai yang dibandingkan/digabung: judul tanpa spasi tepi, isi dirapikan `tidyMemoText`, perasaan
+ * tanpa duplikat.
+ */
 export function memoFields(memo: MemoFields): MemoFields {
   return {
     title: memo.title.trim(),
-    text: memo.text.trim(),
+    text: tidyMemoText(memo.text),
     feelings: [...new Set(memo.feelings)],
   }
 }
