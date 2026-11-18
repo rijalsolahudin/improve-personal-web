@@ -2,7 +2,7 @@
 import type { Progress, WeatherKind } from '~/utils/dailyRoutine'
 import { greetingPeriod } from '~/utils/time'
 
-/** Header Daily Routine: tanggal, sapaan, cuaca + Tampilan, dan satu ringkasan progres hari. */
+/** Header Daily Routine: tanggal, sapaan, lalu deret status hari ini (cuaca + ringkasan progres). */
 const { now, progress } = defineProps<{
   now: number
   progress: Progress
@@ -30,13 +30,9 @@ const progressLabel = computed(() =>
     <div class="titles">
       <p class="date">{{ longDate(now) }}</p>
       <h1 class="greeting">{{ $t('daily.greetingName', { greeting, name: greetingName }) }}</h1>
-      <div class="tools">
-        <DailyWeatherPicker v-model="weather" />
-        <span class="divider" aria-hidden="true" />
-        <AppearanceMenu />
-      </div>
     </div>
     <div class="summary">
+      <DailyWeatherPicker v-model="weather" />
       <div class="progress">
         <ProgressRing
           :percent="progress.percent"
@@ -83,23 +79,9 @@ const progressLabel = computed(() =>
   line-height: var(--lh-tight);
 }
 
-.tools {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-6);
-  margin-top: 2px;
-}
-
-.divider {
-  width: 1.5px;
-  height: 22px;
-  margin: 0 var(--space-6);
-  background: var(--line-2);
-}
-
 .summary {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--space-8);
   max-width: 100%;

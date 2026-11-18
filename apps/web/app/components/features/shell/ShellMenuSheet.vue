@@ -6,6 +6,7 @@ const emit = defineEmits<{ close: [] }>()
 
 const route = useRoute()
 const accountDialogs = useAccountDialogs()
+const { isPickerOpen } = useAppearance()
 
 /** Profil & keamanan berupa modal, bukan halaman: di HP pintunya grup "Akun" di menu ini. */
 const accountItems: readonly {
@@ -21,6 +22,11 @@ const accountItems: readonly {
 function openDialog(key: AccountDialog): void {
   emit('close')
   accountDialogs.open(key)
+}
+
+function openAppearance(): void {
+  emit('close')
+  isPickerOpen.value = true
 }
 const groups = [
   ...(['utama', 'rencana', 'fokus'] as const).map((group) => ({
@@ -69,6 +75,10 @@ const groups = [
           >
             <AppIcon :icon="item.icon" :color="item.color" :size="38" />
             <span class="label">{{ $t(item.label) }}</span>
+          </button>
+          <button type="button" class="item item-button" @click="openAppearance">
+            <AppIcon icon="paint-brush" color="--cat-kesehatan" :size="38" />
+            <span class="label">{{ $t('appearance.label') }}</span>
           </button>
         </div>
       </section>

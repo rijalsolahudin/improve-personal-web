@@ -15,7 +15,7 @@ export function useAppearance() {
     theme: readonly(theme),
     style: readonly(style),
     themes: THEME_NAMES,
-    /** Writable: ditulis AppearanceMenu, ShellUserMenu, dan useDismiss (tutup saat klik luar). */
+    /** Writable: dibuka ShellUserMenu / ShellMenuSheet, ditutup AppearanceDialog. */
     isPickerOpen,
     setTheme: appearance.setTheme,
     setStyle: appearance.setStyle,

@@ -7,14 +7,14 @@ import { useAppearanceStore } from '~/stores/appearance'
 import { useUiStore } from '~/stores/ui'
 import { styleGroups } from '~/utils/appearancePreview'
 
-import AppearanceMenu from './AppearanceMenu.vue'
+import AppearanceDialog from './AppearanceDialog.vue'
 
 /**
- * QA T25 (F16) - menu "Tampilan" (PRD: pilih tema + gaya, preview langsung).
+ * QA T25 (F16) - modal "Tampilan" (PRD: pilih tema + gaya, preview langsung).
  *
- * Yang diuji dari sisi user: menu bisa dibuka, menampilkan 8 tema + 8 gaya (dikelompokkan per keluarga), memilih langsung
- * mengubah preferensi tanpa menutup menu / reload, ringkasan ikut berubah, dan bisa ditutup
- * (klik luar / Escape) - termasuk atribut aksesibilitasnya.
+ * Yang diuji dari sisi user: modal tampil saat state global dibuka, menampilkan 8 tema + 8 gaya
+ * (dikelompokkan per keluarga), memilih langsung mengubah preferensi tanpa menutup modal / reload,
+ * ringkasan ikut berubah, dan bisa ditutup (tombol tutup / Escape).
  */
 
 const mounted: VueWrapper[] = []
@@ -40,8 +40,9 @@ const labelTema = (nama: string): string => LABEL_TEMA[nama] ?? nama
 const namaGaya = (wrapper: VueWrapper): string[] =>
   wrapper.findAll('.style-name').map((node) => node.text())
 
-async function mountMenu(): Promise<VueWrapper> {
-  const wrapper = await mountSuspended(AppearanceMenu)
+async function mountDialog(): Promise<VueWrapper> {
+  useUiStore().isPickerOpen = true
+  const wrapper = await mountSuspended(AppearanceDialog, { attachTo: document.body })
   mounted.push(wrapper)
   return wrapper
 }
@@ -58,26 +59,21 @@ afterEach(() => {
   document.body.innerHTML = ''
 })
 
-describe('AppearanceMenu (F16)', () => {
-  it('tertutup awalnya dan bisa dibuka dari tombol "Tampilan"', async () => {
-    const wrapper = await mountMenu()
-    const trigger = wrapper.get('button.trigger')
-    expect(wrapper.find('#appearance-panel').exists()).toBe(false)
-    expect(trigger.attributes('aria-expanded')).toBe('false')
-    expect(trigger.attributes('aria-controls')).toBe('appearance-panel')
-    expect(trigger.text()).toContain('Tampilan')
+describe('AppearanceDialog (F16)', () => {
+  it('tertutup saat state global tertutup, tampil berjudul "Tampilan" saat dibuka', async () => {
+    const wrapper = await mountSuspended(AppearanceDialog, { attachTo: document.body })
+    mounted.push(wrapper)
+    expect(wrapper.find('[role="dialog"]').exists()).toBe(false)
 
-    await trigger.trigger('click')
-    expect(wrapper.find('#appearance-panel').exists()).toBe(true)
-    expect(trigger.attributes('aria-expanded')).toBe('true')
+    useUiStore().isPickerOpen = true
+    await wrapper.vm.$nextTick()
 
-    await trigger.trigger('click')
-    expect(wrapper.find('#appearance-panel').exists()).toBe(false)
+    const dialog = wrapper.get('[role="dialog"]')
+    expect(dialog.get('h2').text()).toBe('Tampilan')
   })
 
   it('menampilkan 8 pilihan tema dengan swatch warna tema masing-masing', async () => {
-    const wrapper = await mountMenu()
-    await wrapper.get('button.trigger').trigger('click')
+    const wrapper = await mountDialog()
 
     const opsi = wrapper.findAll('.themes button')
     expect(opsi.map((button) => button.text())).toEqual([...THEME_NAMES].map(labelTema))
@@ -94,8 +90,7 @@ describe('AppearanceMenu (F16)', () => {
   })
 
   it('gaya dikelompokkan per keluarga; tab terbuka di keluarga gaya aktif', async () => {
-    const wrapper = await mountMenu()
-    await wrapper.get('button.trigger').trigger('click')
+    const wrapper = await mountDialog()
 
     const tab = wrapper.findAll('.families button')
     expect(tab.map((button) => button.text())).toEqual(['Cute', 'Klasik'])
@@ -107,8 +102,7 @@ describe('AppearanceMenu (F16)', () => {
   })
 
   it('tiap kartu gaya memakai font display gaya itu & punya deskripsi', async () => {
-    const wrapper = await mountMenu()
-    await wrapper.get('button.trigger').trigger('click')
+    const wrapper = await mountDialog()
 
     for (const [index, group] of styleGroups().entries()) {
       await wrapper.findAll('.families button')[index]!.trigger('click')
@@ -127,8 +121,7 @@ describe('AppearanceMenu (F16)', () => {
   })
 
   it('memilih tema langsung mengubah preferensi & ringkasan tanpa menutup menu', async () => {
-    const wrapper = await mountMenu()
-    await wrapper.get('button.trigger').trigger('click')
+    const wrapper = await mountDialog()
 
     const tombolHijau = wrapper.findAll('.themes button')[1]!
     await tombolHijau.trigger('click')
@@ -138,13 +131,12 @@ describe('AppearanceMenu (F16)', () => {
     expect(tombolHijau.attributes('aria-pressed')).toBe('true')
     expect(wrapper.findAll('.themes button')[0]!.attributes('aria-pressed')).toBe('false')
     expect(wrapper.get('.summary').text()).toBe('Hijau · Cute')
-    // Tanpa reload / tanpa remount: panel tetap terbuka.
-    expect(wrapper.find('#appearance-panel').exists()).toBe(true)
+    // Tanpa reload / tanpa remount: modal tetap terbuka.
+    expect(wrapper.find('[role="dialog"]').exists()).toBe(true)
   })
 
   it('memilih gaya langsung mengubah preferensi, penanda aktif, dan ringkasan', async () => {
-    const wrapper = await mountMenu()
-    await wrapper.get('button.trigger').trigger('click')
+    const wrapper = await mountDialog()
     await wrapper.findAll('.families button')[1]!.trigger('click')
 
     const tegas = wrapper.findAll('.style')[4]!
@@ -156,7 +148,7 @@ describe('AppearanceMenu (F16)', () => {
     expect(tegas.classes()).toContain('on')
     expect(wrapper.findAll('.style')[0]!.attributes('aria-pressed')).toBe('false')
     expect(wrapper.get('.summary').text()).toBe('Kuning · Tegas')
-    expect(wrapper.find('#appearance-panel').exists()).toBe(true)
+    expect(wrapper.find('[role="dialog"]').exists()).toBe(true)
   })
 
   it('pilihan aktif mengikuti nilai tersimpan saat menu dibuka', async () => {
@@ -164,8 +156,7 @@ describe('AppearanceMenu (F16)', () => {
     store.setTheme('ungu')
     store.setStyle('elegan')
 
-    const wrapper = await mountMenu()
-    await wrapper.get('button.trigger').trigger('click')
+    const wrapper = await mountDialog()
 
     expect(wrapper.get('.summary').text()).toBe('Ungu · Elegan')
     expect(wrapper.findAll('.themes button')[2]!.attributes('aria-pressed')).toBe('true')
@@ -173,19 +164,16 @@ describe('AppearanceMenu (F16)', () => {
     expect(wrapper.findAll('.style')[2]!.attributes('aria-pressed')).toBe('true')
   })
 
-  it('menutup saat Escape atau klik di luar menu', async () => {
-    const wrapper = await mountMenu()
-    const trigger = wrapper.get('button.trigger')
+  it('menutup lewat tombol tutup atau Escape', async () => {
+    const wrapper = await mountDialog()
+    const ui = useUiStore()
 
-    await trigger.trigger('click')
-    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
-    await wrapper.vm.$nextTick()
-    expect(wrapper.find('#appearance-panel').exists()).toBe(false)
+    await wrapper.get('[role="dialog"] header button').trigger('click')
+    expect(ui.isPickerOpen).toBe(false)
 
-    await trigger.trigger('click')
-    expect(wrapper.find('#appearance-panel').exists()).toBe(true)
-    document.body.dispatchEvent(new Event('pointerdown', { bubbles: true }))
+    ui.isPickerOpen = true
     await wrapper.vm.$nextTick()
-    expect(wrapper.find('#appearance-panel').exists()).toBe(false)
+    await wrapper.get('[role="dialog"]').trigger('keydown', { key: 'Escape' })
+    expect(ui.isPickerOpen).toBe(false)
   })
 })

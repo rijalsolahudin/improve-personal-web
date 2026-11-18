@@ -48,4 +48,31 @@ describe('DailyHeader - satu ringkasan progres', () => {
     expect(wrapper.get('.date').text()).not.toBe('')
     expect(wrapper.get('.greeting').text()).not.toBe('')
   })
+  it('pemilih cuaca punya label "Cuaca" yang terlihat + 4 pilihan', async () => {
+    const wrapper = await mountHeader(0, 0, 0)
+
+    const picker = wrapper.get('.weather')
+    expect(picker.get('.label').text()).toBe('Cuaca')
+    expect(picker.attributes('aria-label')).toBe('Cuaca hari ini')
+    expect(picker.findAll('button')).toHaveLength(4)
+  })
+
+  it('memilih cuaca mengirim update:weather', async () => {
+    const wrapper = await mountHeader(0, 0, 0)
+
+    await wrapper.get('.weather button[aria-label="Hujan"]').trigger('click')
+
+    expect(wrapper.emitted('update:weather')?.at(-1)).toEqual(['hujan'])
+  })
+
+  it('klik cuaca yang aktif mengosongkannya', async () => {
+    const wrapper = await mountSuspended(DailyHeader, {
+      props: { weather: 'cerah', now: NOW, progress: { done: 0, total: 0, percent: 0 } },
+    })
+    mounted.push(wrapper)
+
+    await wrapper.get('.weather button[aria-pressed="true"]').trigger('click')
+
+    expect(wrapper.emitted('update:weather')?.at(-1)).toEqual([null])
+  })
 })

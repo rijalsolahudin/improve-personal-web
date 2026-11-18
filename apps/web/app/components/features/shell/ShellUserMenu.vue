@@ -1,5 +1,5 @@
 <script setup lang="ts">
-/** Kaki sidebar Desktop.dc.html: kartu profil + menu (profil, data, preferensi, panduan). */
+/** Kaki sidebar Desktop.dc.html: kartu profil + menu (profil, data, tampilan, panduan). */
 import type { AccountDialog } from '~/composables/useAccountDialogs'
 
 const { collapsed = false } = defineProps<{ collapsed?: boolean }>()
@@ -22,7 +22,6 @@ const dialogItems: readonly { key: AccountDialog; glyph: string; label: string }
 ]
 
 const linkItems = [
-  { key: 'preferences', glyph: '⚙', to: APP_HOME_PATH, label: 'shell.user.preferences' },
   { key: 'guide', glyph: '?', to: getFeature('panduan').path, label: 'shell.user.guide' },
   // Import & Export tidak punya baris sendiri di sidebar (grup `lainnya`): pintunya menu akun.
   {
@@ -38,10 +37,9 @@ function openDialog(key: AccountDialog): void {
   accountDialogs.open(key)
 }
 
-function onLink(key: (typeof linkItems)[number]['key']): void {
+function openAppearance(): void {
   isOpen.value = false
-  // Preferensi = popover "Tampilan" di header Daily (design).
-  if (key === 'preferences') isPickerOpen.value = true
+  isPickerOpen.value = true
 }
 </script>
 
@@ -58,12 +56,16 @@ function onLink(key: (typeof linkItems)[number]['key']): void {
         <span class="item-icon" aria-hidden="true">{{ item.glyph }}</span>
         <span>{{ $t(item.label) }}</span>
       </button>
+      <button type="button" class="item item-button" @click="openAppearance">
+        <span class="item-icon" aria-hidden="true"><Icon name="paint-brush" :size="16" /></span>
+        <span>{{ $t('appearance.label') }}</span>
+      </button>
       <NuxtLink
         v-for="item in linkItems"
         :key="item.key"
         :to="item.to"
         class="item"
-        @click="onLink(item.key)"
+        @click="isOpen = false"
       >
         <span class="item-icon" aria-hidden="true">{{ item.glyph }}</span>
         <span>{{ $t(item.label) }}</span>

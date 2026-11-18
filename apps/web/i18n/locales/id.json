@@ -68,7 +68,6 @@
       "initial": "F",
       "name": "Friend",
       "profile": "Edit profil",
-      "preferences": "Preferensi",
       "guide": "Panduan",
       "security": "Data di perangkat ini"
     }
@@ -134,6 +133,7 @@
     "greetingName": "{greeting}, {name}",
     "weather": {
       "label": "Cuaca hari ini",
+      "short": "Cuaca",
       "cerah": "Cerah",
       "berawan": "Berawan",
       "mendung": "Mendung",

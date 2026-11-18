@@ -1,7 +1,11 @@
 <script setup lang="ts">
 import { WEATHER_KINDS, WEATHER_META, type WeatherKind } from '~/utils/dailyRoutine'
 
-/** Cuaca hari ini, dipilih manual (Desktop.dc.html). Klik pilihan aktif = kosongkan. */
+/**
+ * Cuaca hari ini, dipilih manual (Desktop.dc.html). Klik pilihan aktif = kosongkan.
+ * Label "Cuaca" terlihat: tanpa teks, empat ikon terbaca sebagai toolbar. Bingkainya kembar dengan
+ * pill Progres di header supaya keduanya terbaca satu deret status hari ini.
+ */
 const weather = defineModel<WeatherKind | null>({ required: true })
 
 const options = computed(() =>
@@ -11,6 +15,7 @@ const options = computed(() =>
 
 <template>
   <div class="weather" role="group" :aria-label="$t('daily.weather.label')">
+    <span class="eyebrow label" aria-hidden="true">{{ $t('daily.weather.short') }}</span>
     <button
       v-for="option in options"
       :key="option.kind"
@@ -30,8 +35,19 @@ const options = computed(() =>
 
 <style scoped>
 .weather {
+  height: 50px;
   display: flex;
-  gap: var(--space-6);
+  align-items: center;
+  gap: 2px;
+  padding: 0 var(--space-8) 0 var(--space-16);
+  border: var(--border) solid var(--outline);
+  border-radius: var(--radius-pill);
+  background: var(--paper);
+}
+
+.label {
+  margin-right: var(--space-8);
+  color: var(--deep);
 }
 
 .option {
@@ -42,9 +58,9 @@ const options = computed(() =>
   align-items: center;
   justify-content: center;
   padding: 0;
-  border: var(--border-thin) solid var(--line-2);
-  border-radius: var(--radius-leaf-sm);
-  background: var(--paper);
+  border: var(--border-thin) solid transparent;
+  border-radius: 50%;
+  background: transparent;
   color: var(--mute-2);
   transition: transform 0.15s ease;
 }
