@@ -12,6 +12,7 @@ import {
   memosOn,
   mentionQuery,
   plainText,
+  tidyMemoText,
   wordCount,
   type Memo,
 } from './memo'
@@ -60,6 +61,13 @@ describe('mention jadwal', () => {
     expect(mentionQuery('Tadi ikut @')).toBe('')
     expect(mentionQuery('email a@b.c selesai')).toBeNull()
     expect(insertMention('Tadi ikut @ke', 'aws')).toBe('Tadi ikut @[aws] ')
+  })
+})
+
+describe('tidyMemoText', () => {
+  it('membuang spasi tepi, tetapi baris kosong di awal tetap (tulis mulai baris mana pun)', () => {
+    expect(tidyMemoText('  Isi  ')).toBe('Isi')
+    expect(tidyMemoText('\n\n  baris tiga\n\n')).toBe('\n\n  baris tiga')
   })
 })
 

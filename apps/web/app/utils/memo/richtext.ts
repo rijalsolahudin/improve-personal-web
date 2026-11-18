@@ -5,6 +5,8 @@
 // `@[id]` (jadwal) / `#[id]` (goal). Karakter penanda yang diketik sebagai teks biasa di-escape `\`.
 // Dokumen memakai bentuk JSON ProseMirror/Tiptap supaya editor bisa memuatnya langsung.
 
+import { layoutParts, parseLayout } from './layout'
+
 export const RICH_MARKS = ['bold', 'italic', 'strike', 'highlight'] as const
 export type RichMark = (typeof RICH_MARKS)[number]
 
@@ -96,8 +98,11 @@ const BULLET = /^- (.*)$/
 const ORDERED = /^\d{1,4}\. (.*)$/
 const MENTION = /^([@#])\[([\w-]{1,64})\]/
 const HIGHLIGHT_COLOR_TAG = new RegExp(`^\\{(${HIGHLIGHT_COLORS.join('|')})\\}`)
-/** Awal baris yang harus di-escape supaya teks biasa tidak terbaca sebagai daftar. */
-const LIST_LIKE = /^(- |\d{1,4}\. )/
+/**
+ * Awal baris yang harus di-escape supaya teks biasa tidak terbaca sebagai daftar, atau sebagai pagar
+ * tata letak (`:::`, lihat `layout.ts`).
+ */
+const LIST_LIKE = /^(- |\d{1,4}\. |:::)/
 
 // ---- Parse: markdown -> dokumen -------------------------------------------------------
 
@@ -317,8 +322,15 @@ export function serializeRich(doc: RichDoc): string {
 
 // ---- Teks polos: pencarian, pratinjau, jumlah kata -------------------------------------
 
-/** Markdown jurnal -> teks tanpa penanda format; token mention dipertahankan untuk `plainText`. */
+/**
+ * Markdown jurnal -> teks tanpa penanda format; token mention dipertahankan untuk `plainText`.
+ * Pagar tata letak dibuang: isi kolom dan kotak bebas ikut sebagai baris biasa.
+ */
 export function richToPlain(markdown: string): string {
+  return layoutParts(parseLayout(markdown)).map(partToPlain).join('\n')
+}
+
+function partToPlain(markdown: string): string {
   return parseRich(markdown)
     .content.flatMap((block) =>
       block.type === 'paragraph'

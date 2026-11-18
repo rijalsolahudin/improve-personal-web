@@ -122,6 +122,14 @@ export function joinMemoText(lead: string, tail: string, max = MEMO_TEXT_MAX): s
   return `${left.slice(0, budget).trimEnd()}${separator}${right}`.slice(0, max)
 }
 
+/**
+ * Rapikan isi sebelum disimpan: spasi di akhir dan spasi/tab di awal dibuang, tetapi baris kosong
+ * di awal dipertahankan - kertas jurnal bisa ditulis mulai baris mana pun.
+ */
+export function tidyMemoText(text: string): string {
+  return text.replace(/^[^\S\n]+/, '').trimEnd()
+}
+
 /** Jumlah kata tulisan; penanda format (`**`, `==`, ...) tidak dihitung. */
 export function wordCount(text: string): number {
   const plain = richToPlain(text).trim()

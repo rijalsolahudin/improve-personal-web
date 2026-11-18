@@ -22,6 +22,7 @@ watch(
 )
 
 const accountDialogs = useAccountDialogs()
+const { isPickerOpen } = useAppearance()
 
 const deco = useDeco()
 const { scope } = useDecoScope()
@@ -65,6 +66,8 @@ onMounted(() => {
       open
       @close="accountDialogs.close"
     />
+    <!-- Tampilan berlaku di seluruh app, jadi modalnya milik shell, bukan halaman tertentu. -->
+    <LazyAppearanceDialog v-if="isPickerOpen" />
     <LazyDecoLayer v-if="isDecoMounted" />
     <div class="fab-dock" data-deco-ui>
       <ShellPomodoroPill />

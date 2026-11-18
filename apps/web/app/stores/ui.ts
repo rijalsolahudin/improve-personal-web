@@ -21,7 +21,7 @@ function readInitialCollapsed(): boolean {
 export const useUiStore = defineStore('ui', () => {
   /** Sidebar shell app ciut atau tidak. */
   const isCollapsed = ref(readInitialCollapsed())
-  /** Popover "Tampilan": bisa dibuka dari header maupun menu akun ("Preferensi"). */
+  /** Modal "Tampilan" global: dibuka dari menu Profil (desktop) atau menu HP. */
   const isPickerOpen = ref(false)
 
   function toggleSidebar(): void {

@@ -20,6 +20,10 @@ const { day } = defineProps<{ day: string }>()
 /** Rentang jadwal yang ditawarkan saat mengetik `@` (design: ±2 hari dari tanggal memo). */
 const SUGGEST_RANGE_DAYS = 2
 const SUGGEST_LIMIT = 6
+/** Lebar popover saran mention; dipakai juga untuk menahannya di dalam kertas. */
+const SUGGEST_WIDTH_PX = 320
+/** Jarak popover dari tepi kertas & dari baris kursor. */
+const SUGGEST_GAP_PX = 8
 /** Jeda setelah ketikan terakhir sebelum autosave (PRD F8: tulisan tersimpan otomatis). */
 const AUTOSAVE_DELAY_MS = 1200
 const PROMPT_KEYS = ['smile', 'mind', 'proud', 'tomorrow'] as const
@@ -46,9 +50,37 @@ const paperStyle = computed(() => {
 })
 
 const { isFocus, enter: enterFocus, exit: exitFocus } = useFocusMode()
-/** Kertas rich text (dimuat lazy); `null` sampai editornya siap, toolbar format menunggu itu. */
-const richPaper = useTemplateRef<RichFormatTarget>('richPaper')
-const formatTarget = computed(() => richPaper.value ?? null)
+
+/** Tata letak (utama / kolom split / kotak bebas) di atas teks draf. */
+const memoLayout = useMemoLayout(
+  computed({
+    get: () => draft.value.text,
+    set: (value) => {
+      draft.value.text = value
+    },
+  }),
+  MEMO_TEXT_MAX,
+)
+/** Kertas rich text (dimuat lazy); `null` sampai editor bagian aktif siap, toolbar menunggu itu. */
+const layoutPaper = useTemplateRef<{ target: RichFormatTarget | null }>('layoutPaper')
+const formatTarget = computed(() => layoutPaper.value?.target ?? null)
+
+/** Posisi popover saran relatif ke `.page`: tepat di bawah kursor, tidak keluar tepi kanan kertas. */
+const page = useTemplateRef<HTMLElement>('page')
+const caret = ref<{ left: number; top: number } | null>(null)
+function onCaret(rect: { left: number; bottom: number }): void {
+  const box = page.value?.getBoundingClientRect()
+  if (!box) return
+  const maxLeft = box.width - SUGGEST_WIDTH_PX - SUGGEST_GAP_PX
+  caret.value = {
+    left: Math.max(SUGGEST_GAP_PX, Math.min(rect.left - box.left, maxLeft)),
+    top: rect.bottom - box.top + SUGGEST_GAP_PX,
+  }
+}
+const suggestStyle = computed(() => ({
+  width: `${SUGGEST_WIDTH_PX}px`,
+  ...(caret.value ? { left: `${caret.value.left}px`, top: `${caret.value.top}px` } : {}),
+}))
 
 function mentionLabel(kind: MentionKind, id: string): string {
   return kind === 'goal'
@@ -64,7 +96,8 @@ function openFocus(): void {
   void enterFocus()
 }
 const words = computed(() => wordCount(draft.value.text))
-const query = computed(() => mentionQuery(draft.value.text))
+// Saran mention mengikuti bagian yang sedang diketik, bukan akhir seluruh halaman.
+const query = computed(() => mentionQuery(memoLayout.activeText.value))
 const suggestions = computed(() => {
   const q = query.value
   if (q === null) return []
@@ -88,7 +121,7 @@ const suggestions = computed(() => {
 })
 
 /** Autocomplete `#`: goal aktif + chapter-nya (PRD F13 "Journal"). */
-const goalQuery = computed(() => goalMentionQuery(draft.value.text))
+const goalQuery = computed(() => goalMentionQuery(memoLayout.activeText.value))
 const goalSuggestions = computed(() => {
   const q = goalQuery.value
   if (q === null) return []
@@ -109,8 +142,12 @@ const goalSuggestions = computed(() => {
 
 function addPrompt(key: (typeof PROMPT_KEYS)[number]): void {
   const prompt = t(`memo.prompt.${key}`).replace('…', ' ')
-  const current = draft.value.text.trimEnd()
-  draft.value.text = current ? `${current}\n\n${prompt}` : prompt
+  const current = memoLayout.partText('main').trimEnd()
+  memoLayout.setPart('main', current ? `${current}\n\n${prompt}` : prompt)
+}
+
+function insertActive(insert: (text: string, id: string) => string, id: string): void {
+  memoLayout.setPart(memoLayout.active.value, insert(memoLayout.activeText.value, id))
 }
 
 const saving = ref(false)
@@ -275,6 +312,15 @@ function toggleTool(tool: 'prompts' | 'paper'): void {
         >
           {{ $t('memo.paperToggle') }}
         </button>
+        <button
+          type="button"
+          class="tool"
+          :aria-pressed="memoLayout.isSplit.value"
+          @click="memoLayout.toggleSplit"
+        >
+          <Icon name="columns" :size="14" />
+          {{ $t(memoLayout.isSplit.value ? 'memo.splitOff' : 'memo.splitOn') }}
+        </button>
         <button type="button" class="tool" @click="openFocus">
           {{ $t('memo.focus') }}
         </button>
@@ -294,7 +340,7 @@ function toggleTool(tool: 'prompts' | 'paper'): void {
           {{ $t(`memo.prompt.${key}`) }}
         </button>
       </div>
-      <div class="page" :style="paperStyle">
+      <div ref="page" class="page" :style="paperStyle">
         <header v-if="isFocus" class="focus-bar" :class="{ quiet: isQuiet }">
           <h2 id="memo-editor-title" class="focus-date">
             {{ longDate(fromIsoDate(day).getTime()) }}
@@ -317,60 +363,68 @@ function toggleTool(tool: 'prompts' | 'paper'): void {
           :placeholder="$t('memo.titlePlaceholder')"
           :aria-label="$t('memo.titleLabel')"
         />
-        <LazyMemoRichPaper
-          ref="richPaper"
-          v-model="draft.text"
+        <MemoLayoutPaper
+          ref="layoutPaper"
+          :layout="memoLayout"
           :paper="paper"
           :placeholder="$t('memo.placeholder')"
           :label="$t('memo.textLabel')"
           described-by="memo-hint"
-          :maxlength="MEMO_TEXT_MAX"
           :mention-label="mentionLabel"
+          @caret="onCaret"
         />
-      </div>
-      <div
-        v-if="suggestions.length"
-        class="suggest"
-        role="listbox"
-        :aria-label="$t('memo.mentionTitle')"
-      >
-        <p class="eyebrow suggest-title">{{ $t('memo.mentionTitle') }}</p>
-        <button
-          v-for="item in suggestions"
-          :key="item.id"
-          type="button"
-          role="option"
-          class="suggest-item"
-          :aria-selected="false"
-          @click="draft.text = insertMention(draft.text, item.id)"
+        <!-- Daftar tetap tampil walau kosong: tanpa itu `@` / `#` terasa tidak berefek sama sekali. -->
+        <div
+          v-if="query !== null"
+          class="suggest"
+          :style="suggestStyle"
+          role="listbox"
+          :aria-label="$t('memo.mentionTitle')"
         >
-          <span class="dot" :style="{ background: item.color }" aria-hidden="true" />
-          <span class="suggest-name">{{ item.title }}</span>
-          <span class="suggest-when">{{ item.when }}</span>
-        </button>
-      </div>
-      <div
-        v-if="goalSuggestions.length"
-        class="suggest"
-        role="listbox"
-        :aria-label="$t('memo.goalMentionTitle')"
-      >
-        <p class="eyebrow suggest-title">{{ $t('memo.goalMentionTitle') }}</p>
-        <button
-          v-for="(item, index) in goalSuggestions"
-          :key="`${item.id}-${index}`"
-          type="button"
-          role="option"
-          class="suggest-item"
-          :aria-selected="false"
-          @click="draft.text = insertGoalMention(draft.text, item.id)"
+          <p class="eyebrow suggest-title">{{ $t('memo.mentionTitle') }}</p>
+          <button
+            v-for="item in suggestions"
+            :key="item.id"
+            type="button"
+            role="option"
+            class="suggest-item"
+            :aria-selected="false"
+            @click="insertActive(insertMention, item.id)"
+          >
+            <span class="dot" :style="{ background: item.color }" aria-hidden="true" />
+            <span class="suggest-name">{{ item.title }}</span>
+            <span class="suggest-when">{{ item.when }}</span>
+          </button>
+          <p v-if="!suggestions.length" class="suggest-empty">
+            {{ $t('memo.mentionEmpty', { n: SUGGEST_RANGE_DAYS }) }}
+          </p>
+        </div>
+        <div
+          v-if="goalQuery !== null"
+          class="suggest"
+          :style="suggestStyle"
+          role="listbox"
+          :aria-label="$t('memo.goalMentionTitle')"
         >
-          <span class="dot" aria-hidden="true" />
-          <span class="suggest-name">{{ item.title }}</span>
-          <span class="suggest-when">{{ item.detail }}</span>
-        </button>
+          <p class="eyebrow suggest-title">{{ $t('memo.goalMentionTitle') }}</p>
+          <button
+            v-for="(item, index) in goalSuggestions"
+            :key="`${item.id}-${index}`"
+            type="button"
+            role="option"
+            class="suggest-item"
+            :aria-selected="false"
+            @click="insertActive(insertGoalMention, item.id)"
+          >
+            <span class="dot" aria-hidden="true" />
+            <span class="suggest-name">{{ item.title }}</span>
+            <span class="suggest-when">{{ item.detail }}</span>
+          </button>
+          <p v-if="!goalSuggestions.length" class="suggest-empty">
+            {{ $t('memo.goalMentionEmpty') }}
+          </p>
+        </div>
       </div>
-
       <div v-if="saveFailed" class="bottom">
         <p class="save-error" role="alert">
           <span>{{ $t('memo.saveFailed') }}</span>
@@ -428,6 +482,7 @@ function toggleTool(tool: 'prompts' | 'paper'): void {
   height: var(--tool-row-h);
   display: inline-flex;
   align-items: center;
+  gap: var(--space-4);
   padding: 0 var(--space-10);
   border: none;
   border-radius: var(--radius-pill);
@@ -571,8 +626,19 @@ function toggleTool(tool: 'prompts' | 'paper'): void {
   );
 }
 
+.page {
+  position: relative;
+}
+
+/* Popover di bawah kursor; posisi diisi `suggestStyle`, nilai di sini = cadangan sebelum ada kursor. */
 .suggest {
-  margin: var(--space-4) var(--space-28) 0 var(--space-64);
+  position: absolute;
+  top: var(--space-64);
+  left: var(--space-64);
+  z-index: 30;
+  max-width: calc(100% - 16px);
+  max-height: 260px;
+  overflow-y: auto;
   padding: var(--space-6);
   border: var(--border) solid var(--outline);
   border-radius: var(--radius-row);
@@ -612,6 +678,13 @@ function toggleTool(tool: 'prompts' | 'paper'): void {
 
 .suggest-name {
   flex: 1;
+}
+
+.suggest-empty {
+  padding: var(--space-4) var(--space-10) var(--space-8);
+  font-weight: var(--fw-body);
+  font-size: var(--fs-13);
+  color: var(--mute);
 }
 
 .suggest-when {
