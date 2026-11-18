@@ -1,4 +1,4 @@
-import { STYLE_NAMES, THEME_NAMES } from '@improve-personal/tokens'
+import { THEME_NAMES } from '@improve-personal/tokens'
 
 /**
  * Tema warna (palet) + gaya (karakter visual) - dua pilihan independen (PRD F16).
@@ -15,7 +15,6 @@ export function useAppearance() {
     theme: readonly(theme),
     style: readonly(style),
     themes: THEME_NAMES,
-    styles: STYLE_NAMES,
     /** Writable: ditulis AppearanceMenu, ShellUserMenu, dan useDismiss (tutup saat klik luar). */
     isPickerOpen,
     setTheme: appearance.setTheme,

@@ -105,11 +105,11 @@ describe('B1 - preferensi di `user_prefs`, bukan localStorage (QA putaran 2)', (
 
     const store = useAppearanceStore()
     expect(store.theme).toBe('kuning')
-    expect(store.style).toBe('cute')
+    expect(store.style).toBe('clean')
     expect(store.ownerUserId).toBe(AKUN_B)
     expect(localStorage.getItem('ip-appearance-owner')).toBe(AKUN_B)
-    expect(localStorage.getItem('ip-style')).toBe('cute')
-    expect(await recordTerbaru(akunB)).toMatchObject({ themeColor: 'kuning', style: 'cute' })
+    expect(localStorage.getItem('ip-style')).toBe('clean')
+    expect(await recordTerbaru(akunB)).toMatchObject({ themeColor: 'kuning', style: 'clean' })
   })
 
   it('localStorage hanyalah cache: dihapus pun pilihan dibaca ulang dari repository', async () => {
@@ -181,6 +181,6 @@ describe('B1 - preferensi di `user_prefs`, bukan localStorage (QA putaran 2)', (
 
     const store = useAppearanceStore()
     expect(store.theme).toBe('kuning')
-    expect(store.style).toBe('cute')
+    expect(store.style).toBe('clean')
   })
 })

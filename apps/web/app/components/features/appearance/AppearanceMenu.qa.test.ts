@@ -1,17 +1,18 @@
 import { mountSuspended } from '@nuxt/test-utils/runtime'
 import type { VueWrapper } from '@vue/test-utils'
-import { themes as themeTokens, uiStyles } from '@improve-personal/tokens'
+import { THEME_NAMES, themes as themeTokens, uiStyles } from '@improve-personal/tokens'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
 import { useAppearanceStore } from '~/stores/appearance'
 import { useUiStore } from '~/stores/ui'
+import { styleGroups } from '~/utils/appearancePreview'
 
 import AppearanceMenu from './AppearanceMenu.vue'
 
 /**
  * QA T25 (F16) - menu "Tampilan" (PRD: pilih tema + gaya, preview langsung).
  *
- * Yang diuji dari sisi user: menu bisa dibuka, menampilkan 3 tema + 7 gaya, memilih langsung
+ * Yang diuji dari sisi user: menu bisa dibuka, menampilkan 8 tema + 8 gaya (dikelompokkan per keluarga), memilih langsung
  * mengubah preferensi tanpa menutup menu / reload, ringkasan ikut berubah, dan bisa ditutup
  * (klik luar / Escape) - termasuk atribut aksesibilitasnya.
  */
@@ -24,6 +25,20 @@ function normalizeColor(value: string): string {
   const n = Number.parseInt(hex[1]!, 16)
   return `rgb(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255})`
 }
+
+const LABEL_TEMA: Record<string, string> = {
+  kuning: 'Kuning',
+  hijau: 'Hijau',
+  ungu: 'Ungu',
+  biru: 'Biru',
+  pink: 'Pink',
+  toska: 'Toska',
+  jingga: 'Jingga',
+  grafit: 'Grafit',
+}
+const labelTema = (nama: string): string => LABEL_TEMA[nama] ?? nama
+const namaGaya = (wrapper: VueWrapper): string[] =>
+  wrapper.findAll('.style-name').map((node) => node.text())
 
 async function mountMenu(): Promise<VueWrapper> {
   const wrapper = await mountSuspended(AppearanceMenu)
@@ -60,45 +75,54 @@ describe('AppearanceMenu (F16)', () => {
     expect(wrapper.find('#appearance-panel').exists()).toBe(false)
   })
 
-  it('menampilkan 3 pilihan tema dengan swatch warna tema masing-masing', async () => {
+  it('menampilkan 8 pilihan tema dengan swatch warna tema masing-masing', async () => {
     const wrapper = await mountMenu()
     await wrapper.get('button.trigger').trigger('click')
 
     const opsi = wrapper.findAll('.themes button')
-    expect(opsi).toHaveLength(3)
-    expect(opsi.map((button) => button.text())).toEqual(['Kuning', 'Hijau', 'Ungu'])
+    expect(opsi.map((button) => button.text())).toEqual([...THEME_NAMES].map(labelTema))
 
     const swatch = wrapper.findAll('.themes .swatch')
-    expect(swatch).toHaveLength(3)
-    const warnaIswatch = swatch.map((node) => {
+    const warnaSwatch = swatch.map((node) => {
       const style = node.attributes('style') ?? ''
       const cocok = /background(?:-color)?:\s*([^;]+)/.exec(style)
       return normalizeColor(cocok?.[1] ?? '')
     })
-    expect(warnaIswatch).toEqual(
-      (['kuning', 'hijau', 'ungu'] as const).map((nama) =>
-        normalizeColor(themeTokens[nama].primary),
-      ),
+    expect(warnaSwatch).toEqual(
+      THEME_NAMES.map((nama) => normalizeColor(themeTokens[nama].primary)),
     )
   })
 
-  it('menampilkan 7 gaya dengan label, deskripsi, dan preview font gaya itu', async () => {
+  it('gaya dikelompokkan per keluarga; tab terbuka di keluarga gaya aktif', async () => {
     const wrapper = await mountMenu()
     await wrapper.get('button.trigger').trigger('click')
 
-    const opsi = wrapper.findAll('.style')
-    expect(opsi).toHaveLength(7)
-    const nama = ['cute', 'cute-pure', 'kertas', 'simple', 'elegan', 'vintage', 'tegas'] as const
+    const tab = wrapper.findAll('.families button')
+    expect(tab.map((button) => button.text())).toEqual(['Cute', 'Klasik'])
+    expect(tab[0]!.attributes('aria-pressed')).toBe('true')
+    expect(namaGaya(wrapper)).toEqual(['Clean', 'Cute', 'Cute Putih'])
 
-    for (const [index, gaya] of nama.entries()) {
-      const node = opsi[index]!
-      const styleName = node.get('.style-name')
-      expect(styleName.text().length).toBeGreaterThan(0)
-      expect(node.get('.style-desc').text().length).toBeGreaterThan(0)
-      // Preview: nama gaya dirender dengan font display gaya tersebut (bukan font gaya aktif saja).
-      const fontPertama = uiStyles[gaya].fonts.display.split(',')[0]!.replace(/['"]/g, '').trim()
-      const inline = styleName.attributes('style') ?? ''
-      expect(inline.toLowerCase()).toContain(fontPertama.toLowerCase())
+    await tab[1]!.trigger('click')
+    expect(namaGaya(wrapper)).toEqual(['Kertas', 'Simpel', 'Elegan', 'Vintage', 'Tegas'])
+  })
+
+  it('tiap kartu gaya memakai font display gaya itu & punya deskripsi', async () => {
+    const wrapper = await mountMenu()
+    await wrapper.get('button.trigger').trigger('click')
+
+    for (const [index, group] of styleGroups().entries()) {
+      await wrapper.findAll('.families button')[index]!.trigger('click')
+      const opsi = wrapper.findAll('.style')
+      expect(opsi).toHaveLength(group.styles.length)
+
+      for (const [posisi, gaya] of group.styles.entries()) {
+        const node = opsi[posisi]!
+        expect(node.get('.style-desc').text().length).toBeGreaterThan(0)
+        // Preview: nama gaya dirender dengan font display gaya tersebut (bukan font gaya aktif saja).
+        const fontPertama = uiStyles[gaya].fonts.display.split(',')[0]!.replace(/['"]/g, '').trim()
+        const inline = node.get('.style-name').attributes('style') ?? ''
+        expect(inline.toLowerCase()).toContain(fontPertama.toLowerCase())
+      }
     }
   })
 
@@ -121,15 +145,16 @@ describe('AppearanceMenu (F16)', () => {
   it('memilih gaya langsung mengubah preferensi, penanda aktif, dan ringkasan', async () => {
     const wrapper = await mountMenu()
     await wrapper.get('button.trigger').trigger('click')
+    await wrapper.findAll('.families button')[1]!.trigger('click')
 
-    const opsi = wrapper.findAll('.style')
-    await opsi[6]!.trigger('click')
+    const tegas = wrapper.findAll('.style')[4]!
+    await tegas.trigger('click')
 
     const store = useAppearanceStore()
     expect(store.style).toBe('tegas')
-    expect(opsi[6]!.attributes('aria-pressed')).toBe('true')
-    expect(opsi[0]!.attributes('aria-pressed')).toBe('false')
-    expect(opsi[6]!.classes()).toContain('on')
+    expect(tegas.attributes('aria-pressed')).toBe('true')
+    expect(tegas.classes()).toContain('on')
+    expect(wrapper.findAll('.style')[0]!.attributes('aria-pressed')).toBe('false')
     expect(wrapper.get('.summary').text()).toBe('Kuning · Tegas')
     expect(wrapper.find('#appearance-panel').exists()).toBe(true)
   })
@@ -144,7 +169,8 @@ describe('AppearanceMenu (F16)', () => {
 
     expect(wrapper.get('.summary').text()).toBe('Ungu · Elegan')
     expect(wrapper.findAll('.themes button')[2]!.attributes('aria-pressed')).toBe('true')
-    expect(wrapper.findAll('.style')[4]!.attributes('aria-pressed')).toBe('true')
+    expect(wrapper.findAll('.families button')[1]!.attributes('aria-pressed')).toBe('true')
+    expect(wrapper.findAll('.style')[2]!.attributes('aria-pressed')).toBe('true')
   })
 
   it('menutup saat Escape atau klik di luar menu', async () => {

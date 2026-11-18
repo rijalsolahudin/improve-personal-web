@@ -1,5 +1,5 @@
 /**
- * QA T25 (F16) - token tampilan: 3 tema × 7 gaya.
+ * QA T25 (F16) - token tampilan: 8 tema × 8 gaya.
  *
  * Yang dibuktikan di sini adalah kontrak yang bisa dibaca dari CSS hasil build, bukan detail
  * implementasi komponen: tema/gaya mana yang ada, apakah tiap kombinasi punya nilai lengkap, dan
@@ -10,7 +10,13 @@ import { describe, expect, it } from 'vitest'
 
 import { DEFAULT_THEME, THEME_COLOR_KEYS, THEME_NAMES, palette, themes } from './colors.ts'
 import { toCssVariables } from './css.ts'
-import { DEFAULT_STYLE, STYLE_FONT_FAMILIES, STYLE_NAMES, uiStyles } from './styles.ts'
+import {
+  DEFAULT_STYLE,
+  STYLE_FAMILIES,
+  STYLE_FONT_FAMILIES,
+  STYLE_NAMES,
+  uiStyles,
+} from './styles.ts'
 
 const css = toCssVariables()
 
@@ -42,9 +48,19 @@ function declarations(block: string): string[] {
 }
 
 describe('token tampilan (F16)', () => {
-  it('menyediakan tepat 3 tema warna dan 7 gaya sesuai PRD', () => {
-    expect([...THEME_NAMES]).toEqual(['kuning', 'hijau', 'ungu'])
+  it('menyediakan tepat 8 tema warna dan 8 gaya', () => {
+    expect([...THEME_NAMES]).toEqual([
+      'kuning',
+      'hijau',
+      'ungu',
+      'biru',
+      'pink',
+      'toska',
+      'jingga',
+      'grafit',
+    ])
     expect([...STYLE_NAMES]).toEqual([
+      'clean',
       'cute',
       'cute-pure',
       'kertas',
@@ -55,9 +71,9 @@ describe('token tampilan (F16)', () => {
     ])
   })
 
-  it('default Cute + Kuning', () => {
+  it('default Clean + Kuning', () => {
     expect(DEFAULT_THEME).toBe('kuning')
-    expect(DEFAULT_STYLE).toBe('cute')
+    expect(DEFAULT_STYLE).toBe('clean')
     expect(THEME_NAMES[0]).toBe(DEFAULT_THEME)
     expect(STYLE_NAMES[0]).toBe(DEFAULT_STYLE)
   })
@@ -114,18 +130,18 @@ describe('token tampilan (F16)', () => {
     const root = css.slice(css.indexOf(':root {'), css.indexOf('}'))
     expect(root).toContain(`--bg: ${themes.kuning.bg};`)
     expect(root).toContain('--rk: 1;')
-    expect(root).toContain('--bk: 1;')
+    expect(root).toContain(`--bk: ${uiStyles[DEFAULT_STYLE].borderScale};`)
 
     for (const tema of THEME_NAMES.filter((nama) => nama !== 'kuning')) {
       expect(css).toContain(`[data-theme='${tema}'] {`)
       expect(css).toContain(`--accent: ${themes[tema].accent};`)
     }
-    for (const gaya of STYLE_NAMES.filter((nama) => nama !== 'cute')) {
+    for (const gaya of STYLE_NAMES.filter((nama) => nama !== DEFAULT_STYLE)) {
       expect(css).toContain(`[data-style='${gaya}'] {`)
       expect(css).toContain(`--rk: ${uiStyles[gaya].radiusScale};`)
     }
     // Gaya default tidak butuh blok sendiri: nilainya sudah di :root.
-    expect(css).not.toContain(`[data-style='cute']`)
+    expect(css).not.toContain(`[data-style='${DEFAULT_STYLE}']`)
   })
 
   it('gaya yang mengubah palet mendapat aksen per tema lewat selector gabungan', () => {
@@ -138,13 +154,24 @@ describe('token tampilan (F16)', () => {
     }
   })
 
-  it('dekorasi bawaan (washi tape/maskot) hanya tampil di Cute & Cute Pure', () => {
-    expect(STYLE_NAMES.filter((gaya) => uiStyles[gaya].isDecorated)).toEqual(['cute', 'cute-pure'])
+  it('keluarga Cute = turunan Cute (berdekorasi), tiap gaya punya keluarga yang dikenal', () => {
+    const keluargaCute = STYLE_NAMES.filter((gaya) => uiStyles[gaya].family === 'cute')
+    expect(keluargaCute).toEqual(['clean', 'cute', 'cute-pure'])
+    for (const gaya of STYLE_NAMES) expect(STYLE_FAMILIES).toContain(uiStyles[gaya].family)
+  })
+
+  it('dekorasi bawaan (washi tape/maskot) hanya tampil di Clean, Cute & Cute Pure', () => {
+    expect(STYLE_NAMES.filter((gaya) => uiStyles[gaya].isDecorated)).toEqual([
+      'clean',
+      'cute',
+      'cute-pure',
+    ])
     for (const gaya of STYLE_NAMES.filter((nama) => !uiStyles[nama].isDecorated)) {
       expect(css).toContain(`[data-style='${gaya}'] [data-deco-builtin] {`)
     }
     expect(css).not.toContain(`[data-style='cute'] [data-deco-builtin]`)
     expect(css).not.toContain(`[data-style='cute-pure'] [data-deco-builtin]`)
+    expect(css).not.toContain(`[data-style='clean'] [data-deco-builtin]`)
   })
 
   it('gaya tidak menimpa token layout langsung (hanya lewat pengali)', () => {

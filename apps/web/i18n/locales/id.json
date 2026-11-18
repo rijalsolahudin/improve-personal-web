@@ -94,7 +94,12 @@
   "theme": {
     "kuning": "Kuning",
     "hijau": "Hijau",
-    "ungu": "Ungu"
+    "ungu": "Ungu",
+    "biru": "Biru",
+    "pink": "Pink",
+    "toska": "Toska",
+    "jingga": "Jingga",
+    "grafit": "Grafit"
   },
   "priority": {
     "label": "Prioritas",
@@ -1307,9 +1312,17 @@
   "appearance": {
     "label": "Tampilan",
     "color": "Warna",
-    "style": "Gaya"
+    "style": "Gaya",
+    "family": {
+      "cute": "Cute",
+      "klasik": "Klasik"
+    }
   },
   "uiStyle": {
+    "clean": {
+      "label": "Clean",
+      "desc": "Lembut, lega, tetap ceria"
+    },
     "cute": {
       "label": "Cute",
       "desc": "Bulat, tebal, playful"

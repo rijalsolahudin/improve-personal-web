@@ -59,7 +59,7 @@ describe('user_prefs - migrasi ejaan gaya lama (T25 B2)', () => {
   it('normalisasi nilai asing tetap kembali ke default dan dilaporkan', () => {
     const hasil = normalizeUserPrefs({ style: 'neon' })
 
-    expect(hasil.style).toBe('cute')
+    expect(hasil.style).toBe('clean')
     expect(hasil.fallbacks.map((fallback) => fallback.field)).toEqual(['style'])
   })
 

@@ -11,10 +11,10 @@ describe('useAppearance', () => {
     localStorage.clear()
   })
 
-  it('default Cute + Kuning (PRD F16)', () => {
+  it('default Clean + Kuning (PRD F16)', () => {
     const { theme, style } = useAppearance()
     expect(theme.value).toBe('kuning')
-    expect(style.value).toBe('cute')
+    expect(style.value).toBe('clean')
   })
 
   it('tema & gaya independen dan tersimpan', () => {
@@ -33,7 +33,7 @@ describe('useAppearance', () => {
     const { theme, style, restore } = useAppearance()
     restore()
     expect(theme.value).toBe('kuning')
-    expect(style.value).toBe('cute')
+    expect(style.value).toBe('clean')
 
     localStorage.setItem(THEME_STORAGE_KEY, 'hijau')
     localStorage.setItem(STYLE_STORAGE_KEY, 'tegas')

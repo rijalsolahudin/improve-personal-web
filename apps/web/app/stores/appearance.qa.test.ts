@@ -31,12 +31,12 @@ describe('useAppearanceStore (F16)', () => {
     vi.restoreAllMocks()
   })
 
-  it('default Cute + Kuning saat belum ada pilihan', () => {
+  it('default Clean + Kuning saat belum ada pilihan', () => {
     const store = restart()
     expect(store.theme).toBe('kuning')
-    expect(store.style).toBe('cute')
+    expect(store.style).toBe('clean')
     expect(DEFAULT_THEME).toBe('kuning')
-    expect(DEFAULT_STYLE).toBe('cute')
+    expect(DEFAULT_STYLE).toBe('clean')
   })
 
   it('menerima & menyimpan seluruh 3 tema dan 7 gaya', () => {
@@ -99,7 +99,7 @@ describe('useAppearanceStore (F16)', () => {
       localStorage.setItem(STYLE_STORAGE_KEY, nilai)
       const store = restart()
       expect(store.theme, `nilai tema "${nilai}" seharusnya jatuh ke default`).toBe('kuning')
-      expect(store.style, `nilai gaya "${nilai}" seharusnya jatuh ke default`).toBe('cute')
+      expect(store.style, `nilai gaya "${nilai}" seharusnya jatuh ke default`).toBe('clean')
     }
   })
 
@@ -108,7 +108,7 @@ describe('useAppearanceStore (F16)', () => {
     localStorage.setItem(STYLE_STORAGE_KEY, 'neon')
     const store = restart()
     expect(store.theme).toBe('hijau')
-    expect(store.style).toBe('cute')
+    expect(store.style).toBe('clean')
   })
 
   it('storage diblokir (mode privat) tidak melempar saat baca', () => {

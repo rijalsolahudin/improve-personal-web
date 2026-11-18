@@ -250,7 +250,7 @@ describe('kontras AA di permukaan state (QA T16 MAYOR-2)', () => {
     ).toEqual([])
   })
 
-  it('seluruh ramp teks lulus di setiap permukaan state (24 pasangan x 21 kombinasi)', () => {
+  it('seluruh ramp teks lulus di setiap permukaan state (24 pasangan x 64 kombinasi)', () => {
     const pairs = STATE_TEXT.flatMap((fg) =>
       STATE_SURFACES.map((bg) => ({ fg, bg, label: `ramp ${fg} di ${bg}` })),
     )
@@ -278,7 +278,7 @@ const PRIMARY_PAIRS: readonly Pair[] = [
 ]
 
 describe('kontras AA teks di permukaan primary (QA #67)', () => {
-  it('label & judul di blok fitur primary lulus ambang state (2 pasangan x 21 kombinasi)', () => {
+  it('label & judul di blok fitur primary lulus ambang state (2 pasangan x 64 kombinasi)', () => {
     expect(violations(PRIMARY_PAIRS, STATE_MARGIN)).toEqual([])
   })
 })

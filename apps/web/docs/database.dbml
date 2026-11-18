@@ -324,14 +324,20 @@ Enum theme_color {
   kuning
   hijau
   ungu
+  biru
+  pink
+  toska
+  jingga
+  grafit
 }
 
 // Kanonik: kebab-case, sama dengan STYLE_NAMES di packages/tokens (dipakai UI sebagai
 // data-style) dan APP_STYLES di packages/core. Nilai ini yang ditulis ke data baru.
 // Ejaan lama cute_pure masih DIBACA sebagai alias (LEGACY_APP_STYLES di core) supaya
 // record/berkas export versi sebelumnya tidak kehilangan Cute Pure; record lama ikut
-// termigrasi ke bentuk kanonik saat ditulis ulang. Nilai asing -> default 'cute'.
+// termigrasi ke bentuk kanonik saat ditulis ulang. Nilai asing -> default 'clean'.
 Enum app_style {
+  clean
   cute
   "cute-pure"
   kertas
@@ -818,13 +824,13 @@ Table decoration {
 Table user_prefs {
   id                uuid        [pk, note: 'singleton per akun']
   theme_color       theme_color [not null, default: 'kuning']
-  style             app_style   [not null, default: 'cute']
+  style             app_style   [not null, default: 'clean']
   hide_decorations  bool        [not null, default: false, note: 'toggle global "Sembunyikan hiasan"']
   updated_at        bigint      [not null]
 
   Note: '''
   PRD F16. Tersimpan per akun dan ikut sync (terenkripsi seperti data lain).
-  Default pertama kali: Cute + Kuning.
+  Default pertama kali: Clean + Kuning.
   Nilai tak dikenal (mis. dari sync/import versi lain) -> kembalikan ke default
   TANPA error. Ini bukan cuma soal sanitasi input, tapi jalur upgrade lintas versi.
   '''

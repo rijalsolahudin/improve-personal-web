@@ -7,6 +7,7 @@
 import type { ThemeColorKey, ThemeName } from './colors.ts'
 
 export const STYLE_NAMES = [
+  'clean',
   'cute',
   'cute-pure',
   'kertas',
@@ -16,11 +17,19 @@ export const STYLE_NAMES = [
   'tegas',
 ] as const
 export type StyleName = (typeof STYLE_NAMES)[number]
-export const DEFAULT_STYLE: StyleName = 'cute'
+export const DEFAULT_STYLE: StyleName = 'clean'
+
+/**
+ * Keluarga gaya untuk pengelompokan di menu Tampilan: `cute` = turunan Cute (font bulat, maskot),
+ * `klasik` = gaya dengan font & karakter sendiri. Urutannya = urutan tampil.
+ */
+export const STYLE_FAMILIES = ['cute', 'klasik'] as const
+export type StyleFamily = (typeof STYLE_FAMILIES)[number]
 
 type ColorOverrides = Readonly<Partial<Record<ThemeColorKey | 'ink', string>>>
 
 export interface StyleDefinition {
+  readonly family: StyleFamily
   readonly fonts: Readonly<{ display: string; body: string; hand: string }>
   /** Bobot font: display = judul Baloo-equivalent, strong/body/medium = 800/700/600 di gaya Cute. */
   readonly weights: Readonly<{ display: string; strong: string; body: string; medium: string }>
@@ -71,6 +80,8 @@ const CUTE_FONT_ADJUST = '0.51'
 const FULL_PILL = '999px'
 const HARD_SHADOW = { x: 0, y: 1, blur: 0, color: null } as const
 const NO_SHADOW = { x: 0, y: 0, blur: 0, color: 'transparent' } as const
+/** Offset kecil + blur lebar: kartu terlihat "melayang" tipis, bukan ditempel stiker. */
+const SOFT_SHADOW = { x: 0, y: 0.6, blur: 3, color: 'rgba(94,72,40,.08)' } as const
 
 /**
  * Aksen jenuh untuk gaya netral (Cute Pure, Simple, Tegas). Digelapkan sampai AA 4.5:1 sebagai teks
@@ -95,12 +106,52 @@ const BRAND_BRIGHT = {
     primary: '#CDEBD9',
   },
   ungu: {
-    accent: '#6847D8',
-    deep: '#5535C0',
-    deeper: '#41279A',
-    soft: '#E6DEFB',
-    hover: '#F3EFFD',
-    primary: '#DCD2FA',
+    accent: '#4C2F8F',
+    deep: '#452A84',
+    deeper: '#39236D',
+    soft: '#ECE6FA',
+    hover: '#F0EBFB',
+    primary: '#E4DBF8',
+  },
+  biru: {
+    accent: '#2B5F93',
+    deep: '#275787',
+    deeper: '#20486F',
+    soft: '#E5F0FA',
+    hover: '#EBF3FB',
+    primary: '#DAE9F8',
+  },
+  pink: {
+    accent: '#8F2F4C',
+    deep: '#842A45',
+    deeper: '#6D2339',
+    soft: '#FAE6EC',
+    hover: '#FBEBF0',
+    primary: '#F7D7E0',
+  },
+  toska: {
+    accent: '#24776C',
+    deep: '#216D63',
+    deeper: '#1A564E',
+    soft: '#E4F9F7',
+    hover: '#EBFBF9',
+    primary: '#D3F6F2',
+  },
+  jingga: {
+    accent: '#9A4B24',
+    deep: '#8E4520',
+    deeper: '#75391A',
+    soft: '#FAE5DB',
+    hover: '#FCF0EA',
+    primary: '#F8D9C9',
+  },
+  grafit: {
+    accent: '#525D6C',
+    deep: '#4B5563',
+    deeper: '#3E4652',
+    soft: '#EBEDEF',
+    hover: '#F1F3F5',
+    primary: '#E0E2E6',
   },
 } as const
 
@@ -112,7 +163,31 @@ const withBell = (n: ColorOverrides & { chip: string; line: string }): ColorOver
 })
 
 export const uiStyles = {
+  /**
+   * Cute yang dirapikan: palet tema, font, dan maskot tetap, tapi tanpa kertas grafik, border setengah
+   * tebal, dan bayangan lembut ber-blur alih-alih bayangan keras. Kesan "playful" datang dari warna &
+   * maskot, bukan dari garis tebal - jadi layar padat (overview, kalender) tidak terasa ramai.
+   */
+  clean: {
+    family: 'cute',
+    fonts: CUTE_FONTS,
+    // Body 600 (bukan 700): teks panjang lebih ringan; judul & angka tetap 800.
+    weights: { ...CUTE_WEIGHTS, body: '600' },
+    typeScale: CUTE_TYPE,
+    fontSizeAdjust: CUTE_FONT_ADJUST,
+    density: 1,
+    pillRadius: FULL_PILL,
+    radiusScale: 1,
+    borderScale: 0.5,
+    outline: 'var(--mute-3)',
+    shadow: SOFT_SHADOW,
+    isPatterned: false,
+    isDecorated: true,
+    neutrals: {},
+    brand: null,
+  },
   cute: {
+    family: 'cute',
     fonts: CUTE_FONTS,
     weights: CUTE_WEIGHTS,
     typeScale: CUTE_TYPE,
@@ -129,6 +204,7 @@ export const uiStyles = {
     brand: null,
   },
   'cute-pure': {
+    family: 'cute',
     fonts: CUTE_FONTS,
     weights: CUTE_WEIGHTS,
     typeScale: CUTE_TYPE,
@@ -162,6 +238,7 @@ export const uiStyles = {
     brand: BRAND_BRIGHT,
   },
   kertas: {
+    family: 'klasik',
     fonts: {
       display: "'DM Serif Display', serif",
       body: "'Work Sans', sans-serif",
@@ -198,9 +275,9 @@ export const uiStyles = {
       grid: 'transparent',
     }),
     /**
-     * Kertas tetap monokrom (tinta di atas kertas), tetapi kertas & tintanya mengikuti tema: tiap tema
-     * memberi warna dasar kertas yang sedikit berbeda dan tinta gelap bernuansa tema itu. Tanpa ini
-     * pilihan tema tidak berefek sama sekali di gaya Kertas (QA T25 B5).
+     * Kertas tetap monokrom (tinta di atas kertas) dan kertasnya SAMA untuk semua tema (kanvas Kuning,
+     * seperti gaya lain). Tema hanya mewarnai tinta aksen & permukaan state dengan saturasi kecil -
+     * tanpa ini pilihan tema tidak berefek sama sekali di gaya Kertas (QA T25 B5).
      */
     brand: {
       kuning: {
@@ -225,50 +302,156 @@ export const uiStyles = {
         'bell-ring': '#C4BFAF',
       },
       hijau: {
-        bg: '#F0F4EE',
-        paper: '#F0F4EE',
-        'paper-2': '#F0F4EE',
-        alt: '#F0F4EE',
-        chip: '#E6EDE2',
-        ink: '#1E2A1B',
-        line: '#1E2A1B',
-        'line-2': '#BBC7B6',
-        dash: '#87947F',
-        'dash-2': '#68735F',
-        mline: '#C9D2C2',
+        bg: '#F7F4EC',
+        paper: '#F7F4EC',
+        'paper-2': '#F7F4EC',
+        alt: '#F7F4EC',
+        chip: '#EDEAE1',
+        ink: '#2A2418',
+        line: '#2A2418',
+        'line-2': '#C4BFAF',
+        dash: '#989385',
+        'dash-2': '#6E695C',
+        mline: '#D2CCBE',
         accent: '#25331F',
         deep: '#25331F',
         deeper: '#25331F',
         soft: '#E2EADD',
         hover: '#EBF1E7',
         primary: '#EDF3E9',
-        bell: '#E6EDE2',
-        'bell-ring': '#BBC7B6',
+        bell: '#EDEAE1',
+        'bell-ring': '#C4BFAF',
       },
       ungu: {
-        bg: '#F3F1F7',
-        paper: '#F3F1F7',
-        'paper-2': '#F3F1F7',
-        alt: '#F3F1F7',
-        chip: '#EAE5F0',
-        ink: '#292237',
-        line: '#292237',
-        'line-2': '#C3BCD2',
-        dash: '#9590A8',
-        'dash-2': '#6B6480',
-        mline: '#D3CDDF',
-        accent: '#332B45',
-        deep: '#332B45',
-        deeper: '#332B45',
-        soft: '#E7E2F0',
-        hover: '#EFEBF6',
-        primary: '#F1EEF8',
-        bell: '#EAE5F0',
-        'bell-ring': '#C3BCD2',
+        bg: '#F7F4EC',
+        paper: '#F8F5EE',
+        'paper-2': '#F7F4EC',
+        alt: '#F7F4EC',
+        chip: '#EDEAE1',
+        ink: '#2A2418',
+        line: '#2A2418',
+        'line-2': '#C4BFAF',
+        dash: '#989385',
+        'dash-2': '#6E695C',
+        mline: '#D2CCBE',
+        accent: '#261E39',
+        deep: '#261E39',
+        deeper: '#261E39',
+        soft: '#E5DFEE',
+        hover: '#E4DFEF',
+        primary: '#E7E3F0',
+        bell: '#EDEAE1',
+        'bell-ring': '#C4BFAF',
+      },
+      biru: {
+        bg: '#F7F4EC',
+        paper: '#F8F5EE',
+        'paper-2': '#F7F4EC',
+        alt: '#F7F4EC',
+        chip: '#EDEAE1',
+        ink: '#2A2418',
+        line: '#2A2418',
+        'line-2': '#C4BFAF',
+        dash: '#989385',
+        'dash-2': '#6E695C',
+        mline: '#D2CCBE',
+        accent: '#1E2C39',
+        deep: '#1E2C39',
+        deeper: '#1E2C39',
+        soft: '#D9E3EB',
+        hover: '#DFE7EF',
+        primary: '#E3EAF0',
+        bell: '#EDEAE1',
+        'bell-ring': '#C4BFAF',
+      },
+      pink: {
+        bg: '#F7F4EC',
+        paper: '#F8F5EE',
+        'paper-2': '#F7F4EC',
+        alt: '#F7F4EC',
+        chip: '#EDEAE1',
+        ink: '#2A2418',
+        line: '#2A2418',
+        'line-2': '#C4BFAF',
+        dash: '#989385',
+        'dash-2': '#6E695C',
+        mline: '#D2CCBE',
+        accent: '#391E26',
+        deep: '#391E26',
+        deeper: '#391E26',
+        soft: '#EEDFE5',
+        hover: '#EFDFE4',
+        primary: '#F0E3E7',
+        bell: '#EDEAE1',
+        'bell-ring': '#C4BFAF',
+      },
+      toska: {
+        bg: '#F7F4EC',
+        paper: '#F8F5EE',
+        'paper-2': '#F7F4EC',
+        alt: '#F7F4EC',
+        chip: '#EDEAE1',
+        ink: '#2A2418',
+        line: '#2A2418',
+        'line-2': '#C4BFAF',
+        dash: '#989385',
+        'dash-2': '#6E695C',
+        mline: '#D2CCBE',
+        accent: '#1E3936',
+        deep: '#1E3936',
+        deeper: '#1E3936',
+        soft: '#D3E8E6',
+        hover: '#DFEFED',
+        primary: '#E3F0EF',
+        bell: '#EDEAE1',
+        'bell-ring': '#C4BFAF',
+      },
+      jingga: {
+        bg: '#F7F4EC',
+        paper: '#F8F5EE',
+        'paper-2': '#F7F4EC',
+        alt: '#F7F4EC',
+        chip: '#EDEAE1',
+        ink: '#2A2418',
+        line: '#2A2418',
+        'line-2': '#C4BFAF',
+        dash: '#989385',
+        'dash-2': '#6E695C',
+        mline: '#D2CCBE',
+        accent: '#39271E',
+        deep: '#39271E',
+        deeper: '#39271E',
+        soft: '#EBE0D9',
+        hover: '#EFE4DF',
+        primary: '#F0E7E3',
+        bell: '#EDEAE1',
+        'bell-ring': '#C4BFAF',
+      },
+      grafit: {
+        bg: '#F7F4EC',
+        paper: '#F8F5EE',
+        'paper-2': '#F7F4EC',
+        alt: '#F7F4EC',
+        chip: '#EDEAE1',
+        ink: '#2A2418',
+        line: '#2A2418',
+        'line-2': '#C4BFAF',
+        dash: '#989385',
+        'dash-2': '#6E695C',
+        mline: '#D2CCBE',
+        accent: '#282B2F',
+        deep: '#282B2F',
+        deeper: '#282B2F',
+        soft: '#E0E3E4',
+        hover: '#E5E7E9',
+        primary: '#E7E9EC',
+        bell: '#EDEAE1',
+        'bell-ring': '#C4BFAF',
       },
     },
   },
   simple: {
+    family: 'klasik',
     fonts: {
       display: "'DM Sans', sans-serif",
       body: "'DM Sans', sans-serif",
@@ -307,6 +490,7 @@ export const uiStyles = {
     brand: BRAND_BRIGHT,
   },
   elegan: {
+    family: 'klasik',
     fonts: {
       display: "'Cormorant Garamond', serif",
       body: "'Jost', sans-serif",
@@ -360,16 +544,57 @@ export const uiStyles = {
         primary: '#DCE7E1',
       },
       ungu: {
-        accent: '#7A5E76',
-        deep: '#70546D',
-        deeper: '#574154',
-        soft: '#EFE6EE',
-        hover: '#F6F1F5',
-        primary: '#EAE0E8',
+        accent: '#534771',
+        deep: '#4C3F69',
+        deeper: '#3C3253',
+        soft: '#EEEBF5',
+        hover: '#EEEBF5',
+        primary: '#EAE6F3',
+      },
+      biru: {
+        accent: '#455C73',
+        deep: '#3E546A',
+        deeper: '#314354',
+        soft: '#EBEFF5',
+        hover: '#EBF0F5',
+        primary: '#E6ECF3',
+      },
+      pink: {
+        accent: '#714753',
+        deep: '#693F4C',
+        deeper: '#53323C',
+        soft: '#F4E9EC',
+        hover: '#F5EBEE',
+        primary: '#F1E3E7',
+      },
+      toska: {
+        accent: '#45736E',
+        deep: '#3E6A66',
+        deeper: '#315451',
+        soft: '#E6F2F1',
+        hover: '#EBF5F4',
+        primary: '#E0EFEE',
+      },
+      jingga: {
+        accent: '#765342',
+        deep: '#6E4B3A',
+        deeper: '#573C2E',
+        soft: '#F2E7E2',
+        hover: '#F6EEEA',
+        primary: '#EEE0D9',
+      },
+      grafit: {
+        accent: '#565B62',
+        deep: '#4E535A',
+        deeper: '#3E4247',
+        soft: '#E9EAEC',
+        hover: '#EFF0F1',
+        primary: '#E4E6E8',
       },
     },
   },
   vintage: {
+    family: 'klasik',
     fonts: {
       display: "'Playfair Display', serif",
       body: "'Lora', serif",
@@ -423,16 +648,57 @@ export const uiStyles = {
         primary: '#D6D3AE',
       },
       ungu: {
-        accent: '#7A3E52',
-        deep: '#633142',
-        deeper: '#4C2533',
-        soft: '#E6CFCB',
-        hover: '#EEDFD9',
-        primary: '#E2C7C2',
+        accent: '#4C397A',
+        deep: '#443172',
+        deeper: '#352658',
+        soft: '#D9D1EA',
+        hover: '#E6E1F1',
+        primary: '#CFC6E5',
+      },
+      biru: {
+        accent: '#365A7D',
+        deep: '#2E5174',
+        deeper: '#243F5A',
+        soft: '#CEDCEA',
+        hover: '#E0E9F2',
+        primary: '#C5D5E6',
+      },
+      pink: {
+        accent: '#7A394C',
+        deep: '#723144',
+        deeper: '#582635',
+        soft: '#E9CDD6',
+        hover: '#F0DDE3',
+        primary: '#E4C2CC',
+      },
+      toska: {
+        accent: '#2A6563',
+        deep: '#265C5A',
+        deeper: '#1D4645',
+        soft: '#C8E6E3',
+        hover: '#DAEEEC',
+        primary: '#BFE2DE',
+      },
+      jingga: {
+        accent: '#7E4A30',
+        deep: '#75452C',
+        deeper: '#5E3520',
+        soft: '#E7CFC2',
+        hover: '#EDDCD3',
+        primary: '#E2C5B7',
+      },
+      grafit: {
+        accent: '#505863',
+        deep: '#484F5A',
+        deeper: '#383E46',
+        soft: '#D2D5D9',
+        hover: '#E0E2E5',
+        primary: '#CBCED3',
       },
     },
   },
   tegas: {
+    family: 'klasik',
     fonts: {
       display: "'Space Grotesk', sans-serif",
       body: "'Space Grotesk', sans-serif",
