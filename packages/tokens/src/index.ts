@@ -26,10 +26,12 @@ export {
 } from './scale.ts'
 export {
   DEFAULT_STYLE,
+  STYLE_FAMILIES,
   STYLE_FONT_FAMILIES,
   STYLE_NAMES,
   uiStyles,
   type StyleDefinition,
+  type StyleFamily,
   type StyleName,
 } from './styles.ts'
 export { toCssVariables } from './css.ts'

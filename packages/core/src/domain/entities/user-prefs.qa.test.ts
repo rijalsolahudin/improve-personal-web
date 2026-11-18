@@ -29,10 +29,10 @@ describe('user_prefs - normalisasi (F16)', () => {
     }
   })
 
-  it('default pertama kali Cute + Kuning', () => {
+  it('default pertama kali Clean + Kuning', () => {
     expect(DEFAULT_USER_PREFS).toEqual({
       themeColor: 'kuning',
-      style: 'cute',
+      style: 'clean',
       hideDecorations: false,
     })
     expect(DEFAULT_USER_PREFS.themeColor).toBe(DEFAULT_THEME_COLOR)

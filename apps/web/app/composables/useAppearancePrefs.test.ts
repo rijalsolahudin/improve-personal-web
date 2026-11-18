@@ -116,11 +116,11 @@ describe('useAppearancePrefs di atas repository user_prefs', () => {
 
     const store = useAppearanceStore()
     expect(store.theme).toBe('kuning')
-    expect(store.style).toBe('cute')
+    expect(store.style).toBe('clean')
 
     const saved = await records(session)
     expect(saved).toHaveLength(1)
-    expect(saved[0]?.data).toMatchObject({ themeColor: 'kuning', style: 'cute' })
+    expect(saved[0]?.data).toMatchObject({ themeColor: 'kuning', style: 'clean' })
   })
 
   it('Cute Pure yang tersimpan dengan ejaan lama `cute_pure` tetap terbaca kanonik', async () => {
@@ -236,13 +236,13 @@ describe('useAppearancePrefs di atas repository user_prefs', () => {
 
     // Akun lain di browser yang sama: pilihan akun pertama tidak boleh terbawa.
     useAppearanceStore().adopt('018f2c4e-0000-7000-8000-00000000000b')
-    expect(useAppearanceStore().style).toBe('cute')
+    expect(useAppearanceStore().style).toBe('clean')
     expect(useAppearanceStore().ownerUserId).toBe('018f2c4e-0000-7000-8000-00000000000b')
 
     // Logout: cache dikosongkan, bukan diwariskan.
     useAppearanceStore().forget()
     expect(useAppearanceStore().ownerUserId).toBeNull()
-    expect(useAppearanceStore().style).toBe('cute')
+    expect(useAppearanceStore().style).toBe('clean')
     expect(localStorage.getItem('ip-style')).toBeNull()
   })
 

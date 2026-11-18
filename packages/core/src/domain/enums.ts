@@ -243,13 +243,22 @@ export const BREAKPOINT_MAX_WIDTH_PX: Readonly<Record<Breakpoint, number>> = {
   desktop: Number.POSITIVE_INFINITY,
 }
 
-export const THEME_COLORS = ['kuning', 'hijau', 'ungu'] as const
+export const THEME_COLORS = [
+  'kuning',
+  'hijau',
+  'ungu',
+  'biru',
+  'pink',
+  'toska',
+  'jingga',
+  'grafit',
+] as const
 
 export type ThemeColor = (typeof THEME_COLORS)[number]
 
 export const themeColorSchema = z.enum(THEME_COLORS)
 
-/** Default pertama kali: Cute + Kuning (PRD F16). */
+/** Default pertama kali: Clean + Kuning (PRD F16). */
 export const DEFAULT_THEME_COLOR: ThemeColor = 'kuning'
 
 /**
@@ -264,6 +273,7 @@ export const DEFAULT_THEME_COLOR: ThemeColor = 'kuning'
  * memakainya. Tanpa alias itu Cute Pure jatuh ke Cute (QA T25 B2).
  */
 export const APP_STYLES = [
+  'clean',
   'cute',
   'cute-pure',
   'kertas',
@@ -321,4 +331,4 @@ export const appStyleSchema = z.preprocess(
   z.enum(APP_STYLES),
 )
 
-export const DEFAULT_APP_STYLE: AppStyle = 'cute'
+export const DEFAULT_APP_STYLE: AppStyle = 'clean'

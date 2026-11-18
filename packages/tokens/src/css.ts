@@ -116,8 +116,13 @@ function styleVariables(name: StyleName): TokenGroup {
     ...(style.isDecorated ? {} : PLAIN_NAV_ICON),
     ...style.neutrals,
   }
-  if (style.shadow.color) vars['shadow-color'] = style.shadow.color
-  if (!style.isPatterned) vars.grid = 'transparent'
+  // Selalu dideklarasikan, bukan hanya saat ada nilainya: gaya non-default harus bisa MENGEMBALIKAN
+  // nilai yang ditimpa gaya default di :root. `initial` membuat `--shadow-color` tidak valid sehingga
+  // `var(--shadow-color, <warna komponen>)` jatuh ke warna bawaan komponen.
+  vars['shadow-color'] = style.shadow.color ?? 'initial'
+  // Lewat token terpisah, bukan menimpa `--grid`: `--grid` milik tema, dan `[data-theme]` datang
+  // setelah :root sehingga akan menyalakan lagi grid yang dimatikan gaya default.
+  vars['grid-line'] = style.isPatterned ? 'var(--grid)' : 'transparent'
   return vars
 }
 

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import { THEME_COLOR_KEYS, THEME_NAMES, palette, themes } from './colors.ts'
 import { toCssVariables } from './css.ts'
-import { STYLE_NAMES, uiStyles } from './styles.ts'
+import { DEFAULT_STYLE, STYLE_NAMES, uiStyles } from './styles.ts'
 
 describe('toCssVariables', () => {
   const css = toCssVariables()
@@ -15,7 +15,7 @@ describe('toCssVariables', () => {
       '--radius-leaf: calc(13px * var(--rk)) calc(13px * var(--rk)) calc(13px * var(--rk)) calc(5px * var(--rk));',
     )
     expect(root).toContain('--rk: 1;')
-    expect(root).toContain('--outline: var(--ink);')
+    expect(root).toContain(`--outline: ${uiStyles[DEFAULT_STYLE].outline};`)
   })
 
   it('tidak mendeklarasikan token yang sama dua kali di :root', () => {
@@ -25,13 +25,24 @@ describe('toCssVariables', () => {
   })
 
   it('membuat blok override untuk tiap gaya non-default, aksen per tema pakai selector gabungan', () => {
-    for (const name of STYLE_NAMES.filter((style) => style !== 'cute')) {
+    for (const name of STYLE_NAMES.filter((style) => style !== DEFAULT_STYLE)) {
       expect(css).toContain(`[data-style='${name}'] {`)
       expect(css).toContain(`--rk: ${uiStyles[name].radiusScale};`)
     }
     expect(css).toContain(`[data-style='elegan'][data-theme='ungu'] {`)
-    expect(css).not.toContain(`[data-style='cute']`)
+    expect(css).not.toContain(`[data-style='${DEFAULT_STYLE}']`)
     expect(css).not.toContain(`[data-style='cute-pure'] [data-deco-builtin]`)
+  })
+
+  it('gaya non-default mengembalikan grid & warna bayangan yang ditimpa gaya default di :root', () => {
+    const root = css.slice(css.indexOf(':root'), css.indexOf('}'))
+    expect(root).toContain('--grid-line: transparent;')
+    expect(root).toContain(`--shadow-color: ${uiStyles[DEFAULT_STYLE].shadow.color};`)
+
+    const cute = css.slice(css.indexOf(`[data-style='cute'] {`))
+    const body = cute.slice(0, cute.indexOf('}'))
+    expect(body).toContain('--grid-line: var(--grid);')
+    expect(body).toContain('--shadow-color: initial;')
   })
 
   it('gaya tanpa dekorasi mematikan pola titik dan dekorasi', () => {
@@ -57,7 +68,7 @@ describe('toCssVariables', () => {
   })
 
   it('tiap gaya non-default menyetel pengali ukuran & radius pill-nya sendiri', () => {
-    for (const name of STYLE_NAMES.filter((style) => style !== 'cute')) {
+    for (const name of STYLE_NAMES.filter((style) => style !== DEFAULT_STYLE)) {
       const block = css.slice(css.indexOf(`[data-style='${name}'] {`))
       const body = block.slice(0, block.indexOf('}'))
       const { typeScale, density, pillRadius, fontSizeAdjust } = uiStyles[name]

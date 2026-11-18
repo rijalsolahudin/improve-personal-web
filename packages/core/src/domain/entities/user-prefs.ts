@@ -52,7 +52,7 @@ export const userPrefsSchema = z
 
 export type UserPrefs = z.infer<typeof userPrefsSchema>
 
-/** Default pertama kali: Cute + Kuning (PRD F16). */
+/** Default pertama kali: Clean + Kuning (PRD F16). */
 export const DEFAULT_USER_PREFS: Pick<UserPrefs, 'themeColor' | 'style' | 'hideDecorations'> = {
   themeColor: DEFAULT_THEME_COLOR,
   style: DEFAULT_APP_STYLE,
