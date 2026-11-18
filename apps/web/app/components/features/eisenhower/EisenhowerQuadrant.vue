@@ -160,7 +160,9 @@ function add(id: string): void {
   list-style: none;
 }
 
+/* Menempel di dasar kartu: kuadran setinggi baris grid, jadi tombol tidak mengambang di tengah. */
 .add {
+  margin-top: auto;
   padding: var(--space-10);
   border: var(--border) dashed color-mix(in srgb, var(--q-text) 33%, transparent);
   border-radius: var(--radius-btn-sq);
