@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { BACKUP_PLAINTEXT_WARNING } from '@improve-personal/core'
 
-import { downloadTextFile } from '~/utils/download'
+import { downloadFile } from '~/utils/download'
 
 /**
  * Kartu "Export" (PRD F10).
@@ -21,22 +21,22 @@ async function download(): Promise<void> {
   const file = await exportBackup()
   if (file === null) return
 
-  downloadTextFile(file.name, file.text, 'application/json')
+  downloadFile(file.name, file.text, 'application/json')
 }
 </script>
 
 <template>
   <Card class="export-card">
-    <h2 class="card-title">Export data</h2>
+    <h2 class="card-title">Export JSON (bisa dibaca)</h2>
     <p class="hint">
-      Menyimpan semua data akun ini (jadwal, task, habit, jurnal, goal, countdown, dan lainnya) ke
-      satu berkas JSON yang bisa dibuka sendiri.
+      Menyimpan semua data (jadwal, task, habit, jurnal, goal, countdown, dan lainnya) ke satu
+      berkas JSON yang bisa kamu buka sendiri. Untuk cadangan, pakai backup terenkripsi di atas.
     </p>
 
     <p class="warning" role="note">{{ BACKUP_PLAINTEXT_WARNING }}</p>
 
     <Button variant="primary" :disabled="isBusy" @click="download">
-      {{ isBusy ? 'Menyiapkan berkas…' : 'Unduh berkas backup' }}
+      {{ isBusy ? 'Menyiapkan berkas…' : 'Unduh berkas JSON' }}
     </Button>
 
     <p v-if="status" class="status" role="status" aria-live="polite">{{ status }}</p>

@@ -66,6 +66,11 @@ onMounted(() => {
       open
       @close="accountDialogs.close"
     />
+    <LazyAccountSignOutDialog
+      v-if="accountDialogs.current.value === 'signOut'"
+      open
+      @close="accountDialogs.close"
+    />
     <!-- Tampilan berlaku di seluruh app, jadi modalnya milik shell, bukan halaman tertentu. -->
     <LazyAppearanceDialog v-if="isPickerOpen" />
     <LazyDecoLayer v-if="isDecoMounted" />

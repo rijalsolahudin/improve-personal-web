@@ -224,13 +224,13 @@ export const GUIDE_FEATURES: readonly GuideFeature[] = [
     id: 'import-export',
     code: 'F10',
     group: 'lainnya',
-    title: 'Import / Export',
+    title: 'Backup & Pulihkan',
     status: 'ready',
     summary:
-      'Export membungkus seluruh data lokal ke satu berkas JSON yang bisa dibaca. Import menampilkan pratinjau lebih dulu, lalu menawarkan gabung dengan data sekarang atau ganti semua. Berkas export tidak terenkripsi, jadi simpan di tempat yang aman.',
+      'Backup terenkripsi membungkus seluruh data lokal ke satu berkas .ipbackup yang dikunci kata sandi. Pulihkan menampilkan pratinjau lebih dulu, lalu menawarkan gabung dengan data sekarang atau ganti semua. Export JSON tetap ada untuk dibaca sendiri, tapi isinya tidak terenkripsi.',
     tips: [
-      'Export dan import bekerja di perangkat ini; tidak perlu kunci atau langkah pemulihan apa pun.',
-      'Berkas backup maksimal 32 MB. Berkas export berisi data terbaca (bukan terenkripsi), dan import menolak berkas yang lebih besar sebelum dibaca.',
+      'Kata sandi backup minimal 12 karakter dan tidak disimpan di mana pun. Lupa kata sandi = berkas itu tidak bisa dibuka; buat backup baru selama perangkat lama masih ada.',
+      'Berkas backup maksimal 32 MB, dan import menolak berkas yang lebih besar sebelum dibaca.',
       'Mode ganti semua harus dikonfirmasi dan baru menghapus data lama setelah berkas lolos validasi; berkas bermasalah ditolak lebih dulu.',
     ],
     href: getFeature('import-export').path,
@@ -363,19 +363,19 @@ export const GUIDE_SECURITY = {
 export const GUIDE_BACKUP = {
   id: 'backup',
   title: 'Backup & pindah data',
-  lead: 'Data tetap ada di server, jadi backup di sini artinya salinan yang bisa kamu baca atau pindahkan sendiri.',
+  lead: 'Data hanya ada di perangkat ini. Perangkat hilang atau data browser terhapus tanpa backup = data hilang permanen, jadi backup rutin itu tanggung jawab kamu.',
   blocks: [
     {
-      title: '1. Export data — sudah ada',
-      body: 'Buka halaman Import / Export. Export mengunduh satu berkas JSON berisi seluruh data lokal. Simpan di tempat aman karena isinya terbaca, bukan terenkripsi.',
+      title: '1. Backup terenkripsi',
+      body: 'Buka Backup & Pulihkan, buat kata sandi backup, lalu unduh berkas .ipbackup. Tanpa kata sandi itu, isinya tidak bisa dibuka siapa pun - termasuk kami.',
     },
     {
-      title: '2. Import data — sudah ada',
-      body: 'Import memvalidasi berkas (maksimal 32 MB), menampilkan pratinjau, lalu menawarkan gabung atau ganti semua. Mode ganti semua harus dikonfirmasi dan baru menghapus data lama setelah berkas lolos validasi.',
+      title: '2. Pulihkan',
+      body: 'Pilih berkas .ipbackup, masukkan kata sandinya, lihat pratinjau jumlah data, lalu pilih gabung atau ganti semua. Mode ganti semua harus dikonfirmasi dan baru menghapus data lama setelah berkas lolos validasi.',
     },
     {
-      title: '3. Kunci server — dipegang operator',
-      body: 'Kunci at-rest hanya ada di env server dan wajib disimpan di secret manager/backup terpisah. Kalau kunci itu hilang, isi database tidak bisa dibuka siapa pun - termasuk tim.',
+      title: '3. Export JSON',
+      body: 'Export JSON mengunduh berkas yang bisa kamu baca sendiri. Isinya tidak terenkripsi, jadi simpan di tempat aman dan jangan jadikan satu-satunya cadangan.',
     },
   ] satisfies readonly GuideLayer[],
   warning:

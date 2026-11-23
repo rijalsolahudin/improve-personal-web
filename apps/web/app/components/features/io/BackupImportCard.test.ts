@@ -12,6 +12,8 @@ import { mountSuspended } from '@nuxt/test-utils/runtime'
 import { flushPromises, type VueWrapper } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { encryptBackup } from '~/utils/crypto/backup-crypto'
+
 import BackupImportCard from './BackupImportCard.vue'
 
 /**
@@ -68,6 +70,26 @@ function backupDocument(count = 2): BackupDocument {
 /** `File` tiruan: `readBackupFileText` hanya butuh `name`/`size`/`text`. */
 function jsonFile(content: string, name = 'improve-personal-backup-2023-11-14.json'): File {
   return { name, size: content.length, text: async () => content } as unknown as File
+}
+
+/** Berkas `.ipbackup` asli (kripto sungguhan, biaya Argon2id diturunkan supaya cepat). */
+async function encryptedFile(password: string): Promise<File> {
+  const bytes = await encryptBackup(
+    serializeBackup(backupDocument(3)),
+    { password, cost: { opslimit: 1, memlimit: 8 * 1024 * 1024 } },
+    EXPORTED_AT,
+  )
+  return {
+    name: 'improve-personal-backup-2023-11-14.ipbackup',
+    size: bytes.length,
+    arrayBuffer: async () => bytes.slice().buffer,
+  } as unknown as File
+}
+
+async function unlockWith(wrapper: VueWrapper, password: string): Promise<void> {
+  await wrapper.find('#backup-unlock').setValue(password)
+  await wrapper.find('form.unlock').trigger('submit')
+  await settle()
 }
 
 let mounted: VueWrapper | null = null
@@ -227,5 +249,33 @@ describe('kartu import', () => {
     // Berkas yang sama tidak boleh ter-import dua kali tanpa sengaja.
     expect(wrapper.find('.preview').exists()).toBe(false)
     expect(importButton(wrapper).attributes('disabled')).toBeDefined()
+  })
+
+  it('berkas .ipbackup: minta kata sandi dulu, preview baru muncul setelah terbuka', async () => {
+    const wrapper = await mount()
+    await chooseFile(wrapper, await encryptedFile('kata-sandi-backup-uji'))
+
+    expect(wrapper.find('#backup-unlock').exists()).toBe(true)
+    expect(wrapper.find('.preview').exists()).toBe(false)
+    expect(importButton(wrapper).attributes('disabled')).toBeDefined()
+
+    await unlockWith(wrapper, 'kata-sandi-backup-uji')
+
+    // gunzip berjalan lewat stream (macrotask), jadi ditunggu sampai preview muncul.
+    await vi.waitFor(() => expect(wrapper.find('.preview').exists()).toBe(true))
+    expect(wrapper.find('#backup-unlock').exists()).toBe(false)
+    expect(wrapper.find('.preview').text()).toContain('3 data')
+    expect(importButton(wrapper).attributes('disabled')).toBeUndefined()
+  })
+
+  it('kata sandi salah: pesan jelas, tidak ada preview, kolom sandi tetap ada untuk dicoba lagi', async () => {
+    const wrapper = await mount()
+    await chooseFile(wrapper, await encryptedFile('kata-sandi-backup-uji'))
+    await unlockWith(wrapper, 'bukan-kata-sandinya')
+
+    expect(wrapper.find('[role="alert"]').text()).toContain('Kata sandi salah')
+    expect(wrapper.find('.preview').exists()).toBe(false)
+    expect(wrapper.find('#backup-unlock').exists()).toBe(true)
+    expect(mocks.applyBackupDocument).not.toHaveBeenCalled()
   })
 })

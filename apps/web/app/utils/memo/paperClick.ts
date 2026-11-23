@@ -28,8 +28,15 @@ function textEnd(element: Element, y: number): number {
 
 /**
  * `root` = elemen ProseMirror. `null` = klik biasa (biarkan editor memindah kursor).
+ * `canPlace` false: tidak ada kotak bebas - klik di bawah tulisan selalu lanjut menulis di baris
+ * itu, dan klik di samping kalimat jadi klik biasa.
  */
-export function classifyPaperClick(root: Element, x: number, y: number): PaperClick | null {
+export function classifyPaperClick(
+  root: Element,
+  x: number,
+  y: number,
+  canPlace: boolean,
+): PaperClick | null {
   const lines = [...root.querySelectorAll(':scope > p, li')]
   const last = lines.at(-1)
   if (last === undefined) return null
@@ -37,7 +44,7 @@ export function classifyPaperClick(root: Element, x: number, y: number): PaperCl
   const bottom = last.getBoundingClientRect().bottom
   if (y >= bottom) {
     const box = root.getBoundingClientRect()
-    if (x - box.left >= box.width * FILL_ZONE) return { kind: 'place' }
+    if (canPlace && x - box.left >= box.width * FILL_ZONE) return { kind: 'place' }
     return { kind: 'fill', lines: Math.floor((y - bottom) / MEMO_LINE_PX) + 1 }
   }
 
@@ -45,6 +52,6 @@ export function classifyPaperClick(root: Element, x: number, y: number): PaperCl
     const rect = element.getBoundingClientRect()
     return y >= rect.top && y < rect.bottom
   })
-  if (line === undefined) return null
+  if (line === undefined || !canPlace) return null
   return x - textEnd(line, y) > FREE_GAP_PX ? { kind: 'place' } : null
 }

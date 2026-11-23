@@ -1,9 +1,12 @@
 <script setup lang="ts">
+import BackupDriveCard from '~/components/features/io/BackupDriveCard.vue'
+import BackupEncryptedCard from '~/components/features/io/BackupEncryptedCard.vue'
 import BackupExportCard from '~/components/features/io/BackupExportCard.vue'
 import BackupImportCard from '~/components/features/io/BackupImportCard.vue'
 
 /**
- * Halaman "Import & Export" (PRD F10, task T12 UI).
+ * Halaman "Backup & Pulihkan" (PRD F10 + F15 "Backup", task T12/T28 UI). Rute tetap
+ * `/app/import-export` supaya tautan lama (banner kuota, Panduan) tidak putus.
  *
  * Halaman ini tipis dengan sengaja: seluruh perilaku ada di `useBackupExport`/`useBackupImport` dan
  * `utils/io/*`, supaya alur export/import bisa diuji tanpa memasang halaman.
@@ -39,7 +42,8 @@ const unavailableMessage = computed(() => {
     <header class="hero">
       <h1 class="title">{{ $t('feature.import-export.label') }}</h1>
       <p class="lead">
-        Simpan seluruh data ke satu berkas, atau pulihkan dari berkas backup yang pernah kamu unduh.
+        Data kamu hanya tersimpan di perangkat ini. Buat backup terenkripsi secara rutin, lalu pakai
+        berkasnya untuk memulihkan data di perangkat baru.
       </p>
     </header>
 
@@ -47,8 +51,10 @@ const unavailableMessage = computed(() => {
       {{ unavailableMessage }}
     </p>
 
-    <BackupExportCard />
+    <BackupEncryptedCard />
+    <BackupDriveCard />
     <BackupImportCard />
+    <BackupExportCard />
   </div>
 </template>
 

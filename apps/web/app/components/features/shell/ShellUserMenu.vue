@@ -1,5 +1,5 @@
 <script setup lang="ts">
-/** Kaki sidebar Desktop.dc.html: kartu profil + menu (profil, data, tampilan, panduan). */
+/** Kaki sidebar Desktop.dc.html: kartu profil + menu (profil, data, tampilan, panduan, keluar). */
 import type { AccountDialog } from '~/composables/useAccountDialogs'
 
 const { collapsed = false } = defineProps<{ collapsed?: boolean }>()
@@ -12,14 +12,20 @@ const { isPickerOpen } = useAppearance()
 const accountDialogs = useAccountDialogs()
 const { profile } = useProfile()
 
-// Nama & foto dari profil lokal terenkripsi; tidak ada akun server (ADR 15).
+// Nama & foto dari profil lokal terenkripsi; tidak ada akun server (ADR 15), jadi email login tidak
+// pernah jadi nama. Selama nama kosong, kartu & item profil mengajak mengisinya.
 const displayName = computed(() => profile.value.displayName)
+const profileLabel = computed(() =>
+  displayName.value ? 'shell.user.profile' : 'shell.user.setName',
+)
 
 /** Modal akun: dibuka lewat state bersama, dirender di layout. */
-const dialogItems: readonly { key: AccountDialog; glyph: string; label: string }[] = [
-  { key: 'profile', glyph: '☺', label: 'shell.user.profile' },
-  { key: 'security', glyph: '⚿', label: 'shell.user.security' },
-]
+const dialogItems = computed<readonly { key: AccountDialog; glyph: string; label: string }[]>(
+  () => [
+    { key: 'profile', glyph: '☺', label: profileLabel.value },
+    { key: 'security', glyph: '⚿', label: 'shell.user.security' },
+  ],
+)
 
 const linkItems = [
   { key: 'guide', glyph: '?', to: getFeature('panduan').path, label: 'shell.user.guide' },
@@ -70,6 +76,10 @@ function openAppearance(): void {
         <span class="item-icon" aria-hidden="true">{{ item.glyph }}</span>
         <span>{{ $t(item.label) }}</span>
       </NuxtLink>
+      <button type="button" class="item item-button sign-out" @click="openDialog('signOut')">
+        <span class="item-icon" aria-hidden="true"><Icon name="arrow-right" :size="16" /></span>
+        <span>{{ $t('shell.user.signOut') }}</span>
+      </button>
     </div>
     <button
       type="button"
@@ -82,7 +92,9 @@ function openAppearance(): void {
     >
       <AccountProfileAvatar :src="profile.avatar" :label="displayName" />
       <span v-if="!collapsed" class="who">
-        <span class="name">{{ displayName || $t('shell.user.name') }}</span>
+        <span class="name" :class="{ unset: !displayName }">{{
+          displayName || $t('shell.user.setName')
+        }}</span>
         <span class="sub">{{ $t('shell.user.label') }}</span>
       </span>
       <Icon
@@ -208,6 +220,20 @@ function openAppearance(): void {
   border: 0;
   background: none;
   text-align: left;
+}
+
+/* Aksi keluar dipisah garis dari menu biasa: bukan navigasi, dan mengakhiri akses perangkat ini. */
+.sign-out {
+  margin-top: var(--space-4);
+  padding-top: var(--space-10);
+  border-top: var(--border-thin) dashed var(--dash);
+  border-radius: 0 0 var(--radius-inner) var(--radius-inner);
+  color: var(--danger);
+}
+
+/* Nama kosong: ajakan, bukan nama - warnanya aksen supaya terbaca sebagai tautan. */
+.name.unset {
+  color: var(--accent);
 }
 
 .item-icon {

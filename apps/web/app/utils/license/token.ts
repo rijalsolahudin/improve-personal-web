@@ -78,6 +78,15 @@ export function readStoredLicenseToken(storage: Storage = localStorage): string 
   }
 }
 
+/** Buang token perangkat ini (keluar). Storage yang diblokir: tidak ada yang perlu dibuang. */
+export function clearLicenseToken(storage: Storage = localStorage): void {
+  try {
+    storage.removeItem(LICENSE_STORAGE_KEY)
+  } catch {
+    // Storage diblokir: token memang tidak pernah tersimpan.
+  }
+}
+
 /** `false` kalau storage menolak (kuota/diblokir): lisensi tetap berlaku untuk tab ini saja. */
 export function storeLicenseToken(token: string, storage: Storage = localStorage): boolean {
   try {

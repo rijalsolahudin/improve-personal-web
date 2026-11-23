@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { BACKUP_MAX_BYTES, type ImportMode } from '@improve-personal/core'
 
+import BackupDriveRestore from '~/components/features/io/BackupDriveRestore.vue'
 import type { SegmentedOption } from '~/components/ui/Segmented/index.vue'
 import { formatByteSize } from '~/utils/io/preview'
 
@@ -23,12 +24,24 @@ const {
   status,
   fileName,
   preview,
+  needsPassword,
   mode,
   isReplaceConfirmed,
   canApply,
   selectFile,
+  selectEncryptedBytes,
+  unlock,
   applyImport,
 } = useBackupImport()
+
+// Kata sandi hanya untuk membuka berkas ini; dikosongkan setelah dicoba.
+const password = ref('')
+
+async function openLocked(): Promise<void> {
+  const value = password.value
+  password.value = ''
+  await unlock(value)
+}
 
 const maxFileSize = formatByteSize(BACKUP_MAX_BYTES)
 
@@ -58,22 +71,33 @@ async function onChange(event: Event): Promise<void> {
 
 <template>
   <Card class="import-card">
-    <h2 class="card-title">Import data</h2>
+    <h2 class="card-title">Pulihkan dari berkas</h2>
     <p id="backup-import-hint" class="hint">
-      Pilih berkas backup JSON hasil Export. Berkasnya diperiksa dulu; data yang ada tidak diubah
-      sebelum kamu menekan tombol import. Maksimal {{ maxFileSize }}.
+      Pilih berkas backup terenkripsi (<code>.ipbackup</code>) atau JSON hasil Export. Berkasnya
+      diperiksa dulu; data yang ada tidak diubah sebelum kamu menekan tombol import. Maksimal
+      {{ maxFileSize }}.
     </p>
 
     <label class="label" for="backup-file">Berkas backup</label>
     <input
       id="backup-file"
       type="file"
-      accept="application/json,.json"
+      accept=".ipbackup,application/json,.json"
       aria-describedby="backup-import-hint"
       :disabled="isBusy"
       @change="onChange"
     />
+    <BackupDriveRestore @picked="selectEncryptedBytes" />
     <p v-if="fileName" class="hint file-name">Dipilih: {{ fileName }}</p>
+
+    <form v-if="needsPassword" class="unlock" @submit.prevent="openLocked">
+      <Field label="Kata sandi backup">
+        <PasswordInput id="backup-unlock" v-model="password" autocomplete="current-password" />
+      </Field>
+      <Button type="submit" variant="primary" :disabled="isBusy || password === ''">
+        {{ isBusy ? 'Membuka berkas…' : 'Buka berkas' }}
+      </Button>
+    </form>
 
     <section v-if="preview" class="preview" aria-labelledby="backup-preview-title">
       <h3 id="backup-preview-title">Isi berkas</h3>
@@ -139,6 +163,12 @@ async function onChange(event: Event): Promise<void> {
 
 .file-name {
   word-break: break-all;
+}
+
+.unlock {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-10);
 }
 
 .preview {

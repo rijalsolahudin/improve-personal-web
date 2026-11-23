@@ -2,6 +2,7 @@ import { AuthRequestError, type AuthGateway } from './auth/gateway'
 import { useAuthGateway } from './auth/http-gateway'
 
 import {
+  clearLicenseToken,
   readStoredLicenseToken,
   storeLicenseToken,
   verifyLicenseToken,
@@ -85,11 +86,21 @@ export function useLicense(gateway?: AuthGateway) {
     activationError.value = null
   }
 
+  /**
+   * Lepas lisensi dari perangkat ini (menu "Keluar"). Hanya tokennya yang dibuang: data lokal dan id
+   * instalasi tetap, jadi aktivasi ulang dengan email yang sama memakai jatah perangkat yang sama.
+   */
+  function release(): void {
+    clearLicenseToken()
+    status.value = 'missing'
+  }
+
   return {
     status: readonly(status),
     activationError: readonly(activationError),
     ensureChecked,
     activate,
     clearActivationError,
+    release,
   }
 }

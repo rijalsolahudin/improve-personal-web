@@ -19,7 +19,7 @@ const NOW = 1_700_000_000_000
 
 const mocks = vi.hoisted(() => ({
   createBackupFile: vi.fn(),
-  downloadTextFile: vi.fn(),
+  downloadFile: vi.fn(),
   ensure: vi.fn(),
 }))
 
@@ -28,7 +28,7 @@ vi.mock('~/utils/io/export', async (importOriginal) => ({
   createBackupFile: mocks.createBackupFile,
 }))
 
-vi.mock('~/utils/download', () => ({ downloadTextFile: mocks.downloadTextFile }))
+vi.mock('~/utils/download', () => ({ downloadFile: mocks.downloadFile }))
 
 vi.mock('~/composables/useLocalData', () => ({
   useLocalData: () => ({ ensure: mocks.ensure }),
@@ -48,7 +48,7 @@ async function settle(): Promise<void> {
 
 beforeEach(() => {
   mocks.createBackupFile.mockReset()
-  mocks.downloadTextFile.mockReset()
+  mocks.downloadFile.mockReset()
   mocks.ensure.mockReset()
   mocks.ensure.mockResolvedValue({ clock: { nowMs: () => NOW } })
 })
@@ -68,10 +68,10 @@ describe('kartu export', () => {
 
     // Posisi di DOM: peringatan mendahului tombol, jadi tidak mungkin terlewat setelah berkas diunduh.
     const html = wrapper.html()
-    expect(html.indexOf(BACKUP_PLAINTEXT_WARNING)).toBeLessThan(html.indexOf('Unduh berkas backup'))
+    expect(html.indexOf(BACKUP_PLAINTEXT_WARNING)).toBeLessThan(html.indexOf('Unduh berkas JSON'))
 
     expect(mocks.createBackupFile).not.toHaveBeenCalled()
-    expect(mocks.downloadTextFile).not.toHaveBeenCalled()
+    expect(mocks.downloadFile).not.toHaveBeenCalled()
   })
 
   it('menampilkan pesan BackupExportLimitError apa adanya dan tidak mengunduh berkas', async () => {
@@ -84,7 +84,7 @@ describe('kartu export', () => {
 
     expect(wrapper.find('[role="alert"]').text()).toBe(limitError.message)
     expect(wrapper.find('[role="alert"]').text()).toContain('melebihi batas')
-    expect(mocks.downloadTextFile).not.toHaveBeenCalled()
+    expect(mocks.downloadFile).not.toHaveBeenCalled()
 
     // Bukan jalan buntu: tombol hidup lagi supaya user bisa mencoba setelah ruang/data dibereskan.
     expect(wrapper.find('button').attributes('disabled')).toBeUndefined()
@@ -102,7 +102,7 @@ describe('kartu export', () => {
     await wrapper.find('button').trigger('click')
     await settle()
 
-    expect(mocks.downloadTextFile).toHaveBeenCalledWith(
+    expect(mocks.downloadFile).toHaveBeenCalledWith(
       'improve-personal-backup-2023-11-14.json',
       '{"format":"ip-backup"}',
       'application/json',

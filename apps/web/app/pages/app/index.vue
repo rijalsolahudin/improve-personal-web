@@ -31,6 +31,7 @@ const next = computed(() => {
       :now="daily.now.value"
       :progress="daily.progress.value"
     />
+    <DailyBackupReminder />
     <DailyNowStrip
       data-anchor="daily-now"
       data-anchor-kind="content"

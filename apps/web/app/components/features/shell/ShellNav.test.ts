@@ -22,17 +22,17 @@ function importExportLink(wrapper: VueWrapper) {
 }
 
 describe('navigasi ke Import & Export', () => {
-  it('menu HP memuat tautan Import / Export beserta labelnya', async () => {
+  it('menu HP memuat tautan Backup & Pulihkan beserta labelnya', async () => {
     const wrapper = await mountSuspended(ShellMenuSheet, {
       attrs: { id: 'shell-menu-test' },
     })
 
     const link = importExportLink(wrapper)
     expect(link).toBeDefined()
-    expect(link?.text()).toContain('Import / Export')
+    expect(link?.text()).toContain('Backup & Pulihkan')
   })
 
-  it('menu akun di sidebar memuat tautan Import / Export', async () => {
+  it('menu akun di sidebar memuat tautan Backup & Pulihkan', async () => {
     const wrapper = await mountSuspended(ShellUserMenu)
 
     await wrapper.find('button.card').trigger('click')
@@ -40,6 +40,6 @@ describe('navigasi ke Import & Export', () => {
 
     const link = importExportLink(wrapper)
     expect(link).toBeDefined()
-    expect(link?.text()).toContain('Import / Export')
+    expect(link?.text()).toContain('Backup & Pulihkan')
   })
 })

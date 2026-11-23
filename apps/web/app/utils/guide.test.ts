@@ -75,7 +75,7 @@ describe('isi panduan', () => {
  * tidak boleh berstatus "segera", dan copy tidak boleh menjanjikan perilaku yang belum ada.
  */
 describe('status & klaim mengikuti kode', () => {
-  it('Import / Export siap dipakai dan mengarah ke halamannya', () => {
+  it('Backup & Pulihkan siap dipakai dan mengarah ke halamannya', () => {
     const feature = GUIDE_FEATURES.find((item) => item.code === 'F10')
     expect(feature).toBeDefined()
     expect(feature?.status).toBe('ready')

@@ -32,7 +32,7 @@ const DOC_MISMATCH_MESSAGE =
 
 const mocks = vi.hoisted(() => ({
   createBackupFile: vi.fn(),
-  downloadTextFile: vi.fn(),
+  downloadFile: vi.fn(),
   applyBackupDocument: vi.fn(),
   ensure: vi.fn(),
 }))
@@ -42,7 +42,7 @@ vi.mock('~/utils/io/export', async (importOriginal) => ({
   createBackupFile: mocks.createBackupFile,
 }))
 
-vi.mock('~/utils/download', () => ({ downloadTextFile: mocks.downloadTextFile }))
+vi.mock('~/utils/download', () => ({ downloadFile: mocks.downloadFile }))
 
 vi.mock('~/utils/io/import', async (importOriginal) => ({
   ...(await importOriginal<typeof import('~/utils/io/import')>()),
@@ -137,7 +137,7 @@ async function mount(component: Parameters<typeof mountSuspended>[0]): Promise<V
 
 beforeEach(() => {
   mocks.createBackupFile.mockReset()
-  mocks.downloadTextFile.mockReset()
+  mocks.downloadFile.mockReset()
   mocks.applyBackupDocument.mockReset()
   mocks.ensure.mockReset()
   mocks.ensure.mockResolvedValue({ clock: { nowMs: () => NOW } })
@@ -157,11 +157,11 @@ describe('(a) peringatan plaintext sebelum export', () => {
     expect(warning.text()).toBe(BACKUP_PLAINTEXT_WARNING)
 
     const html = wrapper.html()
-    expect(html.indexOf(warning.text())).toBeLessThan(html.indexOf('Unduh berkas backup'))
+    expect(html.indexOf(warning.text())).toBeLessThan(html.indexOf('Unduh berkas JSON'))
 
     // Belum ada berkas yang disusun/diunduh sebelum user menekan tombol.
     expect(mocks.createBackupFile).not.toHaveBeenCalled()
-    expect(mocks.downloadTextFile).not.toHaveBeenCalled()
+    expect(mocks.downloadFile).not.toHaveBeenCalled()
   })
 })
 
@@ -171,12 +171,12 @@ describe('(f) BackupExportLimitError ditampilkan apa adanya', () => {
     mocks.createBackupFile.mockRejectedValue(limitError)
 
     const wrapper = await mount(BackupExportCard)
-    await buttonWithText(wrapper, 'Unduh berkas backup').trigger('click')
+    await buttonWithText(wrapper, 'Unduh berkas JSON').trigger('click')
     await flushPromises()
 
     expect(wrapper.find('[role="alert"]').text()).toBe(limitError.message)
     expect(wrapper.find('[role="alert"]').text()).toContain('50001 data')
-    expect(mocks.downloadTextFile).not.toHaveBeenCalled()
+    expect(mocks.downloadFile).not.toHaveBeenCalled()
   })
 })
 

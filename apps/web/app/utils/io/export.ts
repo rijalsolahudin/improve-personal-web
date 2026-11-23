@@ -1,8 +1,10 @@
 import {
   BackupExportLimitError,
   ENTITY_TYPES,
+  EncryptedBackupError,
   backupFileName,
   buildBackupDocument,
+  encryptedBackupFileName,
   serializeBackup,
   type BackupDocument,
   type BackupRecordInput,
@@ -12,6 +14,8 @@ import {
   type StorageAdapter,
 } from '@improve-personal/core'
 
+import type { BackupKeySource } from '../crypto/backup-cipher'
+import { encryptBackup } from '../crypto/backup-crypto'
 import { createRepository } from '../storage/repository'
 
 /**
@@ -97,6 +101,30 @@ export async function createBackupFile(input: CreateBackupFileInput): Promise<Ba
   return { name: backupFileName(input.exportedAtMs, input.tz), text, document }
 }
 
+export type EncryptedBackupFile = {
+  readonly name: string
+  readonly bytes: Uint8Array
+  readonly recordCount: number
+}
+
+/**
+ * Berkas backup terenkripsi `.ipbackup` (PRD F15, T27): dokumen yang SAMA dengan export JSON (batas
+ * ukuran & record ikut), lalu gzip + Argon2id + secretstream di worker. Isi yang tidak terenkripsi
+ * hanya hidup di memori selama fungsi ini berjalan.
+ */
+export async function createEncryptedBackupFile(
+  input: CreateBackupFileInput & { readonly key: BackupKeySource },
+): Promise<EncryptedBackupFile> {
+  const plain = await createBackupFile(input)
+  const bytes = await encryptBackup(plain.text, input.key, input.exportedAtMs)
+
+  return {
+    name: encryptedBackupFileName(input.exportedAtMs, input.tz),
+    bytes,
+    recordCount: plain.document.records.length,
+  }
+}
+
 /**
  * Pesan kegagalan export untuk UI.
  *
@@ -104,7 +132,9 @@ export async function createBackupFile(input: CreateBackupFileInput): Promise<Ba
  * batasnya, dan menambah awalan/akhiran hanya mengaburkan satu-satunya informasi yang berguna.
  */
 export function describeExportFailure(cause: unknown): string {
-  if (cause instanceof BackupExportLimitError) return cause.message
+  if (cause instanceof BackupExportLimitError || cause instanceof EncryptedBackupError) {
+    return cause.message
+  }
 
   const detail = cause instanceof Error ? cause.message : 'sebab tidak dikenal'
   return `Gagal membuat berkas backup: ${detail}`

@@ -166,7 +166,10 @@ export default defineNuxtConfig({
     // `public.appEnv` cuma untuk UI (mis. login demo). Kosong = production.
     // `public.licensePublicKey` = pasangan public key `licenseSigningKey`; app memakainya untuk
     // memverifikasi token lisensi secara offline. Public key memang boleh publik.
-    public: { appEnv: 'production', licensePublicKey: '' },
+    // `public.googleDriveClientId` = OAuth client ID untuk backup Google Drive (T29). Client ID
+    // memang publik (dipakai browser di URL izin Google); TIDAK ada client secret di alur ini.
+    // Kosong = kartu Drive menampilkan "belum diaktifkan".
+    public: { appEnv: 'production', licensePublicKey: '', googleDriveClientId: '' },
   },
   $development: {
     runtimeConfig: { appEnv: 'development', public: { appEnv: 'development' } },
@@ -184,6 +187,8 @@ export default defineNuxtConfig({
     // `/app/**` sengaja TANPA cache (bukan `swr`/`isr`): isinya data user. `ssr: false` bikin
     // HTML-nya cuma kerangka SPA (lihat catatan `pwa.workbox.runtimeCaching` di bawah).
     '/app/**': { ssr: false },
+    // Halaman balikan izin Google Drive: token ada di fragmen URL, dibaca di client lalu dibuang.
+    '/oauth/**': { ssr: false, headers: { 'cache-control': 'no-store' } },
     // Halaman jurnal pindah dari `/app/memo`; bookmark lama tetap sampai.
     '/app/memo': { redirect: { to: '/app/journal', statusCode: 301 } },
     // `/login` SSR: teks form ada di HTML pertama (LCP tidak menunggu bundel SPA). HTML-nya tidak
@@ -422,7 +427,10 @@ export default defineNuxtConfig({
     headers: {
       contentSecurityPolicy: {
         'base-uri': ["'none'"],
-        'connect-src': ["'self'"],
+        // Backup Google Drive (T29) berjalan langsung dari browser ke Google, tidak lewat server
+        // kami: `www.googleapis.com` untuk Drive API (unggah/daftar/unduh/hapus berkas buatan app),
+        // `oauth2.googleapis.com` hanya untuk mencabut token saat Drive diputus.
+        'connect-src': ["'self'", 'https://www.googleapis.com', 'https://oauth2.googleapis.com'],
         'font-src': ["'self'"],
         'form-action': ["'self'"],
         'frame-ancestors': ["'none'"],

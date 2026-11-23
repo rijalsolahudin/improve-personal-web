@@ -1,4 +1,4 @@
-export type AccountDialog = 'profile' | 'security'
+export type AccountDialog = 'profile' | 'security' | 'signOut'
 
 /**
  * Modal akun yang sedang terbuka. Dialognya dipasang sekali di layout dashboard; menu sidebar, menu

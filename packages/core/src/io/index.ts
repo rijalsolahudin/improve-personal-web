@@ -1,5 +1,6 @@
 /**
- * `io/` - import & export JSON (PRD F10, AC T12) + migrasi versi skema (ARCHITECTURE.md §4).
+ * `io/` - import & export JSON (PRD F10, AC T12), berkas backup terenkripsi (F15, T27), dan migrasi
+ * versi skema (ARCHITECTURE.md §4).
  *
  * Berkas export adalah plaintext (bisa dibaca user), jadi dua hal wajib ada di setiap jalan:
  * peringatan yang jujur bahwa berkasnya tidak terenkripsi, dan penolakan tegas sebelum menulis apa
@@ -54,3 +55,29 @@ export {
   type ImportRejectionReason,
   type ValidateBackupOptions,
 } from './import.ts'
+
+export {
+  BACKUP_KDF_LIMITS,
+  BACKUP_PASSWORD_MIN_LENGTH,
+  BACKUP_SALT_BYTES,
+  ENCRYPTED_BACKUP_CHUNK_BYTES,
+  ENCRYPTED_BACKUP_EXTENSION,
+  ENCRYPTED_BACKUP_FORMAT,
+  ENCRYPTED_BACKUP_REJECTIONS,
+  ENCRYPTED_BACKUP_VERSION,
+  EncryptedBackupError,
+  backupPasswordStrength,
+  checkBackupPassword,
+  describeEncryptedBackupRejection,
+  ENCRYPTED_BACKUP_HEADER_MAX_BYTES,
+  ENCRYPTED_BACKUP_PREFIX,
+  encryptedBackupFileName,
+  encryptedBackupHeaderSchema,
+  parseEncryptedBackupHeader,
+  serializeEncryptedBackupHeader,
+  type BackupKdfParams,
+  type BackupPasswordIssue,
+  type BackupPasswordStrength,
+  type EncryptedBackupHeader,
+  type EncryptedBackupRejection,
+} from './encrypted-backup.ts'

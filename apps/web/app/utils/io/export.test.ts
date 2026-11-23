@@ -13,7 +13,8 @@ import {
 } from '@improve-personal/core'
 import { describe, expect, it } from 'vitest'
 
-import { createBackupFile, describeExportFailure } from './export'
+import { decryptBackup } from '../crypto/backup-crypto'
+import { createBackupFile, createEncryptedBackupFile, describeExportFailure } from './export'
 
 /**
  * Export F10 pada lapisan shell: record dibaca lewat repository (bukan blob mentah), berkas memakai
@@ -126,6 +127,56 @@ describe('createBackupFile', () => {
     await expect(
       createBackupFile({ source, exportedAtMs: NOW, tz: 'UTC', limits: { maxRecords: 1 } }),
     ).rejects.toMatchObject({ name: 'BackupExportLimitError', kind: 'records', limit: 1 })
+  })
+})
+
+describe('createEncryptedBackupFile', () => {
+  const key = {
+    password: 'kata-sandi-backup-uji',
+    cost: { opslimit: 1, memlimit: 8 * 1024 * 1024 },
+  }
+
+  it('isi terbuka = dokumen export JSON yang sama persis (lolos validasi import)', async () => {
+    const { source } = createSource()
+    await writePrefs(source.storage, 1)
+    await writePrefs(source.storage, 2, { deleted: true })
+
+    const plain = await createBackupFile({ source, exportedAtMs: NOW, tz: 'UTC' })
+    const file = await createEncryptedBackupFile({ source, exportedAtMs: NOW, tz: 'UTC', key })
+
+    expect(file.name).toBe('improve-personal-backup-2023-11-14.ipbackup')
+    expect(file.recordCount).toBe(2)
+    expect(new TextDecoder().decode(file.bytes)).not.toContain('user_prefs')
+
+    const text = await decryptBackup(file.bytes, key.password)
+    expect(text).toBe(plain.text)
+    expect(validateBackupText(text).ok).toBe(true)
+  })
+
+  it('kata sandi salah ditolak dengan pesan yang tidak membedakan salah sandi vs berkas diubah', async () => {
+    const { source } = createSource()
+    await writePrefs(source.storage, 1)
+    const file = await createEncryptedBackupFile({ source, exportedAtMs: NOW, tz: 'UTC', key })
+
+    await expect(decryptBackup(file.bytes, 'bukan-kata-sandinya')).rejects.toMatchObject({
+      name: 'EncryptedBackupError',
+      reason: 'WRONG_PASSWORD_OR_TAMPERED',
+    })
+  })
+
+  it('batas ukuran import tetap berlaku sebelum enkripsi', async () => {
+    const { source } = createSource()
+    await writePrefs(source.storage, 1)
+
+    await expect(
+      createEncryptedBackupFile({
+        source,
+        exportedAtMs: NOW,
+        tz: 'UTC',
+        key,
+        limits: { maxBytes: 10 },
+      }),
+    ).rejects.toMatchObject({ name: 'BackupExportLimitError', kind: 'bytes' })
   })
 })
 

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-/** Foto profil bulat, atau huruf depan nama/email kalau belum ada foto. */
+/** Foto profil bulat, huruf depan nama, atau ikon kalau nama belum diisi. */
 const {
   src = null,
   label,
@@ -7,18 +7,18 @@ const {
 } = defineProps<{
   /** Data URL foto (sudah tervalidasi raster oleh `userProfileSchema`). */
   src?: string | null
-  /** Nama atau email; huruf pertamanya dipakai saat tanpa foto. */
+  /** Nama tampilan; huruf pertamanya dipakai saat tanpa foto. */
   label: string
   size?: number
 }>()
 
-const { t } = useI18n()
-const initial = computed(() => label.trim().slice(0, 1).toUpperCase() || t('shell.user.initial'))
+const initial = computed(() => label.trim().slice(0, 1).toUpperCase())
 </script>
 
 <template>
   <span class="avatar" :style="{ width: `${size}px`, height: `${size}px` }" aria-hidden="true">
     <img v-if="src" :src="src" alt="" class="photo" />
+    <Icon v-else-if="!initial" name="smile" :size="Math.round(size * 0.5)" />
     <span v-else class="initial" :style="{ fontSize: `${Math.round(size * 0.45)}px` }">{{
       initial
     }}</span>

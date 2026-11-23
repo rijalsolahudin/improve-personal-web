@@ -28,6 +28,7 @@ const {
   paper = 'krem',
   variant = 'main',
   isAutofocus = false,
+  canPlace = false,
   placeholder = '',
   label,
   describedBy = undefined,
@@ -41,6 +42,8 @@ const {
    */
   variant?: 'main' | 'column' | 'bare'
   isAutofocus?: boolean
+  /** Klik titik kosong boleh meminta kotak teks bebas (`place`). */
+  canPlace?: boolean
   placeholder?: string
   label: string
   describedBy?: string
@@ -158,7 +161,7 @@ function onPointerDown(event: PointerEvent): void {
   if (variant === 'bare' || event.button !== 0 || current === undefined) return
   if (event.target instanceof Element && event.target.closest('.mention-chip')) return
 
-  const click = classifyPaperClick(current.view.dom, event.clientX, event.clientY)
+  const click = classifyPaperClick(current.view.dom, event.clientX, event.clientY, canPlace)
   if (click === null) return
   event.preventDefault()
   if (click.kind === 'place') {

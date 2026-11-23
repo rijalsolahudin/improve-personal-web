@@ -17,6 +17,7 @@ const accountItems: readonly {
 }[] = [
   { key: 'profile', icon: 'smile', color: '--cat-kerja', label: 'shell.user.profile' },
   { key: 'security', icon: 'eye-off', color: '--cat-diri', label: 'shell.user.security' },
+  { key: 'signOut', icon: 'arrow-right', color: '--cat-karier', label: 'shell.user.signOut' },
 ]
 
 function openDialog(key: AccountDialog): void {

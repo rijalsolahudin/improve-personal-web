@@ -2,6 +2,7 @@
 import type { MemoPaperName } from '@improve-personal/tokens'
 
 import { freePart, type MemoLayoutModel, type MemoPart } from '~/composables/useMemoLayout'
+import { MEMO_FREE_WRITE_ENABLED } from '~/utils/memo/layout'
 import { MEMO_LINE_PX, MEMO_PAPER_TOP_PX } from '~/utils/memo/paperClick'
 import type { MentionKind, RichFormatTarget } from '~/utils/memo/richtext'
 
@@ -113,6 +114,7 @@ const parts = computed<MemoPart[]>(() => (layout.isSplit.value ? ['main', 'colum
       :described-by="describedBy"
       :maxlength="layout.budget(part)"
       :mention-label="mentionLabel"
+      :can-place="MEMO_FREE_WRITE_ENABLED"
       @update:model-value="(value: string) => layout.setPart(part, value)"
       @focus="focusPart(part)"
       @caret="(rect) => emit('caret', rect)"

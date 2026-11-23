@@ -37,6 +37,13 @@ export const MEMO_FREE_BLOCK_MAX = 12
 export const MEMO_FREE_MIN_WIDTH = 0.2
 /** Lebar bawaan kotak bebas baru (dipotong sampai tepi kanan kertas). */
 export const MEMO_FREE_DEFAULT_WIDTH = 0.4
+/**
+ * Kotak tulis bebas (klik titik kosong -> kotak di titik itu) disembunyikan sementara atas
+ * permintaan user, Ergonio #179. Kotak yang sudah tersimpan tetap tampil dan bisa diedit; yang
+ * dimatikan hanya cara membuat kotak baru. Menulis di baris mana pun tidak terpengaruh.
+ */
+export const MEMO_FREE_WRITE_ENABLED = false
+
 /** Indeks baris tertinggi (sama dengan batas baris sticker jurnal di core). */
 export const MEMO_FREE_MAX_LINE = 400
 

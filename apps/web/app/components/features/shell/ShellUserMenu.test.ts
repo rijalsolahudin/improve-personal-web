@@ -25,4 +25,23 @@ describe('ShellUserMenu - Tampilan', () => {
     expect(useUiStore().isPickerOpen).toBe(true)
     expect(wrapper.find('#user-menu').exists()).toBe(false)
   })
+
+  it('nama belum diisi: kartu & item profil mengajak "Atur nama kamu", bukan "Friend"', async () => {
+    const wrapper = await mountSuspended(ShellUserMenu)
+
+    expect(wrapper.get('button.card').text()).toContain('Atur nama kamu')
+    expect(wrapper.get('button.card').text()).not.toContain('Friend')
+    await wrapper.get('button.card').trigger('click')
+    expect(wrapper.get('#user-menu .item').text()).toContain('Atur nama kamu')
+  })
+
+  it('"Keluar dari perangkat ini" membuka konfirmasi keluar', async () => {
+    const wrapper = await mountSuspended(ShellUserMenu)
+    await wrapper.get('button.card').trigger('click')
+
+    await wrapper.get('#user-menu .sign-out').trigger('click')
+
+    expect(useAccountDialogs().current.value).toBe('signOut')
+    expect(wrapper.find('#user-menu').exists()).toBe(false)
+  })
 })

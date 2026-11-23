@@ -1,6 +1,9 @@
 import {
   BACKUP_MAX_BYTES,
   BackupImportInvariantError,
+  ENCRYPTED_BACKUP_EXTENSION,
+  ENCRYPTED_BACKUP_PREFIX,
+  EncryptedBackupError,
   validateBackupText,
   type BackupDocument,
   type ImportMode,
@@ -13,7 +16,8 @@ import {
   describeImportRejection,
   type BackupPreviewRow,
 } from '~/utils/io/preview'
-import { readBackupFileText } from '~/utils/io/read-file'
+import { decryptBackup } from '~/utils/crypto/backup-crypto'
+import { readBackupFileBytes, readBackupFileText } from '~/utils/io/read-file'
 
 import { useLocalData } from './useLocalData'
 
@@ -54,6 +58,8 @@ export function useBackupImport() {
   // Dokumen bisa berisi puluhan ribu record: `shallowRef` supaya Vue tidak membuat proxy reaktif
   // dalam untuk seluruh isi berkas.
   const document = shallowRef<BackupDocument | null>(null)
+  // Berkas `.ipbackup` yang sudah dibaca tapi belum dibuka kata sandi.
+  const lockedBytes = shallowRef<Uint8Array | null>(null)
   const mode = ref<ImportMode>('merge')
   const isReplaceConfirmed = ref(false)
 
@@ -80,20 +86,35 @@ export function useBackupImport() {
     fileName.value = null
     preview.value = null
     document.value = null
+    lockedBytes.value = null
     isReplaceConfirmed.value = false
   }
 
-  async function selectFile(file: File): Promise<void> {
+  /** Mulai pilihan baru; mengembalikan token pilihan untuk mendeteksi hasil yang basi. */
+  function beginSelection(name: string): number {
     clearSelection()
-    const selectedId = selectionId
     // Mode kembali ke "gabung" (default aman) setiap kali berkas baru dipilih. Tanpa ini, pilihan
     // "ganti semua" dari berkas sebelumnya bisa ikut terpakai untuk berkas lain.
     mode.value = 'merge'
     error.value = null
     status.value = null
-    fileName.value = file.name
+    fileName.value = name
+    return selectionId
+  }
 
-    const read = await readBackupFileText(file, BACKUP_MAX_BYTES)
+  /** Berkas `.ipbackup` yang sudah ada di memori (diunduh dari Google Drive) -> langkah kata sandi. */
+  function selectEncryptedBytes(name: string, bytes: Uint8Array): void {
+    beginSelection(name)
+    lockedBytes.value = bytes
+  }
+
+  async function selectFile(file: File): Promise<void> {
+    const selectedId = beginSelection(file.name)
+
+    const isEncrypted = file.name.toLowerCase().endsWith(ENCRYPTED_BACKUP_EXTENSION)
+    const read = isEncrypted
+      ? await readBackupFileBytes(file, BACKUP_MAX_BYTES)
+      : await readBackupFileText(file, BACKUP_MAX_BYTES)
 
     // Berkas lain sudah dipilih (atau pilihan dibuang) saat berkas ini masih dibaca: hasilnya basi,
     // termasuk pesan errornya - yang terakhir dipilih harus menang.
@@ -104,7 +125,48 @@ export function useBackupImport() {
       return
     }
 
-    const validation = validateBackupText(read.text)
+    if ('bytes' in read) {
+      lockedBytes.value = read.bytes
+      return
+    }
+    // Berkas terenkripsi yang namanya diganti jadi .json tetap dikenali dari isinya.
+    if (read.text.startsWith(ENCRYPTED_BACKUP_PREFIX)) {
+      error.value =
+        'Ini berkas backup terenkripsi. Ganti ekstensinya jadi .ipbackup lalu pilih lagi.'
+      return
+    }
+
+    acceptText(read.text)
+  }
+
+  /**
+   * Buka berkas `.ipbackup` dengan kata sandi (di worker). Kata sandi tidak disimpan di state; gagal
+   * -> pesan yang sama untuk "salah sandi" dan "berkas diubah", karena dari luar tidak bisa dibedakan.
+   */
+  async function unlock(password: string): Promise<void> {
+    const bytes = lockedBytes.value
+    if (bytes === null || isBusy.value) return
+
+    const selectedId = selectionId
+    isBusy.value = true
+    error.value = null
+
+    try {
+      const text = await decryptBackup(bytes, password)
+      if (selectedId !== selectionId) return
+      lockedBytes.value = null
+      acceptText(text)
+    } catch (cause) {
+      if (selectedId !== selectionId) return
+      error.value =
+        cause instanceof EncryptedBackupError ? cause.message : 'Berkas backup tidak bisa dibuka.'
+    } finally {
+      isBusy.value = false
+    }
+  }
+
+  function acceptText(text: string): void {
+    const validation = validateBackupText(text)
 
     if (!validation.ok) {
       error.value = describeImportRejection(validation)
@@ -183,10 +245,13 @@ export function useBackupImport() {
     status: computed(() => status.value),
     fileName: computed(() => fileName.value),
     preview: computed(() => preview.value),
+    needsPassword: computed(() => lockedBytes.value !== null),
     mode,
     isReplaceConfirmed,
     canApply,
     selectFile,
+    selectEncryptedBytes,
+    unlock,
     applyImport,
   }
 }
