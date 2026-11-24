@@ -26,8 +26,11 @@ export interface AuthGateway {
   /**
    * Tukar sesi jadi token lisensi untuk perangkat ini (ADR 15). Gagal dengan `LICENSE_REQUIRED`
    * (email belum membeli) atau `LICENSE_LIMIT_REACHED` (jatah perangkat habis).
+   *
+   * `deviceSignPk` = public key Ed25519 perangkat (ADR 17) untuk auth relay sync; tanpanya perangkat
+   * tetap berlisensi tapi belum bisa memakai relay.
    */
-  issueLicenseToken(): Promise<string>
+  issueLicenseToken(input?: { readonly deviceSignPk: string }): Promise<string>
 }
 
 /**

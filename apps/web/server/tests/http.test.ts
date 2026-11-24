@@ -29,7 +29,7 @@ import { grantLicense } from '../services/license'
 import { FIXED_OTP_CODE } from '../services/otp'
 import { findSessionByToken } from '../services/session'
 import { hmacSha256, sha256Hex } from '../utils/crypto'
-import { rateLimits, sessions as sessionsTable } from '../db/schema'
+import { licenseActivations, rateLimits, sessions as sessionsTable } from '../db/schema'
 import { closeTestDb, rateLimitCount, seedSession, testDb, type Fixture } from './helpers/harness'
 import { testScope } from './helpers/scope'
 
@@ -548,6 +548,32 @@ describe('lisensi lewat HTTP (ADR 15)', () => {
     expect(apiDataEnvelopeSchema(licenseTokenResultSchema).safeParse(refreshed.body).success).toBe(
       true,
     )
+  })
+
+  it('aktivasi membawa Device Sign Key: kunci sah disimpan, kunci/field rusak -> 400', async () => {
+    const fixture = scope.fixture({ prefix: 'http-license-key' })
+    const session = await seedSession(liveCtx(fixture), { email: fixture.email })
+    const cookie = cookieFor(session.token)
+    await grantLicense(liveCtx(fixture), {
+      email: fixture.email,
+      orderRef: `qa-${randomUUID()}`,
+      plan: 'lifetime',
+    })
+    const deviceSignPk = `${'A'.repeat(42)}Q=`
+
+    const ok = await api('/v1/license/token', { method: 'POST', cookie, body: { deviceSignPk } })
+    expect(ok.status).toBe(200)
+    const [activation] = await testDb()
+      .select({ deviceSignPk: licenseActivations.deviceSignPk })
+      .from(licenseActivations)
+      .where(eq(licenseActivations.deviceId, session.deviceId))
+    expect(activation?.deviceSignPk).toBe(deviceSignPk)
+
+    for (const body of [{ deviceSignPk: 'bukan-kunci' }, { deviceSignPk, email: 'x@y.z' }]) {
+      const rejected = await api('/v1/license/token', { method: 'POST', cookie, body })
+      expect(rejected.status).toBe(400)
+      expect(problemOf(rejected).error.code).toBe('VALIDATION_FAILED')
+    }
   })
 
   it('refresh dengan token palsu -> 401; body asing -> 400', async () => {

@@ -146,6 +146,9 @@ export default defineNuxtConfig({
     googleRedirectUriMobile: '',
     corsAllowedOrigins: '',
     trustedProxyHops: 0,
+    // Saklar relay sync (`NUXT_SYNC_RELAY_ENABLED`). Nyala secara default; `false` mematikan relay
+    // tanpa deploy ulang kode (app turun ke sync Drive).
+    syncRelayEnabled: true,
     resendApiKey: '',
     mailFrom: '',
     // Transport email non-production, mis. Mailpit lokal `smtp://127.0.0.1:1025`. Terisi = email OTP
@@ -381,7 +384,11 @@ export default defineNuxtConfig({
     // `cleanup-ephemeral`. Aman di production: endpoint `/_nitro/tasks/<nama>` cuma ada di preset dev
     // (`presets/_nitro/runtime/nitro-dev.mjs`), jadi flag ini TIDAK mengekspos task lewat HTTP di
     // server produksi. Cron host memakai jalur `tsx scripts/task.ts` (lihat scripts/task.ts).
-    experimental: { tasks: true },
+    //
+    // `websocket`: relay sync (`server/routes/v1/sync/ws.ts`, ADR 17) memakai
+    // `defineWebSocketHandler`; tanpa flag ini Nitro tidak memasang handler upgrade di server Node
+    // (adapter `crossws/adapters/node`) dan rute itu tidak pernah terhubung.
+    experimental: { tasks: true, websocket: true },
   },
 
   typescript: {

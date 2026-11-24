@@ -1,6 +1,7 @@
 import { AuthRequestError, type AuthGateway } from './auth/gateway'
 import { useAuthGateway } from './auth/http-gateway'
 
+import { ensureDeviceSignPublicKey } from '~/utils/crypto/device-sign-key'
 import {
   clearLicenseToken,
   readStoredLicenseToken,
@@ -40,6 +41,19 @@ function activationErrorOf(caught: unknown): LicenseActivationError | null {
   return 'unavailable'
 }
 
+/**
+ * Public key Device Sign Key perangkat ini (dibuat bila belum ada), atau `null` kalau browser tidak
+ * bisa (tanpa Ed25519 WebCrypto / IndexedDB diblokir). Kegagalan tidak boleh menggagalkan aktivasi:
+ * lisensi tetap terbit, hanya relay sync yang belum tersedia untuk perangkat ini.
+ */
+async function readDeviceSignPublicKey(): Promise<string | null> {
+  try {
+    return await ensureDeviceSignPublicKey()
+  } catch {
+    return null
+  }
+}
+
 export function useLicense(gateway?: AuthGateway) {
   const status = useState<LicenseStatus>(LICENSE_STATE_KEYS.status, () => 'unknown')
   const activationError = useState<LicenseActivationError | null>(
@@ -63,7 +77,10 @@ export function useLicense(gateway?: AuthGateway) {
   /** Minta token untuk sesi yang sedang login. `false` = gagal; sebabnya di `activationError`. */
   async function activate(): Promise<boolean> {
     try {
-      const token = await (gateway ?? useAuthGateway()).issueLicenseToken()
+      const deviceSignPk = await readDeviceSignPublicKey()
+      const token = await (gateway ?? useAuthGateway()).issueLicenseToken(
+        deviceSignPk === null ? undefined : { deviceSignPk },
+      )
 
       // Token dari server yang tidak lolos verifikasi = public key build tidak cocok dengan kunci
       // server. Jangan disimpan: menyimpannya hanya membuat gerbang menolak lagi di navigasi berikut.

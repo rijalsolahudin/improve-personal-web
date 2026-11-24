@@ -179,8 +179,11 @@ export function createAuthGateway(request: AuthFetch, options: AuthGatewayOption
     await call(LOGOUT_PATH, { method: 'POST' })
   }
 
-  async function issueLicenseToken(): Promise<string> {
-    const body = await call(LICENSE_TOKEN_PATH, { method: 'POST' })
+  async function issueLicenseToken(input?: { readonly deviceSignPk: string }): Promise<string> {
+    const body = await call(LICENSE_TOKEN_PATH, {
+      method: 'POST',
+      ...(input === undefined ? {} : { body: { deviceSignPk: input.deviceSignPk } }),
+    })
     return readEnvelope(licenseEnvelopeSchema, body).token
   }
 

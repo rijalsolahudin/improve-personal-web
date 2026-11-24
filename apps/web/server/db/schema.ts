@@ -1,5 +1,9 @@
 import { sql } from 'drizzle-orm'
 import {
+  bigint,
+  bigserial,
+  customType,
+  date,
   index,
   integer,
   pgEnum,
@@ -205,7 +209,7 @@ export const oauthStates = pgTable(
 export const rateLimits = pgTable(
   'rate_limits',
   {
-    /** `otp:email` | `otp:ip` | `otp:verify` | `google:start:ip` | `sync:push` | `keys:envelope` | `account:delete`. */
+    /** `otp:email` | `otp:ip` | `otp:verify` | `google:start:ip` | `sync:connect` | `sync:send` | `keys:envelope` | `account:delete`. */
     scope: text('scope').notNull(),
     /** `HMAC-SHA256(identifier, RATE_LIMIT_PEPPER)` - bukan email/IP/user polos. */
     bucket: text('bucket').notNull(),
@@ -239,6 +243,11 @@ export const licenses = pgTable(
     expiresAt: timestamp('expires_at', { withTimezone: true }),
     edition: text('edition').notNull().default('standard'),
     maxActivations: integer('max_activations').notNull().default(5),
+    /**
+     * Epoch Sync Key terbaru yang pernah dikirim perangkat lisensi ini lewat relay (naik-saja).
+     * Server tidak memegang kunci apa pun - angka ini hanya pembanding `epoch_stale` (ADR 17).
+     */
+    syncEpoch: integer('sync_epoch').notNull().default(1),
     revokedAt: timestamp('revoked_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
@@ -307,10 +316,106 @@ export const licenseActivations = pgTable(
       .notNull()
       .references(() => devices.id, { onDelete: 'cascade' }),
     activatedAt: timestamp('activated_at', { withTimezone: true }).notNull().defaultNow(),
+    /**
+     * Public key Ed25519 perangkat (Device Sign Key, ADR 17): base64 standar dari 32 byte. Verifikasi
+     * challenge auth relay sync. NULLABLE: aktivasi lama / client yang belum mengirim kunci - perangkat
+     * itu baru bisa memakai relay setelah aktivasi ulang dengan kunci.
+     */
+    deviceSignPk: text('device_sign_pk'),
   },
   (table) => [
     primaryKey({ name: 'pk_license_activations', columns: [table.licenseId, table.deviceId] }),
   ],
+)
+
+const bytea = customType<{ data: Buffer; driverData: Buffer }>({
+  dataType: () => 'bytea',
+})
+
+/**
+ * Tabel `sync_frames` - ciphertext segmen yang menunggu diterima (relay sync, ADR 17).
+ *
+ * `bytes` = segmen utuh (header polos + isi tersegel Sync Key) yang tidak pernah dibuka server.
+ * Dihapus begitu semua penerima ack (`sync_pending` kosong) atau lewat TTL (`SYNC_RELAY_TTL_DAYS`).
+ * `kind` tidak disimpan: `seq IS NULL` = snapshot, selain itu delta (kontrak mewajibkan keduanya
+ * konsisten).
+ */
+export const syncFrames = pgTable(
+  'sync_frames',
+  {
+    id: bigserial('id', { mode: 'number' }).primaryKey(),
+    licenseId: uuid('license_id')
+      .notNull()
+      .references(() => licenses.id, { onDelete: 'cascade' }),
+    senderDeviceId: uuid('sender_device_id')
+      .notNull()
+      .references(() => devices.id, { onDelete: 'cascade' }),
+    epoch: integer('epoch').notNull(),
+    seq: bigint('seq', { mode: 'number' }),
+    bytes: bytea('bytes').notNull(),
+    size: integer('size').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('idx_sync_frames_license').on(table.licenseId),
+    index('idx_sync_frames_created').on(table.createdAt),
+  ],
+)
+
+/**
+ * Tabel `sync_pending` - penerima yang belum ack satu frame. PK (device, frame) sekaligus index fetch
+ * "semua frame untuk perangkat ini" saat connect.
+ */
+export const syncPending = pgTable(
+  'sync_pending',
+  {
+    deviceId: uuid('device_id')
+      .notNull()
+      .references(() => devices.id, { onDelete: 'cascade' }),
+    frameId: bigint('frame_id', { mode: 'number' })
+      .notNull()
+      .references(() => syncFrames.id, { onDelete: 'cascade' }),
+  },
+  (table) => [
+    primaryKey({ name: 'pk_sync_pending', columns: [table.deviceId, table.frameId] }),
+    index('idx_sync_pending_frame').on(table.frameId),
+  ],
+)
+
+/**
+ * Tabel `sync_expired` - catatan "frame delta dari pengirim X untuk perangkat Y dibuang karena TTL,
+ * sampai seq N". Dikosongkan saat Y berikutnya connect (`ready.expired`). Tanpa isi frame.
+ */
+export const syncExpired = pgTable(
+  'sync_expired',
+  {
+    deviceId: uuid('device_id')
+      .notNull()
+      .references(() => devices.id, { onDelete: 'cascade' }),
+    fromDeviceId: uuid('from_device_id').notNull(),
+    upToSeq: bigint('up_to_seq', { mode: 'number' }).notNull(),
+    notedAt: timestamp('noted_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    primaryKey({ name: 'pk_sync_expired', columns: [table.deviceId, table.fromDeviceId] }),
+  ],
+)
+
+/**
+ * Tabel `sync_usage` - byte relay per lisensi per hari UTC. Dasar kuota kirim harian dan metrik
+ * biaya (byte masuk/keluar). Hanya angka, tanpa isi.
+ */
+export const syncUsage = pgTable(
+  'sync_usage',
+  {
+    licenseId: uuid('license_id')
+      .notNull()
+      .references(() => licenses.id, { onDelete: 'cascade' }),
+    day: date('day', { mode: 'string' }).notNull(),
+    bytesIn: bigint('bytes_in', { mode: 'number' }).notNull().default(0),
+    bytesOut: bigint('bytes_out', { mode: 'number' }).notNull().default(0),
+  },
+  (table) => [primaryKey({ name: 'pk_sync_usage', columns: [table.licenseId, table.day] })],
 )
 
 export type UserRow = typeof users.$inferSelect

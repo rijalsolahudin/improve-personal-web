@@ -115,6 +115,28 @@ const trustedProxyHopsSchema = z
     `jumlah hop proxy harus integer 0..${MAX_TRUSTED_PROXY_HOPS}`,
   )
 
+/** Nilai env boolean yang diterima. Selain ini = salah setel (ditolak, bukan ditebak). */
+const ENV_TRUE_VALUES = new Set(['true', '1'])
+const ENV_FALSE_VALUES = new Set(['false', '0'])
+
+/**
+ * Boolean dari env: `true`/`false`/`1`/`0` (boleh sudah boolean dari runtimeConfig). Kosong/`undefined`
+ * memakai default. Nilai lain ditolak - saklar yang salah ketik tidak boleh diam-diam menyala/mati.
+ */
+const booleanEnvSchema = (defaultValue: boolean) =>
+  z
+    .union([z.boolean(), z.string()])
+    .optional()
+    .transform((value, context) => {
+      if (typeof value === 'boolean') return value
+      const normalized = (value ?? '').trim().toLowerCase()
+      if (normalized === '') return defaultValue
+      if (ENV_TRUE_VALUES.has(normalized)) return true
+      if (ENV_FALSE_VALUES.has(normalized)) return false
+      context.addIssue({ code: 'custom', message: 'harus true/false' })
+      return z.NEVER
+    })
+
 const serverEnvSchema = z
   .object({
     appEnv: z.unknown().transform(resolveAppEnv),
@@ -174,6 +196,11 @@ const serverEnvSchema = z
         (value) => value === null || (Number.isInteger(value) && value > 0),
         'NUXT_PRICE_OVERRIDE_IDR harus bilangan bulat rupiah > 0',
       ),
+    /**
+     * Saklar relay sync (`NUXT_SYNC_RELAY_ENABLED`, ARCHITECTURE.md §9). Default NYALA; `false` =
+     * `/v1/sync/ws` menutup koneksi dengan `relay_disabled` dan app turun ke sync Drive saja.
+     */
+    syncRelayEnabled: booleanEnvSchema(true),
     resendApiKey: z.string().default(''),
     mailFrom: z.string().default(''),
     /**

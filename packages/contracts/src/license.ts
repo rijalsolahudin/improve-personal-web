@@ -58,6 +58,35 @@ export const licenseTokenSchema = z
     return parts.length === 2 && parts.every((part) => BASE64URL_PATTERN.test(part))
   }, 'token lisensi harus `<payload>.<signature>` base64url')
 
+/** Panjang public key Ed25519 mentah dalam byte. */
+export const DEVICE_SIGN_PUBLIC_KEY_BYTES = 32
+
+/**
+ * Base64 standar kanonik dari tepat 32 byte: 42 karakter bebas + satu karakter akhir yang 2 bit
+ * terakhirnya nol (`AEIMQUYcgkosw048`) + `=`. Pola ini membedakan 32 byte dari 31/33 byte yang
+ * sama-sama 44 karakter, dan menolak varian non-kanonik.
+ */
+const DEVICE_SIGN_PUBLIC_KEY_PATTERN = /^[A-Za-z0-9+/]{42}[AEIMQUYcgkosw048]=$/
+
+/**
+ * Public key Ed25519 perangkat (Device Sign Key, ADR 17) - base64 standar dari 32 byte mentah.
+ * Dipakai server untuk memverifikasi challenge auth relay sync; private key-nya tidak pernah keluar
+ * dari perangkat.
+ */
+export const deviceSignPublicKeySchema = z
+  .string()
+  .regex(DEVICE_SIGN_PUBLIC_KEY_PATTERN, 'public key Ed25519 harus base64 standar dari 32 byte')
+
+/**
+ * `POST /v1/license/token` - body OPSIONAL. Client lama (dan perangkat yang belum punya Device Sign
+ * Key) mengirim tanpa body dan tetap mendapat token; perangkat itu hanya belum bisa memakai relay sync.
+ */
+export const licenseTokenRequestSchema = z
+  .object({ deviceSignPk: deviceSignPublicKeySchema.optional() })
+  .strict()
+
+export type LicenseTokenRequest = z.infer<typeof licenseTokenRequestSchema>
+
 /** `POST /v1/license/token` */
 export const licenseTokenResultSchema = z.object({ token: licenseTokenSchema }).strict()
 

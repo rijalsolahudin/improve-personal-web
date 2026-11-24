@@ -11,6 +11,8 @@
  * - `databasePrefix` : berubah = data lokal user jadi YATIM (aplikasi tidak membukanya lagi).
  *                      Ini pernah terjadi di repo ini waktu penyimpanan masih memakai nama ber-brand.
  * - `keyDatabasePrefix`: sama, untuk pembuka kunci perangkat (kunci perangkat & petunjuk passkey).
+ * - `deviceSignDatabaseName`: berubah = Device Sign Key hilang (perangkat membuat kunci baru dan
+ *                      aktivasi ulang agar relay sync mengenalinya).
  * - `driveDatabaseName`: berubah = sambungan backup Google Drive hilang (user menyambung ulang).
  * - `writerLockName`: Web Locks; berubah = jaminan satu-penulis antar tab hilang di sesi lama.
  *
@@ -25,6 +27,8 @@ export const TECH_IDENTITY = {
   cookieName: 'ip_session',
   databasePrefix: TECH_PREFIX,
   keyDatabasePrefix: `${TECH_PREFIX}-keys`,
+  /** Device Sign Key (Ed25519, ADR 17) - terpisah dari database kunci data supaya tidak ikut terhapus bersamanya. */
+  deviceSignDatabaseName: `${TECH_PREFIX}-keys-device-sign`,
   /** Konfigurasi backup Google Drive (kunci backup terbungkus + jadwal). */
   driveDatabaseName: `${TECH_PREFIX}-drive`,
   /** Awalan key `localStorage` milik app (dipakai `clearAppStorage` saat logout). */

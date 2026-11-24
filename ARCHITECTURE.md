@@ -221,11 +221,13 @@ sessions(id, device_id, token_hash, expires_at, ...)           -- sesi login (bu
 otp_challenges(id, email_hash, code_hash, expires_at, attempts)
 oauth_states(...)                                              -- PKCE Google
 purchases(id, email, plan, amount, status pending|paid|failed, mayar_id, payment_url, expires_at, paid_at)
-licenses(id, email, edition, max_activations, expires_at, revoked_at, created_at)  -- satu per email; expires_at NULL = lifetime
+licenses(id, email, edition, max_activations, expires_at, revoked_at, created_at, sync_epoch)  -- satu per email; expires_at NULL = lifetime; sync_epoch = epoch Sync Key terbaru yang dikirim lewat relay (naik-saja, pembanding epoch_stale)
 license_grants(order_ref, license_id, plan, granted_at)        -- PK order_ref: pembelian lunas -> perpanjangan, idempoten
-license_activations(license_id, device_id, activated_at, device_sign_pk)  -- PK (license_id, device_id); device_sign_pk = Ed25519 publik perangkat (auth relay sync, ADR 17)
-sync_frames(id, license_id, sender_device_id, epoch, seq, bytes, size, created_at, expires_at)  -- ciphertext segmen, TTL 7 hari
-sync_pending(frame_id, device_id)                              -- penerima yang belum ack; frame dihapus saat kosong / kedaluwarsa
+license_activations(license_id, device_id, activated_at, device_sign_pk)  -- PK (license_id, device_id); device_sign_pk = Ed25519 publik perangkat, base64 32 byte, NULL untuk aktivasi lama (auth relay sync, ADR 17)
+sync_frames(id bigserial, license_id, sender_device_id, epoch, seq NULL, bytes bytea, size, created_at)  -- ciphertext segmen; seq NULL = snapshot (kind tidak disimpan); TTL 7 hari dari created_at
+sync_pending(device_id, frame_id)                              -- PK (device_id, frame_id); penerima yang belum ack. Frame dihapus saat kosong / kedaluwarsa. Penerima dihitung saat frame diterima (broadcast = aktivasi lain; unicast = satu `to`), jadi kolom `to` tidak ada di frame
+sync_expired(device_id, from_device_id, up_to_seq, noted_at)   -- PK (device_id, from_device_id); catatan "frame delta dari pengirim ini untuk perangkat ini dibuang karena TTL"; dikosongkan saat perangkat connect (`ready.expired`), dibuang setelah 90 hari
+sync_usage(license_id, day, bytes_in, bytes_out)               -- PK (license_id, day UTC); dasar kuota kirim harian + metrik byte masuk/keluar; dibuang setelah 35 hari
 rate_limits(scope, bucket, window_start, count)
 ```
 
@@ -372,14 +374,19 @@ berbeda disimpan di tabel lokal `conflicts` selama 30 hari dan bisa dipulihkan d
 diam-diam.
 
 **Relay sync (server).**
-- `GET /v1/sync/ws` (upgrade WebSocket). Auth: server kirim nonce → perangkat balas `sign(nonce | lid | did)` dengan Device Sign Key + token lisensi; server cek tanda tangan ke `device_sign_pk` dan aktivasi masih tercatat.
+- `GET /v1/sync/ws` (upgrade WebSocket, Nitro `experimental.websocket`). Auth: server kirim nonce → perangkat balas `sign(nonce | lid | did)` dengan Device Sign Key + token lisensi; server cek tanda tangan ke `device_sign_pk` dan aktivasi masih tercatat. Semua kegagalan (token, tanda tangan, aktivasi dicabut, perangkat belum punya kunci) = close `unauthenticated` (4003) tanpa membedakan sebab. Belum auth dalam 10 detik = ditutup. Aktivasi dicabut saat terhubung: dicek ulang tiap kirim dan tiap 60 detik, lalu koneksi diputus.
+- Aktivasi (`POST /v1/license/token`) menerima body opsional `{ deviceSignPk }` (base64 32 byte); client lama tanpa body tetap dilayani tapi belum bisa memakai relay. Aktivasi ulang yang membawa kunci menggantikan kunci tersimpan.
+- `ready` memuat `epoch` = `licenses.sync_epoch`. Frame dengan epoch lebih besar menaikkan angka itu; yang lebih kecil ditolak `epoch_stale`. Server tidak bisa memverifikasi epoch (tidak memegang kunci), jadi perangkat mana pun dalam lisensi bisa menaikkannya - dianggap sama tepercayanya dengan perangkat itu memegang Sync Key.
+- Routing: `delta` broadcast ke aktivasi lain; `snapshot` dengan `to` unicast ke satu perangkat; `to` yang bukan perangkat lisensi ini = diterima tanpa menyimpan apa pun (tidak membocorkan perangkat lisensi lain). `snapshot-request` hanya diteruskan ke koneksi online lisensi yang sama, tidak disimpan. Frame diteruskan ke koneksi online segera setelah commit; antrean yang menunggu dikirim setelah `ready`. Pengiriman ganda mungkin (aman: dedup `deviceId + seq`, ack idempoten).
+- `expired` di `ready` dibaca-lalu-dihapus; kalau pesan itu hilang di jalan, celah `seq` di sisi penerima tetap penentu akhir (lihat "Celah").
 - Penerima frame = aktivasi lisensi selain pengirim saat frame diterima. TTL **7 hari** (task terjadwal di `server/tasks`); Drive adalah lapis tahan lama, jadi relay tidak perlu menitip lebih lama.
-- Kuota (fair use): frame ≤ 256 KB, kirim ≤ 20 MB per lisensi per hari, antrean ≤ 50 MB per lisensi, rate limit per perangkat. Lewat kuota → frame ditolak dengan kode jelas, app turun ke Drive saja sampai kuota pulih.
+- Kuota (fair use): frame ≤ 256 KB, kirim ≤ 20 MB per lisensi per hari UTC, antrean ≤ 50 MB per lisensi, rate limit (`sync:send` 120/menit per perangkat, `sync:connect` 60/5 menit per IP). Lewat kuota → frame ditolak dengan kode jelas (`quota_daily`, `quota_queue`, `frame_too_large`, `rate_limited`; koneksi tetap hidup), app turun ke Drive saja sampai kuota pulih. Pesan mentah dibatasi ukurannya sebelum di-parse.
 - Relay hanya membawa record. Lampiran/berkas biner (kalau nanti ada) **dilarang** lewat relay - hanya lewat Drive.
-- **Saklar mati:** `NUXT_SYNC_RELAY_ENABLED=false` → `/v1/sync/ws` menolak koneksi dengan kode `relay_disabled`; app otomatis turun ke sync Drive saja (jeda menit, tetap jalan). Janji produk = "data sinkron", bukan "selalu realtime".
+- **Saklar mati:** `NUXT_SYNC_RELAY_ENABLED=false` (default nyala; nilai selain true/false/1/0 menggagalkan start) → `/v1/sync/ws` menerima handshake lalu menutup dengan kode `relay_disabled` (4001; ditutup setelah handshake supaya client bisa membaca kodenya); app otomatis turun ke sync Drive saja (jeda menit, tetap jalan). Janji produk = "data sinkron", bukan "selalu realtime".
 - Server hanya import `contracts`, tidak pernah mendekripsi, tidak me-log `bytes`. Sesi koneksi di memori; frame di Postgres sehingga aman restart (multi-instance nanti lewat `LISTEN/NOTIFY`).
 - Koneksi hanya saat app di depan (web: tab terbuka; mobile: `AppState` active). Tidak ada push notification di v1.
-- Metrik wajib (tanpa isi): byte masuk/keluar per hari, koneksi bersamaan, ukuran antrean - untuk memantau biaya per user.
+- Metrik wajib (tanpa isi): byte masuk/keluar per lisensi per hari (`sync_usage`) dan ukuran antrean (`SUM(sync_frames.size)` per lisensi) bisa dibaca langsung dari Postgres; koneksi bersamaan belum diekspor (belum ada sink metrik).
+- TTL: task `sync-relay-purge` (`server/tasks`, cron host `cron:sync-relay-purge`, tiap jam) membuang frame > 7 hari dan mencatat `sync_expired`.
 
 **Drive.**
 - Scope `drive.appdata` (berkas tidak terlihat dan tidak bisa diubah app lain). Isi folder: `sync-key.e<epoch>`, `pack-<deviceId>-<seqFrom>-<seqTo>`, `snap-<epoch>-<hlc>`. Backup terjadwal tetap di `drive.file` (terlihat user), bukan di sini.

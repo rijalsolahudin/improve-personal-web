@@ -20,6 +20,7 @@
     "db:migrate": "drizzle-kit migrate",
     "db:test:create": "sh scripts/db-test-create.sh",
     "cron:cleanup-ephemeral": "tsx scripts/task.ts cleanup-ephemeral",
+    "cron:sync-relay-purge": "tsx scripts/task.ts sync-relay-purge",
     "license": "tsx scripts/task.ts"
   },
   "dependencies": {

@@ -34,6 +34,26 @@ function gatewayWith(request: AuthFetch) {
 }
 
 describe('createAuthGateway', () => {
+  it('aktivasi lisensi: tanpa kunci perangkat -> POST tanpa body (client lama tetap kompatibel)', async () => {
+    const request = vi.fn<AuthFetch>(async () => ({ data: { token: 'YWJj.ZGVm' } }))
+
+    await gatewayWith(request).issueLicenseToken()
+
+    expect(request).toHaveBeenCalledWith('/v1/license/token', { method: 'POST' })
+  })
+
+  it('aktivasi lisensi: public key Device Sign Key ikut di body', async () => {
+    const request = vi.fn<AuthFetch>(async () => ({ data: { token: 'YWJj.ZGVm' } }))
+    const deviceSignPk = Buffer.alloc(32, 3).toString('base64')
+
+    await gatewayWith(request).issueLicenseToken({ deviceSignPk })
+
+    expect(request).toHaveBeenCalledWith('/v1/license/token', {
+      method: 'POST',
+      body: { deviceSignPk },
+    })
+  })
+
   it('minta OTP: POST ke kontrak dengan client web + device, tanpa mem-parse body 204', async () => {
     const request = vi.fn<AuthFetch>(async () => undefined)
 

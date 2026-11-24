@@ -32,6 +32,11 @@ export type IssueLicenseTokenInput = {
   readonly email: string
   /** Perangkat sesi (`devices.id`). */
   readonly deviceId: string
+  /**
+   * Public key Ed25519 perangkat (Device Sign Key, ADR 17). Opsional: client lama tidak mengirimnya
+   * dan tetap diaktivasi, hanya belum bisa memakai relay sync.
+   */
+  readonly deviceSignPk?: string
 }
 
 /**
@@ -41,7 +46,8 @@ export type IssueLicenseTokenInput = {
  * - Lisensi yang sudah habis tetap diberi token (dengan `exp` lampau): app menampilkannya sebagai
  *   baca-saja, bukan menolak login - data user tidak pernah disandera (ADR 16).
  * - Perangkat yang sudah pernah diaktivasi -> token baru tanpa memakai jatah lagi (login ulang,
- *   data situs dibersihkan, dst).
+ *   data situs dibersihkan, dst). Public key yang dikirim ikut menggantikan yang tersimpan: pemiliknya
+ *   sudah dibuktikan sesi login, dan perangkat yang datanya dibersihkan memang membuat kunci baru.
  * - Perangkat baru saat jatah habis -> `LICENSE_LIMIT_REACHED`.
  *
  * Baris lisensi dikunci (`FOR UPDATE`) selama hitung + sisip: tanpa itu dua perangkat yang aktivasi
@@ -71,7 +77,20 @@ export async function issueLicenseToken(
         ),
       )
       .limit(1)
-    if (existing !== undefined) return active
+    if (existing !== undefined) {
+      if (input.deviceSignPk !== undefined) {
+        await tx
+          .update(licenseActivations)
+          .set({ deviceSignPk: input.deviceSignPk })
+          .where(
+            and(
+              eq(licenseActivations.licenseId, active.id),
+              eq(licenseActivations.deviceId, input.deviceId),
+            ),
+          )
+      }
+      return active
+    }
 
     const [usage] = await tx
       .select({ used: count() })
@@ -79,9 +98,12 @@ export async function issueLicenseToken(
       .where(eq(licenseActivations.licenseId, active.id))
     if ((usage?.used ?? 0) >= active.maxActivations) throw apiProblem('LICENSE_LIMIT_REACHED')
 
-    await tx
-      .insert(licenseActivations)
-      .values({ licenseId: active.id, deviceId: input.deviceId, activatedAt: ctx.now })
+    await tx.insert(licenseActivations).values({
+      licenseId: active.id,
+      deviceId: input.deviceId,
+      activatedAt: ctx.now,
+      deviceSignPk: input.deviceSignPk ?? null,
+    })
 
     return active
   })

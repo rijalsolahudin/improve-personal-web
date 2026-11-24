@@ -2,7 +2,7 @@
 import { createPublicKey, randomUUID, verify } from 'node:crypto'
 
 import { licenseTokenPayloadSchema, splitLicenseToken } from '@improve-personal/contracts'
-import { eq } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import { afterAll, describe, expect, it } from 'vitest'
 
 import { licenseActivations, licenseGrants, licenses } from '../db/schema'
@@ -334,5 +334,70 @@ describe('token berjangka (ADR 16)', () => {
       const problem = await captureProblem(refreshLicenseToken(fixture.ctx(), token))
       expect(problem?.code).toBe('LICENSE_REQUIRED')
     }
+  })
+})
+
+describe('Device Sign Key saat aktivasi (ADR 17)', () => {
+  const KEY_A = Buffer.alloc(32, 1).toString('base64')
+  const KEY_B = Buffer.alloc(32, 2).toString('base64')
+
+  async function storedKey(licenseId: string, deviceId: string): Promise<string | null> {
+    const [row] = await testDb()
+      .select({ deviceSignPk: licenseActivations.deviceSignPk })
+      .from(licenseActivations)
+      .where(
+        and(eq(licenseActivations.licenseId, licenseId), eq(licenseActivations.deviceId, deviceId)),
+      )
+    return row?.deviceSignPk ?? null
+  }
+
+  async function activated(prefix: string) {
+    const fixture = scope.fixture({ prefix })
+    const license = await grantLicense(fixture.ctx(), {
+      email: fixture.email,
+      orderRef: `qa-${randomUUID()}`,
+      plan: 'lifetime',
+    })
+    const session = await seedSession(fixture.ctx(), { email: fixture.email })
+    return { fixture, license, deviceId: session.deviceId }
+  }
+
+  it('aktivasi baru menyimpan public key perangkat', async () => {
+    const { fixture, license, deviceId } = await activated('sign-new')
+
+    await issueLicenseToken(fixture.ctx(), { email: fixture.email, deviceId, deviceSignPk: KEY_A })
+
+    expect(await storedKey(license.id, deviceId)).toBe(KEY_A)
+  })
+
+  it('client lama tanpa kunci tetap diaktivasi (kunci kosong)', async () => {
+    const { fixture, license, deviceId } = await activated('sign-legacy')
+
+    await issueLicenseToken(fixture.ctx(), { email: fixture.email, deviceId })
+
+    expect(await storedKey(license.id, deviceId)).toBeNull()
+  })
+
+  it('aktivasi ulang membawa kunci -> melengkapi aktivasi lama / mengganti kunci lama', async () => {
+    const { fixture, license, deviceId } = await activated('sign-rotate')
+    const input = { email: fixture.email, deviceId }
+
+    await issueLicenseToken(fixture.ctx(), input)
+    await issueLicenseToken(fixture.ctx(), { ...input, deviceSignPk: KEY_A })
+    expect(await storedKey(license.id, deviceId)).toBe(KEY_A)
+
+    await issueLicenseToken(fixture.ctx(), { ...input, deviceSignPk: KEY_B })
+    expect(await storedKey(license.id, deviceId)).toBe(KEY_B)
+  })
+
+  it('aktivasi ulang tanpa kunci tidak menghapus kunci yang sudah ada', async () => {
+    const { fixture, license, deviceId } = await activated('sign-keep')
+    const input = { email: fixture.email, deviceId }
+
+    await issueLicenseToken(fixture.ctx(), { ...input, deviceSignPk: KEY_A })
+    await issueLicenseToken(fixture.ctx(), input)
+
+    expect(await storedKey(license.id, deviceId)).toBe(KEY_A)
+    expect(await activationCount(license.id)).toBe(1)
   })
 })

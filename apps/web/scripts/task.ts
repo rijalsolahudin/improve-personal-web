@@ -5,6 +5,7 @@ import { emailSchema, licensePlanSchema } from '@improve-personal/contracts'
 import { closeAllDatabases, databaseFor } from '../server/db/client'
 import { grantLicense } from '../server/services/license'
 import { cleanupEphemeral, type CleanupEphemeralSummary } from '../server/services/maintenance'
+import { purgeSyncRelay, type SyncPurgeSummary } from '../server/services/sync-relay'
 import { resolveServerEnv } from '../server/utils/env'
 import { LICENSE_SEED_BYTES, createLicenseSigner } from '../server/utils/license-signing'
 
@@ -30,6 +31,7 @@ import { LICENSE_SEED_BYTES, createLicenseSigner } from '../server/utils/license
  *
  * Pakai:
  *   tsx scripts/task.ts cleanup-ephemeral
+ *   tsx scripts/task.ts sync-relay-purge
  *   tsx scripts/task.ts license-keygen
  *   tsx scripts/task.ts license-grant <email> <order-ref> [monthly|yearly|lifetime]
  */
@@ -47,6 +49,7 @@ function runtimeConfigFromProcessEnv(): Record<string, unknown> {
     googleRedirectUriMobile: process.env.NUXT_GOOGLE_REDIRECT_URI_MOBILE,
     corsAllowedOrigins: process.env.NUXT_CORS_ALLOWED_ORIGINS,
     trustedProxyHops: process.env.NUXT_TRUSTED_PROXY_HOPS,
+    syncRelayEnabled: process.env.NUXT_SYNC_RELAY_ENABLED,
     resendApiKey: process.env.NUXT_RESEND_API_KEY,
     mailFrom: process.env.NUXT_MAIL_FROM,
     licenseSigningKey: process.env.NUXT_LICENSE_SIGNING_KEY,
@@ -67,6 +70,9 @@ function contextFromProcessEnv() {
 const TASKS = {
   'cleanup-ephemeral': async (): Promise<CleanupEphemeralSummary> =>
     cleanupEphemeral(contextFromProcessEnv()),
+  /** Buang frame relay sync lewat TTL + catat yang hangus (ADR 17). Idempoten. */
+  'sync-relay-purge': async (): Promise<SyncPurgeSummary> =>
+    purgeSyncRelay(contextFromProcessEnv()),
   /**
    * Pasangan kunci lisensi baru untuk satu environment. Seed-nya RAHASIA: salin langsung ke secret
    * manager (`NUXT_LICENSE_SIGNING_KEY`), jangan ke berkas yang di-commit. Tidak butuh DB/env.

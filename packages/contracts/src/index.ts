@@ -158,18 +158,22 @@ export {
 // -----------------------------------------------------------------------------
 
 export {
+  DEVICE_SIGN_PUBLIC_KEY_BYTES,
   LICENSE_EDITIONS,
   LICENSE_SIGNATURE_BYTES,
   LICENSE_TOKEN_MAX_LENGTH,
   LICENSE_TOKEN_VERSION,
+  deviceSignPublicKeySchema,
   licenseRefreshInputSchema,
   licenseTokenPayloadSchema,
+  licenseTokenRequestSchema,
   licenseTokenResultSchema,
   licenseTokenSchema,
   splitLicenseToken,
   type LicenseEdition,
   type LicenseRefreshInput,
   type LicenseTokenPayload,
+  type LicenseTokenRequest,
   type LicenseTokenResult,
 } from './license.ts'
 

@@ -198,6 +198,7 @@ Table licenses {
   expires_at      timestamptz  [note: 'NULL = lifetime']
   edition         text         [not null, default: 'standard']
   max_activations int          [not null, default: 5]
+  sync_epoch      int          [not null, default: 1, note: 'epoch Sync Key terbaru yang dikirim lewat relay (naik-saja); pembanding epoch_stale']
   revoked_at      timestamptz
   created_at      timestamptz  [not null, default: `now()`]
 
@@ -218,10 +219,65 @@ Table license_activations {
   license_id   uuid        [not null]
   device_id    uuid        [not null]
   activated_at timestamptz [not null, default: `now()`]
+  device_sign_pk text      [note: 'public key Ed25519 perangkat (base64 32 byte) untuk auth relay sync (ADR 17); NULL = aktivasi lama']
 
   indexes {
     (license_id, device_id) [pk, name: 'pk_license_activations']
   }
+}
+
+Table sync_frames {
+  id               bigserial   [pk]
+  license_id       uuid        [not null]
+  sender_device_id uuid        [not null]
+  epoch            int         [not null]
+  seq              bigint      [note: 'NULL = snapshot; selain itu delta']
+  bytes            bytea       [not null, note: 'ciphertext segmen - tidak pernah dibuka server']
+  size             int         [not null]
+  created_at       timestamptz [not null, default: `now()`]
+
+  indexes {
+    license_id [name: 'idx_sync_frames_license']
+    created_at [name: 'idx_sync_frames_created']
+  }
+
+  Note: 'Titipan relay sync (ADR 17). Dihapus saat semua penerima ack, atau lewat TTL 7 hari.'
+}
+
+Table sync_pending {
+  device_id uuid   [not null]
+  frame_id  bigint [not null]
+
+  indexes {
+    (device_id, frame_id) [pk, name: 'pk_sync_pending']
+    frame_id [name: 'idx_sync_pending_frame']
+  }
+}
+
+Table sync_expired {
+  device_id      uuid        [not null]
+  from_device_id uuid        [not null]
+  up_to_seq      bigint      [not null]
+  noted_at       timestamptz [not null, default: `now()`]
+
+  indexes {
+    (device_id, from_device_id) [pk, name: 'pk_sync_expired']
+  }
+
+  Note: 'Pemberitahuan expired di ready. Dibaca-lalu-dihapus; retensi 90 hari.'
+}
+
+Table sync_usage {
+  license_id uuid   [not null]
+  day        date   [not null, note: 'hari UTC']
+  bytes_in   bigint [not null, default: 0]
+  bytes_out  bigint [not null, default: 0]
+
+  indexes {
+    (license_id, day) [pk, name: 'pk_sync_usage']
+  }
+
+  Note: 'Kuota kirim harian + metrik biaya. Retensi 35 hari.'
 }
 
 Table purchases {
@@ -268,3 +324,9 @@ Ref: sessions.device_id > devices.id
 Ref: license_grants.license_id > licenses.id [delete: cascade]
 Ref: license_activations.license_id > licenses.id [delete: cascade]
 Ref: license_activations.device_id > devices.id [delete: cascade]
+Ref: sync_frames.license_id > licenses.id [delete: cascade]
+Ref: sync_frames.sender_device_id > devices.id [delete: cascade]
+Ref: sync_pending.device_id > devices.id [delete: cascade]
+Ref: sync_pending.frame_id > sync_frames.id [delete: cascade]
+Ref: sync_expired.device_id > devices.id [delete: cascade]
+Ref: sync_usage.license_id > licenses.id [delete: cascade]

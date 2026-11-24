@@ -571,3 +571,30 @@ describe('Mayar (ADR 15)', () => {
     )
   })
 })
+
+describe('syncRelayEnabled (saklar relay sync)', () => {
+  it('default nyala (env tidak diisi / kosong)', () => {
+    expect(resolveServerEnv(baseConfig()).syncRelayEnabled).toBe(true)
+    expect(resolveServerEnv(baseConfig({ syncRelayEnabled: '' })).syncRelayEnabled).toBe(true)
+  })
+
+  it.each([
+    ['false', false],
+    ['FALSE', false],
+    ['0', false],
+    [false, false],
+    ['true', true],
+    ['1', true],
+    [true, true],
+  ])('menerima %j', (value, expected) => {
+    expect(resolveServerEnv(baseConfig({ syncRelayEnabled: value })).syncRelayEnabled).toBe(
+      expected,
+    )
+  })
+
+  it('nilai salah ketik ditolak (nama variabel saja), bukan diam-diam dianggap nyala/mati', () => {
+    expect(() => resolveServerEnv(baseConfig({ syncRelayEnabled: 'off' }))).toThrow(
+      /syncRelayEnabled/,
+    )
+  })
+})

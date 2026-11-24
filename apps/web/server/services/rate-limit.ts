@@ -48,6 +48,16 @@ export const RATE_LIMIT_RULES = {
    */
   'purchase:email': { limit: 5, windowSeconds: 3600 },
   'purchase:ip': { limit: 20, windowSeconds: 3600 },
+  /**
+   * Koneksi relay sync per IP (ADR 17): tiap koneksi baru menyentuh DB (auth + flush antrean). Longgar
+   * karena satu NAT operator bisa memuat banyak perangkat sah; yang ditahan hanya badai reconnect.
+   */
+  'sync:connect': { limit: 60, windowSeconds: 300 },
+  /**
+   * Kirim frame per perangkat. Client mem-debounce flush 2 detik, jadi pemakaian normal jauh di
+   * bawahnya; jatah ini menahan perangkat yang macet dalam loop kirim.
+   */
+  'sync:send': { limit: 120, windowSeconds: 60 },
 } as const
 
 export type RateLimitScope = keyof typeof RATE_LIMIT_RULES

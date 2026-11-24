@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest'
 
 import {
   LICENSE_TOKEN_MAX_LENGTH,
+  deviceSignPublicKeySchema,
   licenseRefreshInputSchema,
   licenseTokenPayloadSchema,
+  licenseTokenRequestSchema,
   licenseTokenSchema,
   splitLicenseToken,
 } from './license.ts'
@@ -63,5 +65,34 @@ describe('splitLicenseToken', () => {
   it('menolak token yang melewati batas panjang', () => {
     const long = `${'a'.repeat(LICENSE_TOKEN_MAX_LENGTH)}.b`
     expect(licenseTokenSchema.safeParse(long).success).toBe(false)
+  })
+})
+
+describe('licenseTokenRequestSchema', () => {
+  // 32 byte nol: 43 karakter + satu `=`.
+  const PUBLIC_KEY = `${'A'.repeat(43)}=`
+
+  it('menerima public key Ed25519 32 byte', () => {
+    expect(licenseTokenRequestSchema.parse({ deviceSignPk: PUBLIC_KEY })).toEqual({
+      deviceSignPk: PUBLIC_KEY,
+    })
+  })
+
+  it('toleran: tanpa public key (client lama) tetap sah', () => {
+    expect(licenseTokenRequestSchema.safeParse({}).success).toBe(true)
+  })
+
+  it('menolak field asing', () => {
+    const body = { deviceSignPk: PUBLIC_KEY, email: 'a@b.c' }
+    expect(licenseTokenRequestSchema.safeParse(body).success).toBe(false)
+  })
+
+  it.each([
+    ['kependekan (31 byte)', `${'A'.repeat(41)}==`],
+    ['kepanjangan (33 byte)', 'A'.repeat(44)],
+    ['bukan base64 standar', `${'-'.repeat(43)}=`],
+    ['kosong', ''],
+  ])('menolak public key %s', (_label, value) => {
+    expect(deviceSignPublicKeySchema.safeParse(value).success).toBe(false)
   })
 })
