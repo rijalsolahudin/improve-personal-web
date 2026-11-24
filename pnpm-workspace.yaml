@@ -23,16 +23,7 @@ overrides:
   '@nuxt/devtools-wizard': 3.4.3
   simple-git: 4.0.2
   '@simple-git/argv-parser': 2.0.1
-
-# Satu-satunya advisory yang tidak bisa ditutup: GHSA-86w9-cpqp-85rv (node-forge, high).
-# `first_patched_version = null` di GitHub advisory API - rilis upstream terakhir 1.4.0,
-# belum ada 1.4.1 (dicek 2026-10-23). Jalur: listhen <- @nuxt/cli / nitropack, dipakai untuk
-# self-signed HTTPS server saat dev. Tidak ikut bundle produksi: `.output/server` tidak memuat
-# node-forge/listhen, dan devtools mati di `$production` (apps/web/nuxt.config.ts).
-# Mitigasi: kode ini tidak memverifikasi sertifikat/tanda tangan RSA dari input user; kalau
-# nanti butuh verifikasi tanda tangan PKCS#1 v1.5 di server, jangan pakai node-forge.
-# Ini BUKAN mematikan audit: advisory lain tetap memblokir. Cabut entri begitu 1.4.1 terbit
-# (cek: pnpm audit --json | jq '.advisories').
-auditConfig:
-  ignoreGhsas:
-    - GHSA-86w9-cpqp-85rv
+  # Menutup GHSA-86w9-cpqp-85rv + 7 GHSA lain (semua `<=1.4.0`) di jalur listhen (web dev) dan
+  # @expo/cli / @expo/code-signing-certificates (mobile). Semua dependent memakai `^1.4.0`.
+  # 1.4.3, bukan 1.4.4: 1.4.4 baru terbit 2026-11-23 dan belum lolos minimumReleaseAge (#181).
+  node-forge: 1.4.3
