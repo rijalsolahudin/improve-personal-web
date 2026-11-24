@@ -3,6 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
+  "sideEffects": false,
   "description": "Domain, use case, interface repository, dan sync engine. TypeScript murni, platform-agnostic.",
   "exports": {
     ".": "./src/index.ts",
