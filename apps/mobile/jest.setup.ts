@@ -32,6 +32,9 @@ jest.mock('expo-screen-capture', () => ({
   disableAppSwitcherProtectionAsync: jest.fn(async () => undefined),
 }))
 
+// libsodium native (modules/sodium): tiruan berbasis vektor web di modules/sodium/__mocks__.
+jest.mock('./modules/sodium')
+
 // State fake native dan riwayat panggilan mock tidak boleh bocor antar test.
 beforeEach(() => {
   jest.clearAllMocks()

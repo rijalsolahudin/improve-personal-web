@@ -1,0 +1,25 @@
+# Pin sumber libsodium untuk build-libsodium.sh. Format shell (KEY=value), di-`source` script build.
+#
+# Mengubah nilai di sini = mengganti kode kripto yang ikut ke app. WAJIB lewat review keamanan (arif):
+# versi baru diverifikasi minisign dulu, lalu SHA-256 tarball yang LULUS verifikasi itu yang ditulis
+# di sini - bukan disalin dari halaman web.
+#
+# Tarball rilis bernomor (bukan `-stable`): `libsodium-X.Y.Z-stable.tar.gz` diperbarui terus dari
+# branch stable, jadi SHA-256-nya tidak bisa dipin.
+
+LIBSODIUM_VERSION=1.0.21
+LIBSODIUM_TARBALL=libsodium-1.0.21.tar.gz
+LIBSODIUM_URL=https://download.libsodium.org/libsodium/releases/libsodium-1.0.21.tar.gz
+LIBSODIUM_SHA256=9e4285c7a419e82dedb0be63a72eea357d6943bc3e28e6735bf600dd4883feaf
+
+# Public key minisign resmi libsodium (Frank Denis). Dicocokkan dari dua sumber terpisah pada
+# 2026-11-24: doc.libsodium.org/installation dan github.com/jedisct1/libsodium-doc
+# (installation/README.md). Key id E7620F1842B4E81F (dihitung verify-minisign.mjs).
+LIBSODIUM_MINISIGN_PUBKEY=RWQf6LRCGA9i53mlYecO4IzT51TGPpvWucNSCh1CBM0QTaLn73Y7GFO3
+
+# Toolchain yang dipin supaya hasil build bisa diulang. NDK = versi yang dipakai React Native 0.88
+# (`react-native/gradle/libs.versions.toml`); API level minimum = minSdk Expo SDK 58.
+ANDROID_NDK_VERSION=27.1.12297006
+ANDROID_MIN_API=24
+ANDROID_ABIS="arm64-v8a armeabi-v7a x86_64"
+IOS_MIN_VERSION=16.4
