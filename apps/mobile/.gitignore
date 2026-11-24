@@ -1,0 +1,18 @@
+# Expo: artefak lokal & hasil generate (typed routes ditulis ulang oleh `expo start`)
+.expo/
+expo-env.d.ts
+dist/
+web-build/
+
+# Native project hasil prebuild (CNG) - sumber kebenarannya app.config.ts
+/ios
+/android
+
+# Kredensial signing tidak pernah masuk repo (security.md §8)
+*.jks
+*.keystore
+*.p8
+*.p12
+*.mobileprovision
+google-services.json
+GoogleService-Info.plist

@@ -4,6 +4,7 @@ packages:
 
 # Hanya paket yang sudah direview yang boleh menjalankan install script (security.md §12).
 allowBuilds:
+  '@parcel/watcher': false
   esbuild: true
   unrs-resolver: false
 
