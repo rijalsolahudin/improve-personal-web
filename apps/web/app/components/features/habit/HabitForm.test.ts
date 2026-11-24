@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { resetHabitsHydrationForTest } from '~/composables/useHabits'
 import { resetLocalDataSessionForTest } from '~/composables/useLocalData'
-import type { Habit } from '~/utils/habits'
+import type { Habit } from '@improve-personal/core/planner'
 
 import HabitForm from './HabitForm.vue'
 

@@ -12,7 +12,7 @@ import {
   type Task,
   type TaskDraft,
   type TaskDraftError,
-} from '~/utils/tasks'
+} from '@improve-personal/core/planner'
 import { removeItemGoalLinks, syncItemGoalLink } from '~/utils/goals/links'
 import {
   isReloadSessionActive,

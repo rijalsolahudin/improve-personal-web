@@ -6,7 +6,7 @@ import {
   type EncryptedBackupFile,
 } from '~/utils/io/export'
 import type { LocalDataSession } from '~/utils/storage/session'
-import { deviceTimeZone } from '~/utils/time'
+import { deviceTimeZone } from '@improve-personal/core/planner'
 
 import { useBackupReminder } from './useBackupReminder'
 import { useLocalData } from './useLocalData'

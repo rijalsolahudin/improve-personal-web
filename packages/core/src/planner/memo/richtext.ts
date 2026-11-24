@@ -5,7 +5,7 @@
 // `@[id]` (jadwal) / `#[id]` (goal). Karakter penanda yang diketik sebagai teks biasa di-escape `\`.
 // Dokumen memakai bentuk JSON ProseMirror/Tiptap supaya editor bisa memuatnya langsung.
 
-import { layoutParts, parseLayout } from './layout'
+import { layoutParts, parseLayout } from './layout.ts'
 
 export const RICH_MARKS = ['bold', 'italic', 'strike', 'highlight'] as const
 export type RichMark = (typeof RICH_MARKS)[number]
@@ -158,7 +158,7 @@ function tokenize(line: string): Token[] {
         const tag = HIGHLIGHT_COLOR_TAG.exec(line.slice(index + raw.length))
         if (tag) {
           raw += tag[0]
-          key = keyOf({ type: 'highlight', attrs: { color: tag[1] } })
+          key = keyOf({ type: 'highlight', attrs: { color: tag[1] ?? null } })
         }
       }
       tokens.push({ kind: 'marker', mark, key, raw })

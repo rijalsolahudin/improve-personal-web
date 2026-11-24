@@ -3,8 +3,7 @@ import { flushPromises } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
 import CalendarMonth from '~/components/features/calendar/CalendarMonth.vue'
-import { monthDays, occurrencesOn, type Schedule } from '~/utils/schedule'
-import { addDays } from '~/utils/time'
+import { monthDays, occurrencesOn, type Schedule, addDays } from '@improve-personal/core/planner'
 
 /**
  * QA T9 - AC performa: "render bulan < 100ms untuk 500 kejadian" (docs/PRD F6).

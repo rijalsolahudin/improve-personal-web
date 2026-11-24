@@ -7,7 +7,7 @@ import { resetGoalsHydrationForTest } from '~/composables/useGoals'
 import { resetHabitsHydrationForTest } from '~/composables/useHabits'
 import { resetSchedulesHydrationForTest } from '~/composables/useSchedules'
 import { resetTasksHydrationForTest } from '~/composables/useTasks'
-import type { Goal } from '~/utils/goals'
+import type { Goal } from '@improve-personal/core/planner'
 
 import MemoGoalMention from './MemoGoalMention.vue'
 

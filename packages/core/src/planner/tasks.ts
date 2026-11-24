@@ -1,8 +1,8 @@
 // To-do (PRD F2) + kuadran Eisenhower (F3), mengikuti Home Desktop.dc.html `todoVals`.
 // Fungsi murni; waktu sekarang selalu di-inject.
 
-import { isTime } from './schedule'
-import { isIsoDate, toIsoDate } from './time'
+import { isTime } from './schedule.ts'
+import { isIsoDate, toIsoDate } from './time.ts'
 
 export const PRIORITIES = ['urgent', 'medium', 'low'] as const
 export type Priority = (typeof PRIORITIES)[number]

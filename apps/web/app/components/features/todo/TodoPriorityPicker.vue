@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { PRIORITIES, type Priority } from '~/utils/tasks'
+import { PRIORITIES, type Priority } from '@improve-personal/core/planner'
 
 /** Pilihan prioritas: `pills` (tambah cepat) atau `blocks` (form task), sesuai design. */
 const { variant = 'pills', label } = defineProps<{

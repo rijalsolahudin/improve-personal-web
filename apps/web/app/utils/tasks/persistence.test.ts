@@ -13,7 +13,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { createManualClock, type ManualClock } from '@improve-personal/core'
 
 import { openLocalDataSession, type LocalDataSession } from '../storage/session'
-import type { Task } from '../tasks'
+import type { Task } from '@improve-personal/core/planner'
 import {
   QUADRANT_FROM_CORE,
   QUADRANT_TO_CORE,

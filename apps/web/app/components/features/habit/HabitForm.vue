@@ -8,8 +8,8 @@ import {
   emptyHabitDraft,
   type HabitDraft,
   type HabitDraftError,
-} from '~/utils/habits'
-import { WEEKDAY_ORDER } from '~/utils/schedule'
+  WEEKDAY_ORDER,
+} from '@improve-personal/core/planner'
 
 /** Modal habit baru / edit (design: "Habit baru" / "Edit habit"). */
 const { habitId } = defineProps<{ habitId: string | null }>()

@@ -1,9 +1,8 @@
 import { pomodoroSessionSchema, type PomodoroSession } from '@improve-personal/core'
 
-import type { FocusSession } from '../pomodoro'
+import { type FocusSession, MS_PER_DAY } from '@improve-personal/core/planner'
 import { createRepository } from '../storage/repository'
 import type { LocalDataSession } from '../storage/session'
-import { MS_PER_DAY } from '../time'
 
 /**
  * Persistensi riwayat Pomodoro: `FocusSession` (UI) <-> record `pomodoro_session`.

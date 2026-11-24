@@ -1,7 +1,7 @@
 import { mountSuspended } from '@nuxt/test-utils/runtime'
 import { describe, expect, it } from 'vitest'
 
-import type { Habit } from '~/utils/habits'
+import type { Habit } from '@improve-personal/core/planner'
 
 import HabitIcon from './HabitIcon.vue'
 

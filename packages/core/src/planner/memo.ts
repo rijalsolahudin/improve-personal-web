@@ -3,7 +3,7 @@
 
 import type { MemoPaperName } from '@improve-personal/tokens'
 
-import { richToPlain } from './memo/richtext'
+import { richToPlain } from './memo/richtext.ts'
 
 export const MEMO_TEXT_MAX = 5000
 export const MEMO_TITLE_MAX = 120

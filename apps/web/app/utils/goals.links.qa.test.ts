@@ -1,11 +1,14 @@
 import { describe, expect, it } from 'vitest'
 
-import { emptyTaskDraft, type Task } from './tasks'
-import type { Habit } from './habits'
+import {
+  emptyTaskDraft,
+  type Task,
+  type Habit,
+  type Schedule,
+  draftFromTask,
+} from '@improve-personal/core/planner'
 import { fromCoreHabit, toCoreHabit } from './habits/persistence'
-import type { Schedule } from './schedule'
 import { toSchedule, toSchedulePayload } from './schedules/persistence'
-import { draftFromTask } from './tasks'
 
 /**
  * Tautan item -> goal (PRD F13 "Untuk goal", AC T18).

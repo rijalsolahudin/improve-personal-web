@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { JOURNAL_LISTS } from '~/utils/journal'
+import { JOURNAL_LISTS } from '@improve-personal/core/planner'
 
 /** Bagian harian di mode baca: afirmasi + daftar yang terisi saja (tanpa baris kosong). */
 const { day } = defineProps<{ day: string }>()

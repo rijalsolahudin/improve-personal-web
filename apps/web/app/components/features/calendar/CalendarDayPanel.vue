@@ -5,8 +5,9 @@ import {
   formatMinutes,
   type Occurrence,
   type Recurrence,
-} from '~/utils/schedule'
-import { formatHourMinute, fromIsoDate } from '~/utils/time'
+  formatHourMinute,
+  fromIsoDate,
+} from '@improve-personal/core/planner'
 
 const { day, today } = defineProps<{ day: string; today: string }>()
 const emit = defineEmits<{

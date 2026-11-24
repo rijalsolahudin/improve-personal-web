@@ -4,8 +4,13 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { defineComponent, h } from 'vue'
 
 import { usePomodoroTargets } from '~/composables/usePomodoroTargets'
-import { currentStreak, type CheckIns, type Habit } from '~/utils/habits'
-import { MS_PER_HOUR, fromIsoDate } from '~/utils/time'
+import {
+  currentStreak,
+  type CheckIns,
+  type Habit,
+  MS_PER_HOUR,
+  fromIsoDate,
+} from '@improve-personal/core/planner'
 
 import { useDailyRoutine } from './useDailyRoutine'
 import { useHabits } from './useHabits'

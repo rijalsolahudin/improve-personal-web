@@ -2,7 +2,7 @@ import { mountSuspended } from '@nuxt/test-utils/runtime'
 import type { VueWrapper } from '@vue/test-utils'
 import { afterEach, describe, expect, it } from 'vitest'
 
-import type { Goal } from '~/utils/goals'
+import type { Goal } from '@improve-personal/core/planner'
 import type { GoalCategoryView } from '~/utils/goals/categories'
 
 import GoalListCard from './GoalListCard.vue'

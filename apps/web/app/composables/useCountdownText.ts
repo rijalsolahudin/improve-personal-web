@@ -1,4 +1,4 @@
-import { describeCountdown } from '~/utils/countdown'
+import { describeCountdown } from '@improve-personal/core/planner'
 
 /** Label sisa/lewat waktu momen: "2 bulan 10 hari lagi", "Sudah lewat 3 hari", "Baru saja lewat". */
 export function useCountdownText() {

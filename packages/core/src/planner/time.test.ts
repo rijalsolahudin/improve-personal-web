@@ -10,7 +10,7 @@ import {
   formatHourMinute,
   formatMinutesSeconds,
   greetingPeriod,
-} from './time'
+} from './time.ts'
 
 const NOW = new Date(2026, 9, 9, 10, 0, 0).getTime()
 

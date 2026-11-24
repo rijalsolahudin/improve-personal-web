@@ -4,7 +4,7 @@ import { IDBFactory } from 'fake-indexeddb'
 import { createManualClock, type ManualClock } from '@improve-personal/core'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import type { Memo } from '~/utils/memo'
+import type { Memo } from '@improve-personal/core/planner'
 import { loadMemoRecords, persistMemo } from '~/utils/memo/persistence'
 import { openLocalDataSession, type LocalDataSession } from '~/utils/storage/session'
 import type { RecordWriter } from '~/utils/storage/record-writer'

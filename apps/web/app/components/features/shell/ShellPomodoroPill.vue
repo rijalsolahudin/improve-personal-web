@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { formatMinutesSeconds } from '~/utils/time'
+import { formatMinutesSeconds } from '@improve-personal/core/planner'
 
 /**
  * Pill Pomodoro melayang (design `pf`): muncul selama sesi berjalan/dijeda di luar halaman

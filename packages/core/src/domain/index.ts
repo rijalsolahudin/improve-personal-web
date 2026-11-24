@@ -197,7 +197,6 @@ export {
   countdownSchema,
   habitCheckinSchema,
   habitSchema,
-  isCountdownPast,
   isDayTargetMet,
   isScheduledDay,
   sortActiveCountdowns,

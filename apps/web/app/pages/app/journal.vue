@@ -1,6 +1,5 @@
 <script setup lang="ts">
-import { journalDates, matchesQuery, plainText } from '~/utils/memo'
-import { toIsoDate } from '~/utils/time'
+import { journalDates, matchesQuery, plainText, toIsoDate } from '@improve-personal/core/planner'
 
 definePageMeta({ layout: 'dashboard' })
 

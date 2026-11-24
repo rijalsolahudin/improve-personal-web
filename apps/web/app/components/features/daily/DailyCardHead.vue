@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { IconName } from '~/utils/icons'
+import type { IconName } from '@improve-personal/tokens/icons'
 
 /** Kepala kartu Daily Routine: tile ikon + judul + link fitur, opsional progres (design). */
 const {

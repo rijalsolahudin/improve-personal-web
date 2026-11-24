@@ -3,7 +3,7 @@ import { flushPromises, type VueWrapper } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
 import { resetHabitsHydrationForTest } from '~/composables/useHabits'
-import { HABIT_NAME_MAX, HABIT_TARGET_MAX } from '~/utils/habits'
+import { HABIT_NAME_MAX, HABIT_TARGET_MAX } from '@improve-personal/core/planner'
 
 import HabitForm from './HabitForm.vue'
 

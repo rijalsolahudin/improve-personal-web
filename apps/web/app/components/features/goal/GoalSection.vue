@@ -5,7 +5,7 @@ import {
   itemProgress,
   type ChapterStatus,
   type GoalItem,
-} from '~/utils/goals'
+} from '@improve-personal/core/planner'
 
 /** Satu blok di detail goal: "Sepanjang goal" (`status` null) atau chapter bernomor. */
 const {

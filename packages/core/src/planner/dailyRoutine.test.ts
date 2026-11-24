@@ -10,8 +10,8 @@ import {
   sumProgress,
   todayTasks,
   withDailyDay,
-} from './dailyRoutine'
-import type { Task } from './tasks'
+} from './dailyRoutine.ts'
+import type { Task } from './tasks.ts'
 
 const NOW = new Date(2026, 9, 16, 14, 0).getTime()
 const TODAY = '2026-10-16'

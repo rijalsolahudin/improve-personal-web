@@ -12,9 +12,8 @@ import { beforeEach, describe, expect, it } from 'vitest'
 
 import { createManualClock } from '@improve-personal/core'
 
-import { HABIT_COLORS, type Habit } from '../habits'
+import { HABIT_COLORS, type Habit, fromIsoDate } from '@improve-personal/core/planner'
 import { openLocalDataSession, type LocalDataSession } from '../storage/session'
-import { fromIsoDate } from '../time'
 import { loadHabits, persistHabit } from './persistence'
 
 const TODAY = '2026-10-19'

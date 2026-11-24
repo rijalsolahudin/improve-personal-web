@@ -1,9 +1,15 @@
 import { mockNuxtImport } from '@nuxt/test-utils/runtime'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { EMPTY_DAILY_DAY, type DailyDay, type RoutineStep } from '~/utils/dailyRoutine'
-import type { Task } from '~/utils/tasks'
-import { MS_PER_HOUR, addDays, fromIsoDate } from '~/utils/time'
+import {
+  EMPTY_DAILY_DAY,
+  type DailyDay,
+  type RoutineStep,
+  type Task,
+  MS_PER_HOUR,
+  addDays,
+  fromIsoDate,
+} from '@improve-personal/core/planner'
 
 import { DAILY_STORAGE_KEY, useDailyRoutine } from './useDailyRoutine'
 

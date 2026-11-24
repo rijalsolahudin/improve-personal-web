@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { QUADRANT_STYLE, type Quadrant, type Task } from '~/utils/tasks'
+import { QUADRANT_STYLE, type Quadrant, type Task } from '@improve-personal/core/planner'
 
 const { quadrant, tasks, pool, now, isOver, draggingId } = defineProps<{
   quadrant: Quadrant

@@ -5,19 +5,21 @@ import { flushPromises, type VueWrapper } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
 import { useOverview } from '~/composables/useOverview'
-import type { Goal } from '~/utils/goals'
-import type { Habit } from '~/utils/habits'
 import {
+  type Goal,
+  type Habit,
   bestDayStreak,
   focusBuckets,
   habitStreaks,
   windowFor,
   type OverviewRange,
-} from '~/utils/overview'
+  type Task,
+  DEFAULT_POMODORO_CONFIG,
+  createPomodoro,
+  addDays,
+  toIsoDate,
+} from '@improve-personal/core/planner'
 import { toTask } from '~/utils/tasks/persistence'
-import type { Task } from '~/utils/tasks'
-import { DEFAULT_POMODORO_CONFIG, createPomodoro } from '~/utils/pomodoro'
-import { addDays, toIsoDate } from '~/utils/time'
 import OverviewPage from '~/pages/app/overview.vue'
 
 /**

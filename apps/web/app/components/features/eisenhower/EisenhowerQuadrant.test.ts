@@ -2,7 +2,7 @@ import { mountSuspended } from '@nuxt/test-utils/runtime'
 import type { VueWrapper } from '@vue/test-utils'
 import { afterEach, describe, expect, it } from 'vitest'
 
-import type { Quadrant, Task } from '~/utils/tasks'
+import type { Quadrant, Task } from '@improve-personal/core/planner'
 
 import EisenhowerQuadrant from './EisenhowerQuadrant.vue'
 

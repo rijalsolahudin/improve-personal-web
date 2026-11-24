@@ -117,7 +117,7 @@ describe('status & klaim mengikuti kode', () => {
     const tips = feature?.tips.join(' ') ?? ''
     expect(tips).toMatch(/tulis @/i)
 
-    // Parser & picker `#goal` sudah ada (`utils/memo.ts`, `MemoEditor.vue`), jadi panduan wajib
+    // Parser & picker `#goal` sudah ada (`packages/core/src/planner/memo.ts`, `MemoEditor.vue`), jadi panduan wajib
     // menyebutnya. Kalau `#` dihapus dari copy, panduan tertinggal dari fitur.
     const goalTip = feature?.tips.find((tip) => tip.includes('#')) ?? ''
     expect(goalTip).toMatch(/goal/i)

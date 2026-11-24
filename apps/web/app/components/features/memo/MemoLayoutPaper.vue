@@ -2,9 +2,12 @@
 import type { MemoPaperName } from '@improve-personal/tokens'
 
 import { freePart, type MemoLayoutModel, type MemoPart } from '~/composables/useMemoLayout'
-import { MEMO_FREE_WRITE_ENABLED } from '~/utils/memo/layout'
+import {
+  MEMO_FREE_WRITE_ENABLED,
+  type MentionKind,
+  type RichFormatTarget,
+} from '@improve-personal/core/planner'
 import { MEMO_LINE_PX, MEMO_PAPER_TOP_PX } from '~/utils/memo/paperClick'
-import type { MentionKind, RichFormatTarget } from '~/utils/memo/richtext'
 
 /**
  * Kertas jurnal dengan tata letak: tulisan utama, kolom kanan (split), dan kotak teks bebas yang

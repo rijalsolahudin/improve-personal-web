@@ -12,7 +12,7 @@ import { createRepositorySet } from '~/utils/storage/repository'
 import type { LocalDataSession } from '~/utils/storage/session'
 import { resetDataReloadersForTest } from '~/utils/storage/reload'
 import { loadTasks, persistTask } from '~/utils/tasks/persistence'
-import type { Task } from '~/utils/tasks'
+import type { Task } from '@improve-personal/core/planner'
 import { createUuidV7Generator } from '~/utils/storage/uuid'
 
 import { resetTasksHydrationForTest, useTasks } from './useTasks'

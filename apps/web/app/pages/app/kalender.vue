@@ -1,7 +1,13 @@
 <script setup lang="ts">
 import type { ScheduleFormTarget } from '~/components/features/schedule/ScheduleForm.vue'
-import { shiftAnchor, weekDays, type CalendarView, type Occurrence } from '~/utils/schedule'
-import { fromIsoDate, toIsoDate } from '~/utils/time'
+import {
+  shiftAnchor,
+  weekDays,
+  type CalendarView,
+  type Occurrence,
+  fromIsoDate,
+  toIsoDate,
+} from '@improve-personal/core/planner'
 
 definePageMeta({ layout: 'dashboard' })
 

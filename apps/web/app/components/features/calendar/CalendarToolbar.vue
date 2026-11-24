@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { SegmentedOption } from '~/components/ui/Segmented/index.vue'
-import { CALENDAR_VIEWS, type CalendarView } from '~/utils/schedule'
+import { CALENDAR_VIEWS, type CalendarView } from '@improve-personal/core/planner'
 
 const { rangeLabel } = defineProps<{ rangeLabel: string }>()
 const view = defineModel<CalendarView>('view', { required: true })

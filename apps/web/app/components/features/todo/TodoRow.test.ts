@@ -2,8 +2,7 @@ import { mountSuspended } from '@nuxt/test-utils/runtime'
 import type { VueWrapper } from '@vue/test-utils'
 import { afterEach, describe, expect, it } from 'vitest'
 
-import type { Schedule } from '~/utils/schedule'
-import type { Task } from '~/utils/tasks'
+import type { Schedule, Task } from '@improve-personal/core/planner'
 
 import TodoRow from './TodoRow.vue'
 

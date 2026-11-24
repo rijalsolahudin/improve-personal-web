@@ -1,7 +1,6 @@
 <script setup lang="ts">
-import { goalProgress, type Goal } from '~/utils/goals'
+import { goalProgress, type Goal, daysBetween, fromIsoDate } from '@improve-personal/core/planner'
 import type { GoalCategoryView } from '~/utils/goals/categories'
-import { daysBetween, fromIsoDate } from '~/utils/time'
 
 const { goal, today, category } = defineProps<{
   goal: Goal

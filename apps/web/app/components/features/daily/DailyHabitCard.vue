@@ -1,6 +1,11 @@
 <script setup lang="ts">
-import type { Progress } from '~/utils/dailyRoutine'
-import { countOn, HABIT_COLORS, pipCount, type Habit } from '~/utils/habits'
+import {
+  type Progress,
+  countOn,
+  HABIT_COLORS,
+  pipCount,
+  type Habit,
+} from '@improve-personal/core/planner'
 
 /**
  * Habit hari ini + check-in cepat (PRD F12, design v2 `Desktop v2.dc.html` 2264-2286).

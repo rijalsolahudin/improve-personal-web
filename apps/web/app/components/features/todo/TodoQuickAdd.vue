@@ -1,5 +1,10 @@
 <script setup lang="ts">
-import { END_OF_DAY, TASK_TITLE_MAX, deadlineFrom, type Priority } from '~/utils/tasks'
+import {
+  END_OF_DAY,
+  TASK_TITLE_MAX,
+  deadlineFrom,
+  type Priority,
+} from '@improve-personal/core/planner'
 
 /** Tambah task cepat: judul + tanggal opsional (deadline 23:59) + prioritas. */
 const { add } = useTasks()

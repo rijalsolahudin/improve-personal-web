@@ -1,6 +1,9 @@
 <script setup lang="ts">
-import { TASK_TITLE_MAX } from '~/utils/tasks'
-import { PRIORITY_VISIBLE_COUNT, type PriorityTask } from '~/utils/dailyRoutine'
+import {
+  TASK_TITLE_MAX,
+  PRIORITY_VISIBLE_COUNT,
+  type PriorityTask,
+} from '@improve-personal/core/planner'
 
 /**
  * Prioritas hari ini (PRD F12): Penting & Mendesak + urgent, tanpa batas; daftar panjang dilipat.

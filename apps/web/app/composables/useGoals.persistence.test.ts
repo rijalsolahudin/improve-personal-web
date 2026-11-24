@@ -11,7 +11,7 @@ import type { LocalDataSession } from '~/utils/storage/session'
 import { createRecordWriter } from '~/utils/storage/record-writer'
 import { createRepositorySet } from '~/utils/storage/repository'
 import { createUuidV7Generator } from '~/utils/storage/uuid'
-import { emptyGoalDraft } from '~/utils/goals'
+import { emptyGoalDraft } from '@improve-personal/core/planner'
 import { loadGoalRecords } from '~/utils/goals/persistence'
 
 import { resetGoalsHydrationForTest, useGoals } from './useGoals'

@@ -9,7 +9,7 @@ import {
 import { NO_GOAL_PLACE, placeOf, type GoalPlace } from '../goals/links'
 import { createRepository } from '../storage/repository'
 import type { LocalDataSession } from '../storage/session'
-import type { Priority, Quadrant, Task } from '../tasks'
+import type { Priority, Quadrant, Task } from '@improve-personal/core/planner'
 
 /**
  * Persistensi task: `Task` (bentuk yang dipakai UI) ↔ record `todo` + `eisenhower_placement`.

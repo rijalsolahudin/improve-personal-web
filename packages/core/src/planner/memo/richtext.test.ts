@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { parseInline, parseRich, richToPlain, serializeRich, type RichDoc } from './richtext'
+import { parseInline, parseRich, richToPlain, serializeRich, type RichDoc } from './richtext.ts'
 
 const roundTrip = (markdown: string): string => serializeRich(parseRich(markdown))
 

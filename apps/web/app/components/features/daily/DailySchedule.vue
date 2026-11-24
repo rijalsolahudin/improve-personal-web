@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { ScheduleFormTarget } from '~/components/features/schedule/ScheduleForm.vue'
-import type { Occurrence } from '~/utils/schedule'
+import type { Occurrence } from '@improve-personal/core/planner'
 
 /**
  * Jadwal hari ini (PRD F12): timeline versi ringkas Kalender - klik slot kosong bikin jadwal,

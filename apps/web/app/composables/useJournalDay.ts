@@ -4,7 +4,7 @@ import {
   setListItem,
   type JournalDay,
   type JournalListKey,
-} from '~/utils/journal'
+} from '@improve-personal/core/planner'
 
 /**
  * Isian harian halaman Journal untuk tanggal `day`. Fase 1: in-memory seperti memo; isi jurnal

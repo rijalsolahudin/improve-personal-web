@@ -6,6 +6,7 @@
   "description": "Design token: sumber tunggal untuk CSS vars (web) dan theme object (RN).",
   "exports": {
     ".": "./src/index.ts",
+    "./icons": "./src/icons.ts",
     "./css": "./dist/tokens.css"
   },
   "files": [

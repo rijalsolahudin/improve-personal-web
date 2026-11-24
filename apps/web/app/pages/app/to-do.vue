@@ -6,7 +6,7 @@ import {
   sortTasks,
   type TaskFilter,
   type TaskSort,
-} from '~/utils/tasks'
+} from '@improve-personal/core/planner'
 
 definePageMeta({ layout: 'dashboard' })
 

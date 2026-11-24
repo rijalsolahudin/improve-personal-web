@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { AccountDialog } from '~/composables/useAccountDialogs'
-import type { IconName } from '~/utils/icons'
+import type { IconName } from '@improve-personal/tokens/icons'
 
 const emit = defineEmits<{ close: [] }>()
 

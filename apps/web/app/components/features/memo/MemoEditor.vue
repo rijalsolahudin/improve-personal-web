@@ -9,10 +9,13 @@ import {
   insertMention,
   mentionQuery,
   wordCount,
-} from '~/utils/memo'
-import type { MentionKind, RichFormatTarget } from '~/utils/memo/richtext'
-import { SCHEDULE_COLORS, occurrencesOn } from '~/utils/schedule'
-import { addDays, fromIsoDate } from '~/utils/time'
+  type MentionKind,
+  type RichFormatTarget,
+  SCHEDULE_COLORS,
+  occurrencesOn,
+  addDays,
+  fromIsoDate,
+} from '@improve-personal/core/planner'
 
 /** Halaman tulis jurnal untuk tanggal `day` (design: kertas bergaris + selotip). */
 const { day } = defineProps<{ day: string }>()

@@ -8,8 +8,8 @@ import {
   parseLayout,
   serializeLayout,
   type MemoLayout,
-} from './layout'
-import { parseRich, richToPlain, serializeRich } from './richtext'
+} from './layout.ts'
+import { parseRich, richToPlain, serializeRich } from './richtext.ts'
 
 const free = (text: string, x = 0.6, line = 3, width = 0.3) => ({ x, line, width, text })
 

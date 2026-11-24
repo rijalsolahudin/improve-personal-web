@@ -1,9 +1,9 @@
 // Overview (PRD F11): agregasi lokal lintas fitur. Fungsi murni; waktu di-inject.
 // Rentang: keseluruhan / harian / pekanan / bulanan / tahunan; `off` 0 = sekarang, negatif = mundur.
 
-import type { Countdown, CountdownView } from './countdown'
-import { groupCountdowns } from './countdown'
-import { chapterStatus, goalProgress, type Goal, type GoalCategory } from './goals'
+import type { Countdown, CountdownView } from './countdown.ts'
+import { groupCountdowns } from './countdown.ts'
+import { chapterStatus, goalProgress, type Goal, type GoalCategory } from './goals.ts'
 import {
   HABIT_COLORS,
   completionRate,
@@ -12,11 +12,11 @@ import {
   isScheduled,
   type CheckIns,
   type Habit,
-} from './habits'
-import type { Memo, MoodByDate } from './memo'
-import { sessionMinutes, type FocusSession } from './pomodoro'
-import { SCHEDULE_COLORS, occurrencesBetween, type Schedule } from './schedule'
-import { isOverdue, QUADRANTS, type Quadrant, type Task } from './tasks'
+} from './habits.ts'
+import type { Memo, MoodByDate } from './memo.ts'
+import { sessionMinutes, type FocusSession } from './pomodoro.ts'
+import { SCHEDULE_COLORS, occurrencesBetween, type Schedule } from './schedule.ts'
+import { isOverdue, QUADRANTS, type Quadrant, type Task } from './tasks.ts'
 import {
   MS_PER_DAY,
   MS_PER_HOUR,
@@ -25,7 +25,7 @@ import {
   fromIsoDate,
   isIsoDate,
   toIsoDate,
-} from './time'
+} from './time.ts'
 
 export type OverviewRange = 'keseluruhan' | 'harian' | 'pekanan' | 'bulanan' | 'tahunan'
 export const OVERVIEW_RANGES: readonly OverviewRange[] = [

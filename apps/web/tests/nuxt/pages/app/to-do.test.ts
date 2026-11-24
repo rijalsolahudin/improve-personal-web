@@ -5,9 +5,14 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { resetLocalDataSessionForTest } from '~/composables/useLocalData'
 import { resetSchedulesHydrationForTest } from '~/composables/useSchedules'
 import { resetTasksHydrationForTest } from '~/composables/useTasks'
-import type { Schedule } from '~/utils/schedule'
-import type { Task, TaskFilter, TaskSort } from '~/utils/tasks'
-import { DEFAULT_POMODORO_CONFIG, createPomodoro } from '~/utils/pomodoro'
+import {
+  type Schedule,
+  type Task,
+  type TaskFilter,
+  type TaskSort,
+  DEFAULT_POMODORO_CONFIG,
+  createPomodoro,
+} from '@improve-personal/core/planner'
 import ToDoPage from '~/pages/app/to-do.vue'
 
 /**

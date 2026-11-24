@@ -8,7 +8,9 @@ import {
   type Countdown,
   type CountdownDraft,
   type CountdownDraftError,
-} from '~/utils/countdown'
+  MS_PER_DAY,
+  deviceTimeZone,
+} from '@improve-personal/core/planner'
 import { loadCountdowns, persistCountdown, removeCountdown } from '~/utils/countdown/persistence'
 import type { LocalDataSession } from '~/utils/storage/session'
 import {
@@ -18,7 +20,6 @@ import {
   reloadSession,
 } from '~/utils/storage/reload'
 import { createUuidV7Generator } from '~/utils/storage/uuid'
-import { MS_PER_DAY, deviceTimeZone } from '~/utils/time'
 
 import { useLocalData } from './useLocalData'
 

@@ -1,6 +1,5 @@
 <script setup lang="ts">
-import { sessionMinutes } from '~/utils/pomodoro'
-import { formatHourMinute } from '~/utils/time'
+import { sessionMinutes, formatHourMinute } from '@improve-personal/core/planner'
 
 /** Riwayat sesi fokus hari ini (selesai & dilewati). */
 const pomodoro = usePomodoro()

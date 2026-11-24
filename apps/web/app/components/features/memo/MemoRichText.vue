@@ -1,8 +1,13 @@
 <script setup lang="ts">
 import { h, type VNode } from 'vue'
 
-import { parseLayout } from '~/utils/memo/layout'
-import { parseRich, type RichBlock, type RichInline, type RichMark } from '~/utils/memo/richtext'
+import {
+  parseLayout,
+  parseRich,
+  type RichBlock,
+  type RichInline,
+  type RichMark,
+} from '@improve-personal/core/planner'
 
 /**
  * Tulisan jurnal di mode baca: markdown jurnal dirender jadi elemen Vue (bukan HTML mentah), jadi isi

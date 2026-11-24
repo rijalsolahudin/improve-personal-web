@@ -17,11 +17,11 @@ import {
   type RichDoc,
   type RichListKind,
   type RichMark,
-} from '~/utils/memo/richtext'
+} from '@improve-personal/core/planner'
 
 /**
  * Kertas tulis jurnal dengan format (tebal, miring, coret, stabilo, daftar). Tampilannya sama dengan
- * kertas bergaris lama; isinya tetap disimpan sebagai markdown jurnal (`utils/memo/richtext.ts`).
+ * kertas bergaris lama; isinya tetap disimpan sebagai markdown jurnal (`packages/core/src/planner/memo/richtext.ts`).
  * Dimuat lazy karena editornya (Tiptap/ProseMirror) berat dan hanya dipakai di halaman Journal.
  */
 const {

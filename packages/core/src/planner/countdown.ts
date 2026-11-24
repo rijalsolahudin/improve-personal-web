@@ -1,8 +1,8 @@
 // Countdown (PRD F5), mengikuti `cdTarget`/`cdText` di Home Desktop.dc.html.
 // Fungsi murni; waktu di-inject, tanpa Date.now(). Tanggal ISO lokal `YYYY-MM-DD`.
 
-import { isTime } from './schedule'
-import { MS_PER_DAY, MS_PER_HOUR, MS_PER_MINUTE, MS_PER_SECOND, isIsoDate } from './time'
+import { isTime } from './schedule.ts'
+import { MS_PER_DAY, MS_PER_HOUR, MS_PER_MINUTE, MS_PER_SECOND, isIsoDate } from './time.ts'
 
 /** Palet warna countdown (design `COLS`). */
 export const COUNTDOWN_COLORS = [

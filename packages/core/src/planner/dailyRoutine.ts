@@ -1,8 +1,8 @@
 // Daily Routine (PRD F12 · Desktop.dc.html `dailyVals`). Fungsi murni; waktu selalu di-inject.
 
-import type { IconName } from './icons'
-import type { Task } from './tasks'
-import { MS_PER_DAY, fromIsoDate } from './time'
+import type { IconName } from '@improve-personal/tokens/icons'
+import type { Task } from './tasks.ts'
+import { MS_PER_DAY, fromIsoDate } from './time.ts'
 
 export const ROUTINE_BLOCKS = ['pagi', 'siang', 'malam'] as const
 export type RoutineBlock = (typeof ROUTINE_BLOCKS)[number]

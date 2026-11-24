@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { SCHEDULE_COLORS } from '~/utils/schedule'
+import { SCHEDULE_COLORS } from '@improve-personal/core/planner'
 
 /** Chip `@jadwal` di entri jurnal; klik → buka tanggal itu di Kalender. Jadwal terhapus aman. */
 const { scheduleId, day } = defineProps<{ scheduleId: string; day: string }>()

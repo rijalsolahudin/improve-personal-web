@@ -2,7 +2,7 @@ import { mountSuspended } from '@nuxt/test-utils/runtime'
 import type { VueWrapper } from '@vue/test-utils'
 import { afterEach, describe, expect, it } from 'vitest'
 
-import { toCountdownView, type Countdown } from '~/utils/countdown'
+import { toCountdownView, type Countdown } from '@improve-personal/core/planner'
 
 import CountdownListCard from './CountdownListCard.vue'
 

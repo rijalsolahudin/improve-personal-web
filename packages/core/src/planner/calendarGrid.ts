@@ -2,7 +2,7 @@
 // Grid 00:00–24:00 (`G0 = 0` di design) dalam slot 15 menit; tinggi slot membesar supaya isi item
 // (to-do tertaut, judul) muat, dan tinggi itu dipakai bersama semua kolom supaya jam tetap sejajar.
 
-import { DEFAULT_SCHEDULE_MINUTES, formatMinutes } from './schedule'
+import { DEFAULT_SCHEDULE_MINUTES, formatMinutes } from './schedule.ts'
 
 export const GRID_START_HOUR = 0
 export const GRID_END_HOUR = 24

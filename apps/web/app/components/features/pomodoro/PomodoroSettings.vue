@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { POMODORO_LIMITS, POMODORO_SETTINGS } from '~/utils/pomodoro'
+import { POMODORO_LIMITS, POMODORO_SETTINGS } from '@improve-personal/core/planner'
 
 /** Pengaturan durasi (− / +, dibatasi) + suara saat fase selesai. Tersimpan otomatis. */
 const pomodoro = usePomodoro()

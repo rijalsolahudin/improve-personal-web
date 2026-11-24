@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
-import type { FocusSession } from './pomodoro'
-import type { CheckIns, Habit } from './habits'
-import type { Schedule } from './schedule'
-import type { Task } from './tasks'
-import { addDays, toIsoDate } from './time'
+import type { FocusSession } from './pomodoro.ts'
+import type { CheckIns, Habit } from './habits.ts'
+import type { Schedule } from './schedule.ts'
+import type { Task } from './tasks.ts'
+import { addDays, toIsoDate } from './time.ts'
 import {
   activeGoals,
   bestDayStreak,
@@ -22,7 +22,7 @@ import {
   scheduledMinutes,
   taskTotals,
   windowFor,
-} from './overview'
+} from './overview.ts'
 
 const day = (year: number, month: number, d: number, hour = 0, minute = 0): number =>
   new Date(year, month - 1, d, hour, minute).getTime()
@@ -289,8 +289,8 @@ describe('task & goal', () => {
 
   it('taskTotals dengan rentang menghitung task yang selesai di rentang itu', () => {
     const ranged: Task[] = [
-      { ...tasks[0]!, id: 'old', completedAt: day(2024, 5, 10) },
-      { ...tasks[0]!, id: 'new', completedAt: day(2026, 10, 14) },
+      { ...(tasks[0] as Task), id: 'old', completedAt: day(2024, 5, 10) },
+      { ...(tasks[0] as Task), id: 'new', completedAt: day(2026, 10, 14) },
     ]
     const window = { start: day(2026, 10, 14), end: day(2026, 10, 15) }
     expect(taskTotals(ranged, day(2026, 10, 14), window).done).toBe(1)
@@ -305,19 +305,29 @@ describe('task & goal', () => {
   it('onTimeRate: selesai sebelum deadline, tanpa deadline tidak dihitung', () => {
     const ranged: Task[] = [
       {
-        ...tasks[0]!,
+        ...(tasks[0] as Task),
         id: 'ontime',
         deadline: day(2026, 10, 14, 12),
         completedAt: day(2026, 10, 14, 11),
       },
       {
-        ...tasks[0]!,
+        ...(tasks[0] as Task),
         id: 'late',
         deadline: day(2026, 10, 14, 9),
         completedAt: day(2026, 10, 14, 11),
       },
-      { ...tasks[0]!, id: 'nodeadline', deadline: null, completedAt: day(2026, 10, 14, 11) },
-      { ...tasks[0]!, id: 'outside', deadline: day(2024, 5, 9), completedAt: day(2024, 5, 10) },
+      {
+        ...(tasks[0] as Task),
+        id: 'nodeadline',
+        deadline: null,
+        completedAt: day(2026, 10, 14, 11),
+      },
+      {
+        ...(tasks[0] as Task),
+        id: 'outside',
+        deadline: day(2024, 5, 9),
+        completedAt: day(2024, 5, 10),
+      },
     ]
     const window = { start: day(2026, 10, 14), end: day(2026, 10, 15) }
     expect(onTimeRate(ranged, window)).toBe(50)

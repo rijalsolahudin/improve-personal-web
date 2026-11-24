@@ -1,5 +1,9 @@
-import type { Priority, Quadrant, Task } from '~/utils/tasks'
-import { MS_PER_HOUR } from '~/utils/time'
+import {
+  type Priority,
+  type Quadrant,
+  type Task,
+  MS_PER_HOUR,
+} from '@improve-personal/core/planner'
 
 /**
  * Task contoh fase 1 (isi Home Desktop.dc.html), deadline relatif ke `now`.

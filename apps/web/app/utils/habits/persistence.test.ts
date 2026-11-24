@@ -13,10 +13,9 @@ import { beforeEach, describe, expect, it } from 'vitest'
 
 import { createManualClock, type HabitCheckin, type ManualClock } from '@improve-personal/core'
 
-import type { Habit } from '../habits'
+import { type Habit, MS_PER_DAY, addDays, fromIsoDate } from '@improve-personal/core/planner'
 import { createRepository } from '../storage/repository'
 import { openLocalDataSession, type LocalDataSession } from '../storage/session'
-import { MS_PER_DAY, addDays, fromIsoDate } from '../time'
 import { loadCheckIns, loadHabits, persistCheckin, persistHabit, removeHabit } from './persistence'
 
 const TODAY = '2026-10-19' // Senin

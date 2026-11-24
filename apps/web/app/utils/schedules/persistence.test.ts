@@ -9,7 +9,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 
 import { createManualClock, type ManualClock } from '@improve-personal/core'
 
-import type { Schedule } from '../schedule'
+import type { Schedule } from '@improve-personal/core/planner'
 import { openLocalDataSession, type LocalDataSession } from '../storage/session'
 import {
   attendanceKey,

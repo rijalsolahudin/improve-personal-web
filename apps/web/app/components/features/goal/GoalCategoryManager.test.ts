@@ -3,7 +3,7 @@ import { flushPromises, type VueWrapper } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ref } from 'vue'
 
-import type { Goal } from '~/utils/goals'
+import type { Goal } from '@improve-personal/core/planner'
 import type { GoalCategoryView } from '~/utils/goals/categories'
 
 import GoalCategoryManager from './GoalCategoryManager.vue'

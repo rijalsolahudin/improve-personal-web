@@ -121,8 +121,10 @@ flowchart TD
   web --> contracts
   core --> crypto
   core --> contracts
+  core -.->|import type saja| tokens
 ```
 
+- `core` boleh `import type` dari `tokens` (hanya tipe: `IconName`, `MemoPaperName`) - tanpa nilai runtime, jadi data ikon tidak ikut ke bundle core.
 - `packages/*` **dilarang** import Vue, React, Nuxt, React Native, Node API (`fs`, `crypto` Node), atau DOM. Kebutuhan platform masuk lewat interface (lihat §5).
 - Kode server di `apps/web/server/**` **cuma boleh** import `contracts` - **dilarang** import `core` / `crypto`, karena server nggak boleh punya kemampuan dekripsi. Nggak ada app server terpisah, jadi aturan ini berlaku untuk folder `server/` di dalam app web (ADR 7 direvisi).
 - `apps/web` dan `apps/mobile` nggak saling import.
@@ -136,6 +138,7 @@ flowchart TD
 packages/core/src/
 ├── domain/        # entitas + aturan murni: schedule, todo, eisenhower, pomodoro,
 │                  # countdown, habit, memo, goal, sticker, decoration
+├── planner/       # model presentasi + logika murni fitur harian (jadwal, to-do, habit, goal, countdown, pomodoro, memo, jurnal, overview); sub-path `@improve-personal/core/planner`, tidak di barrel karena nama bentrok dengan entitas `domain/`
 ├── recurrence/    # engine F1 (ekspansi per rentang, exception, edit 3 opsi)
 ├── calc/          # sisa waktu, countdown unit, streak, progress goal, agregasi Overview
 ├── repository/    # interface Repository<T> + query by range
@@ -146,7 +149,7 @@ packages/core/src/
 └── ports.ts       # interface yang diimplementasi tiap platform
 ```
 
-Semua fungsi di `domain/`, `recurrence/`, `calc/` **murni** (input → output, tanpa I/O, tanpa `Date.now()` langsung - waktu di-inject). Ini yang bikin unit test PRD (recurrence, streak, progress, dll) gampang dan deterministik.
+Semua fungsi di `domain/`, `recurrence/`, `calc/`, `planner/` **murni** (input → output, tanpa I/O, tanpa `Date.now()` langsung - waktu di-inject). Ini yang bikin unit test PRD (recurrence, streak, progress, dll) gampang dan deterministik.
 
 ---
 
@@ -246,13 +249,13 @@ flowchart LR
   PW[Kata sandi backup] -->|Argon2id + salt| BK[Backup Key]
   BK -->|XChaCha20-Poly1305 secretstream| BF[Berkas backup / Google Drive]
   QR[Kunci sesi 32 byte di QR] -->|XChaCha20-Poly1305 secretstream| TX[Aliran transfer]
-```
-
-**Salinan lokal (sudah ada).**
   SK[Sync Key - 32 byte acak, per epoch] -->|KDF subkey 'sync' + secretstream| SG[Segmen sync: relay + Drive]
   BK -->|wrap| SKF[sync-key.e epoch di Drive]
   DEV -->|wrap| SK
   DSK[Device Sign Key - Ed25519 per perangkat] -->|tanda tangan challenge| SR[Auth relay sync]
+```
+
+**Salinan lokal (sudah ada).**
 - MK 32 byte acak per perangkat, dibungkus `CryptoKey` non-extractable (AES-KW). Turunannya menyegel `record` di IndexedDB; native memakai SQLCipher + Keystore/Keychain.
 - MK hilang (data situs dihapus) = salinan lokal tidak bisa dibuka. **Tidak ada full pull dari server lagi**; pemulihan hanya dari backup atau transfer.
 
@@ -266,9 +269,6 @@ flowchart LR
 - Kunci sesi 32 byte acak dibuat perangkat lama, hanya ada di QR dan di memori kedua perangkat, dibuang setelah selesai atau 10 menit.
 - Semua yang lewat relay/WebRTC (termasuk pesan kontrol setelah handshake) dienkripsi kunci ini. Kode verifikasi 6 digit = `BLAKE2b(key, 'ip-sas')` dipotong, ditampilkan di dua layar dan dikonfirmasi user di perangkat lama sebelum data dikirim.
 
-**Lisensi.** Server menandatangani token dengan Ed25519; private key hanya di env server, public key ditanam di build app.
-
-**Dilarang:** log kunci/kata sandi/payload/ciphertext, mengirim kunci apa pun ke server, menyimpan kata sandi backup, atau membuat algoritma sendiri.
 **Sync Key (ADR 17).**
 - SK 32 byte acak, dibuat perangkat pertama yang mengaktifkan sync, berlaku per `epoch` (bilangan bulat naik).
 - Disimpan lokal **dibungkus Device Key**. Di Drive disimpan sebagai `sync-key.e<epoch>` yang dibungkus Backup Key (Argon2id dari kata sandi backup), jadi satu kata sandi user untuk backup + sync.
@@ -278,6 +278,9 @@ flowchart LR
 
 **Device Sign Key (ADR 17).** Keypair Ed25519 per perangkat, secret di Keystore/Keychain/WebCrypto non-extractable. Publiknya dikirim saat aktivasi (`license_activations.device_sign_pk`). Relay sync mengautentikasi koneksi dengan challenge acak yang ditandatangani kunci ini; token lisensi saja tidak cukup karena token bukan rahasia.
 
+**Lisensi.** Server menandatangani token dengan Ed25519; private key hanya di env server, public key ditanam di build app.
+
+**Dilarang:** log kunci/kata sandi/payload/ciphertext, mengirim kunci apa pun ke server, menyimpan kata sandi backup, atau membuat algoritma sendiri.
 
 ## 8. Lisensi
 
@@ -434,10 +437,10 @@ POST /v1/license/token            (sesi -> token lisensi)
 POST /v1/license/refresh          (token lama -> token dengan exp terkini)
 POST /v1/purchase/checkout        POST /v1/payments/webhook/mayar
 POST /v1/payments/webhook        GET  /v1/transfer/relay   (upgrade WebSocket)
+GET  /v1/sync/ws                 (upgrade WebSocket, auth Device Sign Key - ADR 17)
 GET  /v1/weather                 GET  /health
 ```
 
-GET  /v1/sync/ws                 (upgrade WebSocket, auth Device Sign Key - ADR 17)
 Bentuk respons seragam untuk SEMUA endpoint: sukses `{ data: <DTO> }`, gagal `{ error: { code, message, details? } }` dengan status dari `ERROR_HTTP_STATUS`. Pembungkusan sukses terpusat di `apps/web/server/utils/api-error.ts`, schema-nya satu sumber di `packages/contracts/src/protocol.ts`.
 
 Endpoint ini dilayani Nitro di dalam `apps/web` (`server/routes/v1/**`), bukan app terpisah.

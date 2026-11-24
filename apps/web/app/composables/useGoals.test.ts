@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 
-import { emptyGoalDraft, type Goal, type GoalDraft } from '~/utils/goals'
+import { emptyGoalDraft, type Goal, type GoalDraft } from '@improve-personal/core/planner'
 
 import { resetGoalsHydrationForTest, useGoals } from './useGoals'
 

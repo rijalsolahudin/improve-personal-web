@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { resetLocalDataSessionForTest } from '~/composables/useLocalData'
 import { resetSchedulesHydrationForTest } from '~/composables/useSchedules'
 import { resetTasksHydrationForTest } from '~/composables/useTasks'
-import type { Schedule } from '~/utils/schedule'
+import type { Schedule } from '@improve-personal/core/planner'
 import KalenderPage from '~/pages/app/kalender.vue'
 
 /**

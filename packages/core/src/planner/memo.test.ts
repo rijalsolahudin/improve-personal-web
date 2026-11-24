@@ -15,7 +15,7 @@ import {
   tidyMemoText,
   wordCount,
   type Memo,
-} from './memo'
+} from './memo.ts'
 
 const memo = (overrides: Partial<Memo> = {}): Memo => ({
   id: 'm',

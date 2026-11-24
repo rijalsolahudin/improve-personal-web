@@ -4,9 +4,13 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
 import { resetSchedulesHydrationForTest } from '~/composables/useSchedules'
 import { resetTasksHydrationForTest } from '~/composables/useTasks'
-import type { PriorityTask } from '~/utils/dailyRoutine'
-import type { Task } from '~/utils/tasks'
-import { MS_PER_HOUR, addDays, fromIsoDate } from '~/utils/time'
+import {
+  type PriorityTask,
+  type Task,
+  MS_PER_HOUR,
+  addDays,
+  fromIsoDate,
+} from '@improve-personal/core/planner'
 
 import DailyPriorityList from './DailyPriorityList.vue'
 import DailyTodoCard from './DailyTodoCard.vue'

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Task } from '~/utils/tasks'
+import type { Task } from '@improve-personal/core/planner'
 
 /** To-do yang tertaut ke jadwal, tampil di dalam kartu jadwal timeline (design). */
 const { tasks } = defineProps<{ tasks: readonly Task[] }>()

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { JOURNAL_LISTS, JOURNAL_LIST_ITEM_MAX, listRows } from '~/utils/journal'
+import { JOURNAL_LISTS, JOURNAL_LIST_ITEM_MAX, listRows } from '@improve-personal/core/planner'
 
 /** Tiga daftar bernomor (design `dl.lists`): bersyukur, sedih, bisa lebih baik - di bawah kertas diary. */
 const { day } = defineProps<{ day: string }>()

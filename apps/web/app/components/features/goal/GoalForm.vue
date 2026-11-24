@@ -7,7 +7,7 @@ import {
   emptyGoalDraft,
   type GoalDraft,
   type GoalDraftError,
-} from '~/utils/goals'
+} from '@improve-personal/core/planner'
 
 /** Modal buat/edit goal (design: "Goal baru" / "Edit goal"). */
 const { goalId } = defineProps<{ goalId: string | null }>()

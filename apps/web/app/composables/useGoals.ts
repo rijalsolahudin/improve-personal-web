@@ -12,7 +12,8 @@ import {
   type Goal,
   type GoalDraft,
   type GoalDraftError,
-} from '~/utils/goals'
+  toIsoDate,
+} from '@improve-personal/core/planner'
 import {
   loadGoalRecords,
   persistGoal,
@@ -31,7 +32,6 @@ import {
   reloadSession,
 } from '~/utils/storage/reload'
 import { createUuidV7Generator } from '~/utils/storage/uuid'
-import { toIsoDate } from '~/utils/time'
 
 import { useGoalLinks } from './useGoalLinks'
 import { useHabits } from './useHabits'
@@ -44,7 +44,7 @@ import { useTasks } from './useTasks'
  *
  * Sumber data = record core (`goal`, `goal_chapter`, `goal_link`) di penyimpanan terenkripsi, bukan
  * data contoh. Progress tidak dihitung ulang di sini: item disusun dari tautan + data mentah, lalu
- * persennya memakai primitif core (`utils/goals.ts`), jadi angka web = angka mobile.
+ * persennya memakai primitif core (`packages/core/src/planner/goals.ts`), jadi angka web = angka mobile.
  *
  * Bentuk API tetap sinkron seperti fase mock (`goals`, `save`, `remove`, `setCover`, `updateChapter`,
  * `toggleTask`) karena form & halaman Goals sudah memakainya; penulisan berjalan di belakang antrean.

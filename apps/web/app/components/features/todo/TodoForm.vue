@@ -1,13 +1,13 @@
 <script setup lang="ts">
-import { SCHEDULE_COLORS } from '~/utils/schedule'
 import {
+  SCHEDULE_COLORS,
   TASK_TITLE_MAX,
   draftFromTask,
   emptyTaskDraft,
   type TaskDraft,
   type TaskDraftError,
-} from '~/utils/tasks'
-import { toIsoDate } from '~/utils/time'
+  toIsoDate,
+} from '@improve-personal/core/planner'
 
 /**
  * Modal task baru / edit task (design: "Task baru" / "Edit task").

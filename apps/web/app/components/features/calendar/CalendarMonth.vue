@@ -1,6 +1,5 @@
 <script setup lang="ts">
-import { SCHEDULE_COLORS, monthDays } from '~/utils/schedule'
-import { fromIsoDate } from '~/utils/time'
+import { SCHEDULE_COLORS, monthDays, fromIsoDate } from '@improve-personal/core/planner'
 
 interface MonthChip {
   key: string

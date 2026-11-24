@@ -6,7 +6,7 @@ import {
   type ChapterDraft,
   type GoalDraft,
   type GoalDraftError,
-} from '~/utils/goals'
+} from '@improve-personal/core/planner'
 
 /**
  * Baris chapter di form goal: judul + periode, urut ↑↓, hapus. Selalu dihitung dari

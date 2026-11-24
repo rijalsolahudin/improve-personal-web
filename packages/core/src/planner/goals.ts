@@ -11,9 +11,9 @@ import {
   type ChapterStatus as CoreChapterStatus,
   type GoalCategoryKey,
   type ProgressSlice,
-} from '@improve-personal/core'
+} from '../index.ts'
 
-import { addDays, addMonths, daysBetween, isIsoDate } from './time'
+import { addDays, addMonths, daysBetween, isIsoDate } from './time.ts'
 
 /**
  * Kunci kategori yang dipakai goal (`goal_category.key`), bukan enum.

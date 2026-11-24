@@ -27,7 +27,7 @@ import {
   requestDriveToken,
 } from '~/utils/drive/token'
 import { createEncryptedBackupFile } from '~/utils/io/export'
-import { deviceTimeZone } from '~/utils/time'
+import { deviceTimeZone } from '@improve-personal/core/planner'
 
 import { useBackupReminder } from './useBackupReminder'
 import { useLocalData } from './useLocalData'

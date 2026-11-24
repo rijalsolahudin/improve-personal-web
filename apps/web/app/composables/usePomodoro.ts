@@ -23,7 +23,7 @@ import {
   type PomodoroState,
   type PomodoroTargetKind,
   type PomodoroTargetMode,
-} from '~/utils/pomodoro'
+} from '@improve-personal/core/planner'
 import type { LocalDataSession } from '~/utils/storage/session'
 import {
   isReloadSessionActive,

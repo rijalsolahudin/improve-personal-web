@@ -1,5 +1,5 @@
 <script lang="ts">
-import type { IconName } from '~/utils/icons'
+import type { IconName } from '@improve-personal/tokens/icons'
 
 export interface TabBarItem {
   key: string

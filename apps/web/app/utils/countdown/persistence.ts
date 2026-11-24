@@ -6,8 +6,12 @@ import {
   type Countdown as CoreCountdown,
 } from '@improve-personal/core'
 
-import { COUNTDOWN_COLORS, type Countdown } from '../countdown'
-import { formatMinutes, toMinutes } from '../schedule'
+import {
+  COUNTDOWN_COLORS,
+  type Countdown,
+  formatMinutes,
+  toMinutes,
+} from '@improve-personal/core/planner'
 import { createRepository } from '../storage/repository'
 import type { LocalDataSession } from '../storage/session'
 

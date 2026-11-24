@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { iconElements, type IconName } from '~/utils/icons'
+import { iconElements, type IconName } from '@improve-personal/tokens/icons'
 
 /** Ikon garis dekoratif; teks pendamping yang membawa makna, jadi selalu aria-hidden. */
 const {

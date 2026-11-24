@@ -18,10 +18,12 @@ import {
   scrollTopForNow,
   slotHeights,
   type ResizeEdge,
-} from '~/utils/calendarGrid'
-import { SCHEDULE_COLORS, formatMinutes, type Occurrence } from '~/utils/schedule'
-import type { Task } from '~/utils/tasks'
-import { toIsoDate } from '~/utils/time'
+  SCHEDULE_COLORS,
+  formatMinutes,
+  type Occurrence,
+  type Task,
+  toIsoDate,
+} from '@improve-personal/core/planner'
 
 /** Klik yang menyusul langsung setelah tarik bukan "buka item" (design `recent()`). */
 const DRAG_CLICK_GUARD_MS = 300

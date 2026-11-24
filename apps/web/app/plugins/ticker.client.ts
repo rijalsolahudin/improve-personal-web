@@ -1,4 +1,4 @@
-import { MS_PER_SECOND } from '~/utils/time'
+import { MS_PER_SECOND } from '@improve-personal/core/planner'
 
 export default defineNuxtPlugin({
   name: 'ticker',

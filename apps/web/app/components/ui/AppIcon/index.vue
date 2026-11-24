@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { IconName } from '~/utils/icons'
+import type { IconName } from '@improve-personal/tokens/icons'
 
 const {
   glyph = '',

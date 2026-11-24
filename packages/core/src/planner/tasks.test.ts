@@ -15,7 +15,7 @@ import {
   unsortedTasks,
   validateTaskDraft,
   type Task,
-} from './tasks'
+} from './tasks.ts'
 
 const NOW = new Date(2026, 9, 10, 12, 0).getTime()
 const HOUR = 3_600_000

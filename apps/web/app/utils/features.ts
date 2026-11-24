@@ -1,4 +1,4 @@
-import type { IconName } from './icons'
+import type { IconName } from '@improve-personal/tokens/icons'
 
 /**
  * Registri fitur ber-halaman (docs/PRD F1–F14) → route, ikon, dan grup navigasi.

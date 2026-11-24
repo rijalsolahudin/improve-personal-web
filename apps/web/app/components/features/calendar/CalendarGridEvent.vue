@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import type { GridEvent } from '~/composables/useTimeGrid'
-import { focusPillStyle, type ResizeEdge } from '~/utils/calendarGrid'
-import { formatMinutes } from '~/utils/schedule'
+import { focusPillStyle, type ResizeEdge, formatMinutes } from '@improve-personal/core/planner'
 
 /**
  * Item jadwal di timeline (Desktop.dc.html): centang selesai, tarik tepi atas/bawah buat

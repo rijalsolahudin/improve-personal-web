@@ -16,12 +16,17 @@ import {
   type StorageAdapter,
 } from '@improve-personal/core'
 
-import { HABIT_LOOKBACK_DAYS, type Habit } from '../habits'
+import {
+  HABIT_LOOKBACK_DAYS,
+  type Habit,
+  MS_PER_HOUR,
+  addDays,
+  fromIsoDate,
+} from '@improve-personal/core/planner'
 import { createRecordWriter } from '../storage/record-writer'
 import { createRepositorySet } from '../storage/repository'
 import type { LocalDataSession } from '../storage/session'
 import { createUuidV7Generator } from '../storage/uuid'
-import { MS_PER_HOUR, addDays, fromIsoDate } from '../time'
 import { loadHabits, persistHabit } from './persistence'
 
 const TODAY = '2026-10-19'

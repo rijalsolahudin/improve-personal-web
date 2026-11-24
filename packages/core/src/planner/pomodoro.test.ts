@@ -18,8 +18,8 @@ import {
   startPomodoro,
   uniqueTargetOptions,
   type FocusSession,
-} from './pomodoro'
-import { MS_PER_MINUTE } from './time'
+} from './pomodoro.ts'
+import { MS_PER_MINUTE } from './time.ts'
 
 const T0 = 1_000_000
 

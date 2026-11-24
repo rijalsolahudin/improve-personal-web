@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { GoalCategory } from '~/utils/goals'
+import type { GoalCategory } from '@improve-personal/core/planner'
 
 definePageMeta({ layout: 'dashboard' })
 

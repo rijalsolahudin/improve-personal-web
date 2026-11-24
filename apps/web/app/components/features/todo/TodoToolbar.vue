@@ -1,6 +1,11 @@
 <script setup lang="ts">
 import type { SegmentedOption } from '~/components/ui/Segmented/index.vue'
-import { TASK_FILTERS, TASK_SORTS, type TaskFilter, type TaskSort } from '~/utils/tasks'
+import {
+  TASK_FILTERS,
+  TASK_SORTS,
+  type TaskFilter,
+  type TaskSort,
+} from '@improve-personal/core/planner'
 
 const { counts } = defineProps<{ counts: Record<TaskFilter, number> }>()
 const filter = defineModel<TaskFilter>('filter', { required: true })

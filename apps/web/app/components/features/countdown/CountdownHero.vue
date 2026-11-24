@@ -1,6 +1,13 @@
 <script setup lang="ts">
-import { countdownTint, yearlyEdition, type CountdownView } from '~/utils/countdown'
-import { MS_PER_DAY, MS_PER_HOUR, MS_PER_MINUTE, MS_PER_SECOND } from '~/utils/time'
+import {
+  countdownTint,
+  yearlyEdition,
+  type CountdownView,
+  MS_PER_DAY,
+  MS_PER_HOUR,
+  MS_PER_MINUTE,
+  MS_PER_SECOND,
+} from '@improve-personal/core/planner'
 
 const { view, now } = defineProps<{ view: CountdownView; now: number }>()
 const emit = defineEmits<{ edit: [] }>()

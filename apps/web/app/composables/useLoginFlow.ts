@@ -1,6 +1,6 @@
 import { OTP_RESEND_COOLDOWN_SECONDS, type ErrorCode } from '@improve-personal/contracts'
 
-import { MS_PER_SECOND } from '~/utils/time'
+import { MS_PER_SECOND } from '@improve-personal/core/planner'
 import { isValidEmail, safeRedirectPath } from '~/utils/validation'
 
 import { AuthRequestError, type AuthGateway } from './auth/gateway'

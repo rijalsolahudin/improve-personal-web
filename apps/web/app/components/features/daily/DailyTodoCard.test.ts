@@ -4,8 +4,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 
-import { TODAY_TASK_LIMIT, type TodayTask } from '~/utils/dailyRoutine'
-import type { Task } from '~/utils/tasks'
+import { TODAY_TASK_LIMIT, type TodayTask, type Task } from '@improve-personal/core/planner'
 
 import DailyTodoCard from './DailyTodoCard.vue'
 

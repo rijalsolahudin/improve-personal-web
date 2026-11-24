@@ -4,9 +4,9 @@ import {
   MEMO_TITLE_MAX,
   type Memo,
   type MemoFeeling,
-} from '~/utils/memo'
+  isIsoDate,
+} from '@improve-personal/core/planner'
 import { mergeMemoFields } from '~/utils/memo/persistence'
-import { isIsoDate } from '~/utils/time'
 
 /**
  * Awalan key `localStorage` draf jurnal, satu key per tanggal: `ip-memo-draft-2025-09-10`.

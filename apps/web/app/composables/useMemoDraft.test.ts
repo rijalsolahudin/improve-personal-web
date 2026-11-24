@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 
-import { MEMO_TEXT_MAX, type Memo } from '~/utils/memo'
+import { MEMO_TEXT_MAX, type Memo } from '@improve-personal/core/planner'
 
 import { MEMO_DRAFT_PREFIX, useMemoDraft } from './useMemoDraft'
 import { useMemos } from './useMemos'

@@ -2,9 +2,15 @@ import { mountSuspended } from '@nuxt/test-utils/runtime'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { defineComponent, h } from 'vue'
 
-import { BASE_SLOT_PX, SLOT_MINUTES } from '~/utils/calendarGrid'
-import { newScheduleDraft, toMinutes } from '~/utils/schedule'
-import { MS_PER_HOUR, fromIsoDate, toIsoDate } from '~/utils/time'
+import {
+  BASE_SLOT_PX,
+  SLOT_MINUTES,
+  newScheduleDraft,
+  toMinutes,
+  MS_PER_HOUR,
+  fromIsoDate,
+  toIsoDate,
+} from '@improve-personal/core/planner'
 
 import { resetSchedulesHydrationForTest } from './useSchedules'
 import { useTimeGrid, type GridEvent } from './useTimeGrid'

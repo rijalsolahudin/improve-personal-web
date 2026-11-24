@@ -6,9 +6,7 @@ import { flushPromises, type VueWrapper } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { resetSchedulesHydrationForTest } from '~/composables/useSchedules'
-import type { JournalDay } from '~/utils/journal'
-import type { Memo, MoodByDate } from '~/utils/memo'
-import type { Schedule } from '~/utils/schedule'
+import type { JournalDay, Memo, MoodByDate, Schedule } from '@improve-personal/core/planner'
 import MemoPage from '~/pages/app/journal.vue'
 
 import { diaryValue, hasDiary, typeDiary } from '../../memo-diary'
@@ -457,8 +455,8 @@ describe('T11 Diary Book & pencarian lokal', () => {
       'app/composables/useMemos.ts',
       'app/composables/useMemoDraft.ts',
       'app/composables/useJournalDay.ts',
-      'app/utils/memo.ts',
-      'app/utils/journal.ts',
+      '../../packages/core/src/planner/memo.ts',
+      '../../packages/core/src/planner/journal.ts',
     ]
     const offenders = files.filter((file) =>
       /(?:^|[^$\w])\$?fetch\s*\(|useFetch|useAsyncData/.test(

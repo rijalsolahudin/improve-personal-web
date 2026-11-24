@@ -15,7 +15,7 @@ import {
   resizeEntry,
   scrollTopForNow,
   slotHeights,
-} from './calendarGrid'
+} from './calendarGrid.ts'
 
 const at = (hour: number, minute = 0): number => hour * 60 + minute
 

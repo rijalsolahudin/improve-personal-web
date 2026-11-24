@@ -10,13 +10,18 @@ import {
 } from '@improve-personal/core'
 import { beforeEach, describe, expect, it } from 'vitest'
 
-import type { Habit } from './habits'
+import {
+  type Habit,
+  type Goal,
+  goalProgress,
+  type Schedule,
+  occurrencesBetween,
+  type Task,
+} from '@improve-personal/core/planner'
 import type { LocalDataSession } from './storage/session'
 import { createRecordWriter } from './storage/record-writer'
 import { createRepositorySet } from './storage/repository'
 import { createUuidV7Generator } from './storage/uuid'
-import type { Goal } from './goals'
-import { goalProgress } from './goals'
 import { loadHabits, persistHabit, toCoreHabit } from './habits/persistence'
 import { loadGoalLinks, syncItemGoalLink } from './goals/links'
 import {
@@ -25,10 +30,7 @@ import {
   recordsToPresentations,
   removeGoal,
 } from './goals/persistence'
-import type { Schedule } from './schedule'
-import { occurrencesBetween } from './schedule'
 import { loadScheduleData, persistSchedule } from './schedules/persistence'
-import type { Task } from './tasks'
 import { toTodoPayload } from './tasks/persistence'
 
 /**

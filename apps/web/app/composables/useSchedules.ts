@@ -11,7 +11,9 @@ import {
   type Schedule,
   type ScheduleDraft,
   type ScheduleDraftError,
-} from '~/utils/schedule'
+  resizeEntry,
+  deviceTimeZone,
+} from '@improve-personal/core/planner'
 import {
   loadScheduleData,
   persistAttendance,
@@ -19,7 +21,6 @@ import {
   removeAttendanceFrom,
   removeSchedule,
 } from '~/utils/schedules/persistence'
-import { resizeEntry } from '~/utils/calendarGrid'
 import { removeItemGoalLinks, syncItemGoalLink } from '~/utils/goals/links'
 import type { LocalDataSession } from '~/utils/storage/session'
 import {
@@ -29,7 +30,6 @@ import {
   reloadSession,
 } from '~/utils/storage/reload'
 import { createUuidV7Generator } from '~/utils/storage/uuid'
-import { deviceTimeZone } from '~/utils/time'
 
 import { useGoalLinks } from './useGoalLinks'
 import { useLocalData } from './useLocalData'

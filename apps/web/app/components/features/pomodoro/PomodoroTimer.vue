@@ -1,6 +1,5 @@
 <script setup lang="ts">
-import type { PomodoroPhase } from '~/utils/pomodoro'
-import { formatMinutesSeconds } from '~/utils/time'
+import { type PomodoroPhase, formatMinutesSeconds } from '@improve-personal/core/planner'
 
 /** Kartu timer besar halaman Pomodoro: tab fase, cincin progres, kontrol, target fokus. */
 const PHASES: readonly PomodoroPhase[] = ['focus', 'short', 'long']

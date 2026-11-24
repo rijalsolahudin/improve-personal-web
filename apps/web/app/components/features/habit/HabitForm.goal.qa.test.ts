@@ -3,7 +3,7 @@ import type { VueWrapper } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
 import { resetHabitsHydrationForTest } from '~/composables/useHabits'
-import type { Goal } from '~/utils/goals'
+import type { Goal } from '@improve-personal/core/planner'
 
 import HabitForm from './HabitForm.vue'
 

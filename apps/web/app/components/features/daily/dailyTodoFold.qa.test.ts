@@ -4,9 +4,12 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
 import { resetTasksHydrationForTest } from '~/composables/useTasks'
 import { useDailyRoutine } from '~/composables/useDailyRoutine'
-import { TODAY_TASK_LIMIT } from '~/utils/dailyRoutine'
-import type { Task } from '~/utils/tasks'
-import { MS_PER_HOUR, fromIsoDate } from '~/utils/time'
+import {
+  TODAY_TASK_LIMIT,
+  type Task,
+  MS_PER_HOUR,
+  fromIsoDate,
+} from '@improve-personal/core/planner'
 
 import DailyTodoCard from './DailyTodoCard.vue'
 

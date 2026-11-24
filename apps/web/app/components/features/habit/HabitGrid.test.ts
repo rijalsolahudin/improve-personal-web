@@ -3,8 +3,7 @@ import { flushPromises, type DOMWrapper, type VueWrapper } from '@vue/test-utils
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
 import { resetHabitsHydrationForTest } from '~/composables/useHabits'
-import type { CheckIns, Habit } from '~/utils/habits'
-import { MS_PER_HOUR, fromIsoDate } from '~/utils/time'
+import { type CheckIns, type Habit, MS_PER_HOUR, fromIsoDate } from '@improve-personal/core/planner'
 
 import HabitGrid from './HabitGrid.vue'
 

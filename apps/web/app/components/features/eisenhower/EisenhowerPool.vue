@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { isOverdue, type Task } from '~/utils/tasks'
+import { isOverdue, type Task } from '@improve-personal/core/planner'
 
 /** Panel "Belum masuk matrix": sumber drag, juga zona drop untuk mengeluarkan dari matrix. */
 const { tasks, now, isOver, draggingId } = defineProps<{

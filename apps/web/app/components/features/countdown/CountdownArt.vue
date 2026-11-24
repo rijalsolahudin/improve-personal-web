@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Countdown } from '~/utils/countdown'
+import type { Countdown } from '@improve-personal/core/planner'
 
 /** Isi tile momen: sticker kalau dipilih, kalau tidak emoji (design `sid: sticker || emoji`). */
 const { countdown, size } = defineProps<{

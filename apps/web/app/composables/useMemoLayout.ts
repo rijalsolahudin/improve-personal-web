@@ -1,7 +1,7 @@
 import type { Ref } from 'vue'
 
-import { joinMemoText } from '~/utils/memo'
 import {
+  joinMemoText,
   MEMO_FREE_BLOCK_MAX,
   MEMO_FREE_DEFAULT_WIDTH,
   clampFreeBlock,
@@ -9,7 +9,7 @@ import {
   serializeLayout,
   type MemoFreeBlock,
   type MemoLayout,
-} from '~/utils/memo/layout'
+} from '@improve-personal/core/planner'
 
 /** Bagian kertas yang bisa diketik: tulisan utama, kolom kanan, atau kotak bebas ke-n. */
 export type MemoPart = 'main' | 'column' | `free:${number}`
@@ -23,7 +23,7 @@ function freeIndex(part: MemoPart): number | null {
 /**
  * Tata letak halaman jurnal di atas SATU teks (`text`, biasanya `draft.text`): bagian mana yang
  * sedang diketik, split 2 kolom, dan kotak teks bebas. Semua perubahan ditulis balik sebagai teks
- * berpagar (`utils/memo/layout.ts`), jadi draf/autosave tetap bekerja tanpa tahu soal tata letak.
+ * berpagar (`packages/core/src/planner/memo/layout.ts`), jadi draf/autosave tetap bekerja tanpa tahu soal tata letak.
  *
  * `max` = batas panjang teks tersimpan. Ketikan yang membuat teks berpagar melewati batas ditolak
  * utuh: memotong teks di belakang (seperti `slice` saat simpan) bisa memutus pagar.

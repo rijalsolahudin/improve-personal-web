@@ -5,9 +5,12 @@ import {
   SCHEDULE_COLORS,
   formatMinutes,
   type Occurrence,
-} from '~/utils/schedule'
-import { GRID_START_HOUR, SLOT_COUNT, SLOT_MINUTES, type ResizeEdge } from '~/utils/calendarGrid'
-import { fromIsoDate } from '~/utils/time'
+  GRID_START_HOUR,
+  SLOT_COUNT,
+  SLOT_MINUTES,
+  type ResizeEdge,
+  fromIsoDate,
+} from '@improve-personal/core/planner'
 
 /**
  * Timeline 00:00–24:00 (Desktop.dc.html Kalender pekan/hari & "Jadwal hari ini"): tekan atau

@@ -13,7 +13,7 @@ import {
   validateHabitDraft,
   type CheckIns,
   type Habit,
-} from './habits'
+} from './habits.ts'
 
 // 2026-10-09 = Jumat.
 const FRI = '2026-10-09'

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { HABIT_COLORS, type Habit } from '~/utils/habits'
+import { HABIT_COLORS, type Habit } from '@improve-personal/core/planner'
 
 /**
  * Ikon habit: sticker kalau ada, kalau tidak tile warna + ikon (design).

@@ -12,7 +12,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { createManualClock } from '@improve-personal/core'
 
 import { openLocalDataSession, type LocalDataSession } from '../storage/session'
-import type { Memo } from '../memo'
+import type { Memo } from '@improve-personal/core/planner'
 import {
   decodeFeelingsStory,
   encodeFeelingsStory,

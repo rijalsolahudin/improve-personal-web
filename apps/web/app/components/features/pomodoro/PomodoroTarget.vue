@@ -4,7 +4,7 @@ import {
   POMODORO_TARGET_MODES,
   searchTargetOptions,
   type PomodoroTargetMode,
-} from '~/utils/pomodoro'
+} from '@improve-personal/core/planner'
 
 /** Target fokus (PRD F4, design `pmPicker`): pilih dari task/jadwal/habit, atau teks bebas. */
 const { t } = useI18n()

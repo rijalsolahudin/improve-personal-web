@@ -6,6 +6,7 @@
   "description": "Domain, use case, interface repository, dan sync engine. TypeScript murni, platform-agnostic.",
   "exports": {
     ".": "./src/index.ts",
+    "./planner": "./src/planner/index.ts",
     "./testing": "./src/adapters/contract.ts"
   },
   "files": [
@@ -18,6 +19,7 @@
   },
   "dependencies": {
     "@improve-personal/contracts": "workspace:*",
+    "@improve-personal/tokens": "workspace:*",
     "zod": "4.6.7"
   },
   "devDependencies": {

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 
-import { emptyGoalDraft } from '~/utils/goals'
+import { emptyGoalDraft } from '@improve-personal/core/planner'
 
 import { useGoals } from './useGoals'
 

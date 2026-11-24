@@ -1,8 +1,7 @@
 <script setup lang="ts">
 import { moodTints } from '@improve-personal/tokens'
 
-import type { Memo } from '~/utils/memo'
-import { formatHourMinute, fromIsoDate } from '~/utils/time'
+import { type Memo, formatHourMinute, fromIsoDate } from '@improve-personal/core/planner'
 
 /**
  * Satu halaman jurnal tersimpan (design: kertas bergaris, selotip, stempel mood).

@@ -9,13 +9,17 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { MEMO_DRAFT_PREFIX, useMemoDraft } from './useMemoDraft'
 import { resetMemosHydrationForTest, useMemos } from './useMemos'
-import { MEMO_TEXT_MAX, type Memo, type MoodByDate } from '~/utils/memo'
+import {
+  MEMO_TEXT_MAX,
+  type Memo,
+  type MoodByDate,
+  type JournalDay,
+  type Schedule,
+  fromIsoDate,
+} from '@improve-personal/core/planner'
 import { loadMemoRecords, persistMemo } from '~/utils/memo/persistence'
 import { resetSchedulesHydrationForTest } from '~/composables/useSchedules'
-import type { JournalDay } from '~/utils/journal'
-import type { Schedule } from '~/utils/schedule'
 import { openLocalDataSession, type LocalDataSession } from '~/utils/storage/session'
-import { fromIsoDate } from '~/utils/time'
 
 import MemoPage from '~/pages/app/journal.vue'
 import { hasDiary } from '../../tests/nuxt/memo-diary'

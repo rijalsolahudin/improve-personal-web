@@ -1,6 +1,5 @@
 <script setup lang="ts">
-import type { Progress, WeatherKind } from '~/utils/dailyRoutine'
-import { greetingPeriod } from '~/utils/time'
+import { type Progress, type WeatherKind, greetingPeriod } from '@improve-personal/core/planner'
 
 /** Header Daily Routine: tanggal, sapaan, lalu deret status hari ini (cuaca + ringkasan progres). */
 const { now, progress } = defineProps<{

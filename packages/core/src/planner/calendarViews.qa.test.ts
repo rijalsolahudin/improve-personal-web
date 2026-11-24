@@ -7,8 +7,8 @@ import {
   shiftAnchor,
   weekDays,
   type Schedule,
-} from './schedule'
-import { addDays, fromIsoDate } from './time'
+} from './schedule.ts'
+import { addDays, fromIsoDate } from './time.ts'
 
 /**
  * QA T9 - bukti bahwa recurring (T3) tampil benar di view hari, pekan, dan bulan.

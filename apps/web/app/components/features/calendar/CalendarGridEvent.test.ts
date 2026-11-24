@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 
 import CalendarGridEvent from '~/components/features/calendar/CalendarGridEvent.vue'
 import type { GridEvent } from '~/composables/useTimeGrid'
-import type { Schedule } from '~/utils/schedule'
+import type { Schedule } from '@improve-personal/core/planner'
 
 /**
  * Regresi QA #98: pill "▶ Fokus" di kartu jadwal pendek (< 24 menit) harus 14px dan di tengah

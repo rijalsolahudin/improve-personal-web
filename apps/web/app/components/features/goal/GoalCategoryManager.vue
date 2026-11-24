@@ -8,7 +8,7 @@ import {
 
 import type { SwatchOption } from '~/components/ui/SwatchPicker/index.vue'
 import type { GoalCategoryActionError } from '~/composables/useGoalCategories'
-import type { Goal } from '~/utils/goals'
+import type { Goal } from '@improve-personal/core/planner'
 
 import GoalCategoryRow from './GoalCategoryRow.vue'
 

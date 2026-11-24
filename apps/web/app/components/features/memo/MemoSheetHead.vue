@@ -1,6 +1,5 @@
 <script setup lang="ts">
-import { JOURNAL_NOTE_MAX } from '~/utils/journal'
-import { MEMO_FEELINGS } from '~/utils/memo'
+import { JOURNAL_NOTE_MAX, MEMO_FEELINGS } from '@improve-personal/core/planner'
 
 /**
  * Kepala kertas jurnal: pertanyaan + perasaan di kiri, mood di kanan, lalu satu baris afirmasi. Tanggal tidak diulang

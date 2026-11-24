@@ -4,8 +4,7 @@ import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 
-import type { PriorityTask } from '~/utils/dailyRoutine'
-import type { Task } from '~/utils/tasks'
+import type { PriorityTask, Task } from '@improve-personal/core/planner'
 
 import DailyPriorityRow from './daily/DailyPriorityRow.vue'
 import TodoRow from './todo/TodoRow.vue'

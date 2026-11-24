@@ -1,6 +1,5 @@
 <script setup lang="ts">
-import { isScheduled } from '~/utils/habits'
-import { fromIsoDate, toIsoDate } from '~/utils/time'
+import { isScheduled, fromIsoDate, toIsoDate } from '@improve-personal/core/planner'
 
 definePageMeta({ layout: 'dashboard' })
 

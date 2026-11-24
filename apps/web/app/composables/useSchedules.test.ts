@@ -9,14 +9,18 @@ import {
   type SecureKeyMaterial,
 } from '@improve-personal/core'
 
-import { newScheduleDraft, type Schedule } from '~/utils/schedule'
+import {
+  newScheduleDraft,
+  type Schedule,
+  addDays,
+  deviceTimeZone,
+} from '@improve-personal/core/planner'
 import { attendanceKey, loadScheduleData, persistSchedule } from '~/utils/schedules/persistence'
 import { createRecordWriter } from '~/utils/storage/record-writer'
 import { createRepositorySet } from '~/utils/storage/repository'
 import type { LocalDataSession } from '~/utils/storage/session'
 import { resetDataReloadersForTest } from '~/utils/storage/reload'
 import { createUuidV7Generator } from '~/utils/storage/uuid'
-import { addDays, deviceTimeZone } from '~/utils/time'
 
 import { resetSchedulesHydrationForTest, useSchedules } from './useSchedules'
 

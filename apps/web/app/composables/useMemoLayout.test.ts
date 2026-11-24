@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { nextTick, ref } from 'vue'
 
-import { MEMO_FREE_BLOCK_MAX, parseLayout } from '~/utils/memo/layout'
+import { MEMO_FREE_BLOCK_MAX, parseLayout } from '@improve-personal/core/planner'
 
 import { freePart, useMemoLayout } from './useMemoLayout'
 

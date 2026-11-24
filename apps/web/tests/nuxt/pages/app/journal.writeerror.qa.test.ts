@@ -4,10 +4,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { MEMO_DRAFT_PREFIX } from '~/composables/useMemoDraft'
 import { resetSchedulesHydrationForTest } from '~/composables/useSchedules'
-import type { JournalDay } from '~/utils/journal'
-import type { Memo, MoodByDate } from '~/utils/memo'
+import type { JournalDay, Memo, MoodByDate, Schedule } from '@improve-personal/core/planner'
 import { loadMemoRecords } from '~/utils/memo/persistence'
-import type { Schedule } from '~/utils/schedule'
 import MemoPage from '~/pages/app/journal.vue'
 
 import { createMemoryLocalSession } from '../../memo-session'

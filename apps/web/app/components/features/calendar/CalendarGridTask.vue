@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { GridTask } from '~/composables/useTimeGrid'
-import { formatMinutes } from '~/utils/schedule'
+import { formatMinutes } from '@improve-personal/core/planner'
 
 /** To-do ber-deadline (tanpa jadwal tertaut) di jam deadline-nya; klik = centang (design). */
 const { item, isCompact = false } = defineProps<{ item: GridTask; isCompact?: boolean }>()

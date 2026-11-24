@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { listRows, setListItem } from './journal'
+import { listRows, setListItem } from './journal.ts'
 
 describe('daftar syukur/sedih/lebih baik', () => {
   it('minimal 3 baris, selalu ada satu baris kosong setelah isian terakhir', () => {

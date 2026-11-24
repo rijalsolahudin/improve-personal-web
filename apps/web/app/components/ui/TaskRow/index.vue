@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Priority } from '~/utils/tasks'
+import type { Priority } from '@improve-personal/core/planner'
 
 const {
   title,

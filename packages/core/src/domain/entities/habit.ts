@@ -59,11 +59,6 @@ export function sortActiveCountdowns(countdowns: readonly Countdown[]): readonly
   return countdowns.filter((countdown) => !countdown.isArchived).sort(compareCountdownByTarget)
 }
 
-/** Aturan murni: countdown dianggap "lewat" kalau target sudah sebelum `nowMs`. */
-export function isCountdownPast(countdown: Pick<Countdown, 'targetAt'>, nowMs: number): boolean {
-  return countdown.targetAt <= nowMs
-}
-
 /** Aturan murni: arsipkan countdown (memakai `nowMs` yang di-inject, bukan jam langsung). */
 export function archiveCountdown(countdown: Countdown, nowMs: number): Countdown {
   return { ...countdown, isArchived: true, archivedAt: nowMs, updatedAt: nowMs }

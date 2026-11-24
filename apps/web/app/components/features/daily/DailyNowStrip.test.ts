@@ -3,7 +3,7 @@ import type { VueWrapper } from '@vue/test-utils'
 import { afterEach, describe, expect, it } from 'vitest'
 
 import type { RoutineItem } from '~/composables/useDailyRoutine'
-import { ROUTINE_BLOCK_META } from '~/utils/dailyRoutine'
+import { ROUTINE_BLOCK_META } from '@improve-personal/core/planner'
 
 import DailyNowStrip from './DailyNowStrip.vue'
 

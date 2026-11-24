@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { SegmentedOption } from '~/components/ui/Segmented/index.vue'
-import type { GoalCategory, GoalStatus } from '~/utils/goals'
+import type { GoalCategory, GoalStatus } from '@improve-personal/core/planner'
 
 export type GoalStatusFilter = GoalStatus | 'semua'
 export type GoalCategoryFilter = GoalCategory | 'semua'

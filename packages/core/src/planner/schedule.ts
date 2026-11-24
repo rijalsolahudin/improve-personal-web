@@ -1,6 +1,6 @@
 // Jadwal (PRD F1) + logika kalender (F6), mengikuti Home Desktop.dc.html `calVals`.
 // Bentuk `Schedule` di sini adalah model PRESENTASI (tanggal lokal + jam `HH:MM`); mesin
-// perulangannya milik `@improve-personal/core` supaya web & mobile memakai aturan yang sama.
+// perulangannya milik core (`../recurrence`) supaya web & mobile memakai aturan yang sama.
 
 import {
   endOfLocalDay,
@@ -11,7 +11,7 @@ import {
   weekdayFromJsIndex,
   type ExpansibleSchedule,
   type ScheduleRecurrence,
-} from '@improve-personal/core'
+} from '../index.ts'
 
 import {
   MS_PER_MINUTE,
@@ -21,7 +21,7 @@ import {
   isIsoDate,
   mondayOf,
   toIsoDate,
-} from './time'
+} from './time.ts'
 
 /** Palet jadwal design: [solid, tint, teks]. Index disimpan di `Schedule.color`. */
 export const SCHEDULE_COLORS = [
@@ -687,6 +687,11 @@ export function createSchedule(draft: ScheduleDraft, id: string): Schedule {
  * Jumlah kejadian aturan sebelum `day` (pengecualian ikut dihitung), dihitung engine core.
  * Dipakai untuk memotong sisa jatah saat "ini & berikutnya" pada seri ber-`count`.
  */
+/** Menyalin `tz` hanya kalau ada (`exactOptionalPropertyTypes` melarang `tz: undefined`). */
+function tzOf(schedule: Schedule): { tz?: string } {
+  return schedule.tz === undefined ? {} : { tz: schedule.tz }
+}
+
 function slotsBefore(schedule: Schedule, day: string, tz: string): number {
   const zone = schedule.tz ?? tz
   const core = toCoreSchedule(schedule, zone)
@@ -732,7 +737,7 @@ export function editSchedules(
       exceptions: original.exceptions,
       goalId: draft.goalId,
       goalChapterId: draft.goalChapterId,
-      tz: original.tz,
+      ...tzOf(original),
     }
     return schedules.map((schedule) => (schedule.id === original.id ? updated : schedule))
   }
@@ -746,7 +751,7 @@ export function editSchedules(
         ends: { type: 'never' },
         goalId: draft.goalId,
         goalChapterId: draft.goalChapterId,
-        tz: original.tz,
+        ...tzOf(original),
       },
     ]
   }
@@ -754,7 +759,7 @@ export function editSchedules(
     ...fromDraft(draft, newId, draft.date, allDay),
     goalId: draft.goalId,
     goalChapterId: draft.goalChapterId,
-    tz: original.tz,
+    ...tzOf(original),
   }
   // Jumlah yang tak diubah user = sisa kejadian, bukan total seri lama.
   if (

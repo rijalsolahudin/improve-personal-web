@@ -1,6 +1,5 @@
 <script setup lang="ts">
-import type { PriorityTask } from '~/utils/dailyRoutine'
-import { isOverdue } from '~/utils/tasks'
+import { type PriorityTask, isOverdue } from '@improve-personal/core/planner'
 
 /** Satu baris Prioritas Daily (PRD F12): nomor, judul, sisa waktu (kalau ada deadline). */
 const { item, index, now } = defineProps<{ item: PriorityTask; index: number; now: number }>()

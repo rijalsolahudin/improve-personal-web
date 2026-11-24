@@ -13,7 +13,8 @@ import {
   type Habit,
   type HabitDraft,
   type HabitDraftError,
-} from '~/utils/habits'
+  toIsoDate,
+} from '@improve-personal/core/planner'
 import { removeItemGoalLinks, syncItemGoalLink } from '~/utils/goals/links'
 import { loadHabits, persistCheckin, persistHabit, removeHabit } from '~/utils/habits/persistence'
 import type { LocalDataSession } from '~/utils/storage/session'
@@ -24,7 +25,6 @@ import {
   reloadSession,
 } from '~/utils/storage/reload'
 import { createUuidV7Generator } from '~/utils/storage/uuid'
-import { toIsoDate } from '~/utils/time'
 
 import { useGoalLinks } from './useGoalLinks'
 import { useLocalData } from './useLocalData'

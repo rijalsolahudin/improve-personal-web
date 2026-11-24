@@ -18,10 +18,11 @@ import {
   type CheckIns,
   type Habit,
   type HabitIcon,
-} from '../habits'
+  MS_PER_DAY,
+  fromIsoDate,
+} from '@improve-personal/core/planner'
 import { createRepository } from '../storage/repository'
 import type { LocalDataSession } from '../storage/session'
-import { MS_PER_DAY, fromIsoDate } from '../time'
 
 /**
  * Persistensi habit: `Habit` (bentuk yang dipakai UI) ↔ record `habit` + `habit_checkin`.
@@ -41,7 +42,7 @@ import { MS_PER_DAY, fromIsoDate } from '../time'
  * 4. **Riwayat dibaca dengan jendela TETAP 400 hari, bukan dari `createdAt`.** UI mengizinkan
  *    backfill ke tanggal sebelum habit dibuat (grid hanya menonaktifkan hari depan), jadi jendela
  *    yang mengikuti `createdAt` akan menyembunyikan check-in yang sah setelah reload. 400 hari
- *    dipilih karena streak (`HABIT_LOOKBACK_DAYS` di `utils/habits.ts`) juga tidak pernah melihat
+ *    dipilih karena streak (`HABIT_LOOKBACK_DAYS` di `packages/core/src/planner/habits.ts`) juga tidak pernah melihat
  *    lebih jauh - check-in di luar itu memang tidak dipakai UI. Jendela ini sekaligus membatasi
  *    jumlah record yang didekripsi saat hydrate (tidak tumbuh linear tanpa batas).
  *
@@ -63,7 +64,7 @@ const DEFAULT_HABIT_ICON: HabitIcon = 'star'
 /**
  * Jendela baca check-in saat hydrate & saat hapus habit.
  *
- * Sama dengan batas runut streak di `utils/habits.ts`: tidak ada layar yang melihat lebih jauh, jadi
+ * Sama dengan batas runut streak di `packages/core/src/planner/habits.ts`: tidak ada layar yang melihat lebih jauh, jadi
  * menaikkan angka ini hanya menambah dekripsi tanpa menambah informasi yang tampil.
  */
 const CHECKIN_LOOKBACK_DAYS = HABIT_LOOKBACK_DAYS

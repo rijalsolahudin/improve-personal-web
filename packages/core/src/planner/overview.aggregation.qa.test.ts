@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
-import type { CheckIns, Habit } from '~/utils/habits'
-import type { Memo } from '~/utils/memo'
-import type { FocusSession } from '~/utils/pomodoro'
-import type { Schedule } from '~/utils/schedule'
-import type { Task } from '~/utils/tasks'
+import type { CheckIns, Habit } from './habits.ts'
+import type { Memo } from './memo.ts'
+import type { FocusSession } from './pomodoro.ts'
+import type { Schedule } from './schedule.ts'
+import type { Task } from './tasks.ts'
 import {
   bestDayStreak,
   eisenhowerCounts,
@@ -21,8 +21,12 @@ import {
   scheduledMinutes,
   taskTotals,
   windowFor,
-} from '~/utils/overview'
-import { MS_PER_DAY, addDays, toIsoDate } from '~/utils/time'
+} from './overview.ts'
+import { MS_PER_DAY, addDays, toIsoDate } from './time.ts'
+
+/** `packages/core` tanpa tipe DOM/Node (`types: []`), jadi `performance` diakses lewat bentuk minimal. */
+const CLOCK: { now(): number } = (globalThis as { performance?: { now(): number } })
+  .performance ?? { now: () => Date.now() }
 
 /**
  * QA T13 — AC "agregasi satu kali per ganti rentang, bukan per widget re-scan".
@@ -76,7 +80,8 @@ const habits: Habit[] = Array.from({ length: 20 }, (_, h) => ({
 const checkIns: CheckIns = {}
 for (const habit of habits) {
   checkIns[habit.id] = {}
-  for (let i = 0; i < 400; i += 1) checkIns[habit.id]![addDays(TODAY, -i)] = i % 3 === 0 ? 1 : 0
+  for (let i = 0; i < 400; i += 1)
+    (checkIns[habit.id] as Record<string, number>)[addDays(TODAY, -i)] = i % 3 === 0 ? 1 : 0
 }
 const schedules: Schedule[] = Array.from({ length: 20 }, (_, i) => ({
   id: `sc${i}`,
@@ -98,7 +103,7 @@ const tasks: Task[] = Array.from({ length: 150 }, (_, i) => ({
   deadline: NOW - i * MS_PER_DAY,
   done: i % 2 === 0,
   scheduleId: null,
-  quadrant: (['do', 'plan', 'delegate', 'drop'] as const)[i % 4]!,
+  quadrant: (['do', 'plan', 'delegate', 'drop'] as const)[i % 4] as Task['quadrant'],
   position: 0,
 }))
 
@@ -114,7 +119,7 @@ function aggregationPass(): void {
   moodCorrelation(moods, focusByDay, win.start, win.end)
   habitRate(habits, checkIns, Math.max(win.start, NOW - 120 * MS_PER_DAY), win.end)
   habitStreaks(habits, checkIns, TODAY)
-  habitHeatmap(habits[0]!, checkIns, TODAY)
+  habitHeatmap(habits[0] as Habit, checkIns, TODAY)
   scheduledMinutes(schedules, win.start, win.end)
   bestDayStreak(focusDays, TODAY)
   taskTotals(tasks, NOW)
@@ -127,9 +132,9 @@ describe('AC3 - biaya agregasi satu pass', () => {
     aggregationPass() // pemanasan: JIT + cache formatter Intl
     let best = Number.POSITIVE_INFINITY
     for (let run = 0; run < 3; run += 1) {
-      const started = performance.now()
+      const started = CLOCK.now()
       aggregationPass()
-      best = Math.min(best, performance.now() - started)
+      best = Math.min(best, CLOCK.now() - started)
     }
 
     expect(

@@ -1,7 +1,7 @@
 import type { EntityType, RecordIndexEntry } from '@improve-personal/core'
 
 import { todoFlagsOf } from '../tasks/flags'
-import { fromIsoDate } from '../time'
+import { fromIsoDate } from '@improve-personal/core/planner'
 
 /**
  * Baris `record_index` dari record domain yang sudah didekripsi.

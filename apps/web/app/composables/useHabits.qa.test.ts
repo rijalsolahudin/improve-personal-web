@@ -18,13 +18,15 @@ import {
   type CheckIns,
   type Habit,
   type HabitDraft,
-} from '~/utils/habits'
+  MS_PER_HOUR,
+  addDays,
+  fromIsoDate,
+} from '@improve-personal/core/planner'
 import { loadHabits, persistCheckin, persistHabit } from '~/utils/habits/persistence'
 import { createRecordWriter } from '~/utils/storage/record-writer'
 import { createRepository, createRepositorySet } from '~/utils/storage/repository'
 import type { LocalDataSession } from '~/utils/storage/session'
 import { createUuidV7Generator } from '~/utils/storage/uuid'
-import { MS_PER_HOUR, addDays, fromIsoDate } from '~/utils/time'
 
 import { resetHabitsHydrationForTest, useHabits, type UseHabitsOptions } from './useHabits'
 

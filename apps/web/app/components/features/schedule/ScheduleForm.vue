@@ -7,8 +7,8 @@ import {
   type EditScope,
   type ScheduleDraft,
   type ScheduleDraftError,
-} from '~/utils/schedule'
-import { emptyTaskDraft } from '~/utils/tasks'
+  emptyTaskDraft,
+} from '@improve-personal/core/planner'
 
 /** Modal jadwal baru / edit satu kejadian (design: "Jadwal baru" / "Edit jadwal"). */
 export type ScheduleFormTarget =

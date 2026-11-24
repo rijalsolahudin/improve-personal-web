@@ -13,7 +13,7 @@ import { createRecordWriter } from '~/utils/storage/record-writer'
 import { createRepositorySet } from '~/utils/storage/repository'
 import type { LocalDataSession } from '~/utils/storage/session'
 import { createUuidV7Generator } from '~/utils/storage/uuid'
-import { MS_PER_MINUTE } from '~/utils/time'
+import { MS_PER_MINUTE } from '@improve-personal/core/planner'
 
 import {
   POMODORO_CONFIG_KEY,

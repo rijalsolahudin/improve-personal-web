@@ -17,8 +17,8 @@ import {
   type Goal,
   type GoalDraft,
   type GoalItem,
-} from './goals'
-import { addDays, daysBetween } from './time'
+} from './goals.ts'
+import { addDays, daysBetween } from './time.ts'
 
 const TODAY = '2026-10-09'
 const task = (id: string, done: boolean): GoalItem => ({

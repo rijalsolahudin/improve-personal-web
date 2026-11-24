@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 
-import { TODAY_TASK_LIMIT, dailyPriorities, todayTasks } from './dailyRoutine'
-import { MS_PER_HOUR, addDays, fromIsoDate } from './time'
-import type { Task } from './tasks'
+import { TODAY_TASK_LIMIT, dailyPriorities, todayTasks } from './dailyRoutine.ts'
+import { MS_PER_HOUR, addDays, fromIsoDate } from './time.ts'
+import type { Task } from './tasks.ts'
 
 /**
  * QA T14 (Ergonio #28) - acceptance criteria widget Prioritas & To-do hari ini (PRD F12).

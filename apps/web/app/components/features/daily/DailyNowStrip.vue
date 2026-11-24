@@ -1,8 +1,7 @@
 <script setup lang="ts">
 import type { RoutineItem } from '~/composables/useDailyRoutine'
-import { splitMinutes, type RoutineBlock } from '~/utils/dailyRoutine'
-import type { IconName } from '~/utils/icons'
-import { formatMinutes } from '~/utils/schedule'
+import { splitMinutes, type RoutineBlock, formatMinutes } from '@improve-personal/core/planner'
+import type { IconName } from '@improve-personal/tokens/icons'
 
 /** Strip "Sekarang": blok waktu aktif + langkah berikutnya, dan jadwal berikutnya (design). */
 const { current, next } = defineProps<{

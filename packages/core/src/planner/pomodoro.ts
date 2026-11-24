@@ -1,4 +1,4 @@
-import { MS_PER_MINUTE } from './time'
+import { MS_PER_MINUTE } from './time.ts'
 
 /**
  * State mesin Pomodoro (murni, waktu di-inject). Sisa waktu dihitung dari `endsAt`, bukan

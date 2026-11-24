@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { GoalTone } from '~/utils/goals'
+import type { GoalTone } from '@improve-personal/core/planner'
 
 /** Label status/jenis di halaman Goals. Tiga tone saja, lihat `GoalTone`. */
 const { tone = 'neutral' } = defineProps<{ tone?: GoalTone }>()

@@ -7,9 +7,9 @@ import {
   isScheduled,
   monthDaysOf,
   type Habit,
-} from '~/utils/habits'
-import { WEEKDAY_ORDER } from '~/utils/schedule'
-import { fromIsoDate } from '~/utils/time'
+  WEEKDAY_ORDER,
+  fromIsoDate,
+} from '@improve-personal/core/planner'
 
 /** Tabel habit × tanggal sebulan (design): centang, libur = titik, streak, % bulan ini. */
 const { month } = defineProps<{ month: string }>()

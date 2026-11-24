@@ -1,4 +1,4 @@
-import { describeTimeLeft } from '~/utils/time'
+import { describeTimeLeft } from '@improve-personal/core/planner'
 
 /** Label sisa waktu deadline: "3 jam 12 menit lagi", "Terlambat 2 jam", "Tanpa deadline". */
 export function useTimeLeft() {

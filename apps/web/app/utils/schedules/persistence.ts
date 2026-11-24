@@ -25,8 +25,9 @@ import {
   type EndRule,
   type Recurrence,
   type Schedule,
-} from '../schedule'
-import { fromIsoDate, isIsoDate } from '../time'
+  fromIsoDate,
+  isIsoDate,
+} from '@improve-personal/core/planner'
 
 /**
  * Persistensi jadwal: `Schedule` (model presentasi) <-> record `schedule` +

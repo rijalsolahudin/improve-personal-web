@@ -1,6 +1,5 @@
 <script setup lang="ts">
-import { COUNTDOWN_TITLE_MAX, groupCountdowns } from '~/utils/countdown'
-import { isIsoDate } from '~/utils/time'
+import { COUNTDOWN_TITLE_MAX, groupCountdowns, isIsoDate } from '@improve-personal/core/planner'
 
 definePageMeta({ layout: 'dashboard' })
 

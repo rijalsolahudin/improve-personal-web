@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { IconName } from '~/utils/icons'
+import type { IconName } from '@improve-personal/tokens/icons'
 import {
   DEFAULT_HIGHLIGHT,
   HIGHLIGHT_COLORS,
@@ -7,7 +7,7 @@ import {
   type RichFormatTarget,
   type RichListKind,
   type RichMark,
-} from '~/utils/memo/richtext'
+} from '@improve-personal/core/planner'
 
 /** Tombol format tulisan jurnal; aksinya dijalankan ke kertas `MemoRichPaper` (`target`). */
 const { target } = defineProps<{ target: RichFormatTarget | null }>()

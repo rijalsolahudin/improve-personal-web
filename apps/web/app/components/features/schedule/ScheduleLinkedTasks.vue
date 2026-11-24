@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { TASK_TITLE_MAX } from '~/utils/tasks'
+import { TASK_TITLE_MAX } from '@improve-personal/core/planner'
 
 /**
  * Task tertaut di modal jadwal. Task yang sudah tertaut bisa dicentang langsung; judul baru

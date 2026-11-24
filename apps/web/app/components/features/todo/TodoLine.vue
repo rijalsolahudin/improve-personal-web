@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Task } from '~/utils/tasks'
+import type { Task } from '@improve-personal/core/planner'
 
 /**
  * Satu baris to-do (design Daily Routine): centang, judul, "▶ Fokus", edit, prioritas, info deadline.

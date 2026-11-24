@@ -1,9 +1,11 @@
-/** Fungsi waktu murni (waktu di-inject, tanpa Date.now()) - kandidat pindah ke packages/core/calc. */
+/** Fungsi waktu murni (waktu di-inject, tanpa Date.now()). */
 
-export const MS_PER_SECOND = 1000
-export const MS_PER_MINUTE = 60 * MS_PER_SECOND
-export const MS_PER_HOUR = 60 * MS_PER_MINUTE
-export const MS_PER_DAY = 24 * MS_PER_HOUR
+import { MS_PER_DAY, MS_PER_MINUTE, MS_PER_SECOND } from '../calc/duration.ts'
+
+// Satu sumber konstanta durasi (`calc/duration.ts`); diekspor ulang supaya konsumen planner cukup
+// satu sub-path.
+export { MS_PER_DAY, MS_PER_HOUR, MS_PER_MINUTE, MS_PER_SECOND } from '../calc/duration.ts'
+
 const DAYS_PER_MONTH = 30
 
 export type GreetingPeriod = 'pagi' | 'siang' | 'sore' | 'malam'

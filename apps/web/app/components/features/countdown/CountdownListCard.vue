@@ -1,5 +1,10 @@
 <script setup lang="ts">
-import { countdownTint, dayBadge, yearlyEdition, type CountdownView } from '~/utils/countdown'
+import {
+  countdownTint,
+  dayBadge,
+  yearlyEdition,
+  type CountdownView,
+} from '@improve-personal/core/planner'
 
 const { view, now } = defineProps<{ view: CountdownView; now: number }>()
 const emit = defineEmits<{ edit: []; archive: [] }>()

@@ -3,8 +3,13 @@ import { mountSuspended } from '@nuxt/test-utils/runtime'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
 import { resetHabitsHydrationForTest } from '~/composables/useHabits'
-import { countOn, type CheckIns, type Habit } from '~/utils/habits'
-import { MS_PER_HOUR, fromIsoDate } from '~/utils/time'
+import {
+  countOn,
+  type CheckIns,
+  type Habit,
+  MS_PER_HOUR,
+  fromIsoDate,
+} from '@improve-personal/core/planner'
 
 import DailyHabitCard from './DailyHabitCard.vue'
 

@@ -1,7 +1,11 @@
 <script setup lang="ts">
-import { SCHEDULE_COLORS } from '~/utils/schedule'
-import { QUADRANT_STYLE, isOverdue, type Task } from '~/utils/tasks'
-import { formatHourMinute } from '~/utils/time'
+import {
+  SCHEDULE_COLORS,
+  QUADRANT_STYLE,
+  isOverdue,
+  type Task,
+  formatHourMinute,
+} from '@improve-personal/core/planner'
 
 const { task, now } = defineProps<{ task: Task; now: number }>()
 defineEmits<{ toggle: []; edit: []; focus: [title: string] }>()

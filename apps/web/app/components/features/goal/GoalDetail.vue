@@ -10,8 +10,8 @@ import {
   toggleChapterDone,
   type Chapter,
   type Goal,
-} from '~/utils/goals'
-import { fromIsoDate } from '~/utils/time'
+  fromIsoDate,
+} from '@improve-personal/core/planner'
 import type { GoalCategoryView } from '~/utils/goals/categories'
 
 const { goal, today, category } = defineProps<{

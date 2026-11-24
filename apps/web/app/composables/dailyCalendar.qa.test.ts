@@ -6,9 +6,13 @@ import { defineComponent, h } from 'vue'
 import { resetSchedulesHydrationForTest, useSchedules } from '~/composables/useSchedules'
 import { resetTasksHydrationForTest, useTasks } from '~/composables/useTasks'
 import { useTimeGrid, type GridEvent } from '~/composables/useTimeGrid'
-import type { Task } from '~/utils/tasks'
-import { newScheduleDraft } from '~/utils/schedule'
-import { MS_PER_HOUR, addDays, fromIsoDate } from '~/utils/time'
+import {
+  type Task,
+  newScheduleDraft,
+  MS_PER_HOUR,
+  addDays,
+  fromIsoDate,
+} from '@improve-personal/core/planner'
 
 /**
  * QA T14 (Ergonio #28) - AC4: kalender "Jadwal hari ini" di Daily memuat jadwal hari ini

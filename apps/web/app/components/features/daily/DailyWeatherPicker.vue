@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { WEATHER_KINDS, WEATHER_META, type WeatherKind } from '~/utils/dailyRoutine'
+import { WEATHER_KINDS, WEATHER_META, type WeatherKind } from '@improve-personal/core/planner'
 
 /**
  * Cuaca hari ini, dipilih manual (Desktop.dc.html). Klik pilihan aktif = kosongkan.

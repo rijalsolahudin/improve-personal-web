@@ -1,5 +1,10 @@
 <script setup lang="ts">
-import { QUADRANTS, tasksInQuadrant, unsortedTasks, type Quadrant } from '~/utils/tasks'
+import {
+  QUADRANTS,
+  tasksInQuadrant,
+  unsortedTasks,
+  type Quadrant,
+} from '@improve-personal/core/planner'
 
 definePageMeta({ layout: 'dashboard' })
 

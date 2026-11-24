@@ -1,4 +1,4 @@
-import { fromLocalDateTime, toLocalDateTime } from '@improve-personal/core'
+import { fromLocalDateTime, toLocalDateTime } from '../index.ts'
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -22,7 +22,7 @@ import {
   weekDays,
   type Recurrence,
   type Schedule,
-} from './schedule'
+} from './schedule.ts'
 
 // 2026-10-05 = Senin. Zona waktu tetap supaya hasilnya deterministik di mesin mana pun.
 const MON = '2026-10-05'

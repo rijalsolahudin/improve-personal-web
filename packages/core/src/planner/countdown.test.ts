@@ -8,7 +8,7 @@ import {
   validateCountdownDraft,
   yearlyEdition,
   type Countdown,
-} from './countdown'
+} from './countdown.ts'
 
 const at = (year: number, month: number, day: number, hour = 0, minute = 0, second = 0): number =>
   new Date(year, month - 1, day, hour, minute, second).getTime()

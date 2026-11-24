@@ -1,7 +1,7 @@
 // Habit (PRD F7), mengikuti Home Desktop.dc.html `habitVals`. Fungsi murni; tanggal ISO lokal.
 
-import type { IconName } from './icons'
-import { addDays, fromIsoDate, toIsoDate } from './time'
+import type { IconName } from '@improve-personal/tokens/icons'
+import { addDays, fromIsoDate, toIsoDate } from './time.ts'
 
 /** Palet habit design (solid → latar lembut). */
 export const HABIT_COLORS = [
@@ -15,7 +15,7 @@ export const HABIT_COLORS = [
   ['#10A8D8', '#DDF1F8'],
 ] as const
 
-/** Pilihan ikon habit (Hugeicons, lihat utils/icons). */
+/** Pilihan ikon habit (Hugeicons, lihat @improve-personal/tokens/icons). */
 export const HABIT_ICONS = [
   'star',
   'heart',
@@ -223,11 +223,15 @@ export function emptyHabitDraft(): HabitDraft {
 
 /** Arsip bukan bagian form: nilai lamanya dipertahankan pemanggil (`applyHabitDraft`). */
 export function draftFromHabit(habit: Habit): HabitDraft {
-  const { id: _id, isArchived: _isArchived, ...draft } = habit
   return {
-    ...draft,
-    days: draft.days ? [...draft.days] : null,
-    goalChapterId: draft.goalChapterId ?? null,
+    name: habit.name,
+    icon: habit.icon,
+    sticker: habit.sticker,
+    color: habit.color,
+    days: habit.days ? [...habit.days] : null,
+    target: habit.target,
+    goalId: habit.goalId,
+    goalChapterId: habit.goalChapterId ?? null,
   }
 }
 
