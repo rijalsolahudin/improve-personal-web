@@ -2,7 +2,7 @@
 # Gate verifikasi delta - bagian mekanis dari QA (T1/T2), bukan pengganti penilaian QA.
 #
 # Kenapa ada: QA menghabiskan waktu menyusun daftar test manual + menjalankan lint
-# yang itu-itu lagi. Script ini memilih test lewat import graph (vitest related),
+# yang itu-itu lagi. Script ini memilih test lewat import graph (vitest related; mobile: jest --findRelatedTests),
 # jalan hanya untuk file delta, lalu mencetak ringkasan yang bisa langsung
 # ditempel ke komentar task. Penilaian AC, tiga pilar, dan verdict tetap milik QA.
 #
@@ -84,9 +84,10 @@ PKG_WEB="$(mktemp)"
 PKG_CORE="$(mktemp)"
 PKG_CONTRACTS="$(mktemp)"
 PKG_TOKENS="$(mktemp)"
+PKG_MOBILE="$(mktemp)"
 SUMMARY="$(mktemp)"
 LOG="$(mktemp)"
-cleanup() { rm -f "$RAW" "$PKG_WEB" "$PKG_CORE" "$PKG_CONTRACTS" "$PKG_TOKENS" "$SUMMARY" "$LOG"; }
+cleanup() { rm -f "$RAW" "$PKG_WEB" "$PKG_CORE" "$PKG_CONTRACTS" "$PKG_TOKENS" "$PKG_MOBILE" "$SUMMARY" "$LOG"; }
 trap cleanup EXIT
 
 # --- 1. Kumpulkan file delta -------------------------------------------------
@@ -104,14 +105,14 @@ fi
 
 is_code() {
   case "$1" in
-    *.ts | *.mts | *.cts | *.js | *.mjs | *.cjs | *.vue) return 0 ;;
+    *.ts | *.tsx | *.mts | *.cts | *.js | *.jsx | *.mjs | *.cjs | *.vue) return 0 ;;
     *) return 1 ;;
   esac
 }
 
 is_prettier() {
   case "$1" in
-    *.ts | *.mts | *.cts | *.js | *.mjs | *.cjs | *.vue | *.json | *.jsonc | *.md | *.css | *.yml | *.yaml | *.html) return 0 ;;
+    *.ts | *.tsx | *.mts | *.cts | *.js | *.jsx | *.mjs | *.cjs | *.vue | *.json | *.jsonc | *.md | *.css | *.yml | *.yaml | *.html) return 0 ;;
     *) return 1 ;;
   esac
 }
@@ -121,6 +122,7 @@ is_prettier() {
 : >"$PKG_CORE"
 : >"$PKG_CONTRACTS"
 : >"$PKG_TOKENS"
+: >"$PKG_MOBILE"
 
 FILES="$(awk 'NF' "$RAW" | awk '!seen[$0]++')"
 COUNT=0
@@ -148,6 +150,10 @@ while IFS= read -r f; do
   case "$f" in
     apps/web/*)
       printf '%s\n' "${f#apps/web/}" >>"$PKG_WEB"
+      MAPPED=1
+      ;;
+    apps/mobile/*)
+      printf '%s\n' "${f#apps/mobile/}" >>"$PKG_MOBILE"
       MAPPED=1
       ;;
     packages/core/*)
@@ -191,6 +197,8 @@ pkg_list() { # $1 = file daftar, cetak hanya file kode
     [ -n "$f" ] || continue
     if is_code "$f"; then printf '%s\n' "$f"; fi
   done <"$1"
+  # Tanpa ini status keluar = `is_code` file terakhir; non-kode di akhir daftar mematikan script (set -e + pipefail).
+  return 0
 }
 
 count_lines() { # $1 = file
@@ -200,7 +208,7 @@ count_lines() { # $1 = file
 if [ "$LIST_ONLY" -eq 1 ]; then
   echo "gate-delta: $COUNT file delta (tier $TIER${BASE:+, base $BASE})"
   printf '%s\n' "$FILES" | while IFS= read -r f; do [ -n "$f" ] && echo "  $f"; done
-  for pair in "apps/web:$PKG_WEB" "packages/core:$PKG_CORE" "packages/contracts:$PKG_CONTRACTS" "packages/tokens:$PKG_TOKENS"; do
+  for pair in "apps/web:$PKG_WEB" "packages/core:$PKG_CORE" "packages/contracts:$PKG_CONTRACTS" "packages/tokens:$PKG_TOKENS" "apps/mobile:$PKG_MOBILE"; do
     dir="${pair%%:*}"
     list="${pair#*:}"
     n=$(count_lines "$list")
@@ -239,9 +247,14 @@ step() { # $1 = label, $2 = detik, sisanya perintah
   end=$(date +%s)
   dur=$((end - start))
   if [ "$rc" -eq 0 ]; then
+    # `|| true`: tanpa test terkait (--passWithNoTests) grep kosong, dan set -e + pipefail mematikan script.
+    if [ "$label" = "jest" ]; then
+      ts="$(grep -Eo 'Tests:[[:space:]]+[0-9]+ passed' "$LOG" | head -n 1 | tr -s ' ' || true)"
+      if [ -n "$ts" ]; then DETAIL="$DETAIL | $ts"; fi
+    fi
     if [ "$label" = "vitest" ]; then
-      tf="$(grep -Eo 'Test Files[[:space:]]+[0-9]+ (passed|failed)' "$LOG" | head -n 1 | tr -s ' ')"
-      ts="$(grep -Eo 'Tests[[:space:]]+[0-9]+ (passed|failed)' "$LOG" | head -n 1 | tr -s ' ')"
+      tf="$(grep -Eo 'Test Files[[:space:]]+[0-9]+ (passed|failed)' "$LOG" | head -n 1 | tr -s ' ' || true)"
+      ts="$(grep -Eo 'Tests[[:space:]]+[0-9]+ (passed|failed)' "$LOG" | head -n 1 | tr -s ' ' || true)"
       extra=""
       if [ -n "$tf" ]; then extra="$tf"; fi
       if [ -n "$ts" ]; then
@@ -288,7 +301,7 @@ fi
 
 if [ "$RUN_LINT" -eq 1 ]; then
   ESLINT_ANY=0
-  for pair in "@improve-personal/web:$PKG_WEB" "@improve-personal/core:$PKG_CORE" "@improve-personal/contracts:$PKG_CONTRACTS" "@improve-personal/tokens:$PKG_TOKENS"; do
+  for pair in "@improve-personal/web:$PKG_WEB" "@improve-personal/core:$PKG_CORE" "@improve-personal/contracts:$PKG_CONTRACTS" "@improve-personal/tokens:$PKG_TOKENS" "@improve-personal/mobile:$PKG_MOBILE"; do
     pkg="${pair%%:*}"
     list="${pair#*:}"
     n=$(count_lines "$list")
@@ -322,6 +335,14 @@ if [ "$RUN_TEST" -eq 1 ]; then
     step "vitest" "$TEST_TIMEOUT" pnpm --filter "$pkg" exec vitest related $TEST_FILES --run --passWithNoTests
   done
   [ "$VITEST_ANY" -eq 1 ] || skip vitest "tidak ada file kode di paket"
+
+  # Mobile memakai Jest (jest-expo), bukan Vitest; padanan `vitest related` = --findRelatedTests.
+  MOBILE_TEST_FILES="$(pkg_list "$PKG_MOBILE" | tr '\n' ' ')"
+  if [ -n "${MOBILE_TEST_FILES// /}" ]; then
+    DETAIL="@improve-personal/mobile $(count_lines "$PKG_MOBILE") file"
+    # shellcheck disable=SC2086
+    step "jest" "$TEST_TIMEOUT" pnpm --filter @improve-personal/mobile exec jest --findRelatedTests $MOBILE_TEST_FILES --passWithNoTests
+  fi
 else
   skip vitest "--no-test"
 fi
@@ -329,7 +350,7 @@ fi
 # --- 6. Typecheck (tier t2) -------------------------------------------------
 
 if [ "$TIER" = "t2" ] && [ "$RUN_TYPECHECK" != "0" ]; then
-  for pair in "@improve-personal/web:$PKG_WEB" "@improve-personal/core:$PKG_CORE" "@improve-personal/contracts:$PKG_CONTRACTS" "@improve-personal/tokens:$PKG_TOKENS"; do
+  for pair in "@improve-personal/web:$PKG_WEB" "@improve-personal/core:$PKG_CORE" "@improve-personal/contracts:$PKG_CONTRACTS" "@improve-personal/tokens:$PKG_TOKENS" "@improve-personal/mobile:$PKG_MOBILE"; do
     pkg="${pair%%:*}"
     list="${pair#*:}"
     n=$(count_lines "$list")
