@@ -1,9 +1,11 @@
 # Architecture — apps/mobile (Expo / React Native)
 
-> **Superseded sebagian oleh ADR 15 (root `ARCHITECTURE.md`).** Local-only: tidak ada akun, sync,
-> atau enkripsi at-rest di server. Data hanya di SQLite (SQLCipher) berkunci perangkat (Keychain/
-> Keystore); pindah perangkat lewat transfer QR atau backup terenkripsi. Bagian passkey/pairing/
-> recovery/sync di bawah adalah riwayat keputusan, bukan rencana implementasi.
+> **Superseded sebagian oleh ADR 15 + ADR 17 (root `ARCHITECTURE.md`).** Tidak ada akun atau
+> enkripsi at-rest di server. Data asli di SQLite (SQLCipher) berkunci perangkat (Keychain/Keystore).
+> Sync dengan web lewat segmen terenkripsi Sync Key: relay store-and-forward (realtime saat app di
+> depan) + Google Drive user (`appDataFolder`); pindah perangkat lewat transfer QR atau backup
+> terenkripsi. Detail: root §7 & §9. Bagian passkey/pairing/recovery di bawah adalah riwayat
+> keputusan, bukan rencana implementasi.
 
 Android (APK) + iOS. Dokumen ini **cuma** soal `apps/mobile`.
 

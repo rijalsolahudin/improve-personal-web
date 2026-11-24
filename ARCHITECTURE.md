@@ -22,11 +22,18 @@ Rp99.000 (365 hari), lifetime Rp249.000. Tanpa perpanjangan otomatis: perpanjang
 lisensi kini membawa tanggal habis; lisensi habis = app **baca-saja** (data tetap bisa dilihat,
 diekspor, di-backup, dan dipindah), bukan terkunci. Bagian lain ADR 15 tetap berlaku.
 
+**Sync antar perangkat: ADR 17 (2026-11-24) - sync E2E dua lapis.** Merevisi "tidak ada sync" di
+ADR 15, prinsip E2E-nya tetap. DB lokal tetap sumber kebenaran tiap perangkat; perubahan disebar
+sebagai **segmen terenkripsi Sync Key** (kunci bersama milik user, tidak pernah ke server) lewat dua
+lapis: (1) **relay store-and-forward** di server kita (pola WhatsApp: ciphertext dititip sampai semua
+perangkat ack, maks 7 hari, lalu dihapus; kuota fair use + saklar mati) untuk realtime, dan (2) **Google Drive milik user**
+(`appDataFolder`) sebagai lapis tahan lama + backup. Merge tetap LWW HLC (ADR 3). Detail: §9.
+
 ### Default (diasumsikan, bisa diganti)
 
 | # | Topik | Rekomendasi = default |
 |---|---|---|
-| Q3 | Stack server | **Nitro/H3** di dalam `apps/web` (`server/routes/v1/**`) + **PostgreSQL** + **Drizzle**. Tipis: webhook pembayaran + aktivasi lisensi via email OTP/Google + relay transfer (ciphertext, tanpa simpan) + proxy cuaca. Tidak ada data user (ADR 15). Nggak ada app server terpisah (ADR 7 direvisi). |
+| Q3 | Stack server | **Nitro/H3** di dalam `apps/web` (`server/routes/v1/**`) + **PostgreSQL** + **Drizzle**. Tipis: webhook pembayaran + aktivasi lisensi via email OTP/Google + relay transfer (ciphertext, tanpa simpan) + relay sync (ciphertext titipan s/d ack, ADR 17) + proxy cuaca. Tidak ada data user yang terbaca. Nggak ada app server terpisah (ADR 7 direvisi). |
 | Q4 | Mobile | **Expo** (dev build, Expo Router, EAS Build/Update). |
 | Q5 | Monorepo tool | **pnpm workspaces + Turborepo**. |
 | Q6 | Library kripto | **libsodium** (`libsodium-wrappers-sumo` di web, `react-native-libsodium` di native) untuk salinan lokal, berkas backup (Argon2id + XChaCha20-Poly1305), dan kanal transfer (`secretstream`). Server hanya memakai Ed25519 untuk menandatangani lisensi. |
@@ -36,8 +43,8 @@ diekspor, di-backup, dan dipindah), bukan terkunci. Bagian lain ADR 15 tetap ber
 
 ## 1. Prinsip
 
-1. **Local-only.** DB lokal adalah satu-satunya sumber kebenaran. Semua baca/tulis lokal → UI instan, jalan penuh offline. Tidak ada sync server (ADR 15).
-2. **Data tidak pernah keluar dalam bentuk terbaca.** Yang meninggalkan perangkat hanya ciphertext dengan kunci yang tidak pernah dipegang server: berkas backup (kunci dari kata sandi), Google Drive (sama), dan transfer QR (kunci sekali pakai di QR).
+1. **Local-first.** DB lokal adalah sumber kebenaran tiap perangkat. Semua baca/tulis lokal → UI instan, jalan penuh offline. Sync hanya menyebar ciphertext antar perangkat milik user (ADR 17); server tidak pernah menjadi sumber data.
+2. **Data tidak pernah keluar dalam bentuk terbaca.** Yang meninggalkan perangkat hanya ciphertext dengan kunci yang tidak pernah dipegang server: berkas backup (kunci dari kata sandi), segmen sync di relay & Google Drive (Sync Key), dan transfer QR (kunci sekali pakai di QR).
 3. **Lisensi = akses.** Tidak ada akun yang membuka data. Login email (OTP/Google) hanya membuktikan email pembeli saat aktivasi; token lisensi ditandatangani server sekali, lalu diverifikasi offline dengan public key yang ditanam di app.
 4. **Logika sekali, UI dua kali.** Domain, repository, sync, kripto ditulis sekali di `packages/*` (TS murni). Nuxt & RN cuma UI + adapter platform.
 5. **Tiga pilar wajib** (keamanan, performa, kerapian) di setiap perubahan.
@@ -59,6 +66,7 @@ flowchart LR
     API[API v1 - Nitro/H3 di apps/web/server]
     PG[(Postgres: lisensi + aktivasi)]
     RL[Relay transfer - ciphertext, tanpa simpan]
+    SR[Relay sync - ciphertext dititip s/d ack, maks 7 hari]
   end
   PAY[Payment provider]
   GD[(Google Drive milik user)]
@@ -70,12 +78,13 @@ flowchart LR
   W & M -- "sekali: aktivasi lisensi" --> API
   PAY -- webhook --> API
   API --> PG
-  W & M -- "backup terenkripsi (langsung, tanpa server kita)" --> GD
+  W & M -- "backup + segmen sync terenkripsi (langsung, tanpa server kita)" --> GD
+  W & M <-- "segmen sync realtime (WebSocket)" --> SR
   W & M <-- "transfer QR: WebRTC P2P, fallback lewat relay" --> D2
   W & M -.-> RL -.-> D2
 ```
 
-**Trust boundary:** server hanya tahu akun login (email), lisensi, dan perangkat yang diaktivasi. Isi data hanya ada di perangkat; semua salinan di luar perangkat (berkas backup, Drive, aliran transfer) dienkripsi dengan kunci yang tidak pernah dikirim ke server. Relay hanya meneruskan byte terenkripsi dan tidak menyimpannya.
+**Trust boundary:** server hanya tahu akun login (email), lisensi, perangkat yang diaktivasi, dan metadata sync (perangkat pengirim/penerima, ukuran, waktu). Isi data hanya terbaca di perangkat; semua salinan di luar perangkat (berkas backup, Drive, segmen sync, aliran transfer) dienkripsi dengan kunci yang tidak pernah dikirim ke server. Relay transfer tidak menyimpan apa pun; relay sync menitip ciphertext sampai semua perangkat ack (maks 7 hari).
 
 ---
 
@@ -130,7 +139,7 @@ packages/core/src/
 ├── recurrence/    # engine F1 (ekspansi per rentang, exception, edit 3 opsi)
 ├── calc/          # sisa waktu, countdown unit, streak, progress goal, agregasi Overview
 ├── repository/    # interface Repository<T> + query by range
-├── sync/          # HLC + LWW merge (dipakai import "gabung" & transfer); outbox/push/pull dihapus (ADR 15)
+├── sync/          # HLC + LWW merge, outbox, segmen sync, cursor per perangkat, snapshot Drive, Sync Key (ADR 17)
 ├── io/            # import/export JSON + berkas backup terenkripsi + validasi skema + migrasi versi
 ├── transfer/      # protokol transfer QR: payload QR, framing, fountain code animated QR (tanpa I/O)
 ├── license/       # verifikasi token lisensi Ed25519 (murni, public key di-inject)
@@ -158,7 +167,7 @@ Satu **contract test suite** di `packages/core/test/adapters/` dijalankan ke tia
 
 Keamanan data di sini tidak datang dari pilihan library, tapi dari cara pakainya. Library yang benar tetap bisa kehilangan data kalau aturan ini dilanggar.
 
-- **Perangkat adalah satu-satunya salinan hidup.** Prinsip induk sejak ADR 15; semua aturan di bawah ikut dari sini.
+- **Perangkat adalah sumber kebenarannya sendiri.** Prinsip induk sejak ADR 15; sync (ADR 17) hanya menggabungkan perubahan dari perangkat lain ke DB lokal lewat merge yang sama, tidak pernah menimpa DB dari luar. Semua aturan di bawah ikut dari sini.
 - **Tulis lokal dulu, selalu.** UI tidak pernah menunggu jaringan.
 - **Satu penulis per origin di web** (`navigator.locks`, mis. lock `ip-writer`). IndexedDB tidak punya lock antar tab, jadi dua tab bisa saling menimpa. `BroadcastChannel` cuma memberi tahu, bukan mengunci.
 - **Dilarang `await` non-IndexedDB di dalam transaksi** (fetch, timer, apa pun). Transaksi IndexedDB auto-commit begitu tidak ada request pending, jadi tulisan sisanya hilang tanpa error.
@@ -191,7 +200,7 @@ type Record<T> = {
 type SealedRecord = { id, hlc, deleted, blob }
 ```
 
-- Tidak ada DTO record ke server (ADR 15). Record keluar perangkat hanya di dalam berkas backup terenkripsi atau aliran transfer terenkripsi, dengan bentuk dokumen backup yang sama (`io/backup.ts`).
+- Tidak ada DTO record ke server (ADR 15). Record keluar perangkat hanya di dalam berkas backup terenkripsi, aliran transfer terenkripsi, atau segmen sync terenkripsi (ADR 17), dengan bentuk isi record yang sama (`io/backup.ts`). Server hanya melihat segmen sebagai byte buram.
 - Salinan lokal memakai blob v2 (XChaCha20-Poly1305, AAD mengikat KID lokal, profil, record, HLC, `deleted`, padding 256 B) - konstanta di `packages/contracts/src/record-format.ts`. Slot "akun" di AAD diisi ID profil lokal (dibuat sekali per perangkat), bukan `userId` server.
 - Index lokal untuk query rentang tanggal disimpan di tabel index terpisah; jalur panas = query index, bukan decrypt semua record.
 
@@ -211,11 +220,13 @@ oauth_states(...)                                              -- PKCE Google
 purchases(id, email, plan, amount, status pending|paid|failed, mayar_id, payment_url, expires_at, paid_at)
 licenses(id, email, edition, max_activations, expires_at, revoked_at, created_at)  -- satu per email; expires_at NULL = lifetime
 license_grants(order_ref, license_id, plan, granted_at)        -- PK order_ref: pembelian lunas -> perpanjangan, idempoten
-license_activations(license_id, device_id, activated_at)       -- PK (license_id, device_id)
+license_activations(license_id, device_id, activated_at, device_sign_pk)  -- PK (license_id, device_id); device_sign_pk = Ed25519 publik perangkat (auth relay sync, ADR 17)
+sync_frames(id, license_id, sender_device_id, epoch, seq, bytes, size, created_at, expires_at)  -- ciphertext segmen, TTL 7 hari
+sync_pending(frame_id, device_id)                              -- penerima yang belum ack; frame dihapus saat kosong / kedaluwarsa
 rate_limits(scope, bucket, window_start, count)
 ```
 
-Tidak ada isi data aplikasi. Email disimpan apa adanya (keputusan 2026-11-16): login lama dipakai ulang
+Tidak ada isi data aplikasi yang terbaca: `sync_frames.bytes` adalah ciphertext Sync Key yang tidak pernah dipegang server, dan dihapus begitu semua penerima ack. Email disimpan apa adanya (keputusan 2026-11-16): login lama dipakai ulang
 dan email asli dibutuhkan untuk support, refund, dan kirim ulang konfirmasi pembelian. `licenses`
 dikunci ke email (bukan `users.id`) karena pembelian terjadi sebelum pembeli pernah login.
 Sesi relay transfer hidup di memori server (TTL pendek), tidak pernah di database.
@@ -224,8 +235,8 @@ Sesi relay transfer hidup di memori server (TTL pendek), tidak pernah di databas
 
 ## 7. Kripto & kunci
 
-Tiga kunci, masing-masing untuk satu keperluan. Tidak ada kunci utama user, tidak ada kode pemulihan,
-dan tidak ada kunci yang dipegang server (ADR 15).
+Satu kunci untuk satu keperluan. Tidak ada kunci utama user, tidak ada kode pemulihan,
+dan tidak ada kunci yang dipegang server (ADR 15). ADR 17 menambah Sync Key dan kunci tanda tangan perangkat.
 
 ```mermaid
 flowchart LR
@@ -238,6 +249,10 @@ flowchart LR
 ```
 
 **Salinan lokal (sudah ada).**
+  SK[Sync Key - 32 byte acak, per epoch] -->|KDF subkey 'sync' + secretstream| SG[Segmen sync: relay + Drive]
+  BK -->|wrap| SKF[sync-key.e epoch di Drive]
+  DEV -->|wrap| SK
+  DSK[Device Sign Key - Ed25519 per perangkat] -->|tanda tangan challenge| SR[Auth relay sync]
 - MK 32 byte acak per perangkat, dibungkus `CryptoKey` non-extractable (AES-KW). Turunannya menyegel `record` di IndexedDB; native memakai SQLCipher + Keystore/Keychain.
 - MK hilang (data situs dihapus) = salinan lokal tidak bisa dibuka. **Tidak ada full pull dari server lagi**; pemulihan hanya dari backup atau transfer.
 
@@ -254,6 +269,15 @@ flowchart LR
 **Lisensi.** Server menandatangani token dengan Ed25519; private key hanya di env server, public key ditanam di build app.
 
 **Dilarang:** log kunci/kata sandi/payload/ciphertext, mengirim kunci apa pun ke server, menyimpan kata sandi backup, atau membuat algoritma sendiri.
+**Sync Key (ADR 17).**
+- SK 32 byte acak, dibuat perangkat pertama yang mengaktifkan sync, berlaku per `epoch` (bilangan bulat naik).
+- Disimpan lokal **dibungkus Device Key**. Di Drive disimpan sebagai `sync-key.e<epoch>` yang dibungkus Backup Key (Argon2id dari kata sandi backup), jadi satu kata sandi user untuk backup + sync.
+- Perangkat baru mendapat SK lewat kata sandi (unwrap dari Drive) atau transfer QR (SK + epoch ikut di kanal transfer). SK tidak pernah lewat relay sync.
+- Subkey `sync` (KDF dari SK) menyegel segmen dengan `crypto_secretstream_xchacha20poly1305`; header segmen polos jadi AAD; isi dipadding ke kelipatan 256 B.
+- **Cabut perangkat** (hilang/dijual) = server mencabut aktivasinya (akses relay langsung putus) + rotasi: epoch baru, SK baru, **kata sandi baru** (perangkat lama memegang Backup Key lama), snapshot ulang di Drive dengan epoch baru; perangkat tersisa membuka SK baru dengan kata sandi baru. Trade-off disengaja: lebih repot daripada distribusi kunci per perangkat, tapi server tidak pernah bisa menyisipkan kunci publiknya sendiri.
+
+**Device Sign Key (ADR 17).** Keypair Ed25519 per perangkat, secret di Keystore/Keychain/WebCrypto non-extractable. Publiknya dikirim saat aktivasi (`license_activations.device_sign_pk`). Relay sync mengautentikasi koneksi dengan challenge acak yang ditandatangani kunci ini; token lisensi saja tidak cukup karena token bukan rahasia.
+
 
 ## 8. Lisensi
 
@@ -292,10 +316,83 @@ membuat sesi.
 - **Native:** aktivasi dengan email yang sama. Risiko kebijakan toko (Apple 3.1.3(b) "multiplatform services" umumnya mensyaratkan produk yang sama juga tersedia lewat IAP; Google Play punya aturan serupa) wajib dicek ulang sebelum rilis native - bisa berarti IAP tetap disediakan sebagai jalur beli kedua yang menulis ke tabel `licenses` yang sama.
 - Rate limit OTP per email + per IP (logika OTP lama dipakai ulang); kode `777777` tetap hanya non-production tanpa SMTP.
 
-## 9. Pindah perangkat & backup
+## 9. Sync, pindah perangkat & backup
 
-Pengganti sync (ADR 15). Tiga jalur, satu format isi (dokumen `ip-backup`), satu logika penerapan
-(`io/import.ts`: "ganti semua" untuk perangkat kosong, "gabung" pakai LWW HLC - ADR 3).
+Satu bentuk isi record (dokumen `ip-backup`), satu logika penerapan (`io/import.ts`: "ganti semua"
+untuk perangkat kosong, "gabung" pakai LWW HLC - ADR 3). Sync (ADR 17) memakai jalur "gabung" yang
+sama untuk setiap segmen yang masuk.
+
+### Sync dua lapis (ADR 17)
+
+```mermaid
+sequenceDiagram
+  participant A as Perangkat A
+  participant S as Relay sync (domain)
+  participant G as Google Drive user
+  participant B as Perangkat B
+  A->>A: tulis lokal + baris outbox (satu transaksi)
+  A->>A: debounce → segmen seq n (secretstream, Sync Key)
+  A->>S: frame segmen (WebSocket, sudah auth Device Sign Key)
+  S->>S: simpan ciphertext + daftar penerima (perangkat aktif lisensi selain A)
+  S-->>B: teruskan kalau B online, kalau tidak tunggu B connect
+  B->>B: dekripsi → validasi zod → merge LWW HLC → segel ulang lokal
+  B-->>S: ack (frame id) → S hapus B dari penerima; frame dihapus saat kosong
+  A->>G: pack seq a..n (tiap 5 menit / saat ke background)
+  B->>G: saat start: unduh pack/snapshot yang seq-nya belum pernah dilihat
+```
+
+**Unit data: segmen.** Header polos `{ format: 'ip-sync-seg', v, epoch, deviceId, seq, hlcMin, hlcMax, count }`
+(jadi AAD) + isi = record envelope (`id, type, hlc, deleted, schemaVersion, data`) → gzip → secretstream
+subkey `sync` → padding 256 B. Format yang sama dipakai di relay (frame, maks 256 KB) dan Drive
+(pack = gabungan segmen seq a..b dari satu perangkat). Schema di `packages/contracts/src/sync.ts`.
+
+**Kirim.**
+- Tulis record dan baris outbox tetap satu transaksi (aturan §5). Flush outbox: debounce 2 detik kalau relay tersambung, 30 detik kalau tidak, dan selalu saat app ke background.
+- Satu flush = satu segmen dengan `seq` naik per perangkat. Cursor lokal `relayAckedSeq` dan `driveUploadedSeq`; baris outbox dihapus setelah seq-nya tercatat di Drive, atau setelah relay ack kalau Drive belum disambungkan.
+- Lisensi habis (baca-saja) → server menolak frame masuk dan app tidak membuat segmen; menerima tetap jalan.
+
+**Terima.**
+- Relay: saat connect, server mengirim semua frame yang menunggu perangkat ini, lalu frame baru secara langsung.
+- Drive: saat start, saat kembali ke depan, dan tiap 15 menit kalau relay tidak tersambung. Cursor lokal `seen[deviceId] = seq` - segmen yang sudah dilihat dari jalur mana pun dilewati (dedup `deviceId + seq`).
+- Merge idempoten dan tidak bergantung urutan, jadi segmen ganda atau terlambat aman.
+- Dilarang menulis apa pun sebelum dekripsi + validasi zod + cek `epoch` dan batas ukuran lolos (aturan import §11).
+
+**Celah (TTL lewat ≠ data hilang).** Relay hanya kurir; record asli tetap di perangkat pengirim (dan Drive).
+- `seq` per perangkat berurutan. Segmen masuk dengan `seq > seen[deviceId] + 1` = celah. Saat connect, server juga mengirim pemberitahuan `expired` kalau ada frame untuk perangkat ini yang dibuang karena TTL.
+- Celah ditutup berurutan: pack Drive pengirim → snapshot Drive → minta snapshot langsung ke perangkat pengirim lewat relay saat keduanya online. Selama celah belum tertutup, segmen yang sudah diterima tetap di-merge (aman karena LWW), tapi `seen[deviceId]` tidak dimajukan melewati celah.
+- Perubahan lokal yang dibuat selama offline tetap di outbox dan dikirim saat online lagi.
+- Perangkat yang terakhir sync lebih lama dari masa simpan tombstone (90 hari) **wajib rebase**: muat snapshot sebagai dasar (snapshot menang untuk record yang HLC-nya lebih tua dari titik sync terakhir perangkat itu), lalu hanya kirim perubahan dengan HLC setelah titik sync terakhirnya. Tanpa aturan ini record yang sudah dihapus di perangkat lain bisa hidup lagi.
+- Satu-satunya jalur data hilang: perangkat pengirim rusak/hilang sebelum datanya sampai ke perangkat lain **dan** Drive tidak disambungkan - risiko yang sama dengan ADR 15, ditangani pengingat backup.
+
+**Konflik.** LWW per record berdasarkan HLC (ADR 3). Untuk `Memo`/jurnal, versi yang kalah dengan isi
+berbeda disimpan di tabel lokal `conflicts` selama 30 hari dan bisa dipulihkan dari UI - tidak dibuang
+diam-diam.
+
+**Relay sync (server).**
+- `GET /v1/sync/ws` (upgrade WebSocket). Auth: server kirim nonce → perangkat balas `sign(nonce | lid | did)` dengan Device Sign Key + token lisensi; server cek tanda tangan ke `device_sign_pk` dan aktivasi masih tercatat.
+- Penerima frame = aktivasi lisensi selain pengirim saat frame diterima. TTL **7 hari** (task terjadwal di `server/tasks`); Drive adalah lapis tahan lama, jadi relay tidak perlu menitip lebih lama.
+- Kuota (fair use): frame ≤ 256 KB, kirim ≤ 20 MB per lisensi per hari, antrean ≤ 50 MB per lisensi, rate limit per perangkat. Lewat kuota → frame ditolak dengan kode jelas, app turun ke Drive saja sampai kuota pulih.
+- Relay hanya membawa record. Lampiran/berkas biner (kalau nanti ada) **dilarang** lewat relay - hanya lewat Drive.
+- **Saklar mati:** `NUXT_SYNC_RELAY_ENABLED=false` → `/v1/sync/ws` menolak koneksi dengan kode `relay_disabled`; app otomatis turun ke sync Drive saja (jeda menit, tetap jalan). Janji produk = "data sinkron", bukan "selalu realtime".
+- Server hanya import `contracts`, tidak pernah mendekripsi, tidak me-log `bytes`. Sesi koneksi di memori; frame di Postgres sehingga aman restart (multi-instance nanti lewat `LISTEN/NOTIFY`).
+- Koneksi hanya saat app di depan (web: tab terbuka; mobile: `AppState` active). Tidak ada push notification di v1.
+- Metrik wajib (tanpa isi): byte masuk/keluar per hari, koneksi bersamaan, ukuran antrean - untuk memantau biaya per user.
+
+**Drive.**
+- Scope `drive.appdata` (berkas tidak terlihat dan tidak bisa diubah app lain). Isi folder: `sync-key.e<epoch>`, `pack-<deviceId>-<seqFrom>-<seqTo>`, `snap-<epoch>-<hlc>`. Backup terjadwal tetap di `drive.file` (terlihat user), bukan di sini.
+- Satu berkas hanya ditulis satu perangkat → tidak ada konflik tulis di Drive.
+- Pemadatan: pack milik sendiri > 200 atau > 20 MB → tulis snapshot (seluruh state + tombstone < 90 hari), lalu hapus pack milik sendiri yang tercakup.
+- Perangkat yang tertinggal lebih lama dari TTL relay memakai Drive (lihat "Celah" di atas): pack pengirim, atau snapshot terbaru lalu pack sesudahnya kalau pack sudah dipadatkan.
+- Token Drive: web di memori (perbarui diam-diam lewat GIS; gagal → banner "Sambungkan ulang Drive", app tetap jalan); mobile lewat Google Sign-In native, token di SecureStore.
+
+**Tombstone.** `deleted = true` disimpan minimal 90 hari dan sampai semua perangkat aktif sudah melewati seq-nya; setelah itu boleh dibuang saat pemadatan. Perangkat yang tertinggal lebih lama wajib rebase (lihat "Celah").
+
+**Trade-off yang diterima.**
+- Server melihat metadata: perangkat mana mengirim ke mana, ukuran, dan waktu. Isi tetap buram.
+- Ada data titipan (ciphertext) di Postgres sampai 7 hari → backup DB server ikut membawanya; tanpa Sync Key tidak berguna.
+- Biaya server naik sedikit (WebSocket saat app di depan + antrean). Perkiraan: record teks ~1–2 KB, pemakaian berat ~15 MB lalu lintas/user/bulan; satu VPS 2 vCPU/4 GB cukup untuk ribuan user aktif, jadi lisensi lifetime tetap untung. Batas atasnya dijaga kuota, TTL 7 hari, larangan lampiran, dan saklar mati.
+- Perangkat yang offline > 7 hari tanpa Drive baru sinkron saat perangkat pengirim online bersamaan (telat, tidak hilang).
+- Edit record yang sama di dua perangkat saat offline: satu menang utuh (jurnal punya salinan konflik).
 
 ### Transfer QR
 
@@ -324,7 +421,7 @@ sequenceDiagram
 ### Backup
 
 - **Manual:** unduh berkas `ip-backup-enc` (default) atau export plaintext (dengan peringatan).
-- **Google Drive terjadwal:** OAuth Google Identity Services langsung dari client, scope sempit (`drive.appdata` atau `drive.file` - diputuskan di task-nya), token akses hanya di memori. Berkas terenkripsi diunggah langsung browser → Drive, tidak lewat server kita. Simpan N versi terakhir (default 5).
+- **Google Drive terjadwal:** OAuth Google Identity Services langsung dari client, scope `drive.file` (berkas `.ipbackup` tetap terlihat & bisa diunduh user dari Drive walau app tidak ada), token akses hanya di memori. Sync (ADR 17) meminta `drive.appdata` tambahan secara incremental saat sync diaktifkan. Berkas terenkripsi diunggah langsung browser → Drive, tidak lewat server kita. Simpan N versi terakhir (default 5).
 - "Terjadwal" di web = dijalankan saat app dibuka kalau jadwalnya lewat (browser tidak bisa jalan di latar belakang secara andal); native memakai background task OS.
 - Restore: pilih berkas / pilih versi dari Drive → kata sandi → preview jumlah data → terapkan.
 
@@ -340,6 +437,7 @@ POST /v1/payments/webhook        GET  /v1/transfer/relay   (upgrade WebSocket)
 GET  /v1/weather                 GET  /health
 ```
 
+GET  /v1/sync/ws                 (upgrade WebSocket, auth Device Sign Key - ADR 17)
 Bentuk respons seragam untuk SEMUA endpoint: sukses `{ data: <DTO> }`, gagal `{ error: { code, message, details? } }` dengan status dari `ERROR_HTTP_STATUS`. Pembungkusan sukses terpusat di `apps/web/server/utils/api-error.ts`, schema-nya satu sumber di `packages/contracts/src/protocol.ts`.
 
 Endpoint ini dilayani Nitro di dalam `apps/web` (`server/routes/v1/**`), bukan app terpisah.
@@ -416,14 +514,14 @@ Detail struktur server ada di [`apps/web/ARCHITECTURE.md`](apps/web/ARCHITECTURE
 
 Wajib lulus sebelum merge:
 1. `pnpm lint` (termasuk aturan boundary §3) + `typecheck`
-2. Unit test `packages/*` (recurrence, calc, crypto, merge HLC, io + backup terenkripsi, transfer, license) - coverage ≥ 80%
+2. Unit test `packages/*` (recurrence, calc, crypto, merge HLC, io + backup terenkripsi, transfer, license, sync: segmen/cursor/dedup/snapshot/epoch) - coverage ≥ 80%
 3. Contract test adapter storage (IndexedDB & SQLite)
-4. Test server: webhook (signature + idempoten), aktivasi via OTP/Google (batas, dicabut, email belum beli, `777777` ditolak di production), relay (TTL, maks peserta, batas byte, tidak menyimpan isi), keypair dev ditolak di production
+4. Test server: webhook (signature + idempoten), aktivasi via OTP/Google (batas, dicabut, email belum beli, `777777` ditolak di production), relay transfer (TTL, maks peserta, batas byte, tidak menyimpan isi), relay sync (auth tanda tangan perangkat, aktivasi dicabut = putus, TTL 7 hari + pemberitahuan `expired`, kuota frame/harian/antrean, saklar mati, lisensi habis = tolak kirim, frame dihapus setelah semua ack), keypair dev ditolak di production
 5. Build web + PWA + Android + iOS
 6. `pnpm audit` - High/Critical = blok
 7. Budget performa sesuai `apps/<app>/.claude/rules/performance.md`
 
-E2E (T16): Playwright (web/PWA) + Maestro (mobile), termasuk drill restore (berkas, Drive, transfer QR P2P, transfer lewat relay, animated QR) dan app jalan penuh dengan jaringan mati setelah aktivasi.
+E2E (T16): Playwright (web/PWA) + Maestro (mobile), termasuk drill restore (berkas, Drive, transfer QR P2P, transfer lewat relay, animated QR), sync dua perangkat (web ↔ mobile lewat relay, lewat Drive saja, perangkat offline > TTL menutup celah tanpa kehilangan data, rebase > 90 hari tanpa record terhapus hidup lagi, cabut perangkat + rotasi) dan app jalan penuh dengan jaringan mati setelah aktivasi.
 
 ---
 
@@ -447,3 +545,4 @@ E2E (T16): Playwright (web/PWA) + Maestro (mobile), termasuk drill restore (berk
 | 14 | ~~**Enkripsi at-rest di server** (AES-256-GCM, keyring di env) + salinan lokal berkunci perangkat; hapus passkey/recovery/QR/KID | Tujuan produk: data tidak boleh hilang karena user kehilangan kunci. E2EE membuat server tidak bisa memulihkan apa pun, dan menjaga kunci user adalah beban yang terus memakan korban | Server (pemegang env) bisa membaca data dan menjadi single point of failure; wajib backup kunci terpisah. Performa naik karena pull tidak perlu dekripsi di client untuk index~~ **digantikan ADR 15** |
 | 15 | **Local-only + E2E, sekali beli** (2026-11-16; **harga & model jual direvisi ADR 16**): tanpa akun/sync/at-rest server; pindah perangkat lewat transfer QR (WebRTC P2P, fallback relay ciphertext, fallback animated QR offline) + berkas backup terenkripsi kata sandi (Argon2id) + backup terjadwal ke Google Drive user; lisensi Ed25519 diverifikasi offline; satu pembelian (Rp99.000) untuk semua platform, aktivasi lewat email pembeli (OTP/Google lama dipakai ulang hanya untuk itu). Kode server lama (sesi, perangkat, akun, sync, at-rest, tabel `users/devices/sessions/records`) dihapus | Model jual sekali beli tidak cocok dengan biaya server yang berjalan terus; data jurnal/mood paling aman kalau tidak pernah ada di server; kewajiban UU PDP jauh lebih ringan | Perangkat hilang tanpa backup = data hilang permanen, support tidak bisa membantu; tidak ada sync otomatis antar perangkat; app bergantung pada domain tetap dimiliki (risiko origin takeover); lisensi web bisa dibajak dengan patch JS |
 | 16 | **Tiga paket prabayar** (2026-11-17): bulanan Rp19.000 / tahunan Rp99.000 / lifetime Rp249.000, tanpa auto-debit; satu lisensi per email diperpanjang per pembelian (`license_grants` idempoten); token v2 membawa `plan` + `exp`; `POST /v1/license/refresh` menyegarkan token dengan token lama sebagai bukti; lisensi habis = baca-saja | Pendapatan berulang menutup biaya domain/relay/support yang berjalan terus, sementara lifetime tetap ada untuk yang tidak mau langganan; prabayar cocok dengan QRIS/VA yang tidak bisa auto-debit | Perpanjangan manual = churn lebih tinggi daripada auto-debit; `exp` dicek dengan jam perangkat sehingga bisa diakali offline; baca-saja tetap memberi akses data (disengaja: data milik user) |
+| 17 | **Sync E2E dua lapis** (2026-11-24; merevisi "tanpa sync" di ADR 15): perubahan disebar sebagai segmen terenkripsi Sync Key lewat (1) relay store-and-forward di server (pola WhatsApp: ciphertext dititip sampai semua perangkat ack, TTL 7 hari, kuota fair use, saklar mati ke Drive saja) dan (2) Google Drive user (`appDataFolder`, pack per perangkat + snapshot); merge LWW HLC (ADR 3) + salinan konflik jurnal 30 hari; celah seq ditutup dari Drive/perangkat lain, rebase wajib setelah > 90 hari; auth relay dengan Device Sign Key Ed25519; cabut perangkat = rotasi epoch + kata sandi | Web + app mobile dipakai bersamaan butuh data yang sama tanpa pindah manual; relay memberi realtime, Drive memberi ketahanan + backup tanpa biaya server; server tetap tidak pernah memegang kunci | Server menyimpan ciphertext sementara + melihat metadata (perangkat, ukuran, waktu); biaya WebSocket + antrean; rotasi kunci saat cabut perangkat butuh kata sandi baru; edit offline di dua perangkat tetap satu menang |

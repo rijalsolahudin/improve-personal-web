@@ -17,6 +17,7 @@
  *   protocol.ts -> license.ts
  *   auth.ts -> purchase.ts
  *   hlc.ts + protocol.ts -> record-format.ts
+ *   hlc.ts + protocol.ts + license.ts + record-format.ts -> sync.ts
  *   hlc.ts      -> mandiri, tidak mengimpor modul lain di paket ini
  *
  * Aturan yang berlaku untuk semua schema request: `.strict()` (field asing ditolak) dan TIDAK ADA
@@ -230,3 +231,42 @@ export {
   recordPayloadSchema,
   type RecordPayload,
 } from './record-format.ts'
+
+// -----------------------------------------------------------------------------
+// Sync E2E dua lapis (ADR 17): header segmen, pesan relay WebSocket, nama berkas Drive
+// -----------------------------------------------------------------------------
+
+export {
+  SYNC_ACK_MAX_IDS,
+  SYNC_AUTH_NONCE_BYTES,
+  SYNC_CLOSE_CODES,
+  SYNC_CONFLICT_RETENTION_DAYS,
+  SYNC_DAILY_SEND_MAX_BYTES,
+  SYNC_FRAME_MAX_BYTES,
+  SYNC_KDF_CONTEXT,
+  SYNC_KDF_SUBKEY_ID,
+  SYNC_PAD_BLOCK_BYTES,
+  SYNC_PROTOCOL_VERSION,
+  SYNC_QUEUE_MAX_BYTES,
+  SYNC_RELAY_ERROR_CODES,
+  SYNC_RELAY_FALLBACK_CODES,
+  SYNC_RELAY_TTL_DAYS,
+  SYNC_SEGMENT_FORMAT,
+  SYNC_SEGMENT_KINDS,
+  SYNC_SEGMENT_MAX_RECORDS,
+  encodeSyncAuthMessage,
+  formatSyncDriveFileName,
+  parseSyncDriveFileName,
+  syncClientMessageSchema,
+  syncEpochSchema,
+  syncFrameIdSchema,
+  syncSegmentHeaderSchema,
+  syncSeqSchema,
+  syncServerMessageSchema,
+  type SyncClientMessage,
+  type SyncDriveFile,
+  type SyncRelayErrorCode,
+  type SyncSegmentHeader,
+  type SyncSegmentKind,
+  type SyncServerMessage,
+} from './sync.ts'
